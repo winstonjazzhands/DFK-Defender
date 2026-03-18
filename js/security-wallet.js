@@ -184,6 +184,17 @@
     }
   }
 
+  function cleanApiErrorMessage(text, fallback) {
+    const stripped = String(text || '')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!stripped) return fallback;
+    return stripped.length > 180 ? `${stripped.slice(0, 177)}...` : stripped;
+  }
+
   async function fetchJson(path, options) {
     const response = await fetch(`${CONFIG.apiBase}${path}`, {
       credentials: 'include',
@@ -192,7 +203,7 @@
     });
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `Request failed: ${response.status}`);
+      throw new Error(cleanApiErrorMessage(text, `Request failed: ${response.status}`));
     }
     return response.status === 204 ? null : response.json();
   }
@@ -248,8 +259,14 @@
       return balancePayload;
     } catch (error) {
       state.mode = 'local';
-      renderError(error);
-      throw error;
+      state.balance = null;
+      state.depositAddress = null;
+      render();
+      const message = /failed to fetch|request failed|not found|cannot get|unexpected token|networkerror|load failed/i.test(String(error && error.message || ''))
+        ? 'Refresh Bank needs the server API. This build is staying in local bank mode.'
+        : (error && error.message ? error.message : 'Refresh Bank failed.');
+      renderError(new Error(message));
+      return null;
     }
   }
 

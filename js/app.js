@@ -272,6 +272,10 @@ function getRandomTree(){
     mobileHireMenuBtn: document.getElementById('mobileHireMenuBtn'),
     mobileBarToggleBtn: document.getElementById('mobileBarToggleBtn'),
     mobileBarToggleNotice: document.getElementById('mobileBarToggleNotice'),
+    mobileInstallPrompt: document.getElementById('mobileInstallPrompt'),
+    mobileInstallText: document.getElementById('mobileInstallText'),
+    mobileInstallBtn: document.getElementById('mobileInstallBtn'),
+    mobileInstallDismissBtn: document.getElementById('mobileInstallDismissBtn'),
     mobileBottomBar: document.getElementById('mobileBottomBar'),
     mobileAbilityBtn1: document.getElementById('mobileAbilityBtn1'),
     mobileAbilityBtn2: document.getElementById('mobileAbilityBtn2'),
@@ -1077,6 +1081,7 @@ function getRandomTree(){
     renderRelics();
     updateTopbar();
     updateMobileBarToggle();
+    updateMobileInstallPrompt();
     renderMobileAbilityDock();
   }
 
@@ -1278,21 +1283,6 @@ function getRandomTree(){
     }, delay);
   }
 
-
-  function setRealViewportHeight() {
-    const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0;
-    const vh = viewportHeight * 0.01;
-    document.documentElement.style.setProperty('--app-vh', `${vh}px`);
-  }
-
-  function nudgeMobileUrlBar() {
-    if (!isLandscapeMobileUi()) return;
-    window.setTimeout(() => {
-      try { window.scrollTo(0, 1); } catch (_) {}
-      setRealViewportHeight();
-    }, 100);
-  }
-
   function hideAbilityInfo(force = false) {
     const popup = ensureAbilityInfoPopup();
     if (!popup) return;
@@ -1312,6 +1302,70 @@ function getRandomTree(){
     popup.dataset.text = text;
     renderAbilityInfoPopup(text);
     popup.classList.remove('hidden');
+  }
+
+
+  let deferredInstallPrompt = null;
+
+  function setViewportUnits() {
+    const viewHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const vh = Math.max(1, viewHeight * 0.01);
+    document.documentElement.style.setProperty('--app-vh', `${vh}px`);
+  }
+
+  function nudgeMobileChrome() {
+    if (!isLandscapeMobileUi()) return;
+    window.setTimeout(() => {
+      try { window.scrollTo(0, 1); } catch (error) {}
+    }, 120);
+  }
+
+  function isStandaloneDisplay() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  function isIosHomeScreenFlow() {
+    const ua = String(navigator.userAgent || '');
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    return isIOS && !window.matchMedia('(display-mode: standalone)').matches && window.navigator.standalone !== true;
+  }
+
+  function updateMobileInstallPrompt() {
+    if (!els.mobileInstallPrompt || !els.mobileInstallBtn || !els.mobileInstallText) return;
+    const canShow = isLandscapeMobileUi() && !game.mobileInstallDismissed && !isStandaloneDisplay();
+    if (!canShow) {
+      els.mobileInstallPrompt.classList.add('hidden');
+      return;
+    }
+    els.mobileInstallPrompt.classList.remove('hidden');
+    if (deferredInstallPrompt) {
+      els.mobileInstallText.textContent = 'Add this game to your home screen for the best full-screen mobile experience.';
+      els.mobileInstallBtn.textContent = 'Add';
+      return;
+    }
+    if (isIosHomeScreenFlow()) {
+      els.mobileInstallText.textContent = 'Best on iPhone: add this game to your home screen for full-screen play.';
+      els.mobileInstallBtn.textContent = 'How to Add';
+      return;
+    }
+    els.mobileInstallText.textContent = 'Best experience: install this game to your home screen when your browser allows it.';
+    els.mobileInstallBtn.textContent = 'Install Tips';
+  }
+
+  async function handleMobileInstallAction() {
+    if (deferredInstallPrompt) {
+      const promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      promptEvent.prompt();
+      try { await promptEvent.userChoice; } catch (error) {}
+      updateMobileInstallPrompt();
+      return;
+    }
+    if (isIosHomeScreenFlow()) {
+      showBanner('Safari: tap Share, then Add to Home Screen.', 3200);
+      return;
+    }
+    showBanner('Install this from your browser menu when Add to Home Screen is available.', 3200);
   }
 
   function isLandscapeMobileUi() {
@@ -3544,7 +3598,7 @@ function getRandomTree(){
   bindMenuAutoClose(els.mobileHeroHost);
   bindMenuAutoClose(els.mobileHireHost);
   bindMenuAutoClose(els.mobileFuncMenu);
-  setRealViewportHeight();
+  setViewportUnits();
   syncMobileHosts();
   renderMobileAbilityDock();
   window.addEventListener('resize', () => {
@@ -3587,6 +3641,11 @@ function getRandomTree(){
   els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
   els.mobileFuncRestartBtn?.addEventListener('click', () => els.restartBtn?.click());
+  els.mobileInstallBtn?.addEventListener('click', handleMobileInstallAction);
+  els.mobileInstallDismissBtn?.addEventListener('click', () => {
+    game.mobileInstallDismissed = true;
+    updateMobileInstallPrompt();
+  });
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
   els.walletPanelToggle?.addEventListener('click', () => {
     const collapsed = els.walletPanel?.classList.toggle('collapsed');
@@ -3690,6 +3749,31 @@ function getRandomTree(){
 
   game.virtualNow = Date.now();
   game.realLastTick = Date.now();
+  window.addEventListener('resize', () => {
+    setViewportUnits();
+    updateMobileInstallPrompt();
+    nudgeMobileChrome();
+  });
+  window.addEventListener('orientationchange', () => {
+    setViewportUnits();
+    updateMobileInstallPrompt();
+    nudgeMobileChrome();
+  });
+  window.visualViewport?.addEventListener('resize', () => {
+    setViewportUnits();
+    updateMobileInstallPrompt();
+  });
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateMobileInstallPrompt();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    game.mobileInstallDismissed = true;
+    updateMobileInstallPrompt();
+  });
+
   if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.refreshBank === 'function') {
     window.DFKDefenseWallet.refreshBank().catch(() => {});
   }

@@ -1,10 +1,5 @@
 :root {
   --bg: #0f1520;
-  --app-vh: 1vh;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
   --tile-size: 84px;
   --tile-gap: 6px;
   --panel: #1a2333;
@@ -28,16 +23,15 @@ body {
   font-family: Inter, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: calc(var(--app-vh, 1vh) * 100);
   overflow-x: hidden;
-  overflow-y: auto;
-  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #app {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 10px 12px calc(12px + var(--safe-bottom)) 12px;
+  padding: 10px 12px 12px;
 }
 
 .panel {
@@ -1224,7 +1218,7 @@ body{
 }
 .intro-modal-card {
   width: min(760px, calc(100vw - 28px));
-  max-height: min(760px, calc(var(--app-vh, 1vh) * 100 - 32px));
+  max-height: min(760px, calc(100vh - 32px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1339,7 +1333,7 @@ body{
   .intro-modal { padding: 10px; }
   .intro-modal-card {
     width: min(100%, calc(100vw - 12px));
-    max-height: calc(var(--app-vh, 1vh) * 100 - 16px);
+    max-height: calc(100vh - 16px);
   }
   .intro-modal-footer {
     flex-wrap: wrap;
@@ -1360,6 +1354,59 @@ body{
   display: none;
 }
 
+
+.mobile-install-prompt {
+  position: fixed;
+  left: calc(10px + env(safe-area-inset-left));
+  right: calc(10px + env(safe-area-inset-right));
+  bottom: 74px;
+  z-index: 1240;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(145, 170, 221, 0.35);
+  background: rgba(17, 25, 38, 0.92);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+}
+.mobile-install-prompt.hidden {
+  display: none;
+}
+.mobile-install-text {
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: #e6efff;
+}
+.mobile-install-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mobile-install-btn,
+.mobile-install-dismiss {
+  border-radius: 10px;
+  border: 1px solid #4d5f87;
+  color: var(--text);
+  background: linear-gradient(180deg, #2d3f61, #22324d);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.mobile-install-btn {
+  min-height: 36px;
+  padding: 0 12px;
+}
+.mobile-install-dismiss {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+.mobile-hud.bar-collapsed .mobile-install-prompt {
+  left: calc(44px + env(safe-area-inset-left));
+}
+
 .mobile-menu-overlay {
   position: fixed;
   inset: 0;
@@ -1370,7 +1417,7 @@ body{
 
 .mobile-menu-shell {
   position: fixed;
-  inset: 10px 10px calc(72px + var(--safe-bottom)) 10px;
+  inset: 10px 10px 72px 10px;
   z-index: 1210;
   pointer-events: none;
   align-items: center;
@@ -1424,7 +1471,7 @@ body{
   position: fixed;
   left: 42px;
   right: 8px;
-  bottom: calc(8px + var(--safe-bottom));
+  bottom: 8px;
   z-index: 1220;
   padding: 8px;
   gap: 6px;
@@ -1435,7 +1482,7 @@ body{
 .mobile-bar-toggle {
   position: fixed;
   left: 8px;
-  bottom: calc(12px + var(--safe-bottom));
+  bottom: 12px;
   z-index: 1230;
   width: 28px;
   height: 52px;
@@ -1551,8 +1598,11 @@ body{
   }
 
   .center-panel {
-    padding: 4px;
-    min-height: calc(var(--app-vh, 1vh) * 100 - 82px - var(--safe-bottom));
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: calc(6px + env(safe-area-inset-left));
+    padding-right: calc(6px + env(safe-area-inset-right));
+    min-height: calc(var(--app-vh, 1vh) * 100 - 82px);
     overflow: hidden;
   }
 
@@ -1565,7 +1615,7 @@ body{
 
   @media (orientation: landscape) {
     .grid {
-      --tile-size: min(calc((100vw - 26px) / 13), calc((var(--app-vh, 1vh) * 100 - 118px - var(--safe-bottom)) / 6), 58px);
+      --tile-size: min(calc((100vw - 26px) / 13), calc((var(--app-vh, 1vh) * 100 - 118px) / 6), 58px);
       --tile-gap: clamp(2px, 0.35vw, 3px);
     }
   }
@@ -1598,6 +1648,11 @@ body{
 }
 
 @media (max-width: 666px) and (orientation: landscape) {
+  .mobile-install-prompt {
+    bottom: 66px;
+    padding: 8px 10px;
+  }
+
   .mobile-bottom-bar {
     left: 40px;
     gap: 4px;
@@ -1621,15 +1676,34 @@ body{
 }
 
 @media (max-width: 568px) and (orientation: landscape) {
+  .mobile-install-text {
+    font-size: 0.72rem;
+  }
+
+  .mobile-install-btn {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
   .grid {
-    --tile-size: min(calc((100vw - 22px) / 13), calc((var(--app-vh, 1vh) * 100 - 112px - var(--safe-bottom)) / 6), 48px);
+    --tile-size: min(calc((100vw - 22px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 13), calc((var(--app-vh, 1vh) * 100 - 112px) / 6), 48px);
     --tile-gap: 2px;
   }
 }
 
 @media (max-width: 360px) and (orientation: landscape) {
+  .mobile-install-prompt {
+    bottom: 62px;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .mobile-install-text {
+    font-size: 0.68rem;
+  }
+
   .grid {
-    --tile-size: min(calc((100vw - 18px) / 13), calc((var(--app-vh, 1vh) * 100 - 108px - var(--safe-bottom)) / 6), 40px);
+    --tile-size: min(calc((100vw - 18px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 13), calc((var(--app-vh, 1vh) * 100 - 108px) / 6), 40px);
   }
 
   .mobile-bottom-btn {
