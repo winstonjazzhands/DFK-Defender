@@ -6,7 +6,7 @@ function getRandomTree(){
 (() => {
   'use strict';
 
-  const WIDTH = 14;
+  const WIDTH = 13;
   const HEIGHT = 6;
   let BREACH_LANES = {
     top: [],
@@ -1276,6 +1276,21 @@ function getRandomTree(){
     game.infoPopupHideTimer = setTimeout(() => {
       if (!game.infoPopupPinned && !game.infoPopupHover) hideAbilityInfo();
     }, delay);
+  }
+
+
+  function setRealViewportHeight() {
+    const viewportHeight = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0;
+    const vh = viewportHeight * 0.01;
+    document.documentElement.style.setProperty('--app-vh', `${vh}px`);
+  }
+
+  function nudgeMobileUrlBar() {
+    if (!isLandscapeMobileUi()) return;
+    window.setTimeout(() => {
+      try { window.scrollTo(0, 1); } catch (_) {}
+      setRealViewportHeight();
+    }, 100);
   }
 
   function hideAbilityInfo(force = false) {
@@ -3529,6 +3544,7 @@ function getRandomTree(){
   bindMenuAutoClose(els.mobileHeroHost);
   bindMenuAutoClose(els.mobileHireHost);
   bindMenuAutoClose(els.mobileFuncMenu);
+  setRealViewportHeight();
   syncMobileHosts();
   renderMobileAbilityDock();
   window.addEventListener('resize', () => {

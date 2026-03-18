@@ -1,0 +1,37 @@
+--- styles.css.pre-remove-col.bak	2026-03-18 20:37:55.450953368 +0000
++++ styles.css	2026-03-18 20:37:57.022863294 +0000
+@@ -145,7 +145,7 @@
+ .grid {
+   position: relative;
+   display: grid;
+-  grid-template-columns: repeat(14, var(--tile-size));
++  grid-template-columns: repeat(13, var(--tile-size));
+   grid-template-rows: repeat(6, var(--tile-size));
+   gap: var(--tile-gap);
+   justify-content: center;
+@@ -1565,7 +1565,7 @@
+ 
+   @media (orientation: landscape) {
+     .grid {
+-      --tile-size: min(calc((100vw - 26px) / 14), calc((var(--app-vh, 1vh) * 100 - 118px - var(--safe-bottom)) / 6), 58px);
++      --tile-size: min(calc((100vw - 26px) / 13), calc((var(--app-vh, 1vh) * 100 - 118px - var(--safe-bottom)) / 6), 58px);
+       --tile-gap: clamp(2px, 0.35vw, 3px);
+     }
+   }
+@@ -1622,14 +1622,14 @@
+ 
+ @media (max-width: 568px) and (orientation: landscape) {
+   .grid {
+-    --tile-size: min(calc((100vw - 22px) / 14), calc((var(--app-vh, 1vh) * 100 - 112px - var(--safe-bottom)) / 6), 48px);
++    --tile-size: min(calc((100vw - 22px) / 13), calc((var(--app-vh, 1vh) * 100 - 112px - var(--safe-bottom)) / 6), 48px);
+     --tile-gap: 2px;
+   }
+ }
+ 
+ @media (max-width: 360px) and (orientation: landscape) {
+   .grid {
+-    --tile-size: min(calc((100vw - 18px) / 14), calc((var(--app-vh, 1vh) * 100 - 108px - var(--safe-bottom)) / 6), 40px);
++    --tile-size: min(calc((100vw - 18px) / 13), calc((var(--app-vh, 1vh) * 100 - 108px - var(--safe-bottom)) / 6), 40px);
+   }
+ 
+   .mobile-bottom-btn {

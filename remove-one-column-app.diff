@@ -1,0 +1,11 @@
+--- js/app.js.pre-remove-col.bak	2026-03-18 20:37:55.436503445 +0000
++++ js/app.js	2026-03-18 20:37:57.022299424 +0000
+@@ -6,7 +6,7 @@
+ (() => {
+   'use strict';
+ 
+-  const WIDTH = 14;
++  const WIDTH = 13;
+   const HEIGHT = 6;
+   let BREACH_LANES = {
+     top: [],

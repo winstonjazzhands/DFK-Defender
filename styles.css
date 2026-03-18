@@ -1,5 +1,10 @@
 :root {
   --bg: #0f1520;
+  --app-vh: 1vh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
   --tile-size: 84px;
   --tile-gap: 6px;
   --panel: #1a2333;
@@ -23,12 +28,16 @@ body {
   font-family: Inter, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  min-height: calc(var(--app-vh, 1vh) * 100);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
 
 #app {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 10px 12px 12px;
+  padding: 10px 12px calc(12px + var(--safe-bottom)) 12px;
 }
 
 .panel {
@@ -136,7 +145,7 @@ body {
 .grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(14, var(--tile-size));
+  grid-template-columns: repeat(13, var(--tile-size));
   grid-template-rows: repeat(6, var(--tile-size));
   gap: var(--tile-gap);
   justify-content: center;
@@ -1215,7 +1224,7 @@ body{
 }
 .intro-modal-card {
   width: min(760px, calc(100vw - 28px));
-  max-height: min(760px, calc(100vh - 32px));
+  max-height: min(760px, calc(var(--app-vh, 1vh) * 100 - 32px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1330,7 +1339,7 @@ body{
   .intro-modal { padding: 10px; }
   .intro-modal-card {
     width: min(100%, calc(100vw - 12px));
-    max-height: calc(100vh - 16px);
+    max-height: calc(var(--app-vh, 1vh) * 100 - 16px);
   }
   .intro-modal-footer {
     flex-wrap: wrap;
@@ -1361,7 +1370,7 @@ body{
 
 .mobile-menu-shell {
   position: fixed;
-  inset: 10px 10px 72px 10px;
+  inset: 10px 10px calc(72px + var(--safe-bottom)) 10px;
   z-index: 1210;
   pointer-events: none;
   align-items: center;
@@ -1415,7 +1424,7 @@ body{
   position: fixed;
   left: 42px;
   right: 8px;
-  bottom: 8px;
+  bottom: calc(8px + var(--safe-bottom));
   z-index: 1220;
   padding: 8px;
   gap: 6px;
@@ -1426,7 +1435,7 @@ body{
 .mobile-bar-toggle {
   position: fixed;
   left: 8px;
-  bottom: 12px;
+  bottom: calc(12px + var(--safe-bottom));
   z-index: 1230;
   width: 28px;
   height: 52px;
@@ -1543,7 +1552,7 @@ body{
 
   .center-panel {
     padding: 4px;
-    min-height: calc(100vh - 82px);
+    min-height: calc(var(--app-vh, 1vh) * 100 - 82px - var(--safe-bottom));
     overflow: hidden;
   }
 
@@ -1556,7 +1565,7 @@ body{
 
   @media (orientation: landscape) {
     .grid {
-      --tile-size: min(calc((100vw - 26px) / 14), calc((100vh - 118px) / 6), 58px);
+      --tile-size: min(calc((100vw - 26px) / 13), calc((var(--app-vh, 1vh) * 100 - 118px - var(--safe-bottom)) / 6), 58px);
       --tile-gap: clamp(2px, 0.35vw, 3px);
     }
   }
@@ -1613,14 +1622,14 @@ body{
 
 @media (max-width: 568px) and (orientation: landscape) {
   .grid {
-    --tile-size: min(calc((100vw - 22px) / 14), calc((100vh - 112px) / 6), 48px);
+    --tile-size: min(calc((100vw - 22px) / 13), calc((var(--app-vh, 1vh) * 100 - 112px - var(--safe-bottom)) / 6), 48px);
     --tile-gap: 2px;
   }
 }
 
 @media (max-width: 360px) and (orientation: landscape) {
   .grid {
-    --tile-size: min(calc((100vw - 18px) / 14), calc((100vh - 108px) / 6), 40px);
+    --tile-size: min(calc((100vw - 18px) / 13), calc((var(--app-vh, 1vh) * 100 - 108px - var(--safe-bottom)) / 6), 40px);
   }
 
   .mobile-bottom-btn {
