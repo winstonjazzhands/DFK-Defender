@@ -1317,7 +1317,16 @@ body{
 .intro-modal-footer .secondary:disabled {
   opacity: 0.4;
 }
-@media (max-width: 700px) {
+/* Responsive breakpoints
+   360px  : mobile
+   568px  : small landscape
+   666px  : large landscape
+   768px  : tablet
+   1024px : large tablet / small laptop
+   1300px : full desktop threshold
+   2500px : large monitors
+*/
+@media (max-width: 1024px) {
   .intro-modal { padding: 10px; }
   .intro-modal-card {
     width: min(100%, calc(100vw - 12px));
@@ -1516,7 +1525,7 @@ body{
   margin: 0;
 }
 
-@media (max-width: 768px) and (orientation: landscape) {
+@media (max-width: 1024px) {
   #app {
     padding: 6px;
   }

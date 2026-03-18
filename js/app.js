@@ -1300,7 +1300,7 @@ function getRandomTree(){
   }
 
   function isLandscapeMobileUi() {
-    return window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+    return window.matchMedia('(max-width: 1024px)').matches;
   }
 
   function updateMobileBarToggle() {
