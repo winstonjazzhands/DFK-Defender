@@ -255,13 +255,36 @@ function getRandomTree(){
     walletPanel: document.getElementById('walletPanel'),
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
-    jewelBankPanel: document.getElementById('jewelBankPanel'),
-    jewelBankBody: document.getElementById('jewelBankBody'),
-    jewelBankToggle: document.getElementById('jewelBankToggle'),
     selectedInfo: document.getElementById('selectedInfo'),
     abilitiesPanel: document.getElementById('abilitiesPanel'),
     hirePanel: document.getElementById('hirePanel'),
     relicPanel: document.getElementById('relicPanel'),
+    mobileHud: document.getElementById('mobileHud'),
+    mobileMenuOverlay: document.getElementById('mobileMenuOverlay'),
+    mobileMenuShell: document.getElementById('mobileMenuShell'),
+    mobileFuncMenu: document.getElementById('mobileFuncMenu'),
+    mobileHeroMenu: document.getElementById('mobileHeroMenu'),
+    mobileHireMenu: document.getElementById('mobileHireMenu'),
+    mobileHeroHost: document.getElementById('mobileHeroHost'),
+    mobileHireHost: document.getElementById('mobileHireHost'),
+    mobileFuncMenuBtn: document.getElementById('mobileFuncMenuBtn'),
+    mobileHeroMenuBtn: document.getElementById('mobileHeroMenuBtn'),
+    mobileHireMenuBtn: document.getElementById('mobileHireMenuBtn'),
+    mobileBarToggleBtn: document.getElementById('mobileBarToggleBtn'),
+    mobileBarToggleNotice: document.getElementById('mobileBarToggleNotice'),
+    mobileBottomBar: document.getElementById('mobileBottomBar'),
+    mobileAbilityBtn1: document.getElementById('mobileAbilityBtn1'),
+    mobileAbilityBtn2: document.getElementById('mobileAbilityBtn2'),
+    mobileAbilityBtn3: document.getElementById('mobileAbilityBtn3'),
+    mobileAbilityBtn4: document.getElementById('mobileAbilityBtn4'),
+    mobileFuncEasyBtn: document.getElementById('mobileFuncEasyBtn'),
+    mobileFuncChallengeBtn: document.getElementById('mobileFuncChallengeBtn'),
+    mobileFuncPauseBtn: document.getElementById('mobileFuncPauseBtn'),
+    mobileFuncIntroBtn: document.getElementById('mobileFuncIntroBtn'),
+    mobileFuncHeroesBtn: document.getElementById('mobileFuncHeroesBtn'),
+    mobileFuncStartBtn: document.getElementById('mobileFuncStartBtn'),
+    mobileFuncSkipBtn: document.getElementById('mobileFuncSkipBtn'),
+    mobileFuncRestartBtn: document.getElementById('mobileFuncRestartBtn'),
     premiumJewelCount: document.getElementById('premiumJewelCount'),
     relicModal: document.getElementById('relicModal'),
     relicModalBody: document.getElementById('relicModalBody'),
@@ -992,12 +1015,14 @@ function getRandomTree(){
       els.speedToggleBtn.classList.toggle('active', easyActive);
       els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
       els.speedToggleBtn.textContent = '✨ Easy Mode' + (easyActive ? ' ON' : '');
+      if (els.mobileFuncEasyBtn) els.mobileFuncEasyBtn.textContent = 'Easy Mode' + (easyActive ? ' ON' : '');
       els.speedToggleBtn.title = 'Easy Mode: 2× speed and auto-casting mobile play enabled.';
     }
     if (els.mobileModeBtn) {
       els.mobileModeBtn.classList.toggle('active', challengeActive);
       els.mobileModeBtn.setAttribute('aria-pressed', challengeActive ? 'true' : 'false');
       els.mobileModeBtn.textContent = '⚔️ Challenge Mode' + (challengeActive ? ' ON' : '');
+      if (els.mobileFuncChallengeBtn) els.mobileFuncChallengeBtn.textContent = 'Challenge Mode' + (challengeActive ? ' ON' : '');
       els.mobileModeBtn.title = 'Challenge Mode: normal speed with manual active skills.';
     }
   }
@@ -1027,6 +1052,7 @@ function getRandomTree(){
     els.pauseBtn.classList.toggle('active', active);
     els.pauseBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
     els.pauseBtn.textContent = active ? '⏸ Paused' : '⏸ Pause';
+    if (els.mobileFuncPauseBtn) els.mobileFuncPauseBtn.textContent = active ? 'Resume' : 'Pause';
     els.pauseBtn.title = active ? 'Resume all activity' : 'Freeze all activity';
   }
 
@@ -1050,6 +1076,8 @@ function getRandomTree(){
     renderHirePanel();
     renderRelics();
     updateTopbar();
+    updateMobileBarToggle();
+    renderMobileAbilityDock();
   }
 
   function renderGrid() {
@@ -1271,6 +1299,141 @@ function getRandomTree(){
     popup.classList.remove('hidden');
   }
 
+  function isLandscapeMobileUi() {
+    return window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+  }
+
+  function updateMobileBarToggle() {
+    if (!els.mobileHud || !els.mobileBarToggleBtn) return;
+    els.mobileHud.classList.toggle('bar-collapsed', !!game.mobileBarCollapsed);
+    els.mobileBarToggleBtn.setAttribute('aria-pressed', game.mobileBarCollapsed ? 'true' : 'false');
+    els.mobileBarToggleBtn.setAttribute('aria-label', game.mobileBarCollapsed ? 'Show mobile controls' : 'Hide mobile controls');
+  }
+
+  function toggleMobileBarCollapsed() {
+    if (!isLandscapeMobileUi()) return;
+    game.mobileBarCollapsed = !game.mobileBarCollapsed;
+    if (game.mobileBarCollapsed) closeMobileMenus();
+    updateMobileBarToggle();
+  }
+
+  function updateMobileHireNotice(canHireNow) {
+    const show = !!canHireNow && isLandscapeMobileUi();
+    els.mobileBarToggleBtn?.classList.toggle('has-notice', show);
+    els.mobileBarToggleNotice?.classList.toggle('hidden', !show);
+  }
+
+  function closeMobileMenus() {
+    const map = [
+      ['func', els.mobileFuncMenu, els.mobileFuncMenuBtn],
+      ['hero', els.mobileHeroMenu, els.mobileHeroMenuBtn],
+      ['hire', els.mobileHireMenu, els.mobileHireMenuBtn],
+    ];
+    map.forEach(([, panel, btn]) => {
+      panel?.classList.add('hidden');
+      panel?.setAttribute('aria-hidden', 'true');
+      btn?.classList.remove('active');
+    });
+    els.mobileMenuOverlay?.classList.add('hidden');
+    els.mobileMenuShell?.classList.add('hidden');
+    els.mobileMenuShell?.setAttribute('aria-hidden', 'true');
+    game.mobileOpenMenu = null;
+  }
+
+  function toggleMobileMenu(name) {
+    if (!isLandscapeMobileUi()) return;
+    if (game.mobileBarCollapsed) {
+      game.mobileBarCollapsed = false;
+      updateMobileBarToggle();
+    }
+    if (game.mobileOpenMenu === name) {
+      closeMobileMenus();
+      return;
+    }
+    const map = {
+      func: [els.mobileFuncMenu, els.mobileFuncMenuBtn],
+      hero: [els.mobileHeroMenu, els.mobileHeroMenuBtn],
+      hire: [els.mobileHireMenu, els.mobileHireMenuBtn],
+    };
+    closeMobileMenus();
+    const pair = map[name];
+    if (!pair) return;
+    const [panel, btn] = pair;
+    els.mobileMenuOverlay?.classList.remove('hidden');
+    els.mobileMenuShell?.classList.remove('hidden');
+    els.mobileMenuShell?.setAttribute('aria-hidden', 'false');
+    panel?.classList.remove('hidden');
+    panel?.setAttribute('aria-hidden', 'false');
+    btn?.classList.add('active');
+    game.mobileOpenMenu = name;
+  }
+
+  function syncMobileHosts() {
+    if (!els.mobileHeroHost || !els.mobileHireHost || !els.selectedInfo || !els.hirePanel) return;
+    const actionGroup = els.upgradeBtn?.closest('.action-group');
+    if (isLandscapeMobileUi()) {
+      els.mobileHud?.classList.remove('hidden');
+      els.mobileHud?.setAttribute('aria-hidden', 'false');
+      if (els.selectedInfo.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(els.selectedInfo);
+      if (actionGroup && actionGroup.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(actionGroup);
+      if (els.hirePanel.parentElement !== els.mobileHireHost) els.mobileHireHost.appendChild(els.hirePanel);
+      updateMobileBarToggle();
+    } else {
+      game.mobileBarCollapsed = false;
+      els.mobileHud?.classList.add('hidden');
+      els.mobileHud?.setAttribute('aria-hidden', 'true');
+      const rightPanel = document.querySelector('.right-panel');
+      const hireSection = document.querySelector('.hire-section');
+      if (rightPanel && els.selectedInfo.parentElement !== rightPanel) {
+        rightPanel.insertBefore(els.selectedInfo, rightPanel.firstChild);
+      }
+      if (rightPanel && actionGroup && actionGroup.parentElement !== rightPanel) {
+        rightPanel.insertBefore(actionGroup, els.abilitiesPanel);
+      }
+      if (hireSection && els.hirePanel.parentElement !== hireSection) {
+        hireSection.appendChild(els.hirePanel);
+      }
+      closeMobileMenus();
+    }
+  }
+
+  function bindMenuAutoClose(scope) {
+    if (!scope || scope.dataset.mobileAutocloseBound === 'true') return;
+    scope.addEventListener('click', (event) => {
+      const clickedButton = event.target.closest('button');
+      if (!clickedButton) return;
+      if (clickedButton.id === 'mobileFuncMenuBtn' || clickedButton.id === 'mobileHeroMenuBtn' || clickedButton.id === 'mobileHireMenuBtn') return;
+      window.setTimeout(() => {
+        if (isLandscapeMobileUi()) closeMobileMenus();
+      }, 0);
+    });
+    scope.dataset.mobileAutocloseBound = 'true';
+  }
+
+  function renderMobileAbilityDock() {
+    const buttons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3, els.mobileAbilityBtn4];
+    const tower = getSelectedTower();
+    const abilities = tower ? tower.abilities.filter(ability => !ability.passive).slice(0, 4) : [];
+    buttons.forEach((btn, index) => {
+      if (!btn) return;
+      const ability = abilities[index];
+      if (!ability || !tower) {
+        btn.textContent = `H${index + 1}`;
+        btn.title = 'Select a hero first';
+        btn.disabled = true;
+        btn.onclick = null;
+        return;
+      }
+      const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+      const locked = !isAbilityUnlocked(tower, ability.key);
+      const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
+      btn.textContent = remain > 0 ? `H${index + 1}` : `H${index + 1}`;
+      btn.title = locked ? `${ability.name} unlocks at level ${unlockLevel}` : (remain > 0 ? `${ability.name} (${remain.toFixed(1)}s)` : ability.name);
+      btn.disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
+      btn.onclick = () => castAbility(tower, ability.key);
+    });
+  }
+
   function renderSelection() {
     const tower = getSelectedTower();
     game.renderedSelectionTowerId = tower ? tower.id : null;
@@ -1283,6 +1446,7 @@ function getRandomTree(){
       els.moveBtn.disabled = true;
       els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
       els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
+      renderMobileAbilityDock();
       return;
     }
     const nextCost = getUpgradeCost(tower.level + 1, tower);
@@ -1346,6 +1510,7 @@ function getRandomTree(){
       els.abilitiesPanel.appendChild(wrapper);
     }
     renderPassiveCards(tower);
+    renderMobileAbilityDock();
   }
 
   function refreshSelectedPanelLive() {
@@ -1385,6 +1550,7 @@ function getRandomTree(){
       btn.disabled = isPassive || locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(abilityKey));
       btn.className = locked ? 'locked-skill' : (isPassive ? 'locked-skill passive-skill' : '');
     });
+    renderMobileAbilityDock();
   }
 
   function getLivingHireCount() {
@@ -1404,6 +1570,9 @@ function getRandomTree(){
     const bonusAvailable = game.bonusHeroHireCharges > 0
       ? heroTypes.filter(type => game.towers.some(t => t.type === type) && game.placingHeroType !== type)
       : [];
+    const cost = getNextHireCost();
+    const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && game.jewel >= cost && (normalAvailable.length > 0 || bonusAvailable.length > 0);
+    updateMobileHireNotice(canHireNow);
 
     if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType) {
       const card = document.createElement('div');
@@ -1412,8 +1581,6 @@ function getRandomTree(){
       els.hirePanel.appendChild(card);
       return;
     }
-
-    const cost = getNextHireCost();
 
     function addHireCard(type, usesBonus) {
       const t = TOWER_TEMPLATES[type];
@@ -3358,6 +3525,16 @@ function getRandomTree(){
     return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length;
   }
 
+  bindMenuAutoClose(els.mobileHeroHost);
+  bindMenuAutoClose(els.mobileHireHost);
+  bindMenuAutoClose(els.mobileFuncMenu);
+  syncMobileHosts();
+  renderMobileAbilityDock();
+  window.addEventListener('resize', () => {
+    syncMobileHosts();
+    renderMobileAbilityDock();
+  });
+
   els.startWaveBtn.addEventListener('click', () => {
     if (buyableWaveStart()) startWave();
   });
@@ -3380,14 +3557,23 @@ function getRandomTree(){
   els.heroesBtn?.addEventListener('click', () => {
     openIntroModal(game.introSet === 'heroes' ? (game.introPageIndex || 0) : 0, 'heroes');
   });
+  els.mobileMenuOverlay?.addEventListener('click', closeMobileMenus);
+  els.mobileBarToggleBtn?.addEventListener('click', toggleMobileBarCollapsed);
+  els.mobileFuncMenuBtn?.addEventListener('click', () => toggleMobileMenu('func'));
+  els.mobileHeroMenuBtn?.addEventListener('click', () => toggleMobileMenu('hero'));
+  els.mobileHireMenuBtn?.addEventListener('click', () => toggleMobileMenu('hire'));
+  els.mobileFuncEasyBtn?.addEventListener('click', () => els.speedToggleBtn?.click());
+  els.mobileFuncChallengeBtn?.addEventListener('click', () => els.mobileModeBtn?.click());
+  els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
+  els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
+  els.mobileFuncHeroesBtn?.addEventListener('click', () => els.heroesBtn?.click());
+  els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
+  els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
+  els.mobileFuncRestartBtn?.addEventListener('click', () => els.restartBtn?.click());
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
   els.walletPanelToggle?.addEventListener('click', () => {
     const collapsed = els.walletPanel?.classList.toggle('collapsed');
     if (els.walletPanelToggle) els.walletPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  });
-  els.jewelBankToggle?.addEventListener('click', () => {
-    const collapsed = els.jewelBankPanel?.classList.toggle('collapsed');
-    if (els.jewelBankToggle) els.jewelBankToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
   els.introPrevBtn?.addEventListener('click', () => {
     if (game.introPageIndex > 0) {

@@ -10,25 +10,21 @@
   <div id="app">
     <main class="main-layout">
       <section class="left-panel panel">
-                <div id="log" class="log"></div>
+        <h2>Run Log</h2>
+        <div id="log" class="log"></div>
         <button id="speedToggleBtn" class="speed-toggle" type="button" aria-pressed="false">✨ Easy Mode</button>
         <button id="mobileModeBtn" class="mobile-toggle" type="button" aria-pressed="false">⚔️ Challenge Mode</button>
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
         <button id="heroesBtn" class="intro-toggle secondary-guide" type="button">🛡️ Meet the Heroes</button>
-        <div class="meta-currency panel-lite collapsed" id="jewelBankPanel">
-          <button id="jewelBankToggle" class="wallet-panel-toggle jewel-bank-toggle" type="button" aria-expanded="false" aria-controls="jewelBankBody">
-            <span class="meta-title">Jewel Bank</span>
-            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
-          </button>
-          <div id="jewelBankBody" class="wallet-panel-body">
-            <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
-            <div><strong>Entry Cost:</strong> 3 Jewel</div>
-            <div class="meta-rewards">
-              Wave 5: +1 Jewel<br>
-              Wave 10: +2 Jewel<br>
-              Wave 15: +5 Jewel
-            </div>
+        <div class="meta-currency panel-lite">
+          <div class="meta-title">Jewel Bank</div>
+          <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
+          <div><strong>Entry Cost:</strong> 3 Jewel</div>
+          <div class="meta-rewards">
+            Wave 5: +1 Jewel<br>
+            Wave 10: +2 Jewel<br>
+            Wave 15: +5 Jewel
           </div>
         </div>
         <div class="wallet-panel panel-lite collapsed" id="walletPanel">
@@ -112,7 +108,7 @@
           <div><strong>Next Wave:</strong> <span id="countdownLabel">--</span></div>
         </div>
       </div>
-            <div class="controls-stack">
+      <div class="controls-stack">
         <div class="control-section hire-section">
           <div id="hirePanel" class="card-list hire-list"></div>
         </div>
@@ -122,6 +118,46 @@
         </div>
       </div>
     </footer>
+
+    <div id="mobileHud" class="mobile-hud hidden" aria-hidden="true">
+      <button id="mobileMenuOverlay" class="mobile-menu-overlay hidden" type="button" aria-label="Close mobile menu"></button>
+      <div id="mobileMenuShell" class="mobile-menu-shell hidden" aria-hidden="true">
+        <div id="mobileFuncMenu" class="mobile-menu-card hidden" aria-hidden="true">
+          <div class="mobile-menu-title">FUNC</div>
+          <div class="mobile-menu-actions">
+            <button id="mobileFuncEasyBtn" type="button">Easy Mode</button>
+            <button id="mobileFuncChallengeBtn" type="button">Challenge Mode</button>
+            <button id="mobileFuncPauseBtn" type="button">Pause</button>
+            <button id="mobileFuncIntroBtn" type="button">Intro</button>
+            <button id="mobileFuncHeroesBtn" type="button">Meet the Heroes</button>
+            <button id="mobileFuncStartBtn" type="button">Start Next Wave</button>
+            <button id="mobileFuncSkipBtn" type="button">Auto-Place Warrior</button>
+            <button id="mobileFuncRestartBtn" type="button">New Run</button>
+          </div>
+        </div>
+        <div id="mobileHeroMenu" class="mobile-menu-card hidden" aria-hidden="true">
+          <div class="mobile-menu-title">HERO</div>
+          <div id="mobileHeroHost" class="mobile-hero-host"></div>
+        </div>
+        <div id="mobileHireMenu" class="mobile-menu-card hidden" aria-hidden="true">
+          <div class="mobile-menu-title">HIRE</div>
+          <div id="mobileHireHost" class="mobile-hire-host"></div>
+        </div>
+      </div>
+      <button id="mobileBarToggleBtn" class="mobile-bar-toggle" type="button" aria-pressed="false" aria-label="Hide mobile controls">
+        <span class="mobile-bar-toggle-chevron" aria-hidden="true">‹</span>
+        <span id="mobileBarToggleNotice" class="mobile-bar-toggle-notice hidden" aria-hidden="true"></span>
+      </button>
+      <div id="mobileBottomBar" class="mobile-bottom-bar panel">
+        <button id="mobileFuncMenuBtn" class="mobile-bottom-btn" type="button">FUNC</button>
+        <button id="mobileHeroMenuBtn" class="mobile-bottom-btn" type="button">HERO</button>
+        <button id="mobileHireMenuBtn" class="mobile-bottom-btn" type="button">HIRE</button>
+        <button id="mobileAbilityBtn1" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>H1</button>
+        <button id="mobileAbilityBtn2" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>H2</button>
+        <button id="mobileAbilityBtn3" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>H3</button>
+        <button id="mobileAbilityBtn4" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>H4</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/security-wallet.js"></script>
