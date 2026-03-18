@@ -6,8 +6,8 @@ function getRandomTree(){
 (() => {
   'use strict';
 
-  const WIDTH = 12;
-  const HEIGHT = 8;
+  const WIDTH = 14;
+  const HEIGHT = 6;
   let BREACH_LANES = {
     top: [],
     middle: [],
@@ -1671,7 +1671,8 @@ function getRandomTree(){
   }
 
   function canPlacePortal(x, y) {
-    if (x < 6 || y > HEIGHT - 2 || x > WIDTH - 2) return false;
+    const minPortalX = Math.max(4, Math.floor(WIDTH * 0.42));
+    if (x < minPortalX || y > HEIGHT - 2 || x > WIDTH - 2) return false;
     const points = [{ x, y }, { x: x + 1, y }, { x, y: y + 1 }, { x: x + 1, y: y + 1 }];
     return points.every(p => {
       const tile = tileAt(p.x, p.y);
