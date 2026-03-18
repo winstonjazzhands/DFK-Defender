@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Siege TD</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div><strong>Portal HP:</strong> <span id="portalHp">--</span></div>
+      <div><strong>JEWEL:</strong> <span id="jewelCount">0</span></div>
+      <div><strong>Wave:</strong> <span id="waveCount">0</span></div>
+      <div><strong>Pattern:</strong> <span id="patternLabel">--</span></div>
+      <div><strong>Mutation:</strong> <span id="mutationLabel">None</span></div>
+      <div><strong>Next Wave:</strong> <span id="countdownLabel">--</span></div>
+    </header>
+
+    <main class="main-layout">
+      <section class="left-panel panel">
+        <h2>Run Log</h2>
+        <div id="phaseLabel" class="phase-label">Loading…</div>
+        <p id="instructionText" class="instruction"></p>
+        <div id="log" class="log"></div>
+      </section>
+
+      <section class="center-panel panel">
+        <div id="banner" class="banner hidden"></div>
+        <div id="grid" class="grid" aria-label="battlefield"></div>
+      </section>
+
+      <section class="right-panel panel">
+        <h2>Selected</h2>
+        <div id="selectedInfo" class="selected-info">Nothing selected.</div>
+        <div class="action-group">
+          <button id="upgradeBtn" disabled>Upgrade</button>
+          <button id="moveBtn" disabled>Move</button>
+        </div>
+        <h3>Abilities</h3>
+        <div id="abilitiesPanel" class="abilities-panel"></div>
+      </section>
+    </main>
+
+    <footer class="bottom-panel panel">
+      <div class="controls-row">
+        <button id="startWaveBtn" disabled>Start Next Wave</button>
+        <button id="skipSetupBtn" class="secondary hidden">Auto-Place Warrior</button>
+        <button id="restartBtn">New Run</button>
+      </div>
+      <div class="controls-row">
+        <div>
+          <h3>Hire Hero</h3>
+          <div id="hirePanel" class="card-list"></div>
+        </div>
+        <div>
+          <h3>Relic Shop</h3>
+          <div id="relicPanel" class="card-list"></div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

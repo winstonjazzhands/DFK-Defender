@@ -12,9 +12,11 @@
       <section class="left-panel panel">
         <h2>Run Log</h2>
         <div id="log" class="log"></div>
-        <button id="speedToggleBtn" class="speed-toggle" type="button" aria-pressed="false">▶ 2× Speed</button>
-        <button id="mobileModeBtn" class="mobile-toggle" type="button" aria-pressed="false">📱 Mobile Mode</button>
+        <button id="speedToggleBtn" class="speed-toggle" type="button" aria-pressed="false">✨ Easy Mode</button>
+        <button id="mobileModeBtn" class="mobile-toggle" type="button" aria-pressed="false">⚔️ Challenge Mode</button>
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
+        <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
+        <button id="heroesBtn" class="intro-toggle secondary-guide" type="button">🛡️ Meet the Heroes</button>
         <div class="meta-currency panel-lite">
           <div class="meta-title">Jewel Bank</div>
           <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
@@ -25,10 +27,35 @@
             Wave 15: +5 Jewel
           </div>
         </div>
+        <div class="wallet-panel panel-lite collapsed" id="walletPanel">
+          <button id="walletPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="walletPanelBody">
+            <span class="meta-title">Player Profile</span>
+            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="walletPanelBody" class="wallet-panel-body">
+          <div id="walletStatus" class="wallet-status">Offline Bank Mode</div>
+          <div id="walletAddress" class="wallet-address">No wallet connected.</div>
+          <div class="wallet-actions">
+            <button id="connectWalletBtn" class="wallet-btn" type="button">Connect Wallet</button>
+            <button id="signInWalletBtn" class="wallet-btn secondary" type="button">Sign In</button>
+            <button id="refreshBankBtn" class="wallet-btn secondary" type="button">Refresh Bank</button>
+          </div>
+          <div class="wallet-actions">
+            <button id="depositWalletBtn" class="wallet-btn" type="button">Deposit JEWEL</button>
+            <button id="disconnectWalletBtn" class="wallet-btn secondary" type="button">Disconnect</button>
+          </div>
+          <div class="wallet-bankline"><strong>Bank Mode:</strong> <span id="walletMode">Local only</span></div>
+          <div class="wallet-bankline"><strong>Settled Balance:</strong> <span id="walletBalance">--</span></div>
+          <div class="wallet-bankline"><strong>Deposit Address:</strong> <span id="walletDepositAddress">--</span></div>
+          <div id="walletSecurityNote" class="wallet-note">Security-first wiring is enabled for login, deposit, and reading settled balance. This static build still keeps run rewards local until you move reward logic server-side.</div>
+          </div>
+        </div>
+
       </section>
 
       <section class="center-panel panel">
         <div id="banner" class="banner hidden"></div>
+        <div id="statusOverlay" class="status-overlay hidden"><span id="phaseLabel" class="phase-label">Loading…</span> <span id="instructionText" class="instruction"></span></div>
         <div id="grid" class="grid" aria-label="battlefield"></div>
       </section>
 
@@ -36,7 +63,7 @@
         
         <div id="selectedInfo" class="selected-info">Nothing selected.</div>
         <div class="action-group">
-          <button id="upgradeBtn" disabled>Upgrade</button>
+          <button id="upgradeBtn" disabled>Level Up</button>
           <button id="moveBtn" disabled>Move</button>
           <button id="rebuildBarriersBtn" class="secondary" disabled>Rebuild Barriers</button>
         </div>
@@ -48,6 +75,23 @@
       <div class="relic-modal-card panel">
         <div class="relic-modal-title">Choose a Relic</div>
         <div id="relicModalBody" class="card-list relic-list"></div>
+      </div>
+    </div>
+    <div id="introModal" class="intro-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div id="introKicker" class="intro-kicker">DFK Defense Briefing</div>
+            <h2 id="introTitle">DFK Defender – Stand Against the Void</h2>
+          </div>
+          <button id="closeIntroBtn" type="button" class="intro-close" aria-label="Close intro">×</button>
+        </div>
+        <div id="introBody" class="intro-body"></div>
+        <div class="intro-modal-footer">
+          <button id="introPrevBtn" type="button" class="secondary small-action">← Back</button>
+          <div id="introPageLabel" class="intro-page-label">Page 1 / 6</div>
+          <button id="introNextBtn" type="button" class="small-action">Next →</button>
+        </div>
       </div>
     </div>
     <footer class="bottom-panel panel">
@@ -64,11 +108,7 @@
           <div><strong>Next Wave:</strong> <span id="countdownLabel">--</span></div>
         </div>
       </div>
-      <div class="footer-info panel-lite">
-        <div id="phaseLabel" class="phase-label">Loading…</div>
-        <p id="instructionText" class="instruction"></p>
-      </div>
-      <div class="controls-stack">
+            <div class="controls-stack">
         <div class="control-section hire-section">
           <div id="hirePanel" class="card-list hire-list"></div>
         </div>
@@ -80,6 +120,7 @@
     </footer>
   </div>
 
+  <script src="js/security-wallet.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

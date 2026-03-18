@@ -30,7 +30,8 @@ function getRandomTree(){
 
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
   const HIRE_COSTS = [20, 40, 70, 110];
-  const UPGRADE_COST_MULTIPLIER = 1.15;
+  const UPGRADE_COST_MULTIPLIER = 1.6531;
+  const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const BARRIER_REBUILD_COST = 120;
   const WAVE_REBUILD_INTERVAL = 15;
@@ -53,7 +54,7 @@ function getRandomTree(){
         { key: 'new_blood', name: 'New Blood', cooldown: 0, passive: true },
         { key: 'whirlwind', name: 'Whirlwind', cooldown: 7 },
         { key: 'rapid_onslaught', name: 'Rapid Onslaught', cooldown: 12 },
-        { key: 'taunt', name: 'Taunt', cooldown: 10 },
+        
       ],
     },
     archer: {
@@ -114,7 +115,7 @@ function getRandomTree(){
         { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 10 },
         { key: 'kraken', name: 'Kraken', cooldown: 20 },
       ],
-      passive: 'Steal: +15% Gold from Pirate kills',
+      passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
     },
   };
 
@@ -241,6 +242,19 @@ function getRandomTree(){
     speedToggleBtn: document.getElementById('speedToggleBtn'),
     mobileModeBtn: document.getElementById('mobileModeBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
+    introBtn: document.getElementById('introBtn'),
+    heroesBtn: document.getElementById('heroesBtn'),
+    introModal: document.getElementById('introModal'),
+    introBody: document.getElementById('introBody'),
+    introPageLabel: document.getElementById('introPageLabel'),
+    introPrevBtn: document.getElementById('introPrevBtn'),
+    introNextBtn: document.getElementById('introNextBtn'),
+    closeIntroBtn: document.getElementById('closeIntroBtn'),
+    introTitle: document.getElementById('introTitle'),
+    introKicker: document.getElementById('introKicker'),
+    walletPanel: document.getElementById('walletPanel'),
+    walletPanelBody: document.getElementById('walletPanelBody'),
+    walletPanelToggle: document.getElementById('walletPanelToggle'),
     selectedInfo: document.getElementById('selectedInfo'),
     abilitiesPanel: document.getElementById('abilitiesPanel'),
     hirePanel: document.getElementById('hirePanel'),
@@ -281,8 +295,8 @@ function getRandomTree(){
     lastTick: 0,
     realLastTick: 0,
     virtualNow: 0,
-    timeScale: 1,
-    mobileMode: false,
+    timeScale: 2,
+    mobileMode: true,
     paused: false,
     nextEnemyId: 1,
     nextTowerId: 1,
@@ -317,6 +331,7 @@ function getRandomTree(){
     },
     logLimit: 120,
     bannerTimeout: null,
+    statusOverlayTimeout: null,
     crashed: false,
     diagnostics: {
       recentEvents: [],
@@ -326,6 +341,10 @@ function getRandomTree(){
       overlayVisible: false,
       lastReport: null,
     },
+    introPageIndex: 0,
+    introSet: 'intro',
+    introOpen: false,
+    introAutoShown: false,
   };
 
   function now() { return game.virtualNow || Date.now(); }
@@ -359,6 +378,14 @@ function getRandomTree(){
 
   function updatePremiumJewelInfo() {
     if (els.premiumJewelCount) els.premiumJewelCount.textContent = String(game.premiumJewels);
+  }
+
+  function syncPremiumJewelsFromSettledBank(detail) {
+    if (!detail || detail.balance == null) return;
+    const parsed = Number(detail.balance);
+    if (!Number.isFinite(parsed)) return;
+    game.premiumJewels = parsed;
+    updatePremiumJewelInfo();
   }
   function key(x, y) { return `${x},${y}`; }
   function tileAt(x, y) { return game.tilesByKey.get(key(x, y)); }
@@ -527,11 +554,16 @@ function getRandomTree(){
     assignRandomBreachTiles();
     placeRandomObstacles();
     game.paused = false;
+    game.timeScale = 2;
+    game.mobileMode = true;
+    updateModeButtons();
     updatePauseButton();
     setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${PLAYER_OBSTACLE_COUNT} choke-point obstacles, then place your Warrior. Before wave 1 starts, you can click one of your barriers to move it.`);
     log('New run started. Random obstacles are already on the field.');
     updateTopbar();
+    showStatusOverlay();
     render();
+    maybeShowIntroOnOpen();
   }
 
   function placeRandomObstacles() {
@@ -554,7 +586,7 @@ function getRandomTree(){
   }
 
   function setInstruction(text) {
-    els.instructionText.textContent = text;
+    if (els.instructionText) els.instructionText.textContent = text;
     const phaseMap = {
       [SETUP_PHASES.PORTAL]: 'Setup: Place Portal',
       [SETUP_PHASES.OBSTACLES]: `Setup: Place Obstacles (${game.playerObstacleCount}/${PLAYER_OBSTACLE_COUNT})`,
@@ -562,7 +594,8 @@ function getRandomTree(){
       [SETUP_PHASES.BATTLE]: game.runningWave ? 'Battle in Progress' : 'Preparation Phase',
       [SETUP_PHASES.GAME_OVER]: 'Game Over',
     };
-    els.phaseLabel.textContent = phaseMap[game.phase] || 'Ready';
+    if (els.phaseLabel) els.phaseLabel.textContent = phaseMap[game.phase] || 'Ready';
+    showStatusOverlay();
   }
 
   function log(message) {
@@ -710,6 +743,220 @@ function getRandomTree(){
       .replace(/'/g, '&#39;');
   }
 
+
+  function showStatusOverlay(duration = 15000) {
+    const overlay = document.getElementById('statusOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    if (game.statusOverlayTimeout) clearTimeout(game.statusOverlayTimeout);
+    game.statusOverlayTimeout = setTimeout(() => {
+      overlay.classList.add('hidden');
+    }, duration);
+  }
+
+
+  const INTRO_PAGES = [
+    {
+      title: 'Stand Against the Void',
+      body: `
+        <p><span class="intro-highlight">The militia is gone</span>—and what came back barely counts as survivors.</p>
+        <p>Commander Altierre was dragged in half-conscious after a stampede of wild boars. Hunter Roy survived, somehow, but lost his pants in the panic. Hunter Evera came back missing an eye and refused to say what took it.</p>
+        <p>They did not stop the threat. They only delayed it.</p>
+        <p>Now a mixed horde of Void creatures, corrupted beasts, and warped wildlife is pressing straight toward the portal.</p>
+        <p>You are what stands in the way.</p>
+      `,
+    },
+    {
+      title: 'Core Objective',
+      body: `
+        <p><span class="intro-highlight">Protect the portal. Survive the waves. Kill everything.</span></p>
+        <p>DFK Defender is a real-time defensive combat game. Each wave adds more pressure by mixing speed, size, and durability. Once enemies pile up, things spiral fast.</p>
+        <p>You are not trying to hold forever. You are trying to control the collapse long enough to break the horde before it reaches the portal.</p>
+      `,
+    },
+    {
+      title: 'Enemies – Size = Power',
+      body: `
+        <p>The game uses a compact set of enemy visuals, but their size tells you how dangerous they are.</p>
+        <ul>
+          <li><span class="intro-highlight">Small</span> → fast, fragile, swarm pressure</li>
+          <li><span class="intro-highlight">Medium</span> → balanced threats</li>
+          <li><span class="intro-highlight">Large</span> → slow, durable, heavy damage</li>
+        </ul>
+        <p>As waves progress, enemies grow larger, their stats scale upward, and mixed groups become more dangerous. Easy to read. Much harder to manage.</p>
+      `,
+    },
+    {
+      title: 'Combat – Attacks, Flow, and Passives',
+      body: `
+        <p>You control several attack styles, and each has a job.</p>
+        <ul>
+          <li><span class="intro-highlight">Basic attacks</span> → always automatic, steady pressure</li>
+          <li><span class="intro-highlight">Heavy attacks</span> → slower, higher impact, ideal for large enemies</li>
+          <li><span class="intro-highlight">AoE attacks</span> → control groups and stop overwhelm</li>
+        </ul>
+        <p>The skill is in <span class="intro-highlight">when</span> and <span class="intro-highlight">where</span> you use them, not just in firing them.</p>
+        <p class="intro-page-subheading">Passives – Always Working</p>
+        <p>Passives run in the background and reward consistency: bonus effects every few attacks, damage or attack speed boosts, and splash or slow effects that build momentum over time.</p>
+      `,
+    },
+    {
+      title: 'Game Modes – Two Ways to Play',
+      body: `
+        <p class="intro-page-subheading">Easy Mode – Fast & Passive</p>
+        <p>Beyond basic attacks, abilities trigger automatically after cooldowns. Automation kicks in after a short delay, and the game runs around <span class="intro-highlight">2× speed</span>.</p>
+        <p>This creates constant action, lighter input demands, and heavier reliance on passives and setup. It feels like a faster, more modern tower defense system.</p>
+        <p class="intro-page-subheading">Challenge Mode – Slower & Strategic</p>
+        <p>Only basic attacks are automatic. Everything else must be triggered manually. That turns the battlefield into a timing test where decision-making matters more than raw setup.</p>
+      `,
+    },
+    {
+      title: 'The Core Choice',
+      body: `
+        <p><span class="intro-highlight">Easy Mode</span> is passive, fast, and system-driven.</p>
+        <p><span class="intro-highlight">Challenge Mode</span> is active, slower, and skill-driven.</p>
+        <p>Same mechanics. Completely different experience.</p>
+        <p class="intro-page-subheading">Strategy Basics</p>
+        <ul>
+          <li>Control the field and do not let enemies stack.</li>
+          <li>Prioritize targets: small enemies create pressure, large enemies become the anchor threat.</li>
+          <li>Use the right attack for the right job: AoE for groups, heavy attacks for tanks.</li>
+          <li>Adapt constantly. Static play gets punished.</li>
+        </ul>
+        <p>The militia could not hold. Now it is your turn. Whether you let the system fight for you or take full control yourself, one thing does not change:</p>
+        <p><span class="intro-highlight">If you fail, the portal falls.</span></p>
+      `,
+    },
+  ];
+
+
+  const HERO_PAGES = [
+    {
+      title: 'Warrior – Path Control',
+      body: `
+        <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
+        <ul>
+          <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
+          <li><span class="intro-highlight">New Blood</span> — Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. During prep, you can spend that charge to place a level 1 helper Warrior on any valid tile. The helper has half of the current Warrior's max HP and costs more to level up.</li>
+          <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
+          <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
+        </ul>
+        <p>The Warrior belongs at the front. He holds lanes, forces reroutes, and protects your damage dealers by making enemies crash into him first instead of slipping through to softer targets.</p>
+      `,
+    },
+    {
+      title: 'Aggro – Protect Your DPS',
+      body: `
+        <p>Enemies are drawn toward heroes that damage them instead of the portal. That means your ranged heroes can pull heat the moment they start contributing.</p>
+        <ul>
+          <li>Archers, Wizards, and Pirates will often take aggro once they start hitting.</li>
+          <li>If they are exposed, they get focused and can fall fast.</li>
+          <li>The Warrior's path block is what keeps those heroes alive long enough to matter.</li>
+        </ul>
+        <p>Your DPS wins fights, but only if you place it behind cover, behind the Warrior, or far enough away that enemies cannot instantly collapse on it.</p>
+      `,
+    },
+    {
+      title: 'Archer – Sustained Damage',
+      body: `
+        <p>The Archer keeps up steady pressure from range and helps thin waves before they ever reach your choke point.</p>
+        <ul>
+          <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
+          <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
+          <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
+          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, full Archer damage, and a higher upgrade cost.</li>
+        </ul>
+        <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
+      `,
+    },
+    {
+      title: 'Wizard – Crowd Control',
+      body: `
+        <p>The Wizard is how you stop a wave from snowballing. He softens groups, slows pressure, and punishes enemies that bunch up in choke points.</p>
+        <ul>
+          <li><span class="intro-highlight">Firebolt</span> — Deals direct spell damage on a short cooldown.</li>
+          <li><span class="intro-highlight">Ice Aura</span> — Passive. Every second, it slows nearby enemies. The slow grows stronger with Wizard level, and the aura range expands again later at higher level.</li>
+          <li><span class="intro-highlight">Fireball</span> — Explodes in an area, making it one of the best answers to clustered enemies.</li>
+          <li><span class="intro-highlight">Frost Lance</span> — Deals heavy damage, and it hits even harder against enemies that are already slowed.</li>
+        </ul>
+        <p>The Wizard is strongest when enemies are forced to stack up by Warrior positioning or terrain, because that turns every area spell into real control.</p>
+      `,
+    },
+    {
+      title: 'Priest – Sustain',
+      body: `
+        <p>The Priest does not win by burst. She wins by keeping the rest of your team alive long enough to finish the fight.</p>
+        <ul>
+          <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies in a solid chunk.</li>
+          <li><span class="intro-highlight">Freedom</span> — Removes slows and roots from nearby allies, then gives brief slow immunity.</li>
+          <li><span class="intro-highlight">Swiftness</span> — Boosts nearby allies' attack speed, helping your whole line push harder during key moments.</li>
+          <li><span class="intro-highlight">Healing Aura</span> — Passive. At higher level, the Priest gains a healing aura that restores nearby allies every second, and it scales directly with her level.</li>
+        </ul>
+        <p>Use the Priest to support the Warrior, stabilize damaged heroes, and turn fights that should have collapsed into fights you still win.</p>
+      `,
+    },
+    {
+      title: 'Pirate – Bleed & Spread',
+      body: `
+        <p>The Pirate spreads pressure across the field. He rewards longer fights, packed lanes, and enemies that stay alive just long enough to suffer for it.</p>
+        <ul>
+          <li><span class="intro-highlight">Warning Shot</span> — Marks one enemy so it takes more damage from the rest of your team.</li>
+          <li><span class="intro-highlight">Starboard Cannons</span> — Fires multiple cannonballs into a small splash zone, which is great for clustered lanes.</li>
+          <li><span class="intro-highlight">Kraken</span> — Creates a damaging area that slows enemies hard over several seconds.</li>
+          <li><span class="intro-highlight">Bloody Bastard</span> — Pirate kills steal extra Gold. Also, every 10th basic attack makes the target bleed, dealing percent max HP damage over time and adding a slow. The Pirate prefers targets that are not already bleeding so the effect spreads.</li>
+        </ul>
+        <p>The Pirate is at his best in longer waves where bleed, slows, and splash all have time to stack pressure across the board.</p>
+      `,
+    },
+  ];
+
+  function getActiveGuidePages() {
+    return game.introSet === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+  }
+
+  function renderIntroPage() {
+    if (!els.introBody) return;
+    const pages = getActiveGuidePages();
+    const safeIndex = Math.max(0, Math.min(pages.length - 1, game.introPageIndex));
+    game.introPageIndex = safeIndex;
+    const page = pages[safeIndex];
+    if (els.introKicker) els.introKicker.textContent = game.introSet === 'heroes' ? 'DFK Defense Hero Guide' : 'DFK Defense Briefing';
+    if (els.introTitle) els.introTitle.textContent = game.introSet === 'heroes' ? 'Meet the Heroes' : 'DFK Defender – Stand Against the Void';
+    els.introBody.innerHTML = `<h3 class="intro-page-heading">${page.title}</h3>${page.body}`;
+    if (els.introPageLabel) els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
+    if (els.introPrevBtn) els.introPrevBtn.disabled = game.introPageIndex <= 0;
+    if (els.introNextBtn) {
+      els.introNextBtn.disabled = false;
+      els.introNextBtn.textContent = game.introPageIndex >= pages.length - 1 ? 'Done' : 'Next →';
+    }
+  }
+
+  function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
+    const pages = setName === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+    game.introSet = setName;
+    game.introPageIndex = Math.max(0, Math.min(pages.length - 1, pageIndex));
+    game.introOpen = true;
+    if (els.introModal) {
+      els.introModal.classList.remove('hidden');
+      els.introModal.setAttribute('aria-hidden', 'false');
+    }
+    renderIntroPage();
+  }
+
+  function closeIntroModal() {
+    game.introOpen = false;
+    if (els.introModal) {
+      els.introModal.classList.add('hidden');
+      els.introModal.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function maybeShowIntroOnOpen() {
+    if (game.introAutoShown) return;
+    game.introAutoShown = true;
+    openIntroModal(0);
+  }
+
   function updateTopbar() {
     els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))} / 2000`;
     els.jewelCount.textContent = formatJewel(game.jewel);
@@ -735,35 +982,43 @@ function getRandomTree(){
     return `${value.toFixed(1)}`;
   }
 
-  function setTimeScale(scale) {
-    game.timeScale = scale;
-    if (!els.speedToggleBtn) return;
-    const active = scale > 1;
-    els.speedToggleBtn.classList.toggle('active', active);
-    els.speedToggleBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    els.speedToggleBtn.textContent = active ? '▶ 2× Speed ON' : '▶ 2× Speed';
-    els.speedToggleBtn.title = active ? 'Click to return to normal speed' : 'Click to double the speed of everything';
+  function updateModeButtons() {
+    const easyActive = game.timeScale > 1 && !!game.mobileMode;
+    const challengeActive = !easyActive;
+    if (els.speedToggleBtn) {
+      els.speedToggleBtn.classList.toggle('active', easyActive);
+      els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
+      els.speedToggleBtn.textContent = '✨ Easy Mode' + (easyActive ? ' ON' : '');
+      els.speedToggleBtn.title = 'Easy Mode: 2× speed and auto-casting mobile play enabled.';
+    }
+    if (els.mobileModeBtn) {
+      els.mobileModeBtn.classList.toggle('active', challengeActive);
+      els.mobileModeBtn.setAttribute('aria-pressed', challengeActive ? 'true' : 'false');
+      els.mobileModeBtn.textContent = '⚔️ Challenge Mode' + (challengeActive ? ' ON' : '');
+      els.mobileModeBtn.title = 'Challenge Mode: normal speed with manual active skills.';
+    }
   }
 
+  function setPlayMode(mode, showNotice = true) {
+    const easy = mode === 'easy';
+    game.timeScale = easy ? 2 : 1;
+    game.mobileMode = easy;
+    updateModeButtons();
+    if (showNotice) showBanner(easy ? 'Easy Mode enabled' : 'Challenge Mode enabled', 1400);
+  }
 
-  function updateMobileModeButton() {
-    if (!els.mobileModeBtn) return;
-    const active = !!game.mobileMode;
-    els.mobileModeBtn.classList.toggle('active', active);
-    els.mobileModeBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    els.mobileModeBtn.textContent = active ? '📱 Mobile Mode ON' : '📱 Mobile Mode';
-    els.mobileModeBtn.title = active
-      ? 'Mobile Mode is on: unlocked active skills auto-cast 10 seconds after cooldown.'
-      : 'Turn on Mobile Mode to auto-cast unlocked active skills 10 seconds after cooldown.';
+  function setTimeScale(scale) {
+    game.timeScale = scale;
+    updateModeButtons();
   }
 
   function setMobileMode(enabled) {
     game.mobileMode = !!enabled;
-    updateMobileModeButton();
-    showBanner(game.mobileMode ? 'Mobile Mode enabled' : 'Mobile Mode disabled', 1400);
+    updateModeButtons();
   }
 
   function updatePauseButton() {
+
     if (!els.pauseBtn) return;
     const active = !!game.paused;
     els.pauseBtn.classList.toggle('active', active);
@@ -1009,16 +1264,14 @@ function getRandomTree(){
       game.infoPopupPinned = false;
       hideAbilityInfo(true);
       els.selectedInfo.textContent = 'Nothing selected.';
-      els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to upgrade, move, or cast abilities.</div>';
+      els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to level up, move, or cast abilities.</div>';
       els.upgradeBtn.disabled = true;
       els.moveBtn.disabled = true;
       els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
       els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
       return;
     }
-    const nextCost = getUpgradeCost(tower.level + 1);
-    const ownedRelics = getOwnedRelicObjects();
-    const relicHtml = ownedRelics.length ? `<div class="selected-relics"><strong>Owned Relics:</strong><br>${ownedRelics.map(r => r.name).join(', ')}</div>` : '<div class="muted">No relics owned yet.</div>';
+    const nextCost = getUpgradeCost(tower.level + 1, tower);
     els.selectedInfo.innerHTML = `
       ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
       HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
@@ -1026,9 +1279,8 @@ function getRandomTree(){
       Range: ${tower.range}<br>
       Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
-      Upgrade Cost: ${formatJewel(nextCost)} Gold<br>
-      Upgrade Cap This Wave: L${getUpgradeLevelCap()}
-      ${relicHtml}
+      Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
+      Level Cap This Wave: L${getUpgradeLevelCap()}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
@@ -1089,9 +1341,7 @@ function getRandomTree(){
       renderSelection();
       return;
     }
-    const nextCost = getUpgradeCost(tower.level + 1);
-    const ownedRelics = getOwnedRelicObjects();
-    const relicHtml = ownedRelics.length ? `<div class="selected-relics"><strong>Owned Relics:</strong><br>${ownedRelics.map(r => r.name).join(', ')}</div>` : '<div class="muted">No relics owned yet.</div>';
+    const nextCost = getUpgradeCost(tower.level + 1, tower);
     els.selectedInfo.innerHTML = `
       ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
       HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
@@ -1099,9 +1349,8 @@ function getRandomTree(){
       Range: ${tower.range}<br>
       Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
-      Upgrade Cost: ${formatJewel(nextCost)} Gold<br>
-      Upgrade Cap This Wave: L${getUpgradeLevelCap()}
-      ${relicHtml}
+      Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
+      Level Cap This Wave: L${getUpgradeLevelCap()}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
@@ -1484,6 +1733,7 @@ function getRandomTree(){
     const idx = getAbilityIndex(tower, abilityKey);
     if (idx < 0) return 1;
     if (idx < 2) return 1;
+    if (abilityKey === 'whirlwind') return 1;
     if (idx === 2) return 10;
     return 20;
   }
@@ -1509,7 +1759,7 @@ function getRandomTree(){
 
   function canUpgradeTower(tower) {
     const nextLevel = tower.level + 1;
-    return nextLevel <= getUpgradeLevelCap() && game.jewel >= getUpgradeCost(nextLevel);
+    return nextLevel <= getUpgradeLevelCap() && game.jewel >= getUpgradeCost(nextLevel, tower);
   }
 
   function getOwnedRelicObjects() {
@@ -1550,7 +1800,7 @@ function getRandomTree(){
         subtitle += `<div class="passive-active-note">Enhanced Aura Active: +1 range</div>`;
       }
       passive.innerHTML = `<h4>Passive</h4><div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${passiveEntry.description}</p>`;
-      if ((passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest') && !passiveEntry.locked) {
+      if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
         const satLabel = passiveEntry.key === 'eagle_nest' ? 'Satellite Archer' : 'Satellite Warrior';
@@ -1572,14 +1822,14 @@ function getRandomTree(){
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. Use that charge during prep to place a Satellite Warrior on any valid open tile. The Satellite Warrior has half of the current Warrior's max HP.${scale}`,
+      new_blood: `Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. Use that charge during prep to place a level 1 Satellite Warrior on any valid open tile. The Satellite Warrior has half of the current Warrior's max HP and costs 50% more to level up.${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
-      taunt: `Taunts enemies within ${2 * powerMult} tiles for ${3 * powerMult}s.${stronger}${common}${scale}`,
+
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a Satellite Archer on any valid open tile. The Satellite Archer has half of the current Archer's max HP but keeps full Archer damage and follows the same upgrade rules.`,
+      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of the current Archer's max HP, keeps full Archer damage, and costs 50% more to level up.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
@@ -1590,25 +1840,29 @@ function getRandomTree(){
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
       starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
-      kraken: `Applies a 5s kraken effect dealing ${Math.round(30 * powerMult)} damage per second in a 2-tile cluster.${stronger}${common}${scale}`,
+      kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(30 * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
     };
+    if (tower.type === 'pirate') {
+      map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
+    }
     return map[abilityKey] || `${common}${scale}`;
   }
 
-  function getUpgradeCost(nextLevel) {
+  function getUpgradeCost(nextLevel, tower = null) {
     let base = 15;
     if (nextLevel <= 5) base = 1;
     else if (nextLevel <= 10) base = 2;
     else if (nextLevel <= 15) base = 4;
     else if (nextLevel <= 20) base = 8;
-    return Math.round(base * UPGRADE_COST_MULTIPLIER * 10) / 10;
+    const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
+    return Math.round(base * UPGRADE_COST_MULTIPLIER * satelliteMult * 10) / 10;
   }
 
   function upgradeTower(tower) {
     const nextLevel = tower.level + 1;
-    const cost = getUpgradeCost(nextLevel);
+    const cost = getUpgradeCost(nextLevel, tower);
     if (nextLevel > getUpgradeLevelCap()) {
-      showBanner(`Upgrade cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`, 1500);
+      showBanner(`Level cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`, 1500);
       return;
     }
     if (game.jewel < cost) return;
@@ -1619,7 +1873,7 @@ function getRandomTree(){
     tower.hp = tower.maxHp * hpRatio;
     tower.damage *= 1.05;
     tower.basicCooldown /= tower.type === 'archer' ? 1.045 : 1.05;
-    log(`${tower.name} upgraded to level ${tower.level} (${rarityForLevel(tower.level)}).`);
+    log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
     render();
   }
 
@@ -1627,12 +1881,22 @@ function getRandomTree(){
     return game.towers.find(t => t.id === game.selectedId) || null;
   }
 
+  function getActiveSatelliteCountForOwner(ownerId) {
+    return game.towers.filter(t => t.isSatellite && t.satelliteOwnerId === ownerId).length;
+  }
+
   function beginSatellitePlacement(tower) {
-    if (!tower || tower.type !== 'warrior' || (tower.satelliteCharges || 0) <= 0) return;
-    game.placingHeroType = 'satellite_warrior';
+    if (!tower || (tower.type !== 'warrior' && tower.type !== 'archer') || (tower.satelliteCharges || 0) <= 0) return;
+    if (getActiveSatelliteCountForOwner(tower.id) >= 1) {
+      showBanner('That hero already has its maximum of 1 active satellite.', 1700);
+      return;
+    }
+    game.placingHeroType = tower.type;
     game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = tower.id;
-    log(`Select an open tile to place a Satellite Warrior from ${tower.name}.`);
+    const satLabel = tower.type === 'archer' ? 'Satellite Archer' : 'Satellite Warrior';
+    log(`Select an open tile to place a ${satLabel} from ${tower.name}.`);
     render();
   }
 
@@ -1707,22 +1971,62 @@ function getRandomTree(){
   }
 
   function placeHiredHero(x, y) {
+    const sourceTower = game.placingSatelliteSourceId
+      ? game.towers.find(t => t.id === game.placingSatelliteSourceId)
+      : null;
+    const isSatellitePlacement = !!sourceTower;
+
     if (!isOpenForTower(x, y)) {
-      showBanner('Pick an open tile for the new hero', 1200);
+      showBanner(isSatellitePlacement ? 'Pick an open tile for the satellite hero' : 'Pick an open tile for the new hero', 1200);
       return;
     }
+
     const typeToPlace = game.placingHeroType;
     const usesBonusHire = !!game.placingHeroUsesBonus;
-    const cost = game.placingHeroCost || getNextHireCost();
-    if (game.jewel < cost) {
+    const cost = isSatellitePlacement ? 0 : (game.placingHeroCost || getNextHireCost());
+
+    if (isSatellitePlacement) {
+      if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
+        showBanner('No satellite charge is available for that hero.', 1500);
+        game.placingHeroType = null;
+        game.placingHeroCost = 0;
+        game.placingHeroUsesBonus = false;
+        game.placingSatelliteSourceId = null;
+        render();
+        return;
+      }
+      if (getActiveSatelliteCountForOwner(sourceTower.id) >= 1) {
+        showBanner('That hero already has its maximum of 1 active satellite.', 1700);
+        game.placingHeroType = null;
+        game.placingHeroCost = 0;
+        game.placingHeroUsesBonus = false;
+        game.placingSatelliteSourceId = null;
+        render();
+        return;
+      }
+    } else if (game.jewel < cost) {
       showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
       game.placingHeroType = null;
       game.placingHeroCost = 0;
       game.placingHeroUsesBonus = false;
+      game.placingSatelliteSourceId = null;
       render();
       return;
     }
+
     const tower = createTower(typeToPlace, x, y);
+    if (isSatellitePlacement) {
+      tower.level = 1;
+      tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
+      tower.hp = tower.maxHp;
+      tower.damage = sourceTower.damage;
+      tower.range = sourceTower.range;
+      tower.basicCooldown = sourceTower.basicCooldown;
+      tower.satelliteOwnerId = sourceTower.id;
+      tower.isSatellite = true;
+      tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : 'Sat Warrior';
+    }
+
     game.towers.push(tower);
     tileAt(x, y).towerId = tower.id;
     if (tower.type === 'warrior' && !placementKeepsEnemiesReachable(tower)) {
@@ -1731,15 +2035,24 @@ function getRandomTree(){
       showBanner('Warrior must leave enemies a route to the portal or to a tile next to him.', 1800);
       return;
     }
-    game.jewel -= cost;
-    if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
-    log(`Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
-    if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
-    game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+
+    if (isSatellitePlacement) {
+      sourceTower.satelliteCharges = Math.max(0, (sourceTower.satelliteCharges || 0) - 1);
+      log(`Placed ${tower.name} from ${sourceTower.name} at (${x + 1}, ${y + 1}).`);
+      if (typeof markProgress === 'function') markProgress(`Placed ${tower.name}.`);
+    } else {
+      game.jewel -= cost;
+      if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
+      log(`Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
+      if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
+      game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+    }
+
     game.selectedId = tower.id;
     game.placingHeroType = null;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
     render();
   }
 
@@ -1750,18 +2063,23 @@ function getRandomTree(){
   function moveWouldPreservePath(tower, nx, ny) {
     const fromTile = tileAt(tower.x, tower.y);
     const toTile = tileAt(nx, ny);
-    fromTile.towerId = null;
-    toTile.towerId = tower.id;
+    const oldFromTowerId = fromTile ? fromTile.towerId : null;
+    const oldToTowerId = toTile ? toTile.towerId : null;
     const oldX = tower.x;
     const oldY = tower.y;
-    tower.x = nx;
-    tower.y = ny;
-    const okay = tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
-    tower.x = oldX;
-    tower.y = oldY;
-    fromTile.towerId = tower.id;
-    toTile.towerId = null;
-    return okay;
+
+    try {
+      if (fromTile) fromTile.towerId = null;
+      if (toTile) toTile.towerId = tower.id;
+      tower.x = nx;
+      tower.y = ny;
+      return tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
+    } finally {
+      tower.x = oldX;
+      tower.y = oldY;
+      if (fromTile) fromTile.towerId = oldFromTowerId;
+      if (toTile) toTile.towerId = oldToTowerId;
+    }
   }
 
   function moveTower(tower, nx, ny) {
@@ -2155,9 +2473,9 @@ function getRandomTree(){
       awardPremiumJewels(5, 'Wave 15 reward');
     }
     if (game.waveNumber > 0 && game.waveNumber % 5 === 0) {
-      const unlockedWarriors = game.towers.filter(t => t.type === 'warrior' && isAbilityUnlocked(t, 'new_blood'));
+      const unlockedWarriors = game.towers.filter(t => t.type === 'warrior' && !t.isSatellite && isAbilityUnlocked(t, 'new_blood'));
       for (const warrior of unlockedWarriors) {
-        warrior.satelliteCharges = (warrior.satelliteCharges || 0) + 1;
+        warrior.satelliteCharges = Math.min(1, (warrior.satelliteCharges || 0) + 1);
       }
       if (unlockedWarriors.length) {
         showBanner(`New Blood: +1 Satellite Warrior charge ready${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`, 2500);
@@ -2165,9 +2483,9 @@ function getRandomTree(){
       }
     }
     if (game.waveNumber > 0 && game.waveNumber % 7 === 0) {
-      const unlockedArchers = game.towers.filter(t => t.type === 'archer' && isAbilityUnlocked(t, 'eagle_nest'));
+      const unlockedArchers = game.towers.filter(t => t.type === 'archer' && !t.isSatellite && isAbilityUnlocked(t, 'eagle_nest'));
       for (const archer of unlockedArchers) {
-        archer.satelliteCharges = (archer.satelliteCharges || 0) + 1;
+        archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
       }
       if (unlockedArchers.length) {
         showBanner(`Eagle Nest: +1 Satellite Archer charge ready${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`, 2500);
@@ -2309,6 +2627,10 @@ function getRandomTree(){
       healTower(tower, tower.maxHp * 0.05, `${tower.name} healed from Gladiator Strike`);
       showBanner('Warrior passive: Gladiator Strike');
     }
+    if (tower.type === 'pirate' && tower.basicAttackCount % 10 === 0) {
+      applyDebuff(target, 'bleed', 10, { damagePercent: 0.03, percent: 0.05, nextTickAt: now() + 1000 });
+      showBanner('Bloody Bastard: Bloody Bastard');
+    }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
   }
 
@@ -2320,6 +2642,22 @@ function getRandomTree(){
     const warriors = getWarriorTowers();
     if (!warriors.length) return null;
     return warriors.slice().sort((a, b) => dist(unit, a) - dist(unit, b))[0] || null;
+  }
+
+  function getReachableWarriorPlan(enemy) {
+    const warriors = getWarriorTowers().slice().sort((a, b) => dist(enemy, a) - dist(enemy, b));
+    for (const warrior of warriors) {
+      if (dist(enemy, warrior) <= 1) {
+        return { warrior, attackNow: true, path: null };
+      }
+      const warriorAdj = getTowerApproachTiles(warrior);
+      if (!warriorAdj.length) continue;
+      const warriorPath = pathfind({ x: enemy.x, y: enemy.y }, warriorAdj);
+      if (warriorPath && warriorPath.length > 1) {
+        return { warrior, attackNow: false, path: warriorPath };
+      }
+    }
+    return null;
   }
 
   function isBehindWarrior(tower) {
@@ -2348,6 +2686,13 @@ function getRandomTree(){
   function nearestEnemyInRange(tower, range) {
     const enemies = game.enemies.filter(e => dist(tower, e) <= range);
     if (!enemies.length) return null;
+    if (tower.type === 'pirate') {
+      const nonBleeding = enemies.filter(e => !e.debuffs?.bleed);
+      if (nonBleeding.length) {
+        nonBleeding.sort((a, b) => dist(tower, a) - dist(tower, b));
+        return nonBleeding[0] || null;
+      }
+    }
     if (tower.type === 'archer' && game.modifiers.senseWeakness) {
       const debuffed = enemies.filter(e => e.debuffs && Object.keys(e.debuffs).length > 0);
       if (debuffed.length) {
@@ -2401,7 +2746,6 @@ function getRandomTree(){
       enemy.nextAbilityAt = current + enemy.bossTemplate.abilityInterval * 1000;
     }
 
-    const warrior = getNearestWarriorTo(enemy);
     const portalTargets = getPortalTargets();
     let targets = portalTargets;
     let attackTarget = null;
@@ -2446,26 +2790,21 @@ function getRandomTree(){
             enemy.nextMoveAt = current + 200;
           }
         }
-      } else if (warrior) {
-        const warriorAdj = getTowerApproachTiles(warrior);
-        if (dist(enemy, warrior) <= 1) {
-          attackTarget = warrior;
-        } else {
-          const warriorPath = pathfind({ x: enemy.x, y: enemy.y }, warriorAdj);
-          if (warriorPath && warriorPath.length > 1) {
-            if (current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
-              const next = warriorPath[1];
-              if (canEnemyEnter(next.x, next.y, enemy)) {
-                enemy.prevX = enemy.x;
-                enemy.prevY = enemy.y;
-                enemy.x = next.x;
-                enemy.y = next.y;
-                enemy.moveStartedAt = current;
-                enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-                enemy.nextMoveAt = enemy.moveEndAt;
-                markProgress(`${enemy.name} moved.`);
-              }
-            }
+      } else {
+        const warriorPlan = getReachableWarriorPlan(enemy);
+        if (warriorPlan?.attackNow) {
+          attackTarget = warriorPlan.warrior;
+        } else if (warriorPlan?.path && current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+          const next = warriorPlan.path[1];
+          if (canEnemyEnter(next.x, next.y, enemy)) {
+            enemy.prevX = enemy.x;
+            enemy.prevY = enemy.y;
+            enemy.x = next.x;
+            enemy.y = next.y;
+            enemy.moveStartedAt = current;
+            enemy.moveEndAt = current + getEnemyMoveMs(enemy);
+            enemy.nextMoveAt = enemy.moveEndAt;
+            markProgress(`${enemy.name} moved.`);
           }
         }
       }
@@ -2491,9 +2830,18 @@ function getRandomTree(){
     }
   }
 
+  function getEnemySlowPercent(enemy) {
+    let total = 0;
+    if (enemy.debuffs.slow) total += enemy.debuffs.slow.percent || 0.3;
+    if (enemy.debuffs.kraken) total += enemy.debuffs.kraken.percent || 0;
+    if (enemy.debuffs.bleed) total += enemy.debuffs.bleed.percent || 0;
+    return total;
+  }
+
   function getEnemyMoveMs(enemy) {
     let mult = 1;
-    if (enemy.debuffs.slow) mult *= (1 + ((enemy.debuffs.slow.percent || 0.3) * (1 - enemy.slowResistance)));
+    const slowPercent = getEnemySlowPercent(enemy);
+    if (slowPercent > 0) mult *= (1 + (slowPercent * (1 - enemy.slowResistance)));
     return enemy.moveInterval * 1000 * mult;
   }
 
@@ -2652,7 +3000,7 @@ function getRandomTree(){
         py = fy + (py - fy) * prog;
       }
       const dot = document.createElement('div');
-      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${enemy.debuffs && enemy.debuffs.slow ? ' enemy-slowed' : ''}`;
+      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${enemy.debuffs && (enemy.debuffs.slow || enemy.debuffs.kraken || enemy.debuffs.bleed) ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
       els.enemyLayer.appendChild(dot);
@@ -2759,6 +3107,10 @@ function getRandomTree(){
           unit.hp -= debuff.damage;
           debuff.nextTickAt = current + 1000;
         }
+        if (name === 'bleed' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
+          unit.hp -= (debuff.damagePercent || 0.03) * unit.maxHp;
+          debuff.nextTickAt = current + 1000;
+        }
       }
     }
   }
@@ -2834,7 +3186,7 @@ function getRandomTree(){
         const target = nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         let dmg = 90 * powerMult * game.modifiers.wizardSpellDamage;
-        if (target.debuffs.slow) dmg *= 2;
+        if (getEnemySlowPercent(target) > 0) dmg *= 2;
         damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`);
         return true;
       },
@@ -2879,7 +3231,7 @@ function getRandomTree(){
         const target = nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
-        targets.forEach(e => applyDebuff(e, 'kraken', 5, { damage: 30 * powerMult, nextTickAt: now() + 1000 }));
+        targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: 30 * powerMult, percent: 0.5, nextTickAt: now() + 1000 }));
         return true;
       },
     };
@@ -2911,14 +3263,42 @@ function getRandomTree(){
     if (buyableWaveStart()) startWave();
   });
   els.restartBtn.addEventListener('click', resetGame);
+  window.addEventListener('dfk-defense:bank-balance', (event) => {
+    syncPremiumJewelsFromSettledBank(event.detail || null);
+  });
   els.speedToggleBtn?.addEventListener('click', () => {
-    setTimeScale(game.timeScale > 1 ? 1 : 2);
+    setPlayMode('easy');
   });
   els.mobileModeBtn?.addEventListener('click', () => {
-    setMobileMode(!game.mobileMode);
+    setPlayMode('challenge');
   });
   els.pauseBtn?.addEventListener('click', () => {
     setPaused(!game.paused);
+  });
+  els.introBtn?.addEventListener('click', () => {
+    openIntroModal(game.introSet === 'intro' ? (game.introPageIndex || 0) : 0, 'intro');
+  });
+  els.heroesBtn?.addEventListener('click', () => {
+    openIntroModal(game.introSet === 'heroes' ? (game.introPageIndex || 0) : 0, 'heroes');
+  });
+  els.closeIntroBtn?.addEventListener('click', closeIntroModal);
+  els.walletPanelToggle?.addEventListener('click', () => {
+    const collapsed = els.walletPanel?.classList.toggle('collapsed');
+    if (els.walletPanelToggle) els.walletPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
+  els.introPrevBtn?.addEventListener('click', () => {
+    if (game.introPageIndex > 0) {
+      game.introPageIndex -= 1;
+      renderIntroPage();
+    }
+  });
+  els.introNextBtn?.addEventListener('click', () => {
+    if (game.introPageIndex < INTRO_PAGES.length - 1) {
+      game.introPageIndex += 1;
+      renderIntroPage();
+    } else {
+      closeIntroModal();
+    }
   });
   els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
   els.upgradeBtn.addEventListener('click', () => {
@@ -2999,10 +3379,27 @@ function getRandomTree(){
 
   game.virtualNow = Date.now();
   game.realLastTick = Date.now();
+  if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.refreshBank === 'function') {
+    window.DFKDefenseWallet.refreshBank().catch(() => {});
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && game.introOpen) {
+      closeIntroModal();
+      return;
+    }
+    if (!game.introOpen) return;
+    if (event.key === 'ArrowRight' && game.introPageIndex < INTRO_PAGES.length - 1) {
+      game.introPageIndex += 1;
+      renderIntroPage();
+    } else if (event.key === 'ArrowLeft' && game.introPageIndex > 0) {
+      game.introPageIndex -= 1;
+      renderIntroPage();
+    }
+  });
+
   resetGame();
   game.lastTick = now();
-  setTimeScale(1);
-  updateMobileModeButton();
+  setPlayMode('easy', false);
   updatePauseButton();
   requestAnimationFrame(gameLoop);
 })();

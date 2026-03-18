@@ -1,0 +1,8 @@
+{
+  "name": "@dfk-defense/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./config": "./src/config.js"
+  }
+}

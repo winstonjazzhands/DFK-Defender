@@ -1,0 +1,36 @@
+--- js/app.js.pre_move_path_fix	2026-03-18 12:27:15.696834279 +0000
++++ js/app.js	2026-03-18 12:27:17.811789363 +0000
+@@ -1765,18 +1765,23 @@
+   function moveWouldPreservePath(tower, nx, ny) {
+     const fromTile = tileAt(tower.x, tower.y);
+     const toTile = tileAt(nx, ny);
+-    fromTile.towerId = null;
+-    toTile.towerId = tower.id;
++    const oldFromTowerId = fromTile ? fromTile.towerId : null;
++    const oldToTowerId = toTile ? toTile.towerId : null;
+     const oldX = tower.x;
+     const oldY = tower.y;
+-    tower.x = nx;
+-    tower.y = ny;
+-    const okay = tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
+-    tower.x = oldX;
+-    tower.y = oldY;
+-    fromTile.towerId = tower.id;
+-    toTile.towerId = null;
+-    return okay;
++
++    try {
++      if (fromTile) fromTile.towerId = null;
++      if (toTile) toTile.towerId = tower.id;
++      tower.x = nx;
++      tower.y = ny;
++      return tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
++    } finally {
++      tower.x = oldX;
++      tower.y = oldY;
++      if (fromTile) fromTile.towerId = oldFromTowerId;
++      if (toTile) toTile.towerId = oldToTowerId;
++    }
+   }
+ 
+   function moveTower(tower, nx, ny) {

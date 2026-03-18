@@ -1,0 +1,2528 @@
+(() => {
+  'use strict';
+
+  const WIDTH = 12;
+  const HEIGHT = 8;
+  const BREACH_LANES = {
+    top: [{ x: 0, y: 0 }, { x: 0, y: 1 }],
+    middle: [{ x: 0, y: 2 }, { x: 0, y: 3 }, { x: 0, y: 4 }],
+    bottom: [{ x: 0, y: 5 }, { x: 0, y: 6 }, { x: 0, y: 7 }],
+  };
+  const LANE_NAMES = ['top', 'middle', 'bottom'];
+  const DIRECTIONS = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+  ];
+  const SETUP_PHASES = {
+    PORTAL: 'place-portal',
+    OBSTACLES: 'place-obstacles',
+    WARRIOR: 'place-warrior',
+    BATTLE: 'battle',
+    GAME_OVER: 'game-over',
+  };
+
+  const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
+  const HIRE_COSTS = [20, 40, 70, 110];
+  const UPGRADE_COST_MULTIPLIER = 1.15;
+  const ENEMY_JEWEL_MULTIPLIER = 0.95;
+  const BARRIER_REBUILD_COST = 120;
+  const WAVE_REBUILD_INTERVAL = 15;
+  const UPDATE_MS = 200;
+  const WAVE_BREAK_SECONDS = 6;
+  const RANDOM_OBSTACLE_COUNT = 9;
+  const PLAYER_OBSTACLE_COUNT = 10;
+
+  const TOWER_TEMPLATES = {
+    warrior: {
+      name: 'Warrior',
+      letter: 'WAR',
+      hp: 660,
+      damage: 35,
+      attackInterval: 1.33,
+      range: 1,
+      autoAttack: true,
+      abilities: [
+        { key: 'gladiator_strike', name: 'Gladiator Strike', cooldown: 0, passive: true },
+        { key: 'whirlwind', name: 'Whirlwind', cooldown: 8 },
+        { key: 'rapid_onslaught', name: 'Rapid Onslaught', cooldown: 12 },
+        { key: 'taunt', name: 'Taunt', cooldown: 10 },
+      ],
+    },
+    archer: {
+      name: 'Archer',
+      letter: 'ARC',
+      hp: 242,
+      damage: 28,
+      attackInterval: 0.9,
+      range: 4,
+      autoAttack: true,
+      abilities: [
+        { key: 'multi_shot', name: 'Multi-Shot', cooldown: 6 },
+        { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 10 },
+        { key: 'piercing_shot', name: 'Piercing Shot', cooldown: 7 },
+        { key: 'hunters_mark', name: "Hunter's Mark", cooldown: 10 },
+      ],
+    },
+    wizard: {
+      name: 'Wizard',
+      letter: 'WIZ',
+      hp: 286,
+      damage: 30,
+      attackInterval: 1.425,
+      range: 3,
+      autoAttack: true,
+      abilities: [
+        { key: 'firebolt', name: 'Firebolt', cooldown: 5 },
+        { key: 'frost_bolt', name: 'Ice Aura', cooldown: 0, passive: true },
+        { key: 'fireball', name: 'Fireball', cooldown: 7 },
+        { key: 'frost_lance', name: 'Frost Lance', cooldown: 9 },
+      ],
+    },
+    priest: {
+      name: 'Priest',
+      letter: 'PRS',
+      hp: 264,
+      damage: 0,
+      attackInterval: 2.0,
+      range: 3,
+      autoAttack: false,
+      abilities: [
+        { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 8 },
+        { key: 'freedom', name: 'Freedom', cooldown: 12 },
+        { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
+        { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
+      ],
+    },
+    pirate: {
+      name: 'Pirate',
+      letter: 'PIR',
+      hp: 308,
+      damage: 35.28,
+      attackInterval: 1.2,
+      range: 3,
+      autoAttack: true,
+      abilities: [
+        { key: 'warning_shot', name: 'Warning Shot', cooldown: 7 },
+        { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 10 },
+        { key: 'kraken', name: 'Kraken', cooldown: 20 },
+      ],
+      passive: 'Steal: +15% JEWEL from Pirate kills',
+    },
+  };
+
+  const ENEMY_TEMPLATES = {
+    grunt: { name: 'Grunt', hp: 120, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 6, typeClass: 'grunt' },
+    runner: { name: 'Runner', hp: 80, damage: 10, moveInterval: 0.4275, attackInterval: 1.0, jewel: 5, typeClass: 'runner' },
+    brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 20, typeClass: 'brute' },
+  };
+
+  const BOSSES = [
+    {
+      id: 'ogre',
+      name: 'Ogre Warlord',
+      hp: 1800,
+      damage: 60,
+      moveInterval: 0.9,
+      attackInterval: 1.5,
+      jewel: 120,
+      abilityInterval: 6,
+      useAbility(enemy, game) {
+        const hits = game.enemies.filter(e => false);
+        const targetTiles = adjacentTiles(enemy.x, enemy.y);
+        let didHit = false;
+        for (const tile of targetTiles) {
+          const tower = game.towers.find(t => t.x === tile.x && t.y === tile.y);
+          if (tower) {
+            didHit = true;
+            damageTower(game, tower, 80, `${enemy.name} used Ground Slam on ${tower.name}`);
+          }
+        }
+        if (didHit) showBanner(`${enemy.name} used Ground Slam`);
+      },
+    },
+    {
+      id: 'frost',
+      name: 'Frost Warden',
+      hp: 4200,
+      damage: 55,
+      moveInterval: 0.85,
+      attackInterval: 1.4,
+      jewel: 300,
+      abilityInterval: 10,
+      useAbility(enemy, game) {
+        let hit = false;
+        for (const tower of game.towers) {
+          if (dist(enemy, tower) <= 4) {
+            applyBuff(tower, 'blizzardSlow', 4, { speedMult: 0.5 });
+            hit = true;
+          }
+        }
+        if (hit) showBanner('Frost Warden cast Blizzard');
+      },
+    },
+    {
+      id: 'golem',
+      name: 'Siege Golem',
+      hp: 6500,
+      damage: 120,
+      moveInterval: 1.1,
+      attackInterval: 2.0,
+      jewel: 300,
+      abilityInterval: 10,
+      useAbility(enemy) {
+        enemy.reductionUntil = now() + 5000;
+        showBanner('Siege Golem hardened its armor');
+      },
+    },
+    {
+      id: 'kraken_caller',
+      name: 'Kraken Caller',
+      hp: 5200,
+      damage: 70,
+      moveInterval: 0.9,
+      attackInterval: 1.6,
+      jewel: 300,
+      abilityInterval: 10,
+      useAbility(enemy, game) {
+        const candidates = game.towers.filter(t => t.type !== 'warrior');
+        if (!candidates.length) return;
+        const target = candidates[Math.floor(Math.random() * candidates.length)];
+        damageTower(game, target, 90, `${enemy.name} summoned a tentacle under ${target.name}`);
+        applyDebuff(target, 'rooted', 2, {});
+        showBanner('Kraken Caller summoned tentacles');
+      },
+    },
+  ];
+
+  const RELICS = [
+    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Archer damage +12%', cost: 120, apply: game => buffTowerType(game, 'archer', { damageMult: 1.12 }) },
+    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Archer attack speed +10%', cost: 120, apply: game => buffTowerType(game, 'archer', { speedMult: 1.10 }) },
+    { id: 'arcane_focus', name: 'Arcane Focus', desc: 'Wizard spell damage +12%', cost: 130, apply: game => game.modifiers.wizardSpellDamage *= 1.12 },
+    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: 'Wizard cooldowns reduced by 10%', cost: 130, apply: game => game.modifiers.wizardCooldown *= 0.90 },
+    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Warrior max HP +20%', cost: 130, apply: game => buffTowerType(game, 'warrior', { hpMult: 1.20, healToMatchPercent: true }) },
+    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Warrior cooldowns recover 10% faster', cost: 120, apply: game => game.modifiers.warriorCooldown *= 0.90 },
+    { id: 'radiant_faith', name: 'Radiant Faith', desc: 'Priest healing +15%', cost: 125, apply: game => game.modifiers.priestHealing *= 1.15 },
+    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Towers near Priest gain +8% attack speed', cost: 140, apply: game => game.modifiers.sacredAura = true },
+    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: 'Pirate steal bonus rises to +20%', cost: 140, apply: game => game.modifiers.pirateSteal = 0.20 },
+    { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Starboard Cannons fires +1 cannonball', cost: 150, apply: game => game.modifiers.extraCannons += 1 },
+    { id: 'shield_wall', name: 'Shield Wall', desc: 'Warrior takes 10% less damage if Priest is adjacent', cost: 150, apply: game => game.modifiers.shieldWall = true },
+    { id: 'ranger_line', name: 'Ranger Line', desc: 'Archers behind Warrior deal +10% damage', cost: 140, apply: game => game.modifiers.rangerLine = true },
+    { id: 'sense_weakness', name: 'Sense Weakness', desc: 'Archer auto-attacks prioritize slowed or debuffed enemies', cost: 135, apply: game => game.modifiers.senseWeakness = true },
+  ];
+
+  const MUTATIONS = [
+    { id: 'swift_horde', name: 'Swift Horde', desc: 'Enemies move 20% faster', apply: enemy => { enemy.moveInterval *= 0.8; } },
+    { id: 'thick_hide', name: 'Thick Hide', desc: 'Enemies gain 25% HP', apply: enemy => { enemy.maxHp *= 1.25; enemy.hp *= 1.25; } },
+    { id: 'relentless', name: 'Relentless', desc: 'Enemies attack 20% faster', apply: enemy => { enemy.attackInterval *= 0.8; } },
+    { id: 'reinforcements', name: 'Reinforcements', desc: 'Wave size increases by 30%', waveModifier: wave => { wave.sizeMultiplier *= 1.3; } },
+    { id: 'determined', name: 'Determined', desc: 'Enemies resist slows by 50%', apply: enemy => { enemy.slowResistance = 0.5; } },
+    { id: 'jewel_rush', name: 'Jewel Rush', desc: 'Enemies drop 25% more JEWEL', apply: enemy => { enemy.jewel *= 1.25; } },
+  ];
+
+  const els = {
+    grid: document.getElementById('grid'),
+    portalHp: document.getElementById('portalHp'),
+    jewelCount: document.getElementById('jewelCount'),
+    waveCount: document.getElementById('waveCount'),
+    patternLabel: document.getElementById('patternLabel'),
+    mutationLabel: document.getElementById('mutationLabel'),
+    countdownLabel: document.getElementById('countdownLabel'),
+    phaseLabel: document.getElementById('phaseLabel'),
+    instructionText: document.getElementById('instructionText'),
+    log: document.getElementById('log'),
+    speedToggleBtn: document.getElementById('speedToggleBtn'),
+    selectedInfo: document.getElementById('selectedInfo'),
+    abilitiesPanel: document.getElementById('abilitiesPanel'),
+    hirePanel: document.getElementById('hirePanel'),
+    relicPanel: document.getElementById('relicPanel'),
+    banner: document.getElementById('banner'),
+    abilityInfoPopup: null,
+    startWaveBtn: document.getElementById('startWaveBtn'),
+    skipSetupBtn: document.getElementById('skipSetupBtn'),
+    restartBtn: document.getElementById('restartBtn'),
+    upgradeBtn: document.getElementById('upgradeBtn'),
+    moveBtn: document.getElementById('moveBtn'),
+    rebuildBarriersBtn: document.getElementById('rebuildBarriersBtn'),
+    enemyLayer: null,
+    crashPanel: null,
+  };
+
+  const game = {
+    phase: SETUP_PHASES.PORTAL,
+    grid: [],
+    tilesByKey: new Map(),
+    portal: null,
+    towers: [],
+    enemies: [],
+    waveNumber: 0,
+    countdownMs: 0,
+    runningWave: false,
+    randomObstaclesPlaced: false,
+    playerObstacleCount: 0,
+    selectedId: null,
+    movingTowerId: null,
+    placingHeroType: null,
+    placingHeroCost: 0,
+    hoveredTowerId: null,
+    lastTick: 0,
+    realLastTick: 0,
+    virtualNow: 0,
+    timeScale: 1,
+    nextEnemyId: 1,
+    nextTowerId: 1,
+    nextWavePlan: null,
+    activeMutation: null,
+    recentMutations: [],
+    recentLanes: [],
+    hireCount: 0,
+    rebuildingBarriers: false,
+    barrierRefitCount: 0,
+    jewel: 0,
+    portalHp: 2000,
+    relicChoices: [],
+    ownedRelics: [],
+    modifiers: {
+      wizardSpellDamage: 1,
+      wizardCooldown: 1,
+      warriorCooldown: 1,
+      priestHealing: 1,
+      sacredAura: false,
+      pirateSteal: 0.15,
+      extraCannons: 0,
+      shieldWall: false,
+      rangerLine: false,
+      senseWeakness: false,
+    },
+    logLimit: 120,
+    bannerTimeout: null,
+    crashed: false,
+    diagnostics: {
+      recentEvents: [],
+      lastProgressAt: 0,
+      lastProgressHash: '',
+      softLockTriggered: false,
+      overlayVisible: false,
+      lastReport: null,
+    },
+  };
+
+  function now() { return game.virtualNow || Date.now(); }
+  function key(x, y) { return `${x},${y}`; }
+  function tileAt(x, y) { return game.tilesByKey.get(key(x, y)); }
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+  function dist(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+  function chance(n) { return Math.random() < n; }
+  function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function adjacentTiles(x, y) { return DIRECTIONS.map(d => ({ x: x + d.x, y: y + d.y })).filter(p => inBounds(p.x, p.y)); }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < WIDTH && y < HEIGHT; }
+  function rarityForLevel(level) { return RARITIES[Math.min(4, Math.floor((level - 1) / 5))]; }
+
+  function createHitFlash(x, y, colorKey, text = '') {
+    if (!inBounds(x, y)) return;
+    const tile = tileAt(x, y);
+    if (!tile) return;
+    tile.hitFlash = {
+      colorKey,
+      text,
+      until: now() + 360,
+    };
+  }
+
+  function heroColorKey(type) {
+    return ({
+      warrior: 'warrior',
+      archer: 'archer',
+      wizard: 'wizard',
+      priest: 'priest',
+      pirate: 'pirate',
+    })[type] || 'default';
+  }
+
+  function initGrid() {
+    game.grid = [];
+    game.tilesByKey.clear();
+    els.grid.innerHTML = '';
+    if (!els.enemyLayer) {
+      els.enemyLayer = document.createElement('div');
+      els.enemyLayer.id = 'enemyLayer';
+      els.enemyLayer.className = 'enemy-layer';
+      els.grid.parentElement.appendChild(els.enemyLayer);
+    }
+    for (let y = 0; y < HEIGHT; y += 1) {
+      for (let x = 0; x < WIDTH; x += 1) {
+        const tile = {
+          x,
+          y,
+          type: x === 0 ? 'spawn' : 'open',
+          obstacle: null,
+          towerId: null,
+          portal: false,
+          pathPreview: null,
+          hitFlash: null,
+          el: document.createElement('div'),
+        };
+        tile.el.className = 'tile';
+        tile.el.dataset.x = String(x);
+        tile.el.dataset.y = String(y);
+        els.grid.appendChild(tile.el);
+        game.grid.push(tile);
+        game.tilesByKey.set(key(x, y), tile);
+      }
+    }
+  }
+
+  function resetGame() {
+    game.phase = SETUP_PHASES.PORTAL;
+    game.portal = null;
+    game.towers = [];
+    game.enemies = [];
+    game.waveNumber = 0;
+    game.countdownMs = 0;
+    game.runningWave = false;
+    game.playerObstacleCount = 0;
+    game.selectedId = null;
+    game.movingTowerId = null;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.hoveredTowerId = null;
+    game.nextEnemyId = 1;
+    game.nextTowerId = 1;
+    game.nextWavePlan = null;
+    game.activeMutation = null;
+    game.recentMutations = [];
+    game.recentLanes = [];
+    game.hireCount = 0;
+    game.rebuildingBarriers = false;
+    game.barrierRefitCount = 0;
+    game.jewel = 0;
+    game.portalHp = 2000;
+    game.relicChoices = [];
+    game.ownedRelics = [];
+    game.infoPopupPinned = false;
+    game.infoPopupHover = false;
+    if (game.infoPopupHideTimer) { clearTimeout(game.infoPopupHideTimer); game.infoPopupHideTimer = null; }
+    if (els.abilityInfoPopup) { els.abilityInfoPopup.classList.add('hidden'); els.abilityInfoPopup.innerHTML = ''; }
+    game.modifiers = {
+      wizardSpellDamage: 1,
+      wizardCooldown: 1,
+      warriorCooldown: 1,
+      priestHealing: 1,
+      sacredAura: false,
+      pirateSteal: 0.15,
+      extraCannons: 0,
+      shieldWall: false,
+      rangerLine: false,
+      senseWeakness: false,
+    };
+    els.log.innerHTML = '';
+    initGrid();
+    placeRandomObstacles();
+    setInstruction('Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place 12 choke-point obstacles, then place your Warrior. Before wave 1 starts, you can click one of your barriers to move it.');
+    log('New run started. Random obstacles are already on the field.');
+    updateTopbar();
+    render();
+  }
+
+  function placeRandomObstacles() {
+    const placed = [];
+    while (placed.length < RANDOM_OBSTACLE_COUNT) {
+      const x = randInt(2, 8);
+      const y = randInt(0, 7);
+      const tile = tileAt(x, y);
+      if (!tile || tile.obstacle || tile.portal || x <= 1) continue;
+      // avoid clustering too hard
+      if (placed.some(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1)) continue;
+      tile.obstacle = 'random';
+      placed.push({ x, y });
+    }
+  }
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function setInstruction(text) {
+    els.instructionText.textContent = text;
+    const phaseMap = {
+      [SETUP_PHASES.PORTAL]: 'Setup: Place Portal',
+      [SETUP_PHASES.OBSTACLES]: `Setup: Place Obstacles (${game.playerObstacleCount}/${PLAYER_OBSTACLE_COUNT})`,
+      [SETUP_PHASES.WARRIOR]: 'Setup: Place Warrior',
+      [SETUP_PHASES.BATTLE]: game.runningWave ? 'Battle in Progress' : 'Preparation Phase',
+      [SETUP_PHASES.GAME_OVER]: 'Game Over',
+    };
+    els.phaseLabel.textContent = phaseMap[game.phase] || 'Ready';
+  }
+
+  function log(message) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.textContent = message;
+    els.log.prepend(entry);
+    while (els.log.children.length > game.logLimit) els.log.removeChild(els.log.lastChild);
+  }
+
+  function showBanner(text, duration = 2400) {
+    els.banner.textContent = text;
+    els.banner.classList.remove('hidden');
+    clearTimeout(game.bannerTimeout);
+    game.bannerTimeout = setTimeout(() => els.banner.classList.add('hidden'), duration);
+  }
+
+
+  function pushDiagnosticEvent(message) {
+    const stamp = new Date().toLocaleTimeString();
+    game.diagnostics.recentEvents.push(`[${stamp}] ${message}`);
+    if (game.diagnostics.recentEvents.length > 30) game.diagnostics.recentEvents.shift();
+  }
+
+  function markProgress(reason) {
+    game.diagnostics.lastProgressAt = now();
+    pushDiagnosticEvent(reason);
+  }
+
+  function getPendingSpawnCount() {
+    return game.pendingSpawns ? game.pendingSpawns.filter(s => !s.spawned).length : 0;
+  }
+
+  function buildProgressHash() {
+    const enemySnapshot = game.enemies
+      .slice(0, 8)
+      .map(e => `${e.id}:${e.x},${e.y}:${Math.round(e.hp)}:${e.attacking ? 1 : 0}`)
+      .join('|');
+    return [
+      game.phase,
+      game.runningWave ? 1 : 0,
+      game.waveNumber,
+      Math.round(game.portalHp),
+      game.enemies.length,
+      getPendingSpawnCount(),
+      enemySnapshot,
+    ].join('~');
+  }
+
+  function ensureCrashPanel() {
+    if (els.crashPanel) return els.crashPanel;
+    const panel = document.createElement('div');
+    panel.id = 'crashPanel';
+    panel.className = 'crash-panel hidden';
+    panel.innerHTML = `
+      <div class="crash-panel-header">
+        <strong>Crash Report</strong>
+        <button type="button" id="closeCrashPanelBtn" class="crash-close">×</button>
+      </div>
+      <div id="crashPanelBody" class="crash-panel-body"></div>
+      <div class="crash-panel-actions">
+        <button type="button" id="copyCrashReportBtn" class="small-action">Copy Report</button>
+      </div>
+    `;
+    document.body.appendChild(panel);
+    panel.querySelector('#closeCrashPanelBtn').addEventListener('click', hideCrashPanel);
+    panel.querySelector('#copyCrashReportBtn').addEventListener('click', copyCrashReport);
+    els.crashPanel = panel;
+    return panel;
+  }
+
+  function hideCrashPanel() {
+    if (!els.crashPanel) return;
+    els.crashPanel.classList.add('hidden');
+    game.diagnostics.overlayVisible = false;
+  }
+
+  function copyCrashReport() {
+    const report = game.diagnostics.lastReport;
+    if (!report) return;
+    const lines = [
+      `${report.title}`,
+      `${report.summary}`,
+      `State: ${report.stateLine}`,
+      'Recent events:',
+      ...report.events,
+      report.errorLine ? `Error: ${report.errorLine}` : '',
+    ].filter(Boolean);
+    const payload = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(payload).then(() => showBanner('Crash report copied', 1200)).catch(() => {});
+    }
+  }
+
+  function inferCrashHint(reportType, errorObj) {
+    if (reportType === 'softlock') {
+      return 'The game state stopped changing during an active wave. This usually means pathing, aggro, or blocker placement created a deadlock.';
+    }
+    if (game.portalHp <= 0) {
+      return 'The portal was destroyed. If the screen looked frozen, this was likely a game-over state rather than a true crash.';
+    }
+    const msg = String(errorObj?.message || errorObj || '');
+    if (/undefined|null|Cannot read/i.test(msg)) {
+      return 'A unit, tile, or UI element was missing when the game tried to use it.';
+    }
+    if (/path|move|portal|warrior/i.test(msg)) {
+      return 'This likely happened during movement or path validation.';
+    }
+    return 'An unexpected runtime error occurred.';
+  }
+
+  function showCrashReport(reportType, errorObj, extra = {}) {
+    if (game.diagnostics.overlayVisible && reportType !== 'softlock') return;
+    const panel = ensureCrashPanel();
+    const stateLine = `wave=${game.waveNumber} phase=${game.phase} runningWave=${game.runningWave} portalHp=${Math.round(game.portalHp)} enemies=${game.enemies.length} pendingSpawns=${getPendingSpawnCount()} towers=${game.towers.length}`;
+    const events = [...game.diagnostics.recentEvents].slice(-10).reverse();
+    const errorLine = errorObj ? String(errorObj.stack || errorObj.message || errorObj) : '';
+    const title = reportType === 'softlock' ? 'Possible Soft Lock Detected' : 'Runtime Error Detected';
+    const summary = extra.summary || inferCrashHint(reportType, errorObj);
+    game.diagnostics.lastReport = { title, summary, stateLine, events, errorLine };
+    const body = panel.querySelector('#crashPanelBody');
+    body.innerHTML = `
+      <div class="crash-summary">${summary}</div>
+      <div class="crash-state"><strong>State:</strong> ${stateLine}</div>
+      ${errorLine ? `<div class="crash-error"><strong>Error:</strong> ${escapeHtml(errorLine)}</div>` : ''}
+      <div class="crash-events"><strong>Recent events:</strong><br>${events.map(e => escapeHtml(e)).join('<br>')}</div>
+    `;
+    panel.classList.remove('hidden');
+    game.diagnostics.overlayVisible = true;
+    game.runningWave = false;
+    game.crashed = true;
+    if (game.phase !== SETUP_PHASES.GAME_OVER) {
+      setInstruction(reportType === 'softlock' ? 'The game detected a possible soft lock. Review the crash report or start a new run.' : 'The game hit an error. Review the crash report or start a new run.');
+    }
+    showBanner(reportType === 'softlock' ? 'Possible soft lock detected' : 'Runtime error detected', 2800);
+    log(reportType === 'softlock' ? 'Possible soft lock detected. Crash report opened.' : 'Runtime error detected. Crash report opened.');
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function updateTopbar() {
+    els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))} / 2000`;
+    els.jewelCount.textContent = formatJewel(game.jewel);
+    els.waveCount.textContent = `${game.waveNumber}`;
+    els.patternLabel.textContent = game.nextWavePlan ? prettyPattern(game.nextWavePlan.pattern) : (game.runningWave ? prettyPattern(game.currentPattern || 'boss') : '--');
+    els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
+    els.countdownLabel.textContent = game.runningWave ? 'Live' : (game.countdownMs > 0 ? `${Math.ceil(game.countdownMs / 1000)}s` : 'Ready');
+  }
+
+  function prettyPattern(pattern) {
+    if (!pattern) return '--';
+    return {
+      uniform: 'Uniform',
+      lane: 'Lane Pressure',
+      burst: 'Burst Cluster',
+      boss: 'Boss Wave',
+    }[pattern] || pattern;
+  }
+
+  function formatJewel(value) {
+    if (Math.abs(value - Math.round(value)) < 0.001) return `${Math.round(value)}`;
+    return `${value.toFixed(1)}`;
+  }
+
+  function setTimeScale(scale) {
+    game.timeScale = scale;
+    if (!els.speedToggleBtn) return;
+    const active = scale > 1;
+    els.speedToggleBtn.classList.toggle('active', active);
+    els.speedToggleBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    els.speedToggleBtn.textContent = active ? '▶ 2× Speed ON' : '▶ 2× Speed';
+    els.speedToggleBtn.title = active ? 'Click to return to normal speed' : 'Click to double the speed of everything';
+  }
+
+  function render() {
+    renderGrid();
+    renderSelection();
+    renderHirePanel();
+    renderRelics();
+    updateTopbar();
+  }
+
+  function renderGrid() {
+    const selectedTower = getSelectedTower();
+    const moveTargets = selectedTower && game.movingTowerId === selectedTower.id ? getAdjacentMoveTargets(selectedTower) : [];
+
+    for (const tile of game.grid) {
+      tile.el.className = 'tile';
+      tile.el.innerHTML = '';
+      if (tile.type === 'spawn') tile.el.classList.add('spawn');
+      if (tile.portal) tile.el.classList.add('portal');
+      if (tile.obstacle === 'random') tile.el.classList.add('random-obstacle');
+      if (tile.obstacle === 'player') tile.el.classList.add('player-obstacle');
+      if (tile.pathPreview === 'valid') tile.el.classList.add('preview-valid');
+      if (tile.pathPreview === 'invalid') tile.el.classList.add('preview-invalid');
+      if (tile.hitFlash && tile.hitFlash.until <= now()) tile.hitFlash = null;
+      if (tile.hitFlash) tile.el.classList.add(`hit-${tile.hitFlash.colorKey}`);
+      if (selectedTower && selectedTower.x === tile.x && selectedTower.y === tile.y) tile.el.classList.add('selected');
+      if (moveTargets.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('move-target');
+      const tower = tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
+      const enemiesHere = game.enemies.filter(e => e.x === tile.x && e.y === tile.y).slice(0, 3);
+
+      if (tower) {
+        const chip = document.createElement('div');
+        chip.className = `tower-chip tower-${tower.type}`;
+        chip.textContent = tower.template.letter;
+        tile.el.appendChild(chip);
+
+        const hpBar = document.createElement('div');
+        hpBar.className = 'hp-bar';
+        const hpFill = document.createElement('div');
+        hpFill.className = 'hp-fill';
+        hpFill.style.width = `${Math.max(0, (tower.hp / tower.maxHp) * 100)}%`;
+        hpBar.appendChild(hpFill);
+        tile.el.appendChild(hpBar);
+
+        const cdBar = document.createElement('div');
+        cdBar.className = 'cooldown-bar';
+        const cdFill = document.createElement('div');
+        cdFill.className = 'cooldown-fill';
+        const ratio = tower.basicCooldown > 0 ? 1 - clamp(tower.attackCooldownMs / tower.basicCooldown, 0, 1) : 1;
+        cdFill.style.width = `${ratio * 100}%`;
+        cdBar.appendChild(cdFill);
+        tile.el.appendChild(cdBar);
+
+        const small = document.createElement('div');
+        small.className = 'tile-small';
+        small.textContent = `L${tower.level} ${rarityForLevel(tower.level)}`;
+        tile.el.appendChild(small);
+
+        const hover = document.createElement('div');
+        hover.className = 'tile-hover-card';
+
+        const hoverTitle = document.createElement('div');
+        hoverTitle.className = 'tile-hover-title';
+        hoverTitle.textContent = tower.name;
+        hover.appendChild(hoverTitle);
+
+        const hoverSkills = document.createElement('div');
+        hoverSkills.className = 'tile-hover-skills';
+        for (const [idx, ability] of tower.abilities.entries()) {
+          const locked = !isAbilityUnlocked(tower, ability.key);
+          const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
+          const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `tile-hover-skill-btn ${locked ? 'locked' : ''}`;
+          btn.dataset.towerId = tower.id;
+          btn.dataset.abilityKey = ability.key;
+          const compact = `${idx + 1}. ${ability.name}`;
+          const isPassive = !!ability.passive;
+          btn.textContent = locked ? `${compact} (L${unlockLevel})` : (isPassive ? `${compact} (Passive)` : (remain > 0 ? `${compact} (${remain.toFixed(1)}s)` : compact));
+          btn.disabled = isPassive || locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
+          btn.title = getAbilityDescription(tower, ability.key);
+          btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            game.selectedTowerId = tower.id;
+            renderSelection();
+            castAbility(tower, ability.key);
+          });
+          hoverSkills.appendChild(btn);
+        }
+        hover.appendChild(hoverSkills);
+        tile.el.appendChild(hover);
+      }
+
+      if (tile.portal) {
+        const label = document.createElement('div');
+        label.className = 'tile-label';
+        label.textContent = 'PORT';
+        tile.el.appendChild(label);
+      }
+
+      if (tile.obstacle && !tower) {
+        const label = document.createElement('div');
+        label.className = 'tile-label';
+        label.textContent = tile.obstacle === 'random' ? 'ROCK' : 'BARR';
+        tile.el.appendChild(label);
+      }
+
+      if (tile.type === 'spawn' && !tile.portal && !tile.obstacle) {
+        const label = document.createElement('div');
+        label.className = 'tile-label';
+        label.textContent = 'BREACH';
+        tile.el.appendChild(label);
+      }
+
+      if (tile.hitFlash) {
+        const flash = document.createElement('div');
+        flash.className = `hit-flash hit-flash-${tile.hitFlash.colorKey}`;
+        tile.el.appendChild(flash);
+        if (tile.hitFlash.text) {
+          const txt = document.createElement('div');
+          txt.className = 'hit-text';
+          txt.textContent = tile.hitFlash.text;
+          tile.el.appendChild(txt);
+        }
+      }
+
+      if (enemiesHere.length) {
+        if (game.enemies.some(e => e.x === tile.x && e.y === tile.y && e.attacking)) tile.el.classList.add('attacking');
+      }
+    }
+  }
+
+
+  function ensureAbilityInfoPopup() {
+    if (els.abilityInfoPopup) return els.abilityInfoPopup;
+    const host = document.querySelector('.right-panel');
+    if (!host) return null;
+    const popup = document.createElement('div');
+    popup.id = 'abilityInfoPopup';
+    popup.className = 'ability-info-popup hidden';
+    popup.addEventListener('mouseenter', () => {
+      game.infoPopupHover = true;
+      if (game.infoPopupHideTimer) {
+        clearTimeout(game.infoPopupHideTimer);
+        game.infoPopupHideTimer = null;
+      }
+    });
+    popup.addEventListener('mouseleave', () => {
+      game.infoPopupHover = false;
+      if (!game.infoPopupPinned) scheduleAbilityInfoHide();
+    });
+    host.appendChild(popup);
+    els.abilityInfoPopup = popup;
+    return popup;
+  }
+
+  function renderAbilityInfoPopup(text) {
+    const popup = ensureAbilityInfoPopup();
+    if (!popup) return;
+    popup.innerHTML = `<div class="ability-banner">${text}</div>`;
+  }
+
+  function scheduleAbilityInfoHide(delay = 120) {
+    if (game.infoPopupHideTimer) clearTimeout(game.infoPopupHideTimer);
+    game.infoPopupHideTimer = setTimeout(() => {
+      if (!game.infoPopupPinned && !game.infoPopupHover) hideAbilityInfo();
+    }, delay);
+  }
+
+  function hideAbilityInfo(force = false) {
+    const popup = ensureAbilityInfoPopup();
+    if (!popup) return;
+    if (!force && (game.infoPopupPinned || game.infoPopupHover)) return;
+    popup.classList.add('hidden');
+    popup.innerHTML = '';
+  }
+
+  function showAbilityInfo(text, options = {}) {
+    const popup = ensureAbilityInfoPopup();
+    if (!popup) return;
+    if (game.infoPopupHideTimer) {
+      clearTimeout(game.infoPopupHideTimer);
+      game.infoPopupHideTimer = null;
+    }
+    if (options.pinned !== undefined) game.infoPopupPinned = !!options.pinned;
+    popup.dataset.text = text;
+    renderAbilityInfoPopup(text);
+    popup.classList.remove('hidden');
+  }
+
+  function renderSelection() {
+    const tower = getSelectedTower();
+    game.renderedSelectionTowerId = tower ? tower.id : null;
+    if (!tower) {
+      game.infoPopupPinned = false;
+      hideAbilityInfo(true);
+      els.selectedInfo.textContent = 'Nothing selected.';
+      els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to upgrade, move, or cast abilities.</div>';
+      els.upgradeBtn.disabled = true;
+      els.moveBtn.disabled = true;
+      els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
+      els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} JEWEL)`;
+      return;
+    }
+    const nextCost = getUpgradeCost(tower.level + 1);
+    const ownedRelics = getOwnedRelicObjects();
+    const relicHtml = ownedRelics.length ? `<div class="selected-relics"><strong>Owned Relics:</strong><br>${ownedRelics.map(r => r.name).join(', ')}</div>` : '<div class="muted">No relics owned yet.</div>';
+    els.selectedInfo.innerHTML = `
+      ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
+      HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
+      Damage: ${Math.round(tower.damage)}<br>
+      Range: ${tower.range}<br>
+      Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
+      Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
+      Upgrade Cost: ${formatJewel(nextCost)} JEWEL<br>
+      Upgrade Cap This Wave: L${getUpgradeLevelCap()}
+      ${relicHtml}
+    `;
+    els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
+    els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
+    els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} JEWEL)`;
+
+    els.abilitiesPanel.innerHTML = '';
+    for (const ability of tower.abilities) {
+      if (ability.passive) continue;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'ability-row';
+      const btn = document.createElement('button');
+      const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+      const locked = !isAbilityUnlocked(tower, ability.key);
+      const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
+      btn.dataset.abilityKey = ability.key;
+      btn.dataset.abilityName = ability.name;
+      btn.className = locked ? 'locked-skill' : '';
+      const isPassive = !!ability.passive;
+      const label = locked ? `${ability.name} (Unlocks L${unlockLevel})` : (isPassive ? `${ability.name} (Passive)` : (remain > 0 ? `${ability.name} (${remain.toFixed(1)}s)` : ability.name));
+      btn.textContent = label;
+      btn.disabled = isPassive || locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
+      btn.addEventListener('click', () => castAbility(tower, ability.key));
+      const icon = document.createElement('button');
+      icon.type = 'button';
+      icon.className = 'ability-info-icon';
+      icon.textContent = 'ⓘ';
+      icon.title = '';
+      const infoText = () => getAbilityDescription(tower, ability.key);
+      icon.addEventListener('mouseenter', () => showAbilityInfo(infoText(), { pinned: false }));
+      icon.addEventListener('mouseleave', () => {
+        if (!game.infoPopupPinned) scheduleAbilityInfoHide();
+      });
+      icon.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const popup = ensureAbilityInfoPopup();
+        const sameTextPinned = popup && !popup.classList.contains('hidden') && popup.dataset.text === infoText() && game.infoPopupPinned;
+        if (sameTextPinned) {
+          game.infoPopupPinned = false;
+          hideAbilityInfo(true);
+        } else {
+          if (popup) popup.dataset.text = infoText();
+          showAbilityInfo(infoText(), { pinned: true });
+        }
+      });
+      wrapper.appendChild(btn);
+      wrapper.appendChild(icon);
+      els.abilitiesPanel.appendChild(wrapper);
+    }
+    renderPassiveCards(tower);
+  }
+
+  function refreshSelectedPanelLive() {
+    const tower = getSelectedTower();
+    if (!tower) return;
+    if (game.renderedSelectionTowerId !== tower.id) {
+      renderSelection();
+      return;
+    }
+    const nextCost = getUpgradeCost(tower.level + 1);
+    const ownedRelics = getOwnedRelicObjects();
+    const relicHtml = ownedRelics.length ? `<div class="selected-relics"><strong>Owned Relics:</strong><br>${ownedRelics.map(r => r.name).join(', ')}</div>` : '<div class="muted">No relics owned yet.</div>';
+    els.selectedInfo.innerHTML = `
+      ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
+      HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
+      Damage: ${Math.round(tower.damage)}<br>
+      Range: ${tower.range}<br>
+      Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
+      Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
+      Upgrade Cost: ${formatJewel(nextCost)} JEWEL<br>
+      Upgrade Cap This Wave: L${getUpgradeLevelCap()}
+      ${relicHtml}
+    `;
+    els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
+    els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
+    els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} JEWEL)`;
+    const rows = els.abilitiesPanel.querySelectorAll('.ability-row');
+    rows.forEach(row => {
+      const btn = row.querySelector('button[data-ability-key]');
+      if (!btn) return;
+      const abilityKey = btn.dataset.abilityKey;
+      const abilityName = btn.dataset.abilityName;
+      const remain = Math.max(0, (tower.abilityReadyAt[abilityKey] - now()) / 1000);
+      const locked = !isAbilityUnlocked(tower, abilityKey);
+      const unlockLevel = getAbilityUnlockLevel(tower, abilityKey);
+      const abilityObj = tower.abilities.find(a => a.key === abilityKey);
+      const isPassive = !!abilityObj?.passive;
+      btn.textContent = locked ? `${abilityName} (Unlocks L${unlockLevel})` : (isPassive ? `${abilityName} (Passive)` : (remain > 0 ? `${abilityName} (${remain.toFixed(1)}s)` : abilityName));
+      btn.disabled = isPassive || locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(abilityKey));
+      btn.className = locked ? 'locked-skill' : (isPassive ? 'locked-skill passive-skill' : '');
+    });
+  }
+
+  function getLivingHireCount() {
+    return game.towers.filter(t => t.type !== 'warrior').length + (game.placingHeroType ? 1 : 0);
+  }
+
+  function getNextHireCost() {
+    const index = Math.min(getLivingHireCount(), HIRE_COSTS.length - 1);
+    return HIRE_COSTS[index];
+  }
+
+  function renderHirePanel() {
+    els.hirePanel.innerHTML = '';
+
+    const available = ['warrior', 'archer', 'wizard', 'priest', 'pirate'].filter(type => !game.towers.some(t => t.type === type) && game.placingHeroType !== type);
+    if (!available.length && !game.placingHeroType) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = '<p>All hireable heroes are currently on the field.</p>';
+      els.hirePanel.appendChild(card);
+      return;
+    }
+
+    const cost = getNextHireCost();
+    for (const type of available) {
+      const t = TOWER_TEMPLATES[type];
+      const card = document.createElement('div');
+      card.className = 'card';
+      const btn = document.createElement('button');
+      const pendingThisType = game.placingHeroType === type;
+      btn.textContent = pendingThisType ? `Placing… ${formatJewel(game.placingHeroCost)} JEWEL` : `Hire ${t.name} (${formatJewel(cost)} JEWEL)`;
+      btn.disabled = game.jewel < cost || !!game.placingHeroType || game.phase === SETUP_PHASES.GAME_OVER || game.phase !== SETUP_PHASES.BATTLE;
+      btn.addEventListener('click', () => {
+        game.placingHeroType = type;
+        game.placingHeroCost = cost;
+        log(`Select a tile to place ${t.name}.`);
+        render();
+      });
+      card.innerHTML = `<h4>${t.name}</h4><p>${type === 'priest' ? 'Support and heals' : type === 'warrior' ? 'Tank and chokepoint anchor' : type === 'wizard' ? 'Burst caster' : type === 'pirate' ? 'Utility and economy' : 'Ranged DPS'}</p>`;
+      card.appendChild(btn);
+      els.hirePanel.appendChild(card);
+    }
+  }
+
+  function renderRelics() {
+    els.relicPanel.innerHTML = '';
+
+    const owned = getOwnedRelicObjects();
+    const ownedCard = document.createElement('div');
+    ownedCard.className = 'card relic-owned-card';
+    ownedCard.innerHTML = owned.length
+      ? `<h4>Owned Relics</h4><p>${owned.map(r => `<span class="relic-pill" title="${r.desc}">${r.name}</span>`).join(' ')}</p>`
+      : '<h4>Owned Relics</h4><p>No relics yet.</p>';
+    els.relicPanel.appendChild(ownedCard);
+
+    if (!game.relicChoices.length) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = '<p>Relics appear every 7 waves.</p>';
+      els.relicPanel.appendChild(card);
+      return;
+    }
+
+    for (const relic of game.relicChoices) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<h4>${relic.name}</h4><p>${relic.desc}</p><p class="gold">${formatJewel(relic.cost)} JEWEL</p>`;
+      const btn = document.createElement('button');
+      btn.className = 'buy-btn';
+      btn.textContent = `Buy ${relic.name}`;
+      btn.disabled = game.jewel < relic.cost;
+      btn.addEventListener('click', () => buyRelic(relic.id));
+      card.appendChild(btn);
+      els.relicPanel.appendChild(card);
+    }
+
+    const skip = document.createElement('button');
+    skip.className = 'secondary';
+    skip.textContent = 'Skip relic shop';
+    skip.addEventListener('click', () => {
+      game.relicChoices = [];
+      log('Skipped relic shop.');
+      setCountdown(WAVE_BREAK_SECONDS);
+      render();
+    });
+    els.relicPanel.appendChild(skip);
+  }
+
+  function canPlacePortal(x, y) {
+    if (x < 6 || y > HEIGHT - 2 || x > WIDTH - 2) return false;
+    const points = [{ x, y }, { x: x + 1, y }, { x, y: y + 1 }, { x: x + 1, y: y + 1 }];
+    return points.every(p => {
+      const tile = tileAt(p.x, p.y);
+      return tile && !tile.obstacle && !tile.towerId && tile.type !== 'spawn';
+    });
+  }
+
+  function clearPortalTiles() {
+    if (!game.portal) return;
+    for (let py = game.portal.y; py < game.portal.y + 2; py += 1) {
+      for (let px = game.portal.x; px < game.portal.x + 2; px += 1) {
+        const tile = tileAt(px, py);
+        if (tile) tile.portal = false;
+      }
+    }
+  }
+
+  function canRepositionPortal() {
+    return !!game.portal && !game.runningWave && game.waveNumber === 0 && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
+  }
+
+  function pickupPortal() {
+    if (!canRepositionPortal()) return false;
+    clearPortalTiles();
+    game.portal = null;
+    game.phase = SETUP_PHASES.PORTAL;
+    setInstruction('Move the 2x2 portal to a new location. After placing it again, continue setup.');
+    log('Portal picked up for repositioning before wave 1.');
+    return true;
+  }
+
+  function placePortal(x, y) {
+    if (!canPlacePortal(x, y)) return false;
+    game.portal = { x, y, width: 2, height: 2 };
+    game.portalHp = 2000;
+    for (let py = y; py < y + 2; py += 1) {
+      for (let px = x; px < x + 2; px += 1) {
+        tileAt(px, py).portal = true;
+      }
+    }
+    game.phase = SETUP_PHASES.OBSTACLES;
+    setInstruction(`Place ${PLAYER_OBSTACLE_COUNT} player obstacles. They cannot fully block all paths from the breach to the portal. Before wave 1 starts, you can click the portal to move it.`);
+    log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
+    return true;
+  }
+
+  function canPlacePlayerObstacle(x, y) {
+    const tile = tileAt(x, y);
+    if (!tile || tile.type === 'spawn' || tile.portal || tile.obstacle || tile.towerId) return false;
+    tile.obstacle = 'player';
+    const okay = existsPathFromBreachToPortal();
+    tile.obstacle = null;
+    return okay;
+  }
+
+  function placePlayerObstacle(x, y) {
+    if (!canPlacePlayerObstacle(x, y)) return false;
+    tileAt(x, y).obstacle = 'player';
+    game.playerObstacleCount += 1;
+    log(`Placed obstacle ${game.playerObstacleCount}/${PLAYER_OBSTACLE_COUNT} at (${x + 1}, ${y + 1}).`);
+    if (game.playerObstacleCount >= PLAYER_OBSTACLE_COUNT) {
+      const hasWarrior = game.towers.some(t => t.type === 'warrior');
+      if (game.rebuildingBarriers || hasWarrior) {
+        game.phase = SETUP_PHASES.BATTLE;
+        game.rebuildingBarriers = false;
+        setInstruction(`Barrier placement complete. Wave ${game.waveNumber + 1} is ready when you are. Before the first wave starts, you can still click a barrier to move it.`);
+        els.startWaveBtn.disabled = false;
+        if (!game.nextWavePlan) prepareNextWave();
+      } else {
+        game.phase = SETUP_PHASES.WARRIOR;
+        setInstruction('Place your starting Warrior on any open tile. Before the first wave starts, you can still click a barrier to move it.');
+        els.skipSetupBtn.classList.remove('hidden');
+      }
+    } else {
+      const prefix = game.rebuildingBarriers ? 'Rebuild your player barriers. Click one of your barriers to pick it back up.' : `Place ${PLAYER_OBSTACLE_COUNT} player obstacles. Click one of your barriers to pick it back up before the first wave starts.`;
+      setInstruction(`${prefix} ${game.playerObstacleCount}/${PLAYER_OBSTACLE_COUNT} placed.`);
+      if (game.waveNumber === 0) els.startWaveBtn.disabled = true;
+    }
+    return true;
+  }
+
+  function canEditBarriersPreStart() {
+    return !game.runningWave && game.waveNumber === 0 && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
+  }
+
+  function removePlayerObstacle(x, y) {
+    const tile = tileAt(x, y);
+    if (!tile || tile.obstacle !== 'player') return false;
+    tile.obstacle = null;
+    game.playerObstacleCount = Math.max(0, game.playerObstacleCount - 1);
+    if (game.rebuildingBarriers || canEditBarriersPreStart()) {
+      game.phase = SETUP_PHASES.OBSTACLES;
+      els.startWaveBtn.disabled = true;
+      const prefix = game.rebuildingBarriers ? 'Rebuild your player barriers. Click one of your barriers to pick it back up.' : `Place ${PLAYER_OBSTACLE_COUNT} player obstacles. Click one of your barriers to pick it back up before the first wave starts.`;
+      setInstruction(`${prefix} ${game.playerObstacleCount}/${PLAYER_OBSTACLE_COUNT} placed.`);
+      log(`Removed obstacle at (${x + 1}, ${y + 1}). Place it somewhere else.`);
+      return true;
+    }
+    tile.obstacle = 'player';
+    game.playerObstacleCount += 1;
+    return false;
+  }
+
+  function beginBarrierRebuild() {
+    if (!canStartBarrierRebuild()) {
+      showBanner('Barrier rebuild is not available right now.', 1400);
+      return;
+    }
+    game.jewel -= BARRIER_REBUILD_COST;
+    for (const tile of game.grid) {
+      if (tile.obstacle === 'player') tile.obstacle = null;
+    }
+    game.playerObstacleCount = 0;
+    game.rebuildingBarriers = true;
+    game.barrierRefitCount += 1;
+    game.phase = SETUP_PHASES.OBSTACLES;
+    els.startWaveBtn.disabled = true;
+    game.selectedId = null;
+    game.movingTowerId = null;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.hoveredTowerId = null;
+    setInstruction(`Barrier rebuild purchased for ${formatJewel(BARRIER_REBUILD_COST)} JEWEL. Place ${PLAYER_OBSTACLE_COUNT} new player barriers.`);
+    log(`Barrier rebuild purchased for ${formatJewel(BARRIER_REBUILD_COST)} JEWEL.`);
+    render();
+  }
+
+  function canStartBarrierRebuild(requireJewel = true) {
+    const rebuildsUnlocked = Math.floor(game.waveNumber / WAVE_REBUILD_INTERVAL);
+    return game.phase === SETUP_PHASES.BATTLE &&
+      !game.runningWave &&
+      !game.relicChoices.length &&
+      game.waveNumber >= WAVE_REBUILD_INTERVAL &&
+      !game.rebuildingBarriers &&
+      rebuildsUnlocked > game.barrierRefitCount &&
+      (!requireJewel || game.jewel >= BARRIER_REBUILD_COST);
+  }
+
+  function autoPlaceWarrior() {
+    const candidates = [];
+    for (let y = 0; y < HEIGHT; y += 1) {
+      for (let x = 2; x < 7; x += 1) {
+        if (isOpenForTower(x, y)) candidates.push({ x, y });
+      }
+    }
+    candidates.sort((a, b) => portalDistance(a) - portalDistance(b));
+    if (candidates.length) placeStartingWarrior(candidates[0].x, candidates[0].y);
+  }
+
+  function placeStartingWarrior(x, y) {
+    if (!isOpenForTower(x, y)) return false;
+    const warrior = createTower('warrior', x, y);
+    game.towers.push(warrior);
+    tileAt(x, y).towerId = warrior.id;
+    if (!placementKeepsEnemiesReachable(warrior)) {
+      tileAt(x, y).towerId = null;
+      game.towers = game.towers.filter(t => t.id !== warrior.id);
+      return false;
+    }
+    game.phase = SETUP_PHASES.BATTLE;
+    setInstruction('Setup complete. Start the first wave, then hire more heroes, upgrade towers, and protect the portal.');
+    prepareNextWave();
+    log(`Warrior placed at (${x + 1}, ${y + 1}).`);
+    els.skipSetupBtn.classList.add('hidden');
+    return true;
+  }
+
+  function portalDistance(pos) {
+    const portalTargets = getPortalTargets();
+    return Math.min(...portalTargets.map(t => Math.abs(t.x - pos.x) + Math.abs(t.y - pos.y)));
+  }
+
+  function isOpenForTower(x, y) {
+    const tile = tileAt(x, y);
+    return !!tile && !tile.obstacle && !tile.portal && !tile.towerId && tile.type !== 'spawn';
+  }
+
+  function existsPathFromBreachToTargets(targets) {
+    if (!targets || !targets.length) return false;
+    return getSpawnTiles().some(start => bfsHasPath(start, targets));
+  }
+
+  function placementKeepsEnemiesReachable(warriorLike) {
+    return existsPathFromBreachToPortal() || existsPathFromBreachToTargets(getTowerApproachTiles(warriorLike));
+  }
+
+  function createTower(type, x, y) {
+    const template = TOWER_TEMPLATES[type];
+    const baseAttackInterval = template.attackInterval;
+    const tower = {
+      id: `t${game.nextTowerId++}`,
+      type,
+      name: template.name,
+      template,
+      x,
+      y,
+      level: 1,
+      maxHp: template.hp,
+      hp: template.hp,
+      damage: template.damage,
+      range: template.range,
+      basicCooldown: baseAttackInterval * 1000,
+      attackCooldownMs: 0,
+      basicAttackCount: 0,
+      moveReadyAt: now(),
+      buffs: {},
+      debuffs: {},
+      abilityReadyAt: {},
+      abilities: template.abilities,
+      getAttackInterval() {
+        let mult = 1;
+        if (this.buffs.rapid_onslaught) mult *= (1 + (this.buffs.rapid_onslaught.strength ?? 1));
+        if (this.buffs.rapid_shot) mult *= (1 + (this.buffs.rapid_shot.bonus ?? 0.8));
+        if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
+        if (this.buffs.blizzardSlow) mult *= 0.5;
+        if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.08;
+        return this.basicCooldown / 1000 / mult;
+      },
+    };
+    for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
+    return tower;
+  }
+
+  function isNearPriest(tower) {
+    return game.towers.some(t => t.type === 'priest' && t.id !== tower.id && dist(t, tower) <= 2);
+  }
+
+  function getAbilityIndex(tower, abilityKey) {
+    return tower.abilities.findIndex(a => a.key === abilityKey);
+  }
+
+  function getAbilityUnlockLevel(tower, abilityKey) {
+    if (abilityKey === 'healing_aura' || abilityKey === 'frost_lance') return 15;
+    const idx = getAbilityIndex(tower, abilityKey);
+    if (idx < 0) return 1;
+    if (idx < 2) return 1;
+    if (idx === 2) return 10;
+    return 20;
+  }
+
+  function isAbilityUnlocked(tower, abilityKey) {
+    return tower.level >= getAbilityUnlockLevel(tower, abilityKey);
+  }
+
+  function getAbilityPowerMultiplier(tower, abilityKey) {
+    if (abilityKey === 'healing_aura') return 1;
+    return getAbilityIndex(tower, abilityKey) >= 2 ? 2 : 1;
+  }
+
+  function getAbilityCooldownSeconds(tower, abilityKey) {
+    const base = tower.template.abilities.find(a => a.key === abilityKey)?.cooldown || 5;
+    if (abilityKey === 'healing_aura') return 0;
+    return getAbilityIndex(tower, abilityKey) >= 2 ? base * 1.5 : base;
+  }
+
+  function getUpgradeLevelCap() {
+    return Math.max(7, game.waveNumber + 7);
+  }
+
+  function canUpgradeTower(tower) {
+    const nextLevel = tower.level + 1;
+    return nextLevel <= getUpgradeLevelCap() && game.jewel >= getUpgradeCost(nextLevel);
+  }
+
+  function getOwnedRelicObjects() {
+    return game.ownedRelics.map(id => RELICS.find(r => r.id === id)).filter(Boolean);
+  }
+
+  function getPassiveEntries(tower) {
+    const entries = tower.abilities
+      .filter(ability => ability.passive)
+      .map(ability => ({
+        key: ability.key,
+        name: ability.name,
+        locked: !isAbilityUnlocked(tower, ability.key),
+        unlockLevel: getAbilityUnlockLevel(tower, ability.key),
+        description: getAbilityDescription(tower, ability.key),
+      }));
+    if (tower.template.passive) {
+      entries.push({
+        key: `${tower.type}_template_passive`,
+        name: tower.name,
+        locked: false,
+        unlockLevel: 1,
+        description: tower.template.passive,
+      });
+    }
+    return entries;
+  }
+
+  function renderPassiveCards(tower) {
+    const passives = getPassiveEntries(tower);
+    for (const passiveEntry of passives) {
+      const passive = document.createElement('div');
+      passive.className = `card passive-card ${passiveEntry.locked ? 'passive-card-locked' : ''}`;
+      const subtitle = passiveEntry.locked
+        ? `<div class="passive-subtitle">Unlocks at level ${passiveEntry.unlockLevel}</div>`
+        : `<div class="passive-subtitle">Always active</div>`;
+      passive.innerHTML = `<h4>Passive</h4><div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${passiveEntry.description}</p>`;
+      els.abilitiesPanel.appendChild(passive);
+    }
+  }
+
+  function getAbilityDescription(tower, abilityKey) {
+    const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
+    const stronger = powerMult > 1 ? ' This is an unlock skill, so it is 100% stronger and has 50% longer cooldown.' : '';
+    const common = ` Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}. Cooldown: ${getAbilityCooldownSeconds(tower, abilityKey).toFixed(1)}s.`;
+    const scale = '';
+    const d = tower.damage;
+    const hp = tower.maxHp;
+    const map = {
+      gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
+      whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
+      rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
+      taunt: `Taunts enemies within ${2 * powerMult} tiles for ${3 * powerMult}s.${stronger}${common}${scale}`,
+      multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
+      rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
+      piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
+      hunters_mark: `Applies a damage-over-time debuff for 8s dealing ${Math.round(6 * powerMult)} damage per second.${stronger}${common}${scale}`,
+      firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
+      frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies within 4 tiles by 15% for 3s. No direct damage. This passive is always on once unlocked.${scale}`,
+      fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
+      frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies for ${Math.round(120 * game.modifiers.priestHealing)} HP.${common}${scale}`,
+      freedom: `Removes slows and roots from nearby allies, then grants 2s slow immunity.${common}${scale}`,
+      swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
+      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
+      warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
+      starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
+      kraken: `Applies a 5s kraken effect dealing ${Math.round(30 * powerMult)} damage per second in a 2-tile cluster.${stronger}${common}${scale}`,
+    };
+    return map[abilityKey] || `${common}${scale}`;
+  }
+
+  function getUpgradeCost(nextLevel) {
+    let base = 15;
+    if (nextLevel <= 5) base = 1;
+    else if (nextLevel <= 10) base = 2;
+    else if (nextLevel <= 15) base = 4;
+    else if (nextLevel <= 20) base = 8;
+    return Math.round(base * UPGRADE_COST_MULTIPLIER * 10) / 10;
+  }
+
+  function upgradeTower(tower) {
+    const nextLevel = tower.level + 1;
+    const cost = getUpgradeCost(nextLevel);
+    if (nextLevel > getUpgradeLevelCap()) {
+      showBanner(`Upgrade cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`, 1500);
+      return;
+    }
+    if (game.jewel < cost) return;
+    game.jewel -= cost;
+    tower.level = nextLevel;
+    const hpRatio = tower.hp / tower.maxHp;
+    tower.maxHp *= 1.045;
+    tower.hp = tower.maxHp * hpRatio;
+    tower.damage *= 1.05;
+    tower.basicCooldown /= tower.type === 'archer' ? 1.045 : 1.05;
+    log(`${tower.name} upgraded to level ${tower.level} (${rarityForLevel(tower.level)}).`);
+    render();
+  }
+
+  function getSelectedTower() {
+    return game.towers.find(t => t.id === game.selectedId) || null;
+  }
+
+  function handleTileClick(x, y) {
+    clearPathPreview();
+    const tile = tileAt(x, y);
+
+    if (tile && tile.portal && canRepositionPortal()) {
+      pickupPortal();
+      render();
+      return;
+    }
+
+    if (game.placingHeroType) {
+      placeHiredHero(x, y);
+      return;
+    }
+
+    if (game.phase === SETUP_PHASES.PORTAL) {
+      if (!placePortal(x, y)) showBanner('Invalid portal placement', 1200);
+      render();
+      return;
+    }
+
+    if (game.phase === SETUP_PHASES.OBSTACLES) {
+      if (tile?.obstacle === 'player' && (game.rebuildingBarriers || canEditBarriersPreStart())) {
+        removePlayerObstacle(x, y);
+      } else if (!placePlayerObstacle(x, y)) {
+        showBanner('Obstacle would block all paths or is invalid', 1500);
+      }
+      render();
+      return;
+    }
+
+    if (tile?.obstacle === 'player' && canEditBarriersPreStart()) {
+      removePlayerObstacle(x, y);
+      render();
+      return;
+    }
+
+    if (game.phase === SETUP_PHASES.WARRIOR) {
+      if (!placeStartingWarrior(x, y)) showBanner('Pick an open tile for the Warrior', 1200);
+      render();
+      return;
+    }
+
+    const tower = tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
+    if (tower) {
+      game.selectedId = tower.id;
+      game.movingTowerId = null;
+      render();
+      return;
+    }
+
+    if (game.movingTowerId) {
+      const moving = game.towers.find(t => t.id === game.movingTowerId);
+      if (moving && moveTower(moving, x, y)) {
+        game.movingTowerId = null;
+      } else {
+        showBanner('Move must be to an adjacent open tile and cannot break pathing', 1500);
+      }
+      render();
+      return;
+    }
+  }
+
+  function placeHiredHero(x, y) {
+    if (!isOpenForTower(x, y)) {
+      showBanner('Pick an open tile for the new hero', 1200);
+      return;
+    }
+    const cost = game.placingHeroCost || getNextHireCost();
+    if (game.jewel < cost) {
+      showBanner(`Not enough JEWEL. Need ${formatJewel(cost)}.`, 1400);
+      game.placingHeroType = null;
+      game.placingHeroCost = 0;
+      render();
+      return;
+    }
+    const tower = createTower(game.placingHeroType, x, y);
+    game.towers.push(tower);
+    tileAt(x, y).towerId = tower.id;
+    if (tower.type === 'warrior' && !placementKeepsEnemiesReachable(tower)) {
+      tileAt(x, y).towerId = null;
+      game.towers = game.towers.filter(t => t.id !== tower.id);
+      showBanner('Warrior must leave enemies a route to the portal or to a tile next to him.', 1800);
+      return;
+    }
+    game.jewel -= cost;
+    log(`Hired ${tower.name} for ${formatJewel(cost)} JEWEL and placed it at (${x + 1}, ${y + 1}).`);
+    game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+    game.selectedId = tower.id;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    render();
+  }
+
+  function getAdjacentMoveTargets(tower) {
+    return adjacentTiles(tower.x, tower.y).filter(pos => isOpenForTower(pos.x, pos.y) && moveWouldPreservePath(tower, pos.x, pos.y));
+  }
+
+  function moveWouldPreservePath(tower, nx, ny) {
+    const fromTile = tileAt(tower.x, tower.y);
+    const toTile = tileAt(nx, ny);
+    fromTile.towerId = null;
+    toTile.towerId = tower.id;
+    const oldX = tower.x;
+    const oldY = tower.y;
+    tower.x = nx;
+    tower.y = ny;
+    const okay = tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
+    tower.x = oldX;
+    tower.y = oldY;
+    fromTile.towerId = tower.id;
+    toTile.towerId = null;
+    return okay;
+  }
+
+  function moveTower(tower, nx, ny) {
+    if (!adjacentTiles(tower.x, tower.y).some(p => p.x === nx && p.y === ny)) return false;
+    if (!isOpenForTower(nx, ny)) return false;
+    if (!moveWouldPreservePath(tower, nx, ny)) return false;
+    tileAt(tower.x, tower.y).towerId = null;
+    tower.x = nx;
+    tower.y = ny;
+    tileAt(nx, ny).towerId = tower.id;
+    tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5700 : 6000);
+    tower.attackCooldownMs = 1000;
+    log(`${tower.name} moved to (${nx + 1}, ${ny + 1}).`);
+    return true;
+  }
+
+  function existsPathFromBreachToPortal(includeWarrior = false) {
+    const starts = getSpawnTiles();
+    const targets = getPortalTargets();
+    return starts.some(start => bfsHasPath(start, targets, includeWarrior));
+  }
+
+  function bfsHasPath(start, targets, includeWarrior = false) {
+    const queue = [start];
+    const visited = new Set([key(start.x, start.y)]);
+    const targetKeys = new Set(targets.map(t => key(t.x, t.y)));
+    while (queue.length) {
+      const cur = queue.shift();
+      if (targetKeys.has(key(cur.x, cur.y))) return true;
+      for (const n of adjacentTiles(cur.x, cur.y)) {
+        const k = key(n.x, n.y);
+        if (visited.has(k)) continue;
+        const tile = tileAt(n.x, n.y);
+        if (!tile) continue;
+        if (isBlockedForPath(tile, includeWarrior)) continue;
+        visited.add(k);
+        queue.push(n);
+      }
+    }
+    return false;
+  }
+
+  function isBlockedForPath(tile, includeWarrior = true) {
+    if (tile.obstacle) return true;
+    if (tile.portal) return true;
+    if (tile.towerId) {
+      const tower = game.towers.find(t => t.id === tile.towerId);
+      if (tower && tower.type === 'warrior') return true;
+      return false;
+    }
+    return false;
+  }
+
+  function getSpawnTiles() {
+    const all = [];
+    for (const lane of Object.values(BREACH_LANES)) all.push(...lane);
+    return all;
+  }
+
+  function getPortalTargets() {
+    if (!game.portal) return [];
+    const targets = [];
+    const { x, y } = game.portal;
+    const raw = [
+      { x: x - 1, y }, { x: x - 1, y: y + 1 },
+      { x: x, y: y - 1 }, { x: x + 1, y: y - 1 },
+      { x: x + 2, y }, { x: x + 2, y: y + 1 },
+      { x: x, y: y + 2 }, { x: x + 1, y: y + 2 },
+    ];
+    for (const p of raw) {
+      if (inBounds(p.x, p.y)) {
+        const t = tileAt(p.x, p.y);
+        if (!t.portal && !t.obstacle) targets.push(p);
+      }
+    }
+    return targets;
+  }
+
+  function pathfind(start, targets, allowPortalTargets = true) {
+    const targetKeys = new Set(targets.map(t => key(t.x, t.y)));
+    const frontier = [{ x: start.x, y: start.y }];
+    const cameFrom = new Map();
+    const visited = new Set([key(start.x, start.y)]);
+    while (frontier.length) {
+      const current = frontier.shift();
+      if (targetKeys.has(key(current.x, current.y))) {
+        return reconstructPath(cameFrom, current, start);
+      }
+      const next = adjacentTiles(current.x, current.y).sort((a, b) => heuristic(a, targets) - heuristic(b, targets));
+      for (const n of next) {
+        const k = key(n.x, n.y);
+        if (visited.has(k)) continue;
+        const tile = tileAt(n.x, n.y);
+        if (!tile) continue;
+        if (isBlockedForPath(tile, true)) continue;
+        visited.add(k);
+        cameFrom.set(k, current);
+        frontier.push(n);
+      }
+    }
+    return null;
+  }
+
+  function reconstructPath(cameFrom, current, start) {
+    const path = [current];
+    let cur = current;
+    while (key(cur.x, cur.y) !== key(start.x, start.y)) {
+      cur = cameFrom.get(key(cur.x, cur.y));
+      if (!cur) break;
+      path.push(cur);
+    }
+    path.reverse();
+    return path;
+  }
+
+  function heuristic(point, targets) {
+    return Math.min(...targets.map(t => Math.abs(t.x - point.x) + Math.abs(t.y - point.y)));
+  }
+
+  function prepareNextWave() {
+    if (game.phase !== SETUP_PHASES.BATTLE) return;
+    game.nextWavePlan = buildWavePlan(game.waveNumber + 1);
+    const mutationText = game.nextWavePlan.mutation ? ` • Mutation: ${game.nextWavePlan.mutation.name}` : '';
+    const rebuildText = canStartBarrierRebuild(false) ? ` Barrier rebuild is available for ${formatJewel(BARRIER_REBUILD_COST)} JEWEL.` : '';
+    setInstruction(`Wave ${game.waveNumber + 1} ready. Pattern: ${prettyPattern(game.nextWavePlan.pattern)}${mutationText}. Spend JEWEL, move towers, or start the wave.${rebuildText}`);
+    els.startWaveBtn.disabled = false;
+    updateTopbar();
+    render();
+  }
+
+  function buildWavePlan(waveNumber) {
+    if (waveNumber % 5 === 0) {
+      return { waveNumber, pattern: 'boss', mutation: null, enemies: buildBossWave(waveNumber), sizeMultiplier: 1 };
+    }
+
+    let mutation = null;
+    const wavePlan = { waveNumber, pattern: choosePattern(), mutation: null, enemies: [], sizeMultiplier: 1 };
+    if (waveNumber % 3 === 0) {
+      mutation = chooseMutation();
+      wavePlan.mutation = mutation;
+      if (mutation.waveModifier) mutation.waveModifier(wavePlan);
+    }
+    wavePlan.enemies = buildStandardWave(waveNumber, wavePlan.pattern, wavePlan.sizeMultiplier);
+    return wavePlan;
+  }
+
+  function choosePattern() {
+    const roll = Math.random();
+    if (roll < 0.4) return 'uniform';
+    if (roll < 0.75) return 'lane';
+    return 'burst';
+  }
+
+  function chooseMutation() {
+    const excluded = new Set(game.recentMutations);
+    const pool = MUTATIONS.filter(m => !excluded.has(m.id));
+    const mutation = pickRandom(pool.length ? pool : MUTATIONS);
+    game.recentMutations.push(mutation.id);
+    if (game.recentMutations.length > 2) game.recentMutations.shift();
+    return mutation;
+  }
+
+  function chooseLane() {
+    let lane = pickRandom(LANE_NAMES);
+    if (game.recentLanes.length >= 2 && game.recentLanes[0] === lane && game.recentLanes[1] === lane) {
+      lane = pickRandom(LANE_NAMES.filter(l => l !== lane));
+    }
+    game.recentLanes.unshift(lane);
+    game.recentLanes = game.recentLanes.slice(0, 2);
+    return lane;
+  }
+
+  function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
+    const baseCount = Math.round((6 + waveNumber * 2) * sizeMultiplier);
+    const enemies = [];
+    if (pattern === 'lane') {
+      const lane = chooseLane();
+      for (let i = 0; i < baseCount; i += 1) {
+        const laneName = i < Math.round(baseCount * 0.7) ? lane : pickRandom(LANE_NAMES.filter(l => l !== lane));
+        enemies.push({ type: chooseEnemyType(waveNumber), lane: laneName, delayMs: i * 500 });
+      }
+    } else if (pattern === 'burst') {
+      let delay = 0;
+      for (let i = 0; i < baseCount; i += 1) {
+        const burstIndex = i % 4;
+        if (burstIndex === 0 && i > 0) delay += 1400;
+        enemies.push({ type: chooseEnemyType(waveNumber), lane: pickRandom(LANE_NAMES), delayMs: delay + burstIndex * 180 });
+      }
+    } else {
+      for (let i = 0; i < baseCount; i += 1) {
+        enemies.push({ type: chooseEnemyType(waveNumber), lane: pickRandom(LANE_NAMES), delayMs: i * 600 });
+      }
+    }
+    return enemies;
+  }
+
+  function buildBossWave(waveNumber) {
+    const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
+    const lane = chooseLane();
+    return [{ bossId: boss.id, lane, delayMs: 1000 }];
+  }
+
+  function chooseEnemyType(waveNumber) {
+    if (waveNumber < 3) return 'grunt';
+    if (waveNumber < 5) return chance(0.2) ? 'runner' : 'grunt';
+    if (waveNumber < 8) return chance(0.25) ? 'brute' : (chance(0.25) ? 'runner' : 'grunt');
+    return chance(0.25) ? 'brute' : (chance(0.30) ? 'runner' : 'grunt');
+  }
+
+  function startWave() {
+    if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE) return;
+    game.waveNumber = game.nextWavePlan.waveNumber;
+    game.runningWave = true;
+    game.currentPattern = game.nextWavePlan.pattern;
+    game.activeMutation = game.nextWavePlan.mutation;
+    game.pendingSpawns = game.nextWavePlan.enemies.map(item => ({ ...item, spawned: false }));
+    game.waveStartAt = now();
+    game.nextWavePlan = null;
+    game.relicChoices = [];
+    setInstruction(`Wave ${game.waveNumber} is live. Defend the portal.`);
+    els.startWaveBtn.disabled = true;
+    const mutationText = game.activeMutation ? ` • ${game.activeMutation.name}` : '';
+    showBanner(`Wave ${game.waveNumber}: ${prettyPattern(game.currentPattern)}${mutationText}`, 2200);
+    markProgress(`Wave ${game.waveNumber} started.`);
+    log(`Wave ${game.waveNumber} started. Pattern: ${prettyPattern(game.currentPattern)}${mutationText ? `, Mutation: ${game.activeMutation.name}` : ''}.`);
+    render();
+  }
+
+  function spawnEnemyFromPlan(plan) {
+    let enemy;
+    if (plan.bossId) {
+      const boss = BOSSES.find(b => b.id === plan.bossId);
+      enemy = createBossEnemy(boss, plan.lane);
+    } else {
+      enemy = createEnemy(plan.type, plan.lane);
+    }
+    if (game.activeMutation && game.activeMutation.apply) game.activeMutation.apply(enemy);
+    game.enemies.push(enemy);
+    markProgress(`Spawned ${enemy.name}.`);
+  }
+
+  function createEnemy(type, laneName) {
+    const template = ENEMY_TEMPLATES[type];
+    const lane = BREACH_LANES[laneName];
+    const spawn = pickRandom(lane);
+    return {
+      id: `e${game.nextEnemyId++}`,
+      type,
+      name: template.name,
+      x: spawn.x,
+      y: spawn.y,
+      hp: template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12),
+      maxHp: template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12),
+      damage: template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08),
+      moveInterval: template.moveInterval,
+      attackInterval: template.attackInterval,
+      jewel: template.jewel * ENEMY_JEWEL_MULTIPLIER,
+      cssClass: template.typeClass,
+      targetPath: [],
+      nextMoveAt: now() + 200,
+      moveStartedAt: now(),
+      moveEndAt: now() + 200,
+      prevX: spawn.x,
+      prevY: spawn.y,
+      nextAttackAt: 0,
+      attacking: false,
+      tauntedTo: null,
+      tauntUntil: 0,
+      debuffs: {},
+      buffs: {},
+      threat: {},
+      aggroTargetId: null,
+      lastAggroAt: 0,
+      isBoss: false,
+      slowResistance: 0,
+    };
+  }
+
+  function createBossEnemy(boss, laneName) {
+    const lane = BREACH_LANES[laneName];
+    const spawn = pickRandom(lane);
+    return {
+      id: `e${game.nextEnemyId++}`,
+      type: boss.id,
+      name: boss.name,
+      x: spawn.x,
+      y: spawn.y,
+      hp: boss.hp,
+      maxHp: boss.hp,
+      damage: boss.damage,
+      moveInterval: boss.moveInterval,
+      attackInterval: boss.attackInterval,
+      jewel: boss.jewel * ENEMY_JEWEL_MULTIPLIER,
+      cssClass: 'boss',
+      targetPath: [],
+      nextMoveAt: now() + 300,
+      moveStartedAt: now(),
+      moveEndAt: now() + 300,
+      prevX: spawn.x,
+      prevY: spawn.y,
+      nextAttackAt: 0,
+      attacking: false,
+      tauntedTo: null,
+      tauntUntil: 0,
+      debuffs: {},
+      buffs: {},
+      threat: {},
+      aggroTargetId: null,
+      lastAggroAt: 0,
+      isBoss: true,
+      bossTemplate: boss,
+      nextAbilityAt: now() + boss.abilityInterval * 1000,
+      slowResistance: 0,
+    };
+  }
+
+  function update() {
+    if (game.phase === SETUP_PHASES.GAME_OVER) return;
+    const current = now();
+    const delta = current - game.lastTick;
+    game.lastTick = current;
+
+    if (game.runningWave && game.pendingSpawns) {
+      const elapsed = current - game.waveStartAt;
+      for (const plan of game.pendingSpawns) {
+        if (!plan.spawned && elapsed >= plan.delayMs) {
+          spawnEnemyFromPlan(plan);
+          plan.spawned = true;
+        }
+      }
+    }
+
+    for (const tower of game.towers) updateTower(tower, delta, current);
+    for (const enemy of [...game.enemies]) updateEnemy(enemy, current);
+    cleanupEntities();
+
+    if (!game.runningWave && game.countdownMs > 0) {
+      game.countdownMs = Math.max(0, game.countdownMs - delta);
+      if (game.countdownMs <= 0) prepareNextWave();
+    }
+
+    if (game.runningWave && allSpawnsDone() && game.enemies.length === 0) {
+      finishWave();
+    }
+
+    const progressHash = buildProgressHash();
+    if (progressHash !== game.diagnostics.lastProgressHash) {
+      game.diagnostics.lastProgressHash = progressHash;
+      game.diagnostics.lastProgressAt = current;
+    } else if (game.runningWave && !game.diagnostics.softLockTriggered && game.enemies.length > 0 && current - game.diagnostics.lastProgressAt > 7000) {
+      game.diagnostics.softLockTriggered = true;
+      showCrashReport('softlock', new Error('No battle-state change for 7 seconds during an active wave.'));
+    }
+
+    if (game.portalHp <= 0 && game.phase !== SETUP_PHASES.GAME_OVER) {
+      game.phase = SETUP_PHASES.GAME_OVER;
+      game.runningWave = false;
+      setInstruction('The portal fell. Start a new run to try again.');
+      showBanner('Game Over', 3000);
+      markProgress('The portal was destroyed.');
+      log('The portal was destroyed.');
+    }
+  }
+
+  function allSpawnsDone() {
+    return game.pendingSpawns && game.pendingSpawns.every(s => s.spawned);
+  }
+
+  function finishWave() {
+    game.runningWave = false;
+    game.pendingSpawns = null;
+    game.activeMutation = null;
+    markProgress(`Wave ${game.waveNumber} cleared.`);
+    log(`Wave ${game.waveNumber} cleared.`);
+    if (game.waveNumber % 7 === 0) {
+      offerRelics();
+      setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.`);
+    } else {
+      setCountdown(WAVE_BREAK_SECONDS);
+    }
+    render();
+  }
+
+  function setCountdown(seconds) {
+    game.countdownMs = seconds * 1000;
+    setInstruction(`Preparation phase. Next wave in ${seconds}s unless you start it early.`);
+    prepareNextWave();
+  }
+
+  function offerRelics() {
+    const pool = RELICS.filter(r => !game.ownedRelics.includes(r.id));
+    const choices = [];
+    while (choices.length < Math.min(3, pool.length)) {
+      const relic = pickRandom(pool.filter(r => !choices.some(c => c.id === r.id)));
+      if (!relic) break;
+      choices.push(relic);
+    }
+    game.relicChoices = choices;
+    showBanner('Relic Shop Open', 2500);
+  }
+
+  function buyRelic(id) {
+    const relic = game.relicChoices.find(r => r.id === id);
+    if (!relic || game.jewel < relic.cost) return;
+    game.jewel -= relic.cost;
+    game.ownedRelics.push(relic.id);
+    relic.apply(game);
+    game.relicChoices = [];
+    markProgress(`Bought relic: ${relic.name}.`);
+    log(`Bought relic: ${relic.name}.`);
+    showBanner(`Bought relic: ${relic.name}`);
+    setCountdown(WAVE_BREAK_SECONDS);
+    render();
+  }
+
+  function buffTowerType(gameState, type, opts) {
+    for (const tower of gameState.towers.filter(t => t.type === type)) {
+      if (opts.hpMult) {
+        const pct = tower.hp / tower.maxHp;
+        tower.maxHp *= opts.hpMult;
+        tower.hp = opts.healToMatchPercent ? tower.maxHp * pct : tower.hp;
+      }
+      if (opts.damageMult) tower.damage *= opts.damageMult;
+      if (opts.speedMult) tower.basicCooldown /= opts.speedMult;
+    }
+  }
+
+  function updateTower(tower, delta, current) {
+    tickEffects(tower, current);
+    tower.attackCooldownMs = Math.max(0, tower.attackCooldownMs - delta);
+
+    if (tower.type === 'wizard' && isAbilityUnlocked(tower, 'frost_bolt')) {
+      const tickAt = tower.iceAuraTickAt || 0;
+      if (current >= tickAt) {
+        const targets = game.enemies
+          .filter(e => dist(e, tower) <= 4)
+          .sort((a, b) => dist(tower, a) - dist(tower, b))
+          .slice(0, 10);
+        for (const target of targets) applyDebuff(target, 'slow', 3, { percent: 0.15 });
+        tower.iceAuraTickAt = current + 1000;
+      }
+    }
+
+    if (!tower.template.autoAttack || tower.attackCooldownMs > 0 || game.phase === SETUP_PHASES.GAME_OVER) return;
+    if (tower.type === 'priest') {
+      autoPriestHeal(tower);
+      return;
+    }
+    const target = nearestEnemyInRange(tower, tower.range);
+    if (!target) return;
+    let damage = tower.damage;
+    if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.10;
+    if (target.debuffs.warning_shot) damage *= 1.2;
+    if (target.debuffs.hunters_mark) damage += 2;
+    damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`);
+    tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
+    if (tower.type === 'warrior' && isAbilityUnlocked(tower, 'gladiator_strike') && tower.basicAttackCount % 9 === 0) {
+      damageEnemy(tower, target, tower.damage * 2, `${tower.name} triggered Gladiator Strike`);
+      healTower(tower, tower.maxHp * 0.05, `${tower.name} healed from Gladiator Strike`);
+      showBanner('Warrior passive: Gladiator Strike');
+    }
+    tower.attackCooldownMs = tower.getAttackInterval() * 1000;
+  }
+
+  function isBehindWarrior(tower) {
+    const warrior = game.towers.find(t => t.type === 'warrior');
+    return !!warrior && tower.x > warrior.x && Math.abs(tower.y - warrior.y) <= 1;
+  }
+
+  function autoPriestHeal(tower) {
+    if (isAbilityUnlocked(tower, 'healing_aura')) {
+      const tickAt = tower.auraTickAt || 0;
+      if (now() >= tickAt) {
+        const auraTargets = game.towers.filter(t => t.id !== tower.id && dist(t, tower) <= 2 && t.hp < t.maxHp);
+        const auraHeal = 2 * tower.level;
+        auraTargets.forEach(target => healTower(target, auraHeal, null));
+        tower.auraTickAt = now() + 1000;
+      }
+    }
+    const allies = game.towers.filter(t => dist(t, tower) <= tower.range && t.hp < t.maxHp);
+    if (!allies.length) return;
+    const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
+    healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
+    tower.attackCooldownMs = tower.getAttackInterval() * 1000;
+  }
+
+  function nearestEnemyInRange(tower, range) {
+    const enemies = game.enemies.filter(e => dist(tower, e) <= range);
+    if (!enemies.length) return null;
+    if (tower.type === 'archer' && game.modifiers.senseWeakness) {
+      const debuffed = enemies.filter(e => e.debuffs && Object.keys(e.debuffs).length > 0);
+      if (debuffed.length) {
+        debuffed.sort((a, b) => dist(tower, a) - dist(tower, b));
+        return debuffed[0] || null;
+      }
+    }
+    enemies.sort((a, b) => dist(tower, a) - dist(tower, b));
+    return enemies[0] || null;
+  }
+
+
+  function getEnemyAggroTarget(enemy) {
+    if (!enemy.threat) return null;
+    for (const [tid, value] of Object.entries(enemy.threat)) {
+      const next = value * 0.995;
+      if (next < 1) delete enemy.threat[tid];
+      else enemy.threat[tid] = next;
+    }
+    let bestId = enemy.aggroTargetId;
+    let bestThreat = bestId ? (enemy.threat[bestId] || 0) : 0;
+    for (const [tid, value] of Object.entries(enemy.threat)) {
+      if (!bestId || value > bestThreat * 1.1) {
+        bestId = tid;
+        bestThreat = value;
+      }
+    }
+    if (!bestId || bestThreat <= 5) return null;
+    const tower = game.towers.find(t => t.id === bestId);
+    if (!tower) {
+      delete enemy.threat[bestId];
+      if (enemy.aggroTargetId === bestId) enemy.aggroTargetId = null;
+      return null;
+    }
+    enemy.aggroTargetId = tower.id;
+    return tower;
+  }
+
+  function getTowerApproachTiles(tower) {
+    return adjacentTiles(tower.x, tower.y).filter(p => {
+      const t = tileAt(p.x, p.y);
+      return t && !t.obstacle && !t.portal && (!t.towerId || t.towerId === tower.id);
+    });
+  }
+
+  function updateEnemy(enemy, current) {
+    tickEffects(enemy, current);
+
+    if (enemy.isBoss && enemy.bossTemplate && current >= enemy.nextAbilityAt) {
+      enemy.bossTemplate.useAbility(enemy, game);
+      enemy.nextAbilityAt = current + enemy.bossTemplate.abilityInterval * 1000;
+    }
+
+    const warrior = game.towers.find(t => t.type === 'warrior');
+    const portalTargets = getPortalTargets();
+    let targets = portalTargets;
+    let attackTarget = null;
+
+    if (enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+      const tauntTarget = enemy.tauntedTo;
+      const adj = getTowerApproachTiles(tauntTarget);
+      if (dist(enemy, tauntTarget) <= 1) {
+        attackTarget = tauntTarget;
+      } else if (adj.length) {
+        targets = adj;
+      }
+    } else {
+      enemy.tauntedTo = null;
+      const aggroTarget = getEnemyAggroTarget(enemy);
+      if (aggroTarget) {
+        const adj = getTowerApproachTiles(aggroTarget);
+        if (dist(enemy, aggroTarget) <= 1) {
+          attackTarget = aggroTarget;
+        } else if (adj.length) {
+          targets = adj;
+        }
+      }
+    }
+
+    if (!attackTarget) {
+      const path = pathfind({ x: enemy.x, y: enemy.y }, targets);
+      if (path && path.length > 1) {
+        enemy.targetPath = path;
+        enemy.attacking = false;
+        if (current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+          const next = path[1];
+          if (canEnemyEnter(next.x, next.y, enemy)) {
+            enemy.prevX = enemy.x;
+            enemy.prevY = enemy.y;
+            enemy.x = next.x;
+            enemy.y = next.y;
+            enemy.moveStartedAt = current;
+            enemy.moveEndAt = current + getEnemyMoveMs(enemy);
+            enemy.nextMoveAt = enemy.moveEndAt;
+          } else {
+            enemy.nextMoveAt = current + 200;
+          }
+        }
+      } else if (warrior) {
+        const warriorAdj = getTowerApproachTiles(warrior);
+        if (dist(enemy, warrior) <= 1) {
+          attackTarget = warrior;
+        } else {
+          const warriorPath = pathfind({ x: enemy.x, y: enemy.y }, warriorAdj);
+          if (warriorPath && warriorPath.length > 1) {
+            if (current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+              const next = warriorPath[1];
+              if (canEnemyEnter(next.x, next.y, enemy)) {
+                enemy.prevX = enemy.x;
+                enemy.prevY = enemy.y;
+                enemy.x = next.x;
+                enemy.y = next.y;
+                enemy.moveStartedAt = current;
+                enemy.moveEndAt = current + getEnemyMoveMs(enemy);
+                enemy.nextMoveAt = enemy.moveEndAt;
+                markProgress(`${enemy.name} moved.`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!attackTarget && portalTargets.some(t => t.x === enemy.x && t.y === enemy.y)) {
+      attackTarget = { portal: true };
+    }
+
+    if (attackTarget) {
+      enemy.attacking = true;
+      if (current >= enemy.nextAttackAt) {
+        if (attackTarget.portal) {
+          game.portalHp -= enemy.damage;
+          markProgress(`${enemy.name} hit the portal.`);
+          log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
+        } else {
+          damageTower(game, attackTarget, enemy.damage, `${enemy.name} hit ${attackTarget.name}`);
+          markProgress(`${enemy.name} hit ${attackTarget.name}.`);
+        }
+        enemy.nextAttackAt = current + enemy.attackInterval * 1000;
+      }
+    }
+  }
+
+  function getEnemyMoveMs(enemy) {
+    let mult = 1;
+    if (enemy.debuffs.slow) mult *= (1 + ((enemy.debuffs.slow.percent || 0.3) * (1 - enemy.slowResistance)));
+    return enemy.moveInterval * 1000 * mult;
+  }
+
+  function canEnemyEnter(x, y, enemy) {
+    if (!inBounds(x, y)) return false;
+    const tile = tileAt(x, y);
+    if (!tile || tile.obstacle || tile.portal) return false;
+    if (tile.towerId) {
+      const tower = game.towers.find(t => t.id === tile.towerId);
+      return !tower || tower.type !== 'warrior';
+    }
+    const occupants = game.enemies.filter(e => e.x === x && e.y === y).length;
+    return occupants < 3 || (enemy.x === x && enemy.y === y);
+  }
+
+
+  function getTilePixelPosition(x, y) {
+    const tile = tileAt(x, y);
+    if (!tile || !tile.el) return { left: 0, top: 0, width: 84, height: 84 };
+    return {
+      left: tile.el.offsetLeft,
+      top: tile.el.offsetTop,
+      width: tile.el.offsetWidth,
+      height: tile.el.offsetHeight,
+    };
+  }
+
+  function renderEnemyLayer() {
+    if (!els.enemyLayer) return;
+    els.enemyLayer.innerHTML = '';
+    els.enemyLayer.style.left = `${els.grid.offsetLeft}px`;
+    els.enemyLayer.style.top = `${els.grid.offsetTop}px`;
+    els.enemyLayer.style.width = `${els.grid.offsetWidth}px`;
+    els.enemyLayer.style.height = `${els.grid.offsetHeight}px`;
+    const current = now();
+    const byTile = new Map();
+    for (const enemy of game.enemies) {
+      const key = `${enemy.x},${enemy.y}`;
+      if (!byTile.has(key)) byTile.set(key, []);
+      byTile.get(key).push(enemy);
+    }
+    const laneOffsets = [
+      { x: -10, y: 8 },
+      { x: 0, y: 0 },
+      { x: 10, y: -8 },
+    ];
+    for (const enemy of game.enemies) {
+      const enemiesHere = byTile.get(`${enemy.x},${enemy.y}`) || [enemy];
+      const stackIndex = Math.max(0, enemiesHere.findIndex(e => e.id === enemy.id));
+      const offset = laneOffsets[Math.min(stackIndex, laneOffsets.length - 1)];
+      const pos = getTilePixelPosition(enemy.x, enemy.y);
+      let px = pos.left + pos.width / 2;
+      let py = pos.top + pos.height / 2;
+      if (enemy.moveEndAt && enemy.moveEndAt > enemy.moveStartedAt) {
+        const prog = Math.max(0, Math.min(1, (current - enemy.moveStartedAt) / (enemy.moveEndAt - enemy.moveStartedAt)));
+        const from = getTilePixelPosition(enemy.prevX ?? enemy.x, enemy.prevY ?? enemy.y);
+        const fx = from.left + from.width / 2;
+        const fy = from.top + from.height / 2;
+        px = fx + (px - fx) * prog;
+        py = fy + (py - fy) * prog;
+      }
+      const dot = document.createElement('div');
+      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${enemy.debuffs && enemy.debuffs.slow ? ' enemy-slowed' : ''}`;
+      dot.style.left = `${px + offset.x}px`;
+      dot.style.top = `${py + offset.y}px`;
+      els.enemyLayer.appendChild(dot);
+    }
+  }
+
+  function cleanupEntities() {
+    for (const enemy of [...game.enemies]) {
+      if (enemy.hp <= 0) {
+        awardKill(enemy);
+        game.enemies = game.enemies.filter(e => e.id !== enemy.id);
+        markProgress(`${enemy.name} died.`);
+      }
+    }
+    for (const tower of [...game.towers]) {
+      if (tower.hp <= 0) {
+        tileAt(tower.x, tower.y).towerId = null;
+        game.towers = game.towers.filter(t => t.id !== tower.id);
+        markProgress(`${tower.name} fell.`);
+        log(`${tower.name} fell.`);
+        if (game.selectedId === tower.id) game.selectedId = null;
+      }
+    }
+  }
+
+  function awardKill(enemy) {
+    let jewel = enemy.jewel;
+    if (enemy.killedBy === 'pirate') jewel *= (1 + game.modifiers.pirateSteal);
+    game.jewel += jewel;
+    log(`${enemy.name} died. +${formatJewel(jewel)} JEWEL.`);
+  }
+
+  function damageEnemy(sourceTower, enemy, amount, message) {
+    let damage = amount;
+    if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
+    enemy.hp -= damage;
+    enemy.killedBy = sourceTower.type;
+    enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + damage;
+    enemy.lastAggroAt = now();
+    const currentThreat = enemy.aggroTargetId ? (enemy.threat[enemy.aggroTargetId] || 0) : 0;
+    if (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 1.15) enemy.aggroTargetId = sourceTower.id;
+    createHitFlash(enemy.x, enemy.y, heroColorKey(sourceTower.type), `-${Math.round(damage)}`);
+    markProgress(`${sourceTower.name} damaged ${enemy.name}.`);
+    if (message && chance(0.15)) log(`${message} for ${Math.round(damage)}.`);
+  }
+
+  function damageTower(gameState, tower, amount, message) {
+    let damage = amount;
+    if (tower.type === 'warrior' && game.modifiers.shieldWall && game.towers.some(t => t.type === 'priest' && dist(t, tower) === 1)) {
+      damage *= 0.9;
+    }
+    tower.hp -= damage;
+    markProgress(`${tower.name} took damage.`);
+    if (message && chance(0.2)) log(`${message} for ${Math.round(damage)}.`);
+  }
+
+  function healTower(tower, amount, message) {
+    tower.hp = Math.min(tower.maxHp, tower.hp + amount);
+    markProgress(`${tower.name} was healed.`);
+    if (message && chance(0.2)) log(`${message} for ${Math.round(amount)}.`);
+  }
+
+  function applyBuff(unit, keyName, seconds, data) {
+    unit.buffs[keyName] = { ...data, until: now() + seconds * 1000 };
+  }
+
+  function applyDebuff(unit, keyName, seconds, data) {
+    unit.debuffs[keyName] = { ...data, until: now() + seconds * 1000 };
+  }
+
+  function tickEffects(unit, current) {
+    if (unit.buffs) {
+      for (const [name, buff] of Object.entries(unit.buffs)) {
+        if (buff.until && current >= buff.until) delete unit.buffs[name];
+      }
+    }
+    if (unit.debuffs) {
+      for (const [name, debuff] of Object.entries(unit.debuffs)) {
+        if (debuff.until && current >= debuff.until) {
+          delete unit.debuffs[name];
+          continue;
+        }
+        if (name === 'hunters_mark' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
+          unit.hp -= debuff.damage;
+          debuff.nextTickAt = current + 1000;
+        }
+        if (name === 'kraken' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
+          unit.hp -= debuff.damage;
+          debuff.nextTickAt = current + 1000;
+        }
+      }
+    }
+  }
+
+  function castAbility(tower, abilityKey) {
+    if (!isAbilityUnlocked(tower, abilityKey)) return;
+    const readyAt = tower.abilityReadyAt[abilityKey] || 0;
+    if (now() < readyAt) return;
+    const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
+    const ctx = { game, tower };
+    const handlers = {
+      gladiator_strike() {
+        return false;
+      },
+      whirlwind() {
+        const targets = game.enemies.filter(e => dist(e, tower) <= 1);
+        if (!targets.length) return false;
+        targets.forEach(e => damageEnemy(tower, e, 60 * powerMult, null));
+        return true;
+      },
+      rapid_onslaught() {
+        applyBuff(tower, 'rapid_onslaught', 4, { strength: 1 * powerMult });
+        return true;
+      },
+      taunt() {
+        const targets = game.enemies.filter(e => dist(e, tower) <= 2 * powerMult);
+        if (!targets.length) return false;
+        targets.forEach(e => { if (dist(e, tower) <= 2 * powerMult) { e.tauntedTo = tower; e.tauntUntil = now() + 3000 * powerMult; } });
+        return true;
+      },
+      multi_shot() {
+        const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
+        if (!targets.length) return false;
+        targets.forEach(e => damageEnemy(tower, e, tower.damage * 0.7, null));
+        return true;
+      },
+      rapid_shot() {
+        applyBuff(tower, 'rapid_shot', 4, { bonus: 0.8 * powerMult });
+        return true;
+      },
+      piercing_shot() {
+        const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
+        if (!targets.length) return false;
+        [1, 0.8, 0.6].forEach((mult, i) => { if (targets[i]) damageEnemy(tower, targets[i], tower.damage * mult * powerMult, null); });
+        return true;
+      },
+      hunters_mark() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        applyDebuff(target, 'hunters_mark', 8, { damage: 6 * powerMult, nextTickAt: now() + 1000 });
+        return true;
+      },
+      firebolt() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        damageEnemy(tower, target, 40 * game.modifiers.wizardSpellDamage, `${tower.name} cast Firebolt`);
+        return true;
+      },
+      frost_bolt() {
+        return false;
+      },
+      fireball() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        const targets = game.enemies.filter(e => dist(e, target) <= 2);
+        targets.forEach(e => damageEnemy(tower, e, 70 * powerMult * game.modifiers.wizardSpellDamage, null));
+        return true;
+      },
+      frost_lance() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        let dmg = 90 * powerMult * game.modifiers.wizardSpellDamage;
+        if (target.debuffs.slow) dmg *= 2;
+        damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`);
+        return true;
+      },
+      prayer_of_healing() {
+        const allies = game.towers.filter(t => dist(t, tower) <= 3 && t.hp < t.maxHp);
+        if (!allies.length) return false;
+        allies.forEach(a => healTower(a, 120 * game.modifiers.priestHealing, null));
+        return true;
+      },
+      freedom() {
+        const allies = game.towers.filter(t => dist(t, tower) <= 3);
+        allies.forEach(a => { delete a.buffs.blizzardSlow; delete a.debuffs.rooted; applyBuff(a, 'freedom', 2, {}); });
+        return true;
+      },
+      swiftness() {
+        const allies = game.towers.filter(t => dist(t, tower) <= 3);
+        allies.forEach(a => applyBuff(a, 'swiftness', 5, { bonus: 0.25 * powerMult }));
+        return true;
+      },
+      warning_shot() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        applyDebuff(target, 'warning_shot', 6, {});
+        return true;
+      },
+      starboard_cannons() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        const shots = 5 + game.modifiers.extraCannons;
+        for (let i = 0; i < shots; i += 1) {
+          const targets = game.enemies.filter(e => dist(e, target) <= 2);
+          const chosen = targets.length ? pickRandom(targets) : target;
+          damageEnemy(tower, chosen, 45, null);
+        }
+        return true;
+      },
+      kraken() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        const targets = game.enemies.filter(e => dist(e, target) <= 2);
+        targets.forEach(e => applyDebuff(e, 'kraken', 5, { damage: 30 * powerMult, nextTickAt: now() + 1000 }));
+        return true;
+      },
+    };
+    const ok = handlers[abilityKey]?.(ctx);
+    if (!ok) {
+      showBanner('No valid target in range', 1200);
+      return;
+    }
+    const cooldown = getAbilityCooldownSeconds(tower, abilityKey);
+    let mult = 1;
+    if (tower.type === 'wizard') mult *= game.modifiers.wizardCooldown;
+    if (tower.type === 'warrior') mult *= game.modifiers.warriorCooldown;
+    tower.abilityReadyAt[abilityKey] = now() + cooldown * 1000 * mult;
+    log(`${tower.name} used ${abilityKey.replaceAll('_', ' ')}.`);
+    render();
+  }
+
+
+  function clearPathPreview() {
+    game.grid.forEach(tile => { tile.pathPreview = null; });
+  }
+
+  function buyableWaveStart() {
+    return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length;
+  }
+
+  els.startWaveBtn.addEventListener('click', () => {
+    if (buyableWaveStart()) startWave();
+  });
+  els.restartBtn.addEventListener('click', resetGame);
+  els.speedToggleBtn?.addEventListener('click', () => {
+    setTimeScale(game.timeScale > 1 ? 1 : 2);
+  });
+  els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
+  els.upgradeBtn.addEventListener('click', () => {
+    const tower = getSelectedTower();
+    if (tower) upgradeTower(tower);
+  });
+  els.moveBtn.addEventListener('click', () => {
+    const tower = getSelectedTower();
+    if (!tower) return;
+    game.movingTowerId = tower.id;
+    log(`Select an adjacent tile to move ${tower.name}.`);
+    render();
+  });
+
+  function gameLoop() {
+    if (game.crashed) return;
+    const realNow = Date.now();
+    if (!game.realLastTick) game.realLastTick = realNow;
+    if (!game.virtualNow) game.virtualNow = realNow;
+    const realDelta = Math.max(0, Math.min(250, realNow - game.realLastTick));
+    game.realLastTick = realNow;
+    game.virtualNow += realDelta * game.timeScale;
+    try {
+      update();
+      // Keep the battlefield/top bar live without rebuilding the control panel every frame.
+      // Rebuilding buttons on every animation frame can interrupt click events before they fire.
+      renderGrid();
+      renderEnemyLayer();
+      refreshSelectedPanelLive();
+      updateTopbar();
+    } catch (error) {
+      showCrashReport('runtime', error);
+      return;
+    }
+    requestAnimationFrame(gameLoop);
+  }
+
+  els.grid.addEventListener('click', (event) => {
+    const tileEl = event.target.closest('.tile');
+    if (!tileEl) return;
+    handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y));
+  });
+
+  // Preview portal / obstacle placements on hover.
+  els.grid.addEventListener('mousemove', (event) => {
+    const tileEl = event.target.closest('.tile');
+    clearPathPreview();
+    game.hoveredTowerId = null;
+    if (!tileEl) return;
+    const x = Number(tileEl.dataset.x);
+    const y = Number(tileEl.dataset.y);
+    const hoverTile = tileAt(x, y);
+    if (hoverTile && hoverTile.towerId) game.hoveredTowerId = hoverTile.towerId;
+    if (game.phase === SETUP_PHASES.PORTAL) {
+      const valid = canPlacePortal(x, y);
+      const points = [{ x, y }, { x: x + 1, y }, { x, y: y + 1 }, { x: x + 1, y: y + 1 }].filter(p => inBounds(p.x, p.y));
+      points.forEach(p => { tileAt(p.x, p.y).pathPreview = valid ? 'valid' : 'invalid'; });
+    } else if (game.phase === SETUP_PHASES.OBSTACLES) {
+      tileAt(x, y).pathPreview = canPlacePlayerObstacle(x, y) ? 'valid' : 'invalid';
+    }
+    renderGrid();
+  });
+  els.grid.addEventListener('mouseleave', () => { clearPathPreview(); game.hoveredTowerId = null; renderGrid(); });
+
+
+  window.addEventListener('error', (event) => {
+    showCrashReport('runtime', event.error || new Error(event.message || 'Unknown runtime error'));
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    showCrashReport('runtime', event.reason || new Error('Unhandled promise rejection'));
+  });
+
+  game.virtualNow = Date.now();
+  game.realLastTick = Date.now();
+  resetGame();
+  game.lastTick = now();
+  setTimeScale(1);
+  requestAnimationFrame(gameLoop);
+})();
