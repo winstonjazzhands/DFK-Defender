@@ -10,21 +10,25 @@
   <div id="app">
     <main class="main-layout">
       <section class="left-panel panel">
-        <h2>Run Log</h2>
-        <div id="log" class="log"></div>
+                <div id="log" class="log"></div>
         <button id="speedToggleBtn" class="speed-toggle" type="button" aria-pressed="false">✨ Easy Mode</button>
         <button id="mobileModeBtn" class="mobile-toggle" type="button" aria-pressed="false">⚔️ Challenge Mode</button>
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
         <button id="heroesBtn" class="intro-toggle secondary-guide" type="button">🛡️ Meet the Heroes</button>
-        <div class="meta-currency panel-lite">
-          <div class="meta-title">Jewel Bank</div>
-          <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
-          <div><strong>Entry Cost:</strong> 3 Jewel</div>
-          <div class="meta-rewards">
-            Wave 5: +1 Jewel<br>
-            Wave 10: +2 Jewel<br>
-            Wave 15: +5 Jewel
+        <div class="meta-currency panel-lite collapsed" id="jewelBankPanel">
+          <button id="jewelBankToggle" class="wallet-panel-toggle jewel-bank-toggle" type="button" aria-expanded="false" aria-controls="jewelBankBody">
+            <span class="meta-title">Jewel Bank</span>
+            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="jewelBankBody" class="wallet-panel-body">
+            <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
+            <div><strong>Entry Cost:</strong> 3 Jewel</div>
+            <div class="meta-rewards">
+              Wave 5: +1 Jewel<br>
+              Wave 10: +2 Jewel<br>
+              Wave 15: +5 Jewel
+            </div>
           </div>
         </div>
         <div class="wallet-panel panel-lite collapsed" id="walletPanel">

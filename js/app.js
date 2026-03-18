@@ -30,7 +30,7 @@ function getRandomTree(){
 
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
   const HIRE_COSTS = [20, 40, 70, 110];
-  const UPGRADE_COST_MULTIPLIER = 1.6531;
+  const UPGRADE_COST_MULTIPLIER = 3.3062;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const BARRIER_REBUILD_COST = 120;
@@ -255,6 +255,9 @@ function getRandomTree(){
     walletPanel: document.getElementById('walletPanel'),
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
+    jewelBankPanel: document.getElementById('jewelBankPanel'),
+    jewelBankBody: document.getElementById('jewelBankBody'),
+    jewelBankToggle: document.getElementById('jewelBankToggle'),
     selectedInfo: document.getElementById('selectedInfo'),
     abilitiesPanel: document.getElementById('abilitiesPanel'),
     hirePanel: document.getElementById('hirePanel'),
@@ -1420,13 +1423,28 @@ function getRandomTree(){
       const pendingThisType = game.placingHeroType === type;
       const labelPrefix = usesBonus ? 'Hire Extra' : 'Hire';
       btn.textContent = pendingThisType ? `Placing… ${formatJewel(game.placingHeroCost)} Gold` : `${labelPrefix} ${t.name} (${formatJewel(cost)} Gold)`;
-      btn.disabled = game.jewel < cost || !!game.placingHeroType || game.phase === SETUP_PHASES.GAME_OVER || game.phase !== SETUP_PHASES.BATTLE;
+      btn.disabled = game.jewel < cost || game.phase === SETUP_PHASES.GAME_OVER;
       btn.addEventListener('click', () => {
+        if (game.phase === SETUP_PHASES.GAME_OVER) return;
+        if (game.jewel < cost) {
+          showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
+          return;
+        }
+        if (pendingThisType) {
+          game.placingHeroType = null;
+          game.placingHeroCost = 0;
+          game.placingHeroUsesBonus = false;
+          game.placingSatelliteSourceId = null;
+          showBanner(`Cancelled ${t.name} placement`, 1000);
+          render();
+          return;
+        }
         game.placingHeroType = type;
         game.placingHeroCost = cost;
         game.placingHeroUsesBonus = !!usesBonus;
+        game.placingSatelliteSourceId = null;
         log(`Select a tile to place ${usesBonus ? 'an extra ' : ''}${t.name}. You can place hires during active rounds too.`);
-        showBanner(`Place ${t.name} on any open tile`, 1400);
+        showBanner(game.runningWave ? `Place ${t.name} during the wave on any open tile` : `Place ${t.name} on any open tile`, 1400);
         render();
       });
       const desc = type === 'priest' ? 'Support and heals' : type === 'warrior' ? 'Tank and chokepoint anchor' : type === 'wizard' ? 'Burst caster' : type === 'pirate' ? 'Utility and economy' : 'Ranged DPS';
@@ -2266,7 +2284,8 @@ function getRandomTree(){
   }
 
   function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
-    const baseCount = Math.round((6 + waveNumber * 2) * sizeMultiplier);
+    const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber);
+    const baseCount = Math.round((6 + waveNumber * 2) * countMultiplier);
     const enemies = [];
     if (pattern === 'lane') {
       const lane = chooseLane();
@@ -2298,8 +2317,16 @@ function getRandomTree(){
   function chooseEnemyType(waveNumber) {
     if (waveNumber < 3) return 'grunt';
     if (waveNumber < 5) return chance(0.2) ? 'runner' : 'grunt';
-    if (waveNumber < 8) return chance(0.25) ? 'brute' : (chance(0.25) ? 'runner' : 'grunt');
-    return chance(0.25) ? 'brute' : (chance(0.30) ? 'runner' : 'grunt');
+
+    let bruteChance = waveNumber < 8 ? 0.25 : 0.25;
+    let runnerChance = waveNumber < 8 ? 0.25 : 0.30;
+
+    if (waveNumber > 20) {
+      runnerChance = Math.min(0.9, runnerChance * 2);
+    }
+
+    if (chance(bruteChance)) return 'brute';
+    return chance(runnerChance) ? 'runner' : 'grunt';
   }
 
   function startWave() {
@@ -2330,23 +2357,37 @@ function getRandomTree(){
       enemy = createEnemy(plan.type, plan.lane);
     }
     if (game.activeMutation && game.activeMutation.apply) game.activeMutation.apply(enemy);
+    enemy.spawnMaxHp = enemy.maxHp;
+    enemy.visualSizePx = computeEnemyVisualSizeFromSpawnHp(enemy.spawnMaxHp);
     game.enemies.push(enemy);
     markProgress(`Spawned ${enemy.name}.`);
+  }
+
+  function getPostWave15StatMultiplier(waveNumber) {
+    return waveNumber > 15 ? 1.25 : 1;
+  }
+
+  function getPostWave15CountMultiplier(waveNumber) {
+    return waveNumber > 15 ? 1.5 : 1;
   }
 
   function createEnemy(type, laneName) {
     const template = ENEMY_TEMPLATES[type];
     const lane = BREACH_LANES[laneName];
     const spawn = pickRandom(lane);
+    const earlyWaveMultiplier = game.waveNumber <= 10 ? 0.95 : 1;
+    const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
+    const enemyHp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const enemyDamage = template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
     return {
       id: `e${game.nextEnemyId++}`,
       type,
       name: template.name,
       x: spawn.x,
       y: spawn.y,
-      hp: template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * (game.waveNumber <= 10 ? 0.95 : 1),
-      maxHp: template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * (game.waveNumber <= 10 ? 0.95 : 1),
-      damage: template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * (game.waveNumber <= 10 ? 0.95 : 1),
+      hp: enemyHp,
+      maxHp: enemyHp,
+      damage: enemyDamage,
       moveInterval: template.moveInterval,
       attackInterval: template.attackInterval,
       jewel: template.jewel * ENEMY_JEWEL_MULTIPLIER,
@@ -3011,15 +3052,20 @@ function getRandomTree(){
         py = fy + (py - fy) * prog;
       }
       const dot = document.createElement('div');
+      const enemySize = getEnemyVisualSize(enemy);
       dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${enemy.debuffs && (enemy.debuffs.slow || enemy.debuffs.kraken || enemy.debuffs.bleed) ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
+      dot.style.width = `${enemySize}px`;
+      dot.style.height = `${enemySize}px`;
       els.enemyLayer.appendChild(dot);
       if (enemy.hp < enemy.maxHp) {
         const hp = document.createElement('div');
         hp.className = 'enemy-hp-bar';
+        hp.style.width = `${Math.max(18, enemySize)}px`;
+        hp.style.marginLeft = `${-Math.max(18, enemySize) / 2}px`;
         hp.style.left = `${px + offset.x}px`;
-        hp.style.top = `${py + offset.y - 10}px`;
+        hp.style.top = `${py + offset.y - (enemySize / 2) - 8}px`;
         const fill = document.createElement('div');
         fill.className = 'enemy-hp-fill';
         fill.style.width = `${Math.max(0, Math.min(100, (enemy.hp / enemy.maxHp) * 100))}%`;
@@ -3027,6 +3073,48 @@ function getRandomTree(){
         els.enemyLayer.appendChild(hp);
       }
     }
+  }
+
+  function getGlobalEnemyHpRange() {
+    const hpValues = [];
+    const activeMutation = game.activeMutation && game.activeMutation.apply ? game.activeMutation : null;
+    const earlyWaveMultiplier = game.waveNumber <= 10 ? 0.95 : 1;
+    const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
+
+    for (const template of Object.values(ENEMY_TEMPLATES)) {
+      const hp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
+      const probe = { hp, maxHp: hp, isBoss: false, moveInterval: template.moveInterval, attackInterval: template.attackInterval, damage: template.damage };
+      if (activeMutation) activeMutation.apply(probe);
+      hpValues.push(probe.maxHp || probe.hp || hp);
+    }
+
+    for (const boss of BOSSES) {
+      const hp = boss.hp * earlyWaveMultiplier;
+      const probe = { hp, maxHp: hp, isBoss: true, moveInterval: boss.moveInterval, attackInterval: boss.attackInterval, damage: boss.damage };
+      if (activeMutation) activeMutation.apply(probe);
+      hpValues.push(probe.maxHp || probe.hp || hp);
+    }
+
+    const minHp = Math.min(...hpValues);
+    const maxHp = Math.max(...hpValues);
+    return { minHp, maxHp };
+  }
+
+  function computeEnemyVisualSizeFromSpawnHp(spawnHp) {
+    const sampleTile = game.grid && game.grid[0] && game.grid[0].el ? game.grid[0].el : null;
+    const tileWidth = sampleTile ? sampleTile.offsetWidth : 36;
+    const maxSize = tileWidth * 0.75;
+    const minSize = Math.max(10, tileWidth * 0.28);
+    const { minHp, maxHp } = getGlobalEnemyHpRange();
+    const range = Math.max(1, maxHp - minHp);
+    const normalized = Math.max(0, Math.min(1, (spawnHp - minHp) / range));
+    return Math.max(minSize, Math.min(maxSize, minSize + (maxSize - minSize) * Math.sqrt(normalized)));
+  }
+
+  function getEnemyVisualSize(enemy) {
+    if (enemy.visualSizePx) return enemy.visualSizePx;
+    const spawnHp = enemy.spawnMaxHp || enemy.maxHp || enemy.hp || 1;
+    return computeEnemyVisualSizeFromSpawnHp(spawnHp);
   }
 
   function cleanupEntities() {
@@ -3296,6 +3384,10 @@ function getRandomTree(){
   els.walletPanelToggle?.addEventListener('click', () => {
     const collapsed = els.walletPanel?.classList.toggle('collapsed');
     if (els.walletPanelToggle) els.walletPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
+  els.jewelBankToggle?.addEventListener('click', () => {
+    const collapsed = els.jewelBankPanel?.classList.toggle('collapsed');
+    if (els.jewelBankToggle) els.jewelBankToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
   els.introPrevBtn?.addEventListener('click', () => {
     if (game.introPageIndex > 0) {
