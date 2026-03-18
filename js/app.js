@@ -1187,16 +1187,27 @@ function getRandomTree(){
       els.portalArt.classList.add('hidden');
       return;
     }
-    const styles = getComputedStyle(document.documentElement);
-    const tileSize = parseFloat(styles.getPropertyValue('--tile-size')) || 84;
-    const gap = parseFloat(styles.getPropertyValue('--tile-gap')) || 6;
-    const portalSpan = tileSize * 2 + gap;
-    const width = portalSpan * 0.98;
-    const left = game.portal.x * (tileSize + gap) + tileSize * 0.02;
-    const top = game.portal.y * (tileSize + gap) + tileSize * 0.17;
-    els.portalArt.style.left = `${left}px`;
-    els.portalArt.style.top = `${top}px`;
-    els.portalArt.style.width = `${width}px`;
+
+    const topLeftTile = tileAt(game.portal.x, game.portal.y);
+    const bottomRightTile = tileAt(game.portal.x + 1, game.portal.y + 1);
+    if (!topLeftTile || !bottomRightTile || !topLeftTile.el || !bottomRightTile.el) {
+      els.portalArt.classList.add('hidden');
+      return;
+    }
+
+    const left = topLeftTile.el.offsetLeft;
+    const top = topLeftTile.el.offsetTop;
+    const width = (bottomRightTile.el.offsetLeft + bottomRightTile.el.offsetWidth) - left;
+    const height = (bottomRightTile.el.offsetTop + bottomRightTile.el.offsetHeight) - top;
+
+    const insetX = Math.max(2, width * 0.02);
+    const insetTop = Math.max(2, height * 0.08);
+    const insetBottom = Math.max(2, height * 0.02);
+
+    els.portalArt.style.left = `${left + insetX}px`;
+    els.portalArt.style.top = `${top + insetTop}px`;
+    els.portalArt.style.width = `${Math.max(8, width - insetX * 2)}px`;
+    els.portalArt.style.height = `${Math.max(8, height - insetTop - insetBottom)}px`;
     els.portalArt.classList.remove('hidden');
   }
 
@@ -3363,11 +3374,16 @@ function getRandomTree(){
   });
   els.grid.addEventListener('mouseleave', () => { clearPathPreview(); game.hoveredTowerId = null; renderGrid(); });
 
-  window.addEventListener('resize', () => {
-    if (game.portal) {
-      renderPortalArt();
-    }
-  });
+  const rerenderPortalArtOnLayoutChange = () => {
+    if (!game.portal) return;
+    window.requestAnimationFrame(() => renderPortalArt());
+  };
+
+  window.addEventListener('resize', rerenderPortalArtOnLayoutChange);
+  if ('ResizeObserver' in window) {
+    const portalLayoutObserver = new ResizeObserver(rerenderPortalArtOnLayoutChange);
+    portalLayoutObserver.observe(els.grid);
+  }
 
 
   window.addEventListener('error', (event) => {
