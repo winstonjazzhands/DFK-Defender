@@ -9,7 +9,7 @@
   <title>Portal Siege TD</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body style="background: url(assets/background.png) center/cover no-repeat;">
+<body>
   <div id="app">
     <main class="main-layout">
       <section class="left-panel panel">
@@ -20,14 +20,19 @@
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
         <button id="heroesBtn" class="intro-toggle secondary-guide" type="button">🛡️ Meet the Heroes</button>
-        <div class="meta-currency panel-lite">
-          <div class="meta-title">Jewel Bank</div>
-          <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
-          <div><strong>Entry Cost:</strong> 3 Jewel</div>
-          <div class="meta-rewards">
-            Wave 5: +1 Jewel<br>
-            Wave 10: +2 Jewel<br>
-            Wave 15: +5 Jewel
+        <div class="meta-currency panel-lite collapsed" id="bankPanel">
+          <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
+            <span class="meta-title">Jewel Bank</span>
+            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="bankPanelBody" class="wallet-panel-body bank-panel-body">
+            <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
+            <div><strong>Entry Cost:</strong> 3 Jewel</div>
+            <div class="meta-rewards">
+              Wave 5: +1 Jewel<br>
+              Wave 10: +2 Jewel<br>
+              Wave 15: +5 Jewel
+            </div>
           </div>
         </div>
         <div class="wallet-panel panel-lite collapsed" id="walletPanel">
@@ -58,8 +63,32 @@
 
       <section class="center-panel panel">
         <div id="banner" class="banner hidden"></div>
-        <div id="statusOverlay" class="status-overlay hidden"><span id="phaseLabel" class="phase-label">Loading…</span> <span id="instructionText" class="instruction"></span></div>
         <div id="grid" class="grid" aria-label="battlefield"></div>
+        <div id="statusOverlay" class="status-overlay hidden"><span id="phaseLabel" class="phase-label">Loading…</span> <span id="instructionText" class="instruction"></span></div>
+        <footer class="bottom-panel panel">
+          <div class="controls-row action-row">
+            <button id="startWaveBtn" class="small-action" disabled>Start Next Wave</button>
+            <button id="skipSetupBtn" class="secondary small-action hidden">Auto-Place Warrior</button>
+            <button id="restartBtn" class="small-action">New Run</button>
+            <div class="topbar footer-topbar">
+              <div><strong>Portal HP:</strong> <span id="portalHp">--</span></div>
+              <div><strong>Gold:</strong> <span id="jewelCount">0</span></div>
+              <div><strong>Wave:</strong> <span id="waveCount">0</span></div>
+              <div><strong>Pattern:</strong> <span id="patternLabel">--</span></div>
+              <div><strong>Mutation:</strong> <span id="mutationLabel">None</span></div>
+              <div><strong>Next Wave:</strong> <span id="countdownLabel">--</span></div>
+            </div>
+          </div>
+          <div class="controls-stack">
+            <div class="control-section hire-section">
+              <div id="hirePanel" class="card-list hire-list"></div>
+            </div>
+            <div class="control-section relic-section">
+              <h3>Relic Shop</h3>
+              <div id="relicPanel" class="card-list relic-list"></div>
+            </div>
+          </div>
+        </footer>
       </section>
 
       <section class="right-panel panel">
@@ -97,32 +126,16 @@
         </div>
       </div>
     </div>
-    <footer class="bottom-panel panel">
-      <div class="controls-row action-row">
-        <button id="startWaveBtn" class="small-action" disabled>Start Next Wave</button>
-        <button id="skipSetupBtn" class="secondary small-action hidden">Auto-Place Warrior</button>
-        <button id="restartBtn" class="small-action">New Run</button>
-        <div class="topbar footer-topbar">
-          <div><strong>Portal HP:</strong> <span id="portalHp">--</span></div>
-          <div><strong>Gold:</strong> <span id="jewelCount">0</span></div>
-          <div><strong>Wave:</strong> <span id="waveCount">0</span></div>
-          <div><strong>Pattern:</strong> <span id="patternLabel">--</span></div>
-          <div><strong>Mutation:</strong> <span id="mutationLabel">None</span></div>
-          <div><strong>Next Wave:</strong> <span id="countdownLabel">--</span></div>
-        </div>
-      </div>
-      <div class="controls-stack">
-        <div class="control-section hire-section">
-          <div id="hirePanel" class="card-list hire-list"></div>
-        </div>
-        <div class="control-section relic-section">
-          <h3>Relic Shop</h3>
-          <div id="relicPanel" class="card-list relic-list"></div>
-        </div>
-      </div>
-    </footer>
 
     <div id="mobileHud" class="mobile-hud hidden" aria-hidden="true">
+      <button id="mobileSideMenuToggleBtn" class="mobile-side-menu-toggle hidden" type="button" aria-pressed="true" aria-label="Open side menu">›</button>
+      <div id="mobileLeftRail" class="mobile-side-rail mobile-left-rail collapsed" aria-hidden="true">
+        <div id="mobileBankHost" class="mobile-side-host"></div>
+        <div id="mobileProfileHost" class="mobile-side-host"></div>
+      </div>
+      <div id="mobileRightRail" class="mobile-side-rail mobile-right-rail" aria-hidden="true">
+        <div id="mobileStatsHost" class="mobile-side-host"></div>
+      </div>
     <div id="mobileInstallPrompt" class="mobile-install-prompt hidden" aria-live="polite">
       <div id="mobileInstallText" class="mobile-install-text">Add this game to your home screen for the best full-screen mobile experience.</div>
       <div class="mobile-install-actions">

@@ -255,11 +255,20 @@ function getRandomTree(){
     walletPanel: document.getElementById('walletPanel'),
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
+    bankPanel: document.getElementById('bankPanel'),
+    bankPanelBody: document.getElementById('bankPanelBody'),
+    bankPanelToggle: document.getElementById('bankPanelToggle'),
     selectedInfo: document.getElementById('selectedInfo'),
     abilitiesPanel: document.getElementById('abilitiesPanel'),
     hirePanel: document.getElementById('hirePanel'),
     relicPanel: document.getElementById('relicPanel'),
     mobileHud: document.getElementById('mobileHud'),
+    mobileLeftRail: document.getElementById('mobileLeftRail'),
+    mobileRightRail: document.getElementById('mobileRightRail'),
+    mobileSideMenuToggleBtn: document.getElementById('mobileSideMenuToggleBtn'),
+    mobileBankHost: document.getElementById('mobileBankHost'),
+    mobileProfileHost: document.getElementById('mobileProfileHost'),
+    mobileStatsHost: document.getElementById('mobileStatsHost'),
     mobileMenuOverlay: document.getElementById('mobileMenuOverlay'),
     mobileMenuShell: document.getElementById('mobileMenuShell'),
     mobileFuncMenu: document.getElementById('mobileFuncMenu'),
@@ -362,6 +371,7 @@ function getRandomTree(){
     logLimit: 120,
     bannerTimeout: null,
     statusOverlayTimeout: null,
+    mobileLeftRailCollapsed: true,
     crashed: false,
     diagnostics: {
       recentEvents: [],
@@ -774,9 +784,15 @@ function getRandomTree(){
   }
 
 
-  function showStatusOverlay(duration = 15000) {
+  function showStatusOverlay(duration = 3000) {
     const overlay = document.getElementById('statusOverlay');
     if (!overlay) return;
+    overlay.style.left = '';
+    overlay.style.right = '';
+    overlay.style.top = '';
+    overlay.style.bottom = '';
+    overlay.style.transform = '';
+    overlay.style.display = 'inline-flex';
     overlay.classList.remove('hidden');
     if (game.statusOverlayTimeout) clearTimeout(game.statusOverlayTimeout);
     game.statusOverlayTimeout = setTimeout(() => {
@@ -1386,6 +1402,28 @@ function getRandomTree(){
     updateMobileBarToggle();
   }
 
+  function updateMobileLeftRail() {
+    if (!els.mobileLeftRail || !els.mobileSideMenuToggleBtn) return;
+    const active = isLandscapeMobileUi();
+    els.mobileSideMenuToggleBtn.classList.toggle('hidden', !active);
+    if (!active) {
+      els.mobileLeftRail.classList.remove('collapsed');
+      els.mobileSideMenuToggleBtn.setAttribute('aria-pressed', 'false');
+      els.mobileSideMenuToggleBtn.textContent = '›';
+      return;
+    }
+    els.mobileLeftRail.classList.toggle('collapsed', !!game.mobileLeftRailCollapsed);
+    els.mobileSideMenuToggleBtn.setAttribute('aria-pressed', game.mobileLeftRailCollapsed ? 'true' : 'false');
+    els.mobileSideMenuToggleBtn.setAttribute('aria-label', game.mobileLeftRailCollapsed ? 'Open side menu' : 'Close side menu');
+    els.mobileSideMenuToggleBtn.textContent = game.mobileLeftRailCollapsed ? '›' : '‹';
+  }
+
+  function toggleMobileLeftRail() {
+    if (!isLandscapeMobileUi()) return;
+    game.mobileLeftRailCollapsed = !game.mobileLeftRailCollapsed;
+    updateMobileLeftRail();
+  }
+
   function updateMobileHireNotice(canHireNow) {
     const show = !!canHireNow && isLandscapeMobileUi();
     els.mobileBarToggleBtn?.classList.toggle('has-notice', show);
@@ -1437,22 +1475,57 @@ function getRandomTree(){
     game.mobileOpenMenu = name;
   }
 
+  function setPanelCollapsed(panelEl, toggleEl, collapsed) {
+    if (!panelEl || !toggleEl) return;
+    panelEl.classList.toggle('collapsed', !!collapsed);
+    toggleEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+
+  function enforceMobileSidePanelRule(preferred) {
+    if (!isLandscapeMobileUi()) return;
+    if (preferred === 'bank') {
+      setPanelCollapsed(els.bankPanel, els.bankPanelToggle, false);
+      setPanelCollapsed(els.walletPanel, els.walletPanelToggle, true);
+      return;
+    }
+    if (preferred === 'profile') {
+      setPanelCollapsed(els.bankPanel, els.bankPanelToggle, true);
+      setPanelCollapsed(els.walletPanel, els.walletPanelToggle, false);
+      return;
+    }
+    setPanelCollapsed(els.bankPanel, els.bankPanelToggle, true);
+    setPanelCollapsed(els.walletPanel, els.walletPanelToggle, true);
+  }
+
   function syncMobileHosts() {
     if (!els.mobileHeroHost || !els.mobileHireHost || !els.selectedInfo || !els.hirePanel) return;
     const actionGroup = els.upgradeBtn?.closest('.action-group');
+    const leftPanel = document.querySelector('.left-panel');
+    const rightPanel = document.querySelector('.right-panel');
+    const hireSection = document.querySelector('.hire-section');
+    const leftPanelLog = els.log?.closest('.left-panel');
+    const footerTopbarHome = document.querySelector('.controls-row.action-row');
     if (isLandscapeMobileUi()) {
       els.mobileHud?.classList.remove('hidden');
       els.mobileHud?.setAttribute('aria-hidden', 'false');
+      els.mobileLeftRail?.setAttribute('aria-hidden', 'false');
+      els.mobileRightRail?.setAttribute('aria-hidden', 'false');
       if (els.selectedInfo.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(els.selectedInfo);
       if (actionGroup && actionGroup.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(actionGroup);
       if (els.hirePanel.parentElement !== els.mobileHireHost) els.mobileHireHost.appendChild(els.hirePanel);
+      if (els.bankPanel && els.mobileBankHost && els.bankPanel.parentElement !== els.mobileBankHost) els.mobileBankHost.appendChild(els.bankPanel);
+      if (els.walletPanel && els.mobileProfileHost && els.walletPanel.parentElement !== els.mobileProfileHost) els.mobileProfileHost.appendChild(els.walletPanel);
+      const footerTopbar = document.querySelector('.footer-topbar');
+      if (footerTopbar && els.mobileStatsHost && footerTopbar.parentElement !== els.mobileStatsHost) els.mobileStatsHost.appendChild(footerTopbar);
+      enforceMobileSidePanelRule();
       updateMobileBarToggle();
+      updateMobileLeftRail();
     } else {
       game.mobileBarCollapsed = false;
       els.mobileHud?.classList.add('hidden');
       els.mobileHud?.setAttribute('aria-hidden', 'true');
-      const rightPanel = document.querySelector('.right-panel');
-      const hireSection = document.querySelector('.hire-section');
+      els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
+      els.mobileRightRail?.setAttribute('aria-hidden', 'true');
       if (rightPanel && els.selectedInfo.parentElement !== rightPanel) {
         rightPanel.insertBefore(els.selectedInfo, rightPanel.firstChild);
       }
@@ -1462,6 +1535,19 @@ function getRandomTree(){
       if (hireSection && els.hirePanel.parentElement !== hireSection) {
         hireSection.appendChild(els.hirePanel);
       }
+      if (leftPanel && els.bankPanel && els.bankPanel.parentElement !== leftPanel) {
+        leftPanel.insertBefore(els.bankPanel, els.walletPanel || null);
+      }
+      if (leftPanel && els.walletPanel && els.walletPanel.parentElement !== leftPanel) {
+        leftPanel.appendChild(els.walletPanel);
+      }
+      const footerTopbar = document.querySelector('.footer-topbar');
+      if (footerTopbar && footerTopbarHome && footerTopbar.parentElement !== footerTopbarHome) {
+        footerTopbarHome.appendChild(footerTopbar);
+      }
+      setPanelCollapsed(els.bankPanel, els.bankPanelToggle, true);
+      game.mobileLeftRailCollapsed = true;
+      updateMobileLeftRail();
       closeMobileMenus();
     }
   }
@@ -1644,10 +1730,13 @@ function getRandomTree(){
     updateMobileHireNotice(canHireNow);
 
     if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = '<p>All hireable heroes are currently on the field.</p>';
-      els.hirePanel.appendChild(card);
+      heroTypes.forEach(type => {
+        const t = TOWER_TEMPLATES[type];
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h4>${t.name}</h4><p>Already on the field.</p><button type="button" disabled>Hired</button>`;
+        els.hirePanel.appendChild(card);
+      });
       return;
     }
 
@@ -3633,6 +3722,7 @@ function getRandomTree(){
   els.mobileFuncMenuBtn?.addEventListener('click', () => toggleMobileMenu('func'));
   els.mobileHeroMenuBtn?.addEventListener('click', () => toggleMobileMenu('hero'));
   els.mobileHireMenuBtn?.addEventListener('click', () => toggleMobileMenu('hire'));
+  els.mobileSideMenuToggleBtn?.addEventListener('click', toggleMobileLeftRail);
   els.mobileFuncEasyBtn?.addEventListener('click', () => els.speedToggleBtn?.click());
   els.mobileFuncChallengeBtn?.addEventListener('click', () => els.mobileModeBtn?.click());
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
@@ -3647,7 +3737,22 @@ function getRandomTree(){
     updateMobileInstallPrompt();
   });
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
+  els.bankPanelToggle?.addEventListener('click', () => {
+    const opening = els.bankPanel?.classList.contains('collapsed');
+    if (isLandscapeMobileUi()) {
+      enforceMobileSidePanelRule(opening ? 'bank' : null);
+      return;
+    }
+    const collapsed = els.bankPanel?.classList.toggle('collapsed');
+    if (els.bankPanelToggle) els.bankPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
+
   els.walletPanelToggle?.addEventListener('click', () => {
+    const opening = els.walletPanel?.classList.contains('collapsed');
+    if (isLandscapeMobileUi()) {
+      enforceMobileSidePanelRule(opening ? 'profile' : null);
+      return;
+    }
     const collapsed = els.walletPanel?.classList.toggle('collapsed');
     if (els.walletPanelToggle) els.walletPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
@@ -3740,10 +3845,28 @@ function getRandomTree(){
   }
 
 
+  function shouldIgnoreOpaqueRuntimeEvent(event) {
+    const message = String(event?.message || event?.reason?.message || event?.reason || '').trim();
+    const filename = String(event?.filename || '').trim();
+    const stack = String(event?.error?.stack || event?.reason?.stack || '');
+    if (!message && !filename && !stack) return true;
+    const opaqueScriptError = message === 'Script error.' || message === 'Script error';
+    const pointsToApp = filename.includes('js/app.js') || stack.includes('js/app.js') || filename.includes('js/security-wallet.js') || stack.includes('js/security-wallet.js');
+    return opaqueScriptError && !pointsToApp;
+  }
+
   window.addEventListener('error', (event) => {
+    if (shouldIgnoreOpaqueRuntimeEvent(event)) {
+      console.warn('Ignored opaque runtime error event.', event);
+      return;
+    }
     showCrashReport('runtime', event.error || new Error(event.message || 'Unknown runtime error'));
   });
   window.addEventListener('unhandledrejection', (event) => {
+    if (shouldIgnoreOpaqueRuntimeEvent(event)) {
+      console.warn('Ignored opaque unhandled rejection event.', event);
+      return;
+    }
     showCrashReport('runtime', event.reason || new Error('Unhandled promise rejection'));
   });
 
