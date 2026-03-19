@@ -1,0 +1,51 @@
+--- js/app.js.bak_before_userreq2	2026-03-19 12:47:37.949386247 +0000
++++ js/app.js	2026-03-19 12:48:26.393767112 +0000
+@@ -269,6 +269,8 @@
+     mobileBankHost: document.getElementById('mobileBankHost'),
+     mobileProfileHost: document.getElementById('mobileProfileHost'),
+     mobileStatsHost: document.getElementById('mobileStatsHost'),
++    mobileStatsPanel: document.getElementById('mobileStatsPanel'),
++    mobileStatsPanelToggle: document.getElementById('mobileStatsPanelToggle'),
+     mobileMenuOverlay: document.getElementById('mobileMenuOverlay'),
+     mobileMenuShell: document.getElementById('mobileMenuShell'),
+     mobileFuncMenu: document.getElementById('mobileFuncMenu'),
+@@ -1497,6 +1499,11 @@
+     setPanelCollapsed(els.walletPanel, els.walletPanelToggle, true);
+   }
+ 
++  function enforceMobileStatsPanelRule() {
++    if (!els.mobileStatsPanel || !els.mobileStatsPanelToggle) return;
++    setPanelCollapsed(els.mobileStatsPanel, els.mobileStatsPanelToggle, !isLandscapeMobileUi());
++  }
++
+   function syncMobileHosts() {
+     if (!els.mobileHeroHost || !els.mobileHireHost || !els.selectedInfo || !els.hirePanel) return;
+     const actionGroup = els.upgradeBtn?.closest('.action-group');
+@@ -1518,6 +1525,7 @@
+       const footerTopbar = document.querySelector('.footer-topbar');
+       if (footerTopbar && els.mobileStatsHost && footerTopbar.parentElement !== els.mobileStatsHost) els.mobileStatsHost.appendChild(footerTopbar);
+       enforceMobileSidePanelRule();
++      enforceMobileStatsPanelRule();
+       updateMobileBarToggle();
+       updateMobileLeftRail();
+     } else {
+@@ -1546,6 +1554,7 @@
+         footerTopbarHome.appendChild(footerTopbar);
+       }
+       setPanelCollapsed(els.bankPanel, els.bankPanelToggle, true);
++      enforceMobileStatsPanelRule();
+       game.mobileLeftRailCollapsed = true;
+       updateMobileLeftRail();
+       closeMobileMenus();
+@@ -3756,6 +3765,11 @@
+     const collapsed = els.walletPanel?.classList.toggle('collapsed');
+     if (els.walletPanelToggle) els.walletPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+   });
++
++  els.mobileStatsPanelToggle?.addEventListener('click', () => {
++    const collapsed = els.mobileStatsPanel?.classList.toggle('collapsed');
++    if (els.mobileStatsPanelToggle) els.mobileStatsPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
++  });
+   els.introPrevBtn?.addEventListener('click', () => {
+     if (game.introPageIndex > 0) {
+       game.introPageIndex -= 1;
