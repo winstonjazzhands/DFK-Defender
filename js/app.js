@@ -6,7 +6,7 @@ function getRandomTree(){
 (() => {
   'use strict';
 
-  const WIDTH = 13;
+  const WIDTH = 14;
   const HEIGHT = 6;
   let BREACH_LANES = {
     top: [],
@@ -266,6 +266,7 @@ function getRandomTree(){
     mobileLeftRail: document.getElementById('mobileLeftRail'),
     mobileRightRail: document.getElementById('mobileRightRail'),
     mobileSideMenuToggleBtn: document.getElementById('mobileSideMenuToggleBtn'),
+    mobileRightMenuToggleBtn: document.getElementById('mobileRightMenuToggleBtn'),
     mobileBankHost: document.getElementById('mobileBankHost'),
     mobileProfileHost: document.getElementById('mobileProfileHost'),
     mobileStatsHost: document.getElementById('mobileStatsHost'),
@@ -374,6 +375,7 @@ function getRandomTree(){
     bannerTimeout: null,
     statusOverlayTimeout: null,
     mobileLeftRailCollapsed: true,
+    mobileRightRailCollapsed: true,
     crashed: false,
     diagnostics: {
       recentEvents: [],
@@ -878,6 +880,23 @@ function getRandomTree(){
   ];
 
 
+  const HERO_TILE_IMAGES = {
+    warrior: 'assets/hero_tile_warrior.png',
+    wizard: 'assets/hero_tile_wizard.png',
+    archer: 'assets/hero_tile_archer.png',
+    priest: 'assets/hero_tile_priest.png',
+    pirate: 'assets/hero_tile_pirate.png',
+  };
+
+  const HERO_TILE_LABELS = {
+    warrior: 'WARRIOR',
+    wizard: 'WIZARD',
+    archer: 'ARCHER',
+    priest: 'PRIEST',
+    pirate: 'PIRATE',
+  };
+
+
   const HERO_PAGES = [
     {
       title: 'Warrior – Path Control',
@@ -1133,15 +1152,22 @@ function getRandomTree(){
       const enemiesHere = game.enemies.filter(e => e.x === tile.x && e.y === tile.y).slice(0, 3);
 
       if (tower) {
-        const chip = document.createElement('div');
-        chip.className = `tower-chip tower-${tower.type}`;
-        chip.textContent = tower.template.letter;
-        tile.el.appendChild(chip);
-
         const small = document.createElement('div');
         small.className = 'tile-small';
-        small.textContent = `L${tower.level} ${rarityForLevel(tower.level)}`;
+        small.textContent = `Lv ${tower.level}`;
         tile.el.appendChild(small);
+
+        const portrait = document.createElement('img');
+        portrait.className = 'tile-hero-portrait';
+        portrait.alt = tower.name;
+        portrait.draggable = false;
+        portrait.src = HERO_TILE_IMAGES[tower.type] || '';
+        tile.el.appendChild(portrait);
+
+        const heroLabel = document.createElement('div');
+        heroLabel.className = 'tile-hero-label';
+        heroLabel.textContent = HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase();
+        tile.el.appendChild(heroLabel);
 
         const hpBar = document.createElement('div');
         hpBar.className = 'hp-bar';
@@ -1426,6 +1452,28 @@ function getRandomTree(){
     updateMobileLeftRail();
   }
 
+  function updateMobileRightRail() {
+    if (!els.mobileRightRail || !els.mobileRightMenuToggleBtn) return;
+    const active = isLandscapeMobileUi();
+    els.mobileRightMenuToggleBtn.classList.toggle('hidden', !active);
+    if (!active) {
+      els.mobileRightRail.classList.remove('collapsed');
+      els.mobileRightMenuToggleBtn.setAttribute('aria-pressed', 'false');
+      els.mobileRightMenuToggleBtn.textContent = '‹';
+      return;
+    }
+    els.mobileRightRail.classList.toggle('collapsed', !!game.mobileRightRailCollapsed);
+    els.mobileRightMenuToggleBtn.setAttribute('aria-pressed', game.mobileRightRailCollapsed ? 'true' : 'false');
+    els.mobileRightMenuToggleBtn.setAttribute('aria-label', game.mobileRightRailCollapsed ? 'Open battle info' : 'Close battle info');
+    els.mobileRightMenuToggleBtn.textContent = game.mobileRightRailCollapsed ? '‹' : '›';
+  }
+
+  function toggleMobileRightRail() {
+    if (!isLandscapeMobileUi()) return;
+    game.mobileRightRailCollapsed = !game.mobileRightRailCollapsed;
+    updateMobileRightRail();
+  }
+
   function updateMobileHireNotice(canHireNow) {
     const show = !!canHireNow && isLandscapeMobileUi();
     els.mobileBarToggleBtn?.classList.toggle('has-notice', show);
@@ -1528,12 +1576,14 @@ function getRandomTree(){
       enforceMobileStatsPanelRule();
       updateMobileBarToggle();
       updateMobileLeftRail();
+      updateMobileRightRail();
     } else {
       game.mobileBarCollapsed = false;
       els.mobileHud?.classList.add('hidden');
       els.mobileHud?.setAttribute('aria-hidden', 'true');
       els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
       els.mobileRightRail?.setAttribute('aria-hidden', 'true');
+      game.mobileRightRailCollapsed = true;
       if (rightPanel && els.selectedInfo.parentElement !== rightPanel) {
         rightPanel.insertBefore(els.selectedInfo, rightPanel.firstChild);
       }
@@ -1557,6 +1607,7 @@ function getRandomTree(){
       enforceMobileStatsPanelRule();
       game.mobileLeftRailCollapsed = true;
       updateMobileLeftRail();
+      updateMobileRightRail();
       closeMobileMenus();
     }
   }
@@ -1738,57 +1789,55 @@ function getRandomTree(){
     const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && game.jewel >= cost && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
 
-    if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType) {
-      heroTypes.forEach(type => {
-        const t = TOWER_TEMPLATES[type];
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<h4>${t.name}</h4><p>Already on the field.</p><button type="button" disabled>Hired</button>`;
-        els.hirePanel.appendChild(card);
-      });
-      return;
-    }
-
-    function addHireCard(type, usesBonus) {
+    function appendHireButton(type, usesBonus, forceDisabled = false) {
       const t = TOWER_TEMPLATES[type];
       const card = document.createElement('div');
-      card.className = 'card';
+      card.className = 'card hire-button-card';
       const btn = document.createElement('button');
       const pendingThisType = game.placingHeroType === type;
       const labelPrefix = usesBonus ? 'Hire Extra' : 'Hire';
-      btn.textContent = pendingThisType ? `Placing… ${formatJewel(game.placingHeroCost)} Gold` : `${labelPrefix} ${t.name} (${formatJewel(cost)} Gold)`;
-      btn.disabled = game.jewel < cost || game.phase === SETUP_PHASES.GAME_OVER;
-      btn.addEventListener('click', () => {
-        if (game.phase === SETUP_PHASES.GAME_OVER) return;
-        if (game.jewel < cost) {
-          showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
-          return;
-        }
-        if (pendingThisType) {
-          game.placingHeroType = null;
-          game.placingHeroCost = 0;
-          game.placingHeroUsesBonus = false;
+      btn.textContent = forceDisabled
+        ? `${t.name} Hired`
+        : pendingThisType
+          ? `Placing… ${formatJewel(game.placingHeroCost)} Gold`
+          : `${labelPrefix} ${t.name} (${formatJewel(cost)} Gold)`;
+      btn.disabled = forceDisabled || game.jewel < cost || game.phase === SETUP_PHASES.GAME_OVER;
+      if (!forceDisabled) {
+        btn.addEventListener('click', () => {
+          if (game.phase === SETUP_PHASES.GAME_OVER) return;
+          if (game.jewel < cost) {
+            showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
+            return;
+          }
+          if (pendingThisType) {
+            game.placingHeroType = null;
+            game.placingHeroCost = 0;
+            game.placingHeroUsesBonus = false;
+            game.placingSatelliteSourceId = null;
+            showBanner(`Cancelled ${t.name} placement`, 1000);
+            render();
+            return;
+          }
+          game.placingHeroType = type;
+          game.placingHeroCost = cost;
+          game.placingHeroUsesBonus = !!usesBonus;
           game.placingSatelliteSourceId = null;
-          showBanner(`Cancelled ${t.name} placement`, 1000);
+          log(`Select a tile to place ${usesBonus ? 'an extra ' : ''}${t.name}. You can place hires during active rounds too.`);
+          showBanner(game.runningWave ? `Place ${t.name} during the wave on any open tile` : `Place ${t.name} on any open tile`, 1400);
           render();
-          return;
-        }
-        game.placingHeroType = type;
-        game.placingHeroCost = cost;
-        game.placingHeroUsesBonus = !!usesBonus;
-        game.placingSatelliteSourceId = null;
-        log(`Select a tile to place ${usesBonus ? 'an extra ' : ''}${t.name}. You can place hires during active rounds too.`);
-        showBanner(game.runningWave ? `Place ${t.name} during the wave on any open tile` : `Place ${t.name} on any open tile`, 1400);
-        render();
-      });
-      const desc = type === 'priest' ? 'Support and heals' : type === 'warrior' ? 'Tank and chokepoint anchor' : type === 'wizard' ? 'Burst caster' : type === 'pirate' ? 'Utility and economy' : 'Ranged DPS';
-      card.innerHTML = `<h4>${t.name}${usesBonus ? ' +1' : ''}</h4><p>${usesBonus ? 'Wave 11 reward extra hire. ' : ''}${desc}</p>`;
+        });
+      }
       card.appendChild(btn);
       els.hirePanel.appendChild(card);
     }
 
-    for (const type of normalAvailable) addHireCard(type, false);
-    for (const type of bonusAvailable) addHireCard(type, true);
+    if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType) {
+      heroTypes.forEach(type => appendHireButton(type, false, true));
+      return;
+    }
+
+    for (const type of normalAvailable) appendHireButton(type, false);
+    for (const type of bonusAvailable) appendHireButton(type, true);
   }
 
 
@@ -3732,6 +3781,7 @@ function getRandomTree(){
   els.mobileHeroMenuBtn?.addEventListener('click', () => toggleMobileMenu('hero'));
   els.mobileHireMenuBtn?.addEventListener('click', () => toggleMobileMenu('hire'));
   els.mobileSideMenuToggleBtn?.addEventListener('click', toggleMobileLeftRail);
+  els.mobileRightMenuToggleBtn?.addEventListener('click', toggleMobileRightRail);
   els.mobileFuncEasyBtn?.addEventListener('click', () => els.speedToggleBtn?.click());
   els.mobileFuncChallengeBtn?.addEventListener('click', () => els.mobileModeBtn?.click());
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
