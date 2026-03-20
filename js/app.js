@@ -44,7 +44,7 @@ function getRandomTree(){
     warrior: {
       name: 'Warrior',
       letter: 'WAR',
-      hp: 660,
+      hp: 792,
       damage: 38.5,
       attackInterval: 1.33,
       range: 1,
@@ -67,7 +67,7 @@ function getRandomTree(){
       autoAttack: true,
       abilities: [
         { key: 'multi_shot', name: 'Multi-Shot', cooldown: 6 },
-        { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 10 },
+        { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 20 },
         { key: 'piercing_shot', name: 'Piercing Shot', cooldown: 7 },
         { key: 'eagle_nest', name: 'Eagle Nest', cooldown: 0, passive: true },
       ],
@@ -83,7 +83,7 @@ function getRandomTree(){
       abilities: [
         { key: 'firebolt', name: 'Firebolt', cooldown: 5 },
         { key: 'frost_bolt', name: 'Ice Aura', cooldown: 0, passive: true },
-        { key: 'fireball', name: 'Fireball', cooldown: 7 },
+        { key: 'fireball', name: 'Fireball', cooldown: 12 },
         { key: 'frost_lance', name: 'Frost Lance', cooldown: 9 },
       ],
     },
@@ -97,7 +97,7 @@ function getRandomTree(){
       autoAttack: false,
       abilities: [
         { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 8 },
-        { key: 'freedom', name: 'Freedom', cooldown: 12 },
+        { key: 'slow_totem', name: 'Slow Totem', cooldown: 60, manualOnly: true },
         { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
@@ -141,7 +141,15 @@ function getRandomTree(){
         let didHit = false;
         for (const tile of targetTiles) {
           const tower = game.towers.find(t => t.x === tile.x && t.y === tile.y);
-          if (tower) {
+          const activeTotem = getActiveSlowTotems().find(t => t.x === tile.x && t.y === tile.y);
+      if (activeTotem) {
+        const totemBadge = document.createElement('div');
+        totemBadge.className = 'slow-totem-badge';
+        totemBadge.textContent = 'TOTEM';
+        tile.el.appendChild(totemBadge);
+      }
+
+      if (tower) {
             didHit = true;
             damageTower(game, tower, 80, `${enemy.name} used Ground Slam on ${tower.name}`);
           }
@@ -267,7 +275,7 @@ function getRandomTree(){
     mobileRightRail: document.getElementById('mobileRightRail'),
     mobileSideMenuToggleBtn: document.getElementById('mobileSideMenuToggleBtn'),
     mobileRightMenuToggleBtn: document.getElementById('mobileRightMenuToggleBtn'),
-    mobileBankHost: document.getElementById('mobileBankHost'),
+    mobileBankHost /* disabled */: document.getElementById('mobileBankHost /* disabled */'),
     mobileProfileHost: document.getElementById('mobileProfileHost'),
     mobileStatsHost: document.getElementById('mobileStatsHost'),
     mobileStatsPanel: document.getElementById('mobileStatsPanel'),
@@ -293,6 +301,10 @@ function getRandomTree(){
     mobileAbilityBtn2: document.getElementById('mobileAbilityBtn2'),
     mobileAbilityBtn3: document.getElementById('mobileAbilityBtn3'),
     mobileAbilityBtn4: document.getElementById('mobileAbilityBtn4'),
+    mobileQuickRail: document.getElementById('mobileQuickRail'),
+    mobileQuickStartBtn: document.getElementById('mobileQuickStartBtn'),
+    mobileQuickUpgradeBtn: document.getElementById('mobileQuickUpgradeBtn'),
+    mobileQuickMoveBtn: document.getElementById('mobileQuickMoveBtn'),
     mobileFuncEasyBtn: document.getElementById('mobileFuncEasyBtn'),
     mobileFuncChallengeBtn: document.getElementById('mobileFuncChallengeBtn'),
     mobileFuncPauseBtn: document.getElementById('mobileFuncPauseBtn'),
@@ -315,6 +327,8 @@ function getRandomTree(){
     enemyLayer: null,
     portalArt: null,
     crashPanel: null,
+    runLogToggleBtn: document.getElementById('runLogToggleBtn'),
+    runLogPanel: document.getElementById('runLogPanel'),
   };
 
   const game = {
@@ -355,10 +369,11 @@ function getRandomTree(){
     premiumJewels: 0,
     runEntryCost: 3,
     milestoneJewelsGranted: {},
-    portalHp: 2000,
+    portalHp: 2500,
     relicChoices: [],
     ownedRelics: [],
     attackLines: [],
+    slowTotems: [],
     modifiers: {
       wizardSpellDamage: 1,
       wizardCooldown: 1,
@@ -430,6 +445,7 @@ function getRandomTree(){
     if (!Number.isFinite(parsed)) return;
     game.premiumJewels = parsed;
     updatePremiumJewelInfo();
+    syncMobileQuickActions();
   }
   function key(x, y) { return `${x},${y}`; }
   function tileAt(x, y) { return game.tilesByKey.get(key(x, y)); }
@@ -567,11 +583,12 @@ function getRandomTree(){
     game.rebuildingBarriers = false;
     game.barrierRefitCount = 0;
     game.jewel = 0;
-    game.portalHp = 2000;
+    game.portalHp = 2500;
     game.milestoneJewelsGranted = {};
     game.relicChoices = [];
     game.ownedRelics = [];
     game.attackLines = [];
+    game.slowTotems = [];
     game.infoPopupPinned = false;
     game.infoPopupHover = false;
     if (game.infoPopupHideTimer) { clearTimeout(game.infoPopupHideTimer); game.infoPopupHideTimer = null; }
@@ -605,6 +622,7 @@ function getRandomTree(){
     setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${PLAYER_OBSTACLE_COUNT} choke-point obstacles, then place your Warrior. Before wave 1 starts, you can click one of your barriers to move it.`);
     log('New run started. Random obstacles are already on the field.');
     updateTopbar();
+      updateMobileBoardFit();
     showStatusOverlay();
     render();
     maybeShowIntroOnOpen();
@@ -651,10 +669,12 @@ function getRandomTree(){
   }
 
   function showBanner(text, duration = 2400) {
+    if (!els.banner) return;
+    const finalDuration = isLandscapeMobileUi() ? 1000 : duration;
     els.banner.textContent = text;
     els.banner.classList.remove('hidden');
     clearTimeout(game.bannerTimeout);
-    game.bannerTimeout = setTimeout(() => els.banner.classList.add('hidden'), duration);
+    game.bannerTimeout = setTimeout(() => els.banner.classList.add('hidden'), finalDuration);
   }
 
 
@@ -955,7 +975,7 @@ function getRandomTree(){
         <p>The Priest does not win by burst. She wins by keeping the rest of your team alive long enough to finish the fight.</p>
         <ul>
           <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies in a solid chunk.</li>
-          <li><span class="intro-highlight">Freedom</span> — Removes slows and roots from nearby allies, then gives brief slow immunity.</li>
+          <li><span class="intro-highlight">Slow Totem</span> — Manual. Places an indestructible totem for 45 seconds. Enemies within 2 tiles of the totem are slowed, and the slow ends the moment they leave the area.</li>
           <li><span class="intro-highlight">Swiftness</span> — Boosts nearby allies' attack speed, helping your whole line push harder during key moments.</li>
           <li><span class="intro-highlight">Healing Aura</span> — Passive. At higher level, the Priest gains a healing aura that restores nearby allies every second, and it scales directly with her level.</li>
         </ul>
@@ -1003,6 +1023,7 @@ function getRandomTree(){
     game.introSet = setName;
     game.introPageIndex = Math.max(0, Math.min(pages.length - 1, pageIndex));
     game.introOpen = true;
+    document.body.classList.add('intro-open');
     if (els.introModal) {
       els.introModal.classList.remove('hidden');
       els.introModal.setAttribute('aria-hidden', 'false');
@@ -1012,6 +1033,7 @@ function getRandomTree(){
 
   function closeIntroModal() {
     game.introOpen = false;
+    document.body.classList.remove('intro-open');
     if (els.introModal) {
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
@@ -1025,13 +1047,14 @@ function getRandomTree(){
   }
 
   function updateTopbar() {
-    els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))} / 2000`;
+    els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))}/2500`;
     els.jewelCount.textContent = formatJewel(game.jewel);
     els.waveCount.textContent = `${game.waveNumber}`;
     els.patternLabel.textContent = game.nextWavePlan ? prettyPattern(game.nextWavePlan.pattern) : (game.runningWave ? prettyPattern(game.currentPattern || 'boss') : '--');
     els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
     els.countdownLabel.textContent = game.runningWave ? 'Live' : (game.countdownMs > 0 ? `${Math.ceil(game.countdownMs / 1000)}s` : 'Ready');
     updatePremiumJewelInfo();
+    syncMobileQuickActions();
   }
 
   function prettyPattern(pattern) {
@@ -1042,6 +1065,32 @@ function getRandomTree(){
       burst: 'Burst Cluster',
       boss: 'Boss Wave',
     }[pattern] || pattern;
+  }
+
+
+  function getBaseTowerStatsForLevel(type, level) {
+    const template = TOWER_TEMPLATES[type];
+    const safeLevel = Math.max(1, Number(level || 1));
+    const multiplier = Math.pow(1.15, safeLevel - 1);
+    return {
+      hp: template.hp * multiplier,
+      damage: template.damage * multiplier,
+      range: template.range,
+    };
+  }
+
+  function normalizeArcherStats(tower) {
+    if (!tower || tower.type !== 'archer') return;
+    const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
+    tower.damage = base.damage;
+    tower.range = base.range;
+    if (tower.isSatellite) {
+      tower.maxHp = base.hp * 0.5;
+    } else {
+      tower.maxHp = base.hp;
+    }
+    if (!Number.isFinite(tower.hp)) tower.hp = tower.maxHp;
+    tower.hp = Math.min(tower.hp, tower.maxHp);
   }
 
   function formatJewel(value) {
@@ -1085,6 +1134,33 @@ function getRandomTree(){
     game.mobileMode = !!enabled;
     updateModeButtons();
   }
+  function setRunLogCollapsed(collapsed) {
+    const active = !!collapsed;
+    document.body.classList.toggle('runlog-collapsed', active);
+    if (els.runLogToggleBtn) {
+      els.runLogToggleBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      els.runLogToggleBtn.setAttribute('aria-label', active ? 'Open run log' : 'Collapse run log');
+      els.runLogToggleBtn.setAttribute('title', active ? 'Open run log' : 'Collapse run log');
+      els.runLogToggleBtn.textContent = active ? '◂' : '▸';
+    }
+    try { localStorage.setItem('dfkRunLogCollapsed', active ? '1' : '0'); } catch (e) {}
+  }
+
+  function initRunLogCollapse() {
+    if (!els.runLogToggleBtn) return;
+    let saved = false;
+    try { saved = localStorage.getItem('dfkRunLogCollapsed') === '1'; } catch (e) {}
+    setRunLogCollapsed(saved);
+    window.DFKToggleRunLog = function(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      setRunLogCollapsed(!document.body.classList.contains('runlog-collapsed'));
+      return false;
+    };
+    els.runLogToggleBtn.onclick = window.DFKToggleRunLog;
+  }
 
   function updatePauseButton() {
 
@@ -1112,11 +1188,13 @@ function getRandomTree(){
   }
 
   function render() {
+    for (const tower of game.towers) normalizeArcherStats(tower);
     renderGrid();
     renderSelection();
     renderHirePanel();
     renderRelics();
     updateTopbar();
+      updateMobileBoardFit();
     updateMobileBarToggle();
     updateMobileInstallPrompt();
     renderMobileAbilityDock();
@@ -1154,7 +1232,7 @@ function getRandomTree(){
       if (tower) {
         const small = document.createElement('div');
         small.className = 'tile-small';
-        small.textContent = `Lv ${tower.level}`;
+        small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
 
         const portrait = document.createElement('img');
@@ -1412,13 +1490,65 @@ function getRandomTree(){
     showBanner('Install this from your browser menu when Add to Home Screen is available.', 3200);
   }
 
+
+
+  function updateMobileBoardFit() {
+    if (!isLandscapeMobileUi() || !els.grid) return;
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    const vw = Math.max(320, Math.round(vv ? vv.width : window.innerWidth || 0));
+    const vh = Math.max(200, Math.round(vv ? vv.height : window.innerHeight || 0));
+    const gap = 2;
+    const safeLeft = 8;
+    const safeRight = 8;
+    const safeTop = 8;
+    const safeBottom = 8;
+    const railW = (els.mobileFlyoutStack && els.mobileFlyoutStack.offsetWidth) ? els.mobileFlyoutStack.offsetWidth : 64;
+    const boardLeft = safeLeft + railW + 10;
+    const boardRight = safeRight + 12;
+    const bannerVisible = els.banner && !els.banner.classList.contains('hidden');
+    const bannerH = isLandscapeMobileUi() ? 0 : (bannerVisible ? (els.banner.offsetHeight + 10) : 0);
+    const bottomBarVisible = els.mobileBottomBar && getComputedStyle(els.mobileBottomBar).display !== 'none';
+    const bottomBarH = bottomBarVisible ? Math.max(46, els.mobileBottomBar.offsetHeight) : 0;
+    const statusVisible = els.statusOverlay && !els.statusOverlay.classList.contains('hidden');
+    const statusH = statusVisible ? Math.max(36, els.statusOverlay.offsetHeight) : 0;
+    const topOffset = safeTop + bannerH;
+    const bottomOffset = safeBottom + 8;
+    const boardFitFudgeX = isLandscapeMobileUi() ? 28 : 16;
+    const boardFitFudgeY = isLandscapeMobileUi() ? 18 : 16;
+    const availableW = Math.max(232, vw - boardLeft - boardRight - boardFitFudgeX);
+    const availableH = Math.max(112, vh - topOffset - bottomOffset - Math.max(bottomBarH, 0) - boardFitFudgeY);
+    const sizeFromW = Math.floor((availableW - (13 * gap)) / 14);
+    const sizeFromH = Math.floor((availableH - (5 * gap)) / 6);
+    const tileSize = Math.max(22, Math.min(72, sizeFromW, sizeFromH));
+    const boardWidth = tileSize * 14 + gap * 13;
+    const boardHeight = tileSize * 6 + gap * 5;
+
+    root.style.setProperty('--mobile-safe-left', `${safeLeft}px`);
+    root.style.setProperty('--mobile-safe-right', `${safeRight}px`);
+    root.style.setProperty('--mobile-safe-top', `${safeTop}px`);
+    root.style.setProperty('--mobile-safe-bottom', `${safeBottom}px`);
+    root.style.setProperty('--mobile-rail-w', `${railW}px`);
+    root.style.setProperty('--mobile-board-left', `${boardLeft}px`);
+    root.style.setProperty('--mobile-board-right', `${boardRight}px`);
+    root.style.setProperty('--mobile-top-offset', `${topOffset}px`);
+    root.style.setProperty('--mobile-bottom-offset', `${bottomOffset}px`);
+    root.style.setProperty('--mobile-bottom-reserve', `${bottomBarH}px`);
+    root.style.setProperty('--mobile-status-reserve', `0px`);
+    root.style.setProperty('--mobile-status-height', `${statusH}px`);
+    root.style.setProperty('--tile-gap', `${gap}px`);
+    root.style.setProperty('--tile-size', `${tileSize}px`);
+    root.style.setProperty('--board-width', `${boardWidth}px`);
+    root.style.setProperty('--board-height', `${boardHeight}px`);
+  }
   function isLandscapeMobileUi() {
-    return window.matchMedia('(max-width: 1024px)').matches;
+    return window.matchMedia('(max-width: 1024px) and (orientation: landscape)').matches;
   }
 
   function updateMobileBarToggle() {
-    if (!els.mobileHud || !els.mobileBarToggleBtn) return;
+    if (!els.mobileHud) return;
     els.mobileHud.classList.toggle('bar-collapsed', !!game.mobileBarCollapsed);
+    if (!els.mobileBarToggleBtn) return;
     els.mobileBarToggleBtn.setAttribute('aria-pressed', game.mobileBarCollapsed ? 'true' : 'false');
     els.mobileBarToggleBtn.setAttribute('aria-label', game.mobileBarCollapsed ? 'Show mobile controls' : 'Hide mobile controls');
   }
@@ -1476,6 +1606,7 @@ function getRandomTree(){
 
   function updateMobileHireNotice(canHireNow) {
     const show = !!canHireNow && isLandscapeMobileUi();
+    [els.mobileHireMenuBtn, els.mobileFuncMenuBtn].forEach((btn) => btn?.classList.toggle('has-notice', show));
     els.mobileBarToggleBtn?.classList.toggle('has-notice', show);
     els.mobileBarToggleNotice?.classList.toggle('hidden', !show);
   }
@@ -1490,6 +1621,7 @@ function getRandomTree(){
       panel?.classList.add('hidden');
       panel?.setAttribute('aria-hidden', 'true');
       btn?.classList.remove('active');
+      btn?.setAttribute('aria-expanded', 'false');
     });
     els.mobileMenuOverlay?.classList.add('hidden');
     els.mobileMenuShell?.classList.add('hidden');
@@ -1522,6 +1654,7 @@ function getRandomTree(){
     panel?.classList.remove('hidden');
     panel?.setAttribute('aria-hidden', 'false');
     btn?.classList.add('active');
+    btn?.setAttribute('aria-expanded', 'true');
     game.mobileOpenMenu = name;
   }
 
@@ -1563,12 +1696,14 @@ function getRandomTree(){
     if (isLandscapeMobileUi()) {
       els.mobileHud?.classList.remove('hidden');
       els.mobileHud?.setAttribute('aria-hidden', 'false');
-      els.mobileLeftRail?.setAttribute('aria-hidden', 'false');
-      els.mobileRightRail?.setAttribute('aria-hidden', 'false');
+      document.getElementById('mobileFlyoutStack')?.setAttribute('aria-hidden', 'false');
+      els.mobileQuickRail?.setAttribute('aria-hidden', 'false');
+      els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
+      els.mobileRightRail?.setAttribute('aria-hidden', 'true');
       if (els.selectedInfo.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(els.selectedInfo);
       if (actionGroup && actionGroup.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(actionGroup);
       if (els.hirePanel.parentElement !== els.mobileHireHost) els.mobileHireHost.appendChild(els.hirePanel);
-      if (els.bankPanel && els.mobileBankHost && els.bankPanel.parentElement !== els.mobileBankHost) els.mobileBankHost.appendChild(els.bankPanel);
+      if (els.bankPanel && els.mobileBankHost /* disabled */ && els.bankPanel.parentElement !== els.mobileBankHost /* disabled */) els.mobileBankHost /* disabled */.appendChild(els.bankPanel);
       if (els.walletPanel && els.mobileProfileHost && els.walletPanel.parentElement !== els.mobileProfileHost) els.mobileProfileHost.appendChild(els.walletPanel);
       const footerTopbar = document.querySelector('.footer-topbar');
       if (footerTopbar && els.mobileStatsHost && footerTopbar.parentElement !== els.mobileStatsHost) els.mobileStatsHost.appendChild(footerTopbar);
@@ -1581,6 +1716,8 @@ function getRandomTree(){
       game.mobileBarCollapsed = false;
       els.mobileHud?.classList.add('hidden');
       els.mobileHud?.setAttribute('aria-hidden', 'true');
+      document.getElementById('mobileFlyoutStack')?.setAttribute('aria-hidden', 'true');
+      els.mobileQuickRail?.setAttribute('aria-hidden', 'true');
       els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
       els.mobileRightRail?.setAttribute('aria-hidden', 'true');
       game.mobileRightRailCollapsed = true;
@@ -1628,12 +1765,13 @@ function getRandomTree(){
   function renderMobileAbilityDock() {
     const buttons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3, els.mobileAbilityBtn4];
     const tower = getSelectedTower();
-    const abilities = tower ? tower.abilities.filter(ability => !ability.passive).slice(0, 4) : [];
+    normalizeArcherStats(tower);
+    const abilities = tower ? tower.abilities.filter(ability => !ability.passive && !ability.manualOnly).slice(0, 4) : [];
     buttons.forEach((btn, index) => {
       if (!btn) return;
       const ability = abilities[index];
       if (!ability || !tower) {
-        btn.textContent = `H${index + 1}`;
+        btn.innerHTML = `<span class="ability-name">A${index + 1}</span><span class="ability-meta">Select hero</span>`;
         btn.title = 'Select a hero first';
         btn.disabled = true;
         btn.onclick = null;
@@ -1642,11 +1780,32 @@ function getRandomTree(){
       const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
       const locked = !isAbilityUnlocked(tower, ability.key);
       const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
-      btn.textContent = remain > 0 ? `H${index + 1}` : `H${index + 1}`;
+      const disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
+      const meta = locked ? `Unlocks L${unlockLevel}` : (remain > 0 ? `${remain.toFixed(1)}s` : 'Ready');
+      btn.innerHTML = `<span class="ability-name">${ability.name}</span><span class="ability-meta">${meta}</span>`;
       btn.title = locked ? `${ability.name} unlocks at level ${unlockLevel}` : (remain > 0 ? `${ability.name} (${remain.toFixed(1)}s)` : ability.name);
-      btn.disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
-      btn.onclick = () => castAbility(tower, ability.key);
+      btn.disabled = disabled;
+      btn.onclick = disabled ? null : () => castAbility(tower, ability.key);
     });
+    syncMobileQuickActions();
+  }
+
+  function syncMobileQuickActions() {
+    const tower = getSelectedTower();
+    if (els.mobileQuickUpgradeBtn) {
+      els.mobileQuickUpgradeBtn.disabled = !tower || els.upgradeBtn.disabled;
+      els.mobileQuickUpgradeBtn.classList.toggle('is-live', !!tower && !els.upgradeBtn.disabled);
+    }
+    if (els.mobileQuickMoveBtn) {
+      els.mobileQuickMoveBtn.disabled = !tower || els.moveBtn.disabled;
+      els.mobileQuickMoveBtn.classList.toggle('is-live', !!tower && !els.moveBtn.disabled);
+    }
+    if (els.mobileQuickStartBtn) {
+      const canStart = !!els.startWaveBtn && !els.startWaveBtn.disabled && !els.startWaveBtn.classList.contains('hidden');
+      els.mobileQuickStartBtn.disabled = !canStart;
+      els.mobileQuickStartBtn.classList.toggle('is-live', canStart);
+      els.mobileQuickStartBtn.textContent = game.runningWave ? 'Live' : 'Start';
+    }
   }
 
   function renderSelection() {
@@ -1682,7 +1841,7 @@ function getRandomTree(){
 
     els.abilitiesPanel.innerHTML = '';
     for (const ability of tower.abilities) {
-      if (ability.passive) continue;
+      if (ability.passive || ability.manualOnly) continue;
       const wrapper = document.createElement('div');
       wrapper.className = 'ability-row';
       const btn = document.createElement('button');
@@ -1939,14 +2098,14 @@ function getRandomTree(){
   function placePortal(x, y) {
     if (!canPlacePortal(x, y)) return false;
     game.portal = { x, y, width: 2, height: 2 };
-    game.portalHp = 2000;
+    game.portalHp = 2500;
     for (let py = y; py < y + 2; py += 1) {
       for (let px = x; px < x + 2; px += 1) {
         tileAt(px, py).portal = true;
       }
     }
     game.phase = SETUP_PHASES.OBSTACLES;
-    setInstruction(`Place ${PLAYER_OBSTACLE_COUNT} player obstacles. They cannot fully block all paths from the breach to the portal. Before wave 1 starts, you can click the portal to move it.`);
+    setInstruction(`Place ${PLAYER_OBSTACLE_COUNT} obstacles. Do not block every path. You can move the portal before wave 1.`);
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
     return true;
   }
@@ -2242,13 +2401,13 @@ function getRandomTree(){
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of the current Archer's max HP, keeps full Archer damage, and costs 50% more to level up.`,
+      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level and deals the same damage as a normal Archer at the same level. It costs 50% more to level up.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       prayer_of_healing: `Heals nearby allies for ${Math.round(120 * game.modifiers.priestHealing)} HP.${common}${scale}`,
-      freedom: `Removes slows and roots from nearby allies, then grants 2s slow immunity.${common}${scale}`,
+      slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
@@ -2440,6 +2599,7 @@ function getRandomTree(){
       tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : 'Sat Warrior';
     }
 
+    normalizeArcherStats(tower);
     game.towers.push(tower);
     tileAt(x, y).towerId = tower.id;
     if (tower.type === 'warrior' && !placementKeepsEnemiesReachable(tower)) {
@@ -2620,8 +2780,9 @@ function getRandomTree(){
     const rebuildText = canStartBarrierRebuild(false) ? ` Barrier rebuild is available for ${formatJewel(BARRIER_REBUILD_COST)} Gold.` : '';
     const relicText = game.startingRelicPending ? ' Choose 1 free starting relic before wave 1 begins.' : '';
     setInstruction(`Wave ${game.waveNumber + 1} ready. Pattern: ${prettyPattern(game.nextWavePlan.pattern)}${mutationText}. Spend Gold, move towers, or start the wave.${game.bonusHeroHireCharges > 0 ? ` ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? ' is' : 's are'} available.` : ''}${rebuildText}${relicText}`);
-    els.startWaveBtn.disabled = false;
+    els.startWaveBtn.disabled = !!game.startingRelicPending;
     updateTopbar();
+      updateMobileBoardFit();
     render();
   }
 
@@ -2732,6 +2893,30 @@ function getRandomTree(){
     render();
   }
 
+
+  function getWaveHpMultiplier(waveNumber) {
+    if (waveNumber < 20) return 1;
+    return Math.pow(2, Math.floor((waveNumber - 20) / 10) + 1);
+  }
+
+  function getWaveEnemyCountMultiplier(waveNumber) {
+    if (waveNumber <= 15) return 1;
+    return 1 + (Math.floor((waveNumber - 16) / 5) + 1) * 0.2;
+  }
+
+  function getRunnerSpeedMultiplier(waveNumber) {
+    return waveNumber > 15 ? 1.1 : 1;
+  }
+
+  function getBruteHpMultiplier(waveNumber) {
+    return waveNumber > 15 ? 1.1 : 1;
+  }
+
+  function getArcherPost15DamageMultiplier(level) {
+    if (level <= 15) return 1;
+    return Math.max(0, 1 - ((level - 15) * 0.10));
+  }
+
   function spawnEnemyFromPlan(plan) {
     let enemy;
     if (plan.bossId) {
@@ -2743,7 +2928,22 @@ function getRandomTree(){
     if (game.activeMutation && game.activeMutation.apply) game.activeMutation.apply(enemy);
     enemy.spawnMaxHp = enemy.maxHp;
     enemy.visualSizePx = computeEnemyVisualSizeFromSpawnHp(enemy.spawnMaxHp);
-    game.enemies.push(enemy);
+
+    const waveHpMultiplier = getWaveHpMultiplier(game.waveNumber || 0);
+    enemy.hp *= waveHpMultiplier;
+    enemy.maxHp *= waveHpMultiplier;
+    enemy.spawnMaxHp = enemy.maxHp;
+    if (enemy.typeClass === 'runner') {
+      enemy.moveInterval /= getRunnerSpeedMultiplier(game.waveNumber || 0);
+    }
+    if (enemy.typeClass === 'brute') {
+      const bruteHpMultiplier = getBruteHpMultiplier(game.waveNumber || 0);
+      enemy.hp *= bruteHpMultiplier;
+      enemy.maxHp *= bruteHpMultiplier;
+      enemy.spawnMaxHp = enemy.maxHp;
+    }
+
+        game.enemies.push(enemy);
     markProgress(`Spawned ${enemy.name}.`);
   }
 
@@ -3022,6 +3222,7 @@ function getRandomTree(){
   }
 
   function updateTower(tower, delta, current) {
+    getActiveSlowTotems();
     tickEffects(tower, current);
     tower.attackCooldownMs = Math.max(0, tower.attackCooldownMs - delta);
 
@@ -3271,6 +3472,7 @@ function getRandomTree(){
     if (enemy.debuffs.slow) total += enemy.debuffs.slow.percent || 0.3;
     if (enemy.debuffs.kraken) total += enemy.debuffs.kraken.percent || 0;
     if (enemy.debuffs.bleed) total += enemy.debuffs.bleed.percent || 0;
+    total += getSlowTotemSlowPercent(enemy);
     return total;
   }
 
@@ -3437,7 +3639,7 @@ function getRandomTree(){
       }
       const dot = document.createElement('div');
       const enemySize = getEnemyVisualSize(enemy);
-      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${enemy.debuffs && (enemy.debuffs.slow || enemy.debuffs.kraken || enemy.debuffs.bleed) ? ' enemy-slowed' : ''}`;
+      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
       dot.style.width = `${enemySize}px`;
@@ -3598,6 +3800,38 @@ function getRandomTree(){
     }
   }
 
+
+  function getActiveSlowTotems() {
+    const current = now();
+    game.slowTotems = (game.slowTotems || []).filter(t => t.until > current);
+    return game.slowTotems;
+  }
+
+  function addSlowTotem(caster) {
+    const totem = {
+      id: `slow-totem-${caster.id}-${Date.now()}`,
+      x: caster.x,
+      y: caster.y,
+      sourceId: caster.id,
+      until: now() + 45000,
+      range: 2,
+      percent: 0.35,
+    };
+    if (!game.slowTotems) game.slowTotems = [];
+    game.slowTotems.push(totem);
+    return totem;
+  }
+
+  function getSlowTotemSlowPercent(enemy) {
+    let best = 0;
+    for (const totem of getActiveSlowTotems()) {
+      if (Math.abs(enemy.x - totem.x) + Math.abs(enemy.y - totem.y) <= totem.range) {
+        best = Math.max(best, totem.percent || 0.35);
+      }
+    }
+    return best;
+  }
+
   function castAbility(tower, abilityKey, opts = {}) {
     if (!isAbilityUnlocked(tower, abilityKey)) return;
     const readyAt = tower.abilityReadyAt[abilityKey] || 0;
@@ -3679,9 +3913,9 @@ function getRandomTree(){
         allies.forEach(a => { healTower(a, 120 * game.modifiers.priestHealing, null); createTowerLine(tower, a, 'priest'); });
         return true;
       },
-      freedom() {
-        const allies = game.towers.filter(t => dist(t, tower) <= 3);
-        allies.forEach(a => { delete a.buffs.blizzardSlow; delete a.debuffs.rooted; applyBuff(a, 'freedom', 2, {}); createTowerLine(tower, a, 'priest'); });
+      slow_totem() {
+        addSlowTotem(tower);
+        createTileFlashArea([{ x: tower.x, y: tower.y }], 'priest');
         return true;
       },
       swiftness() {
@@ -3748,9 +3982,11 @@ function getRandomTree(){
   setViewportUnits();
   syncMobileHosts();
   renderMobileAbilityDock();
+  updateMobileBoardFit();
   window.addEventListener('resize', () => {
     syncMobileHosts();
     renderMobileAbilityDock();
+    updateMobileBoardFit();
   });
 
   els.startWaveBtn.addEventListener('click', () => {
@@ -3790,6 +4026,9 @@ function getRandomTree(){
   els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
   els.mobileFuncRestartBtn?.addEventListener('click', () => els.restartBtn?.click());
+  els.mobileQuickStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
+  els.mobileQuickUpgradeBtn?.addEventListener('click', () => els.upgradeBtn?.click());
+  els.mobileQuickMoveBtn?.addEventListener('click', () => els.moveBtn?.click());
   els.mobileInstallBtn?.addEventListener('click', handleMobileInstallAction);
   els.mobileInstallDismissBtn?.addEventListener('click', () => {
     game.mobileInstallDismissed = true;
@@ -3863,6 +4102,7 @@ function getRandomTree(){
       renderEnemyLayer();
       refreshSelectedPanelLive();
       updateTopbar();
+      updateMobileBoardFit();
     } catch (error) {
       showCrashReport('runtime', error);
       return;
@@ -3939,16 +4179,19 @@ function getRandomTree(){
   window.addEventListener('resize', () => {
     setViewportUnits();
     updateMobileInstallPrompt();
+    updateMobileBoardFit();
     nudgeMobileChrome();
   });
   window.addEventListener('orientationchange', () => {
     setViewportUnits();
     updateMobileInstallPrompt();
+    updateMobileBoardFit();
     nudgeMobileChrome();
   });
   window.visualViewport?.addEventListener('resize', () => {
     setViewportUnits();
     updateMobileInstallPrompt();
+    updateMobileBoardFit();
   });
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
@@ -3984,4 +4227,39 @@ function getRandomTree(){
   setPlayMode('easy', false);
   updatePauseButton();
   requestAnimationFrame(gameLoop);
+})();
+
+
+// === Disable Jewel Bank & Player Profile (coming soon) ===
+function disableFutureMenus() {
+  const ids = ['mobileBankHost','mobileProfileHost','mobileBankBtn','mobileProfileBtn'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        return false;
+      });
+    }
+  });
+}
+disableFutureMenus();
+
+
+
+
+
+
+
+(function rebindRunLogChevron() {
+  function bind() {
+    const btn = document.getElementById('runLogToggleBtn');
+    if (btn) btn.onclick = window.DFKToggleRunLog;
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
 })();
