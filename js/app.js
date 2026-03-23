@@ -103,7 +103,7 @@ function getRandomTree(){
         { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
-      passive: 'Divine Soldier: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
+      passive: 'Passive: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
     },
     pirate: {
       name: 'Pirate',
@@ -861,25 +861,31 @@ function getRandomTree(){
 
   const INTRO_PAGES = [
     {
-      title: 'Stand Against the Void',
+      title: 'Combat – Attacks, Flow, and Passives',
       body: `
-        <p><span class="intro-highlight">The militia is gone</span>—and what came back barely counts as survivors.</p>
-        <p>Commander Altierre was dragged in half-conscious after a stampede of wild boars. Hunter Roy survived, somehow, but lost his pants in the panic. Hunter Evera came back missing an eye and refused to say what took it.</p>
-        <p>They did not stop the threat. They only delayed it.</p>
-        <p>Now a mixed horde of Void creatures, corrupted beasts, and warped wildlife is pressing straight toward the portal.</p>
-        <p>You are what stands in the way.</p>
+        <p>You control several attack styles, and each has a job.</p>
+        <ul>
+          <li><span class="intro-highlight">Basic attacks</span> → always automatic, steady pressure. Automated with no cool down, so the player can focus on Heavy and AoE attacks.</li>
+          <li><span class="intro-highlight">Heavy attacks</span> → slower, higher impact, ideal for large enemies. Automated with a short cooldown then a 10 second wait, and the player can bypass the wait by manually running the skill.</li>
+          <li><span class="intro-highlight">AoE attacks</span> → control groups and stop overwhelm. Automated with a short cooldown then a 10 second wait, and the player can bypass the wait by manually running the skill.</li>
+        </ul>
+        <p>The skill is in <span class="intro-highlight">when</span> and <span class="intro-highlight">where</span> you use them, not just in firing them. That attack flow is what defines how <span class="intro-highlight">Normal Mode</span> feels in practice.</p>
+        <p class="intro-page-subheading">Passives – Always Working</p>
+        <p>Passives run in the background and reward consistency: bonus effects every few attacks, damage or attack speed boosts, and splash or slow effects that build momentum over time.</p>
       `,
     },
     {
-      title: 'Core Objective',
+      title: 'Normal Mode – Fast, Active, and Forgiving',
       body: `
-        <p><span class="intro-highlight">Protect the portal. Survive the waves. Kill everything.</span></p>
-        <p>DFK Defender is a real-time defensive combat game. Each wave adds more pressure by mixing speed, size, and durability. Once enemies pile up, things spiral fast.</p>
-        <p>You are not trying to hold forever. You are trying to control the collapse long enough to break the horde before it reaches the portal.</p>
+        <p class="intro-page-subheading">Normal Mode</p>
+        <p>Normal Mode keeps the battlefield moving at <span class="intro-highlight">2× speed</span> and handles ability automation for you after a short cooldown window.</p>
+        <p>Basic attacks are always automatic, while Heavy and AoE skills will auto-fire after their cooldown and then enter a 10 second wait. You can ignore the automation and manually cast them sooner whenever the moment matters.</p>
+        <p>That makes Normal Mode a flexible middle ground: relaxed enough to play like a modern tower defense, but still active enough to reward timing, target priority, and manual skill use during dangerous waves.</p>
+        <p>It is the best place to learn spacing, wave flow, threat priority, and how each hero kit works before the board gets crowded. Once you understand that flow, the next step is learning how to position heroes and apply those tools correctly.</p>
       `,
     },
     {
-      title: 'Enemies – Size = Power',
+      title: 'Strategy Basics – Positioning and Hero Roles',
       body: `
         <p>The game uses a compact set of enemy visuals, but their size tells you how dangerous they are.</p>
         <ul>
@@ -888,49 +894,29 @@ function getRandomTree(){
           <li><span class="intro-highlight">Large</span> → slow, durable, heavy damage</li>
         </ul>
         <p>As waves progress, enemies grow larger, their stats scale upward, and mixed groups become more dangerous. Easy to read. Much harder to manage.</p>
-      `,
-    },
-    {
-      title: 'Combat – Attacks, Flow, and Passives',
-      body: `
-        <p>You control several attack styles, and each has a job.</p>
+      
+
+
+        <p class="intro-page-subheading">Winning the Field</p>
+        <p>This is where strong runs are decided: not just by damage, but by positioning, aggro control, and using each hero for the right job.</p>
         <ul>
-          <li><span class="intro-highlight">Basic attacks</span> → always automatic, steady pressure</li>
-          <li><span class="intro-highlight">Heavy attacks</span> → slower, higher impact, ideal for large enemies</li>
-          <li><span class="intro-highlight">AoE attacks</span> → control groups and stop overwhelm</li>
+          <li>Do not let enemies stack on the same lane. Pressure becomes lethal when groups overlap on the portal.</li>
+          <li>Prioritize targets: AoE attacks clean swarm waves, while heavy attacks should be saved for large enemies and bosses.</li>
+          <li>Protect your damage dealers. Warriors hold space, but Wizards, Archers, Pirates, and Priests do the work that actually clears the wave.</li>
+          <li>Enemy aggro matters. Enemies are drawn toward heroes that damage them, so smart placements can pull pressure off the portal and off fragile allies.</li>
+          <li>Adapt constantly. Static play gets punished once mixed waves and faster enemies start stacking together.</li>
         </ul>
-        <p>The skill is in <span class="intro-highlight">when</span> and <span class="intro-highlight">where</span> you use them, not just in firing them.</p>
-        <p class="intro-page-subheading">Passives – Always Working</p>
-        <p>Passives run in the background and reward consistency: bonus effects every few attacks, damage or attack speed boosts, and splash or slow effects that build momentum over time.</p>
-      `,
-    },
-    {
-      title: 'Game Modes – Two Ways to Play',
-      body: `
-        <p class="intro-page-subheading">Easy Mode – Fast & Passive</p>
-        <p>Beyond basic attacks, abilities trigger automatically after cooldowns. Automation kicks in after a short delay, and the game runs around <span class="intro-highlight">2× speed</span>.</p>
-        <p>This creates constant action, lighter input demands, and heavier reliance on passives and setup. It feels like a faster, more modern tower defense system.</p>
-        <p class="intro-page-subheading">Challenge Mode – Slower & Strategic</p>
-        <p>Only basic attacks are automatic. Everything else must be triggered manually. That turns the battlefield into a timing test where decision-making matters more than raw setup.</p>
-      `,
-    },
-    {
-      title: 'The Core Choice',
-      body: `
-        <p><span class="intro-highlight">Easy Mode</span> is passive, fast, and system-driven.</p>
-        <p><span class="intro-highlight">Challenge Mode</span> is active, slower, and skill-driven.</p>
-        <p>Same mechanics. Completely different experience.</p>
-        <p class="intro-page-subheading">Strategy Basics</p>
+        <p class="intro-page-subheading">Hero Skill Roles</p>
         <ul>
-          <li>Control the field and do not let enemies stack.</li>
-          <li>Prioritize targets: small enemies create pressure, large enemies become the anchor threat.</li>
-          <li>Use the right attack for the right job: AoE for groups, heavy attacks for tanks.</li>
-          <li>Adapt constantly. Static play gets punished.</li>
+          <li><span class="intro-highlight">Warrior</span> blocks the path and buys time. Use him to anchor lanes and keep enemies away from softer heroes.</li>
+          <li><span class="intro-highlight">Wizard</span> brings explosive AoE pressure. He is strongest when multiple enemies bunch up inside his damage zone.</li>
+          <li><span class="intro-highlight">Archer</span> supplies consistent ranged damage and helps finish priority targets before they reach your line.</li>
+          <li><span class="intro-highlight">Pirate</span> adds aggressive burst and benefits from staying active in busy lanes where his skills can snowball momentum.</li>
+          <li><span class="intro-highlight">Priest</span> supports the team with healing and faster casting, letting your front line survive longer and your damage heroes keep firing.</li>
         </ul>
-        <p>The militia could not hold. Now it is your turn. Whether you let the system fight for you or take full control yourself, one thing does not change:</p>
         <p><span class="intro-highlight">If you fail, the portal falls.</span></p>
       `,
-    },
+    }
   ];
 
 
@@ -1182,9 +1168,9 @@ function getRandomTree(){
     if (els.speedToggleBtn) {
       els.speedToggleBtn.classList.toggle('active', easyActive);
       els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
-      els.speedToggleBtn.textContent = '✨ Easy Mode' + (easyActive ? ' ON' : '');
+      els.speedToggleBtn.textContent = '✨ Normal Mode' + (easyActive ? ' ON' : '');
       if (els.mobileFuncEasyBtn) els.mobileFuncEasyBtn.textContent = 'Easy Mode' + (easyActive ? ' ON' : '');
-      els.speedToggleBtn.title = 'Easy Mode: 2× speed and auto-casting mobile play enabled.';
+      els.speedToggleBtn.title = 'Normal Mode: 2× speed and auto-casting mobile play enabled.';
     }
     if (els.mobileModeBtn) {
       els.mobileModeBtn.classList.remove('active');
@@ -1207,7 +1193,7 @@ function getRandomTree(){
     game.timeScale = easy ? 2 : 1;
     game.mobileMode = easy;
     updateModeButtons();
-    if (showNotice) showBanner(easy ? 'Easy Mode enabled' : 'Challenge Mode enabled', 1400);
+    if (showNotice) showBanner(easy ? 'Normal Mode enabled' : 'Challenge Mode enabled', 1400);
   }
 
   function setTimeScale(scale) {
@@ -2450,7 +2436,7 @@ function getRandomTree(){
     if (tower.template.passive) {
       entries.push({
         key: `${tower.type}_template_passive`,
-        name: tower.name,
+        name: tower.type === 'priest' ? 'Divine Soldier' : tower.name,
         locked: false,
         unlockLevel: 1,
         description: tower.template.passive,
@@ -2466,11 +2452,11 @@ function getRandomTree(){
       passive.className = `card passive-card ${passiveEntry.locked ? 'passive-card-locked' : ''}`;
       let subtitle = passiveEntry.locked
         ? `<div class="passive-subtitle">Unlocks at level ${passiveEntry.unlockLevel}</div>`
-        : `<div class="passive-subtitle">Always active</div>`;
+        : ``;
       if (passiveEntry.key === 'frost_bolt' && !passiveEntry.locked && tower.level >= 15) {
         subtitle += `<div class="passive-active-note">Enhanced Aura Active: +1 range</div>`;
       }
-      passive.innerHTML = `<h4>Passive</h4><div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${passiveEntry.description}</p>`;
+      passive.innerHTML = `<div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${passiveEntry.description}</p>`;
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
@@ -2509,7 +2495,7 @@ function getRandomTree(){
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
-      priest_template_passive: `Divine Soldier. Starting at level 10, the Priest casts 1% faster per level. Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}%. This caps at 50% faster casting speed.`,
+      priest_template_passive: `Passive: Starting at level 10, the Priest casts 1% faster per level.<br><strong>Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}% faster casting</strong><br>This caps at 50% faster casting speed.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
       starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(30 * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
@@ -2838,21 +2824,29 @@ function getRandomTree(){
 
   function pathfind(start, targets, allowPortalTargets = true) {
     const targetKeys = new Set(targets.map(t => key(t.x, t.y)));
+    const startKey = key(start.x, start.y);
     const frontier = [{ x: start.x, y: start.y }];
     const cameFrom = new Map();
-    const visited = new Set([key(start.x, start.y)]);
+    const visited = new Set([startKey]);
     while (frontier.length) {
       const current = frontier.shift();
       if (targetKeys.has(key(current.x, current.y))) {
         return reconstructPath(cameFrom, current, start);
       }
-      const next = adjacentTiles(current.x, current.y).sort((a, b) => heuristic(a, targets) - heuristic(b, targets));
+      const next = adjacentTiles(current.x, current.y).sort((a, b) => {
+        const aPenalty = getEnemyOccupancy(a.x, a.y) * 3;
+        const bPenalty = getEnemyOccupancy(b.x, b.y) * 3;
+        return (heuristic(a, targets) + aPenalty) - (heuristic(b, targets) + bPenalty);
+      });
       for (const n of next) {
         const k = key(n.x, n.y);
         if (visited.has(k)) continue;
         const tile = tileAt(n.x, n.y);
         if (!tile) continue;
         if (isBlockedForPath(tile, true)) continue;
+        const crowded = getEnemyOccupancy(n.x, n.y) >= 5;
+        const isTarget = targetKeys.has(k);
+        if (crowded && !isTarget && k !== startKey) continue;
         visited.add(k);
         cameFrom.set(k, current);
         frontier.push(n);
@@ -3521,22 +3515,28 @@ function getRandomTree(){
   function getEnemyAggroTarget(enemy) {
     if (!enemy.threat) return null;
     for (const [tid, value] of Object.entries(enemy.threat)) {
-      const next = value * 0.995;
+      const next = value * 0.985;
       if (next < 1) delete enemy.threat[tid];
       else enemy.threat[tid] = next;
     }
     let bestId = enemy.aggroTargetId;
     let bestThreat = bestId ? (enemy.threat[bestId] || 0) : 0;
     for (const [tid, value] of Object.entries(enemy.threat)) {
-      if (!bestId || value > bestThreat * 1.1) {
+      if (!bestId || value > bestThreat * 1.25) {
         bestId = tid;
         bestThreat = value;
       }
     }
-    if (!bestId || bestThreat <= 5) return null;
+    if (!bestId || bestThreat <= 10) return null;
     const tower = game.towers.find(t => t.id === bestId);
     if (!tower) {
       delete enemy.threat[bestId];
+      if (enemy.aggroTargetId === bestId) enemy.aggroTargetId = null;
+      return null;
+    }
+    const portalBiasDistance = portalDistance(enemy);
+    const towerDistance = Math.abs(enemy.x - tower.x) + Math.abs(enemy.y - tower.y);
+    if (towerDistance > portalBiasDistance + 2) {
       if (enemy.aggroTargetId === bestId) enemy.aggroTargetId = null;
       return null;
     }
@@ -3604,7 +3604,8 @@ function getRandomTree(){
             enemy.stuckAt = 0;
             markProgress(`${enemy.name} moved.`);
           } else {
-            enemy.nextMoveAt = current + 200;
+            enemy.targetPath = [];
+            enemy.nextMoveAt = current + 120;
           }
         }
       } else {
@@ -3673,6 +3674,10 @@ function getRandomTree(){
     return enemy.moveInterval * 1000 * mult;
   }
 
+  function getEnemyOccupancy(x, y, ignoreEnemyId = null) {
+    return game.enemies.filter(e => e.id !== ignoreEnemyId && e.x === x && e.y === y).length;
+  }
+
   function canEnemyEnter(x, y, enemy) {
     if (!inBounds(x, y)) return false;
     const tile = tileAt(x, y);
@@ -3681,8 +3686,8 @@ function getRandomTree(){
       const tower = game.towers.find(t => t.id === tile.towerId);
       return !tower || tower.type !== 'warrior';
     }
-    const occupants = game.enemies.filter(e => e.x === x && e.y === y).length;
-    return occupants < 3 || (enemy.x === x && enemy.y === y);
+    const occupants = getEnemyOccupancy(x, y, enemy?.id || null);
+    return occupants < 5 || (enemy.x === x && enemy.y === y);
   }
 
 
@@ -3952,10 +3957,15 @@ function getRandomTree(){
     if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
     enemy.hp -= damage;
     enemy.killedBy = sourceTower.type;
-    enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + damage;
+    const aggroGain = damage * 0.65;
+    enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + aggroGain;
     enemy.lastAggroAt = now();
     const currentThreat = enemy.aggroTargetId ? (enemy.threat[enemy.aggroTargetId] || 0) : 0;
-    if (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 1.15) enemy.aggroTargetId = sourceTower.id;
+    const portalBiasDistance = portalDistance(enemy);
+    const towerDistance = Math.abs(enemy.x - sourceTower.x) + Math.abs(enemy.y - sourceTower.y);
+    if ((!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 1.35) && towerDistance <= portalBiasDistance + 2) {
+      enemy.aggroTargetId = sourceTower.id;
+    }
     createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
     createHitFlash(enemy.x, enemy.y, heroColorKey(sourceTower.type), `-${Math.round(damage)}`);
     markProgress(`${sourceTower.name} damaged ${enemy.name}.`);

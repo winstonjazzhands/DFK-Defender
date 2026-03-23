@@ -736,8 +736,10 @@ button:disabled {
 }
 .passive-card h4 {
   margin: 0 0 6px 0;
+  font-size: 0.85em;
 }
 .passive-name {
+  font-size: 0.9em;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 4px;
@@ -4556,4 +4558,30 @@ body.intro-open .mobile-right-rail {
   background: linear-gradient(180deg, #4f5561, #3d434e) !important;
   border-color: #8a93a3 !important;
   color: rgba(240, 244, 255, 0.92) !important;
+}
+
+
+/* Preparation Phase banner fix */
+.preparation-phase,
+.prep-phase,
+.phase-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 1.15em;
+  line-height: 1.4;
+  padding: 10px 16px;
+}
+
+.preparation-phase span,
+.prep-phase span,
+.phase-banner span {
+  display: inline-block;
+}
+
+
+.passive-card p strong {
+  color: var(--text);
+  font-weight: 800;
 }

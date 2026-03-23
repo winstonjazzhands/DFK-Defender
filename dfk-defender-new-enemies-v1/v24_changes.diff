@@ -1,0 +1,27 @@
+--- before
+
++++ after
+
+@@ -3970,13 +3970,15 @@
+
+     if (tower.type !== 'priest' || !isAbilityUnlocked(tower, 'prayer_of_healing')) return false;
+     const healReadyAt = tower.abilityReadyAt.prayer_of_healing || 0;
+     if (current < healReadyAt) return false;
+-    const injuredAllies = game.towers.filter(t => dist(t, tower) <= 3 && t.hp < t.maxHp);
++    const injuredAllies = game.towers
++      .filter(t => dist(t, tower) <= 3 && t.hp < t.maxHp)
++      .sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+     if (!injuredAllies.length) return false;
+-    injuredAllies.forEach(a => {
+-      healTower(a, 120 * game.modifiers.priestHealing, null);
+-      createTowerLine(tower, a, 'priest');
+-    });
+-    tower.abilityReadyAt.prayer_of_healing = now() + (getAbilityCooldownSeconds(tower, 'prayer_of_healing') * 1000);
++
++    // Priest auto-heal hard fallback: use the same cast path as manual activation
++    // so cooldowns, effects, and future edits stay in one place.
++    const casted = castAbility(tower, 'prayer_of_healing', { silent: true, auto: true });
++    if (!casted) return false;
+     tower.attackCooldownMs = Math.max(tower.attackCooldownMs, 300);
+     return true;
+   }
