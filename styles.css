@@ -4514,3 +4514,46 @@ body.intro-open .mobile-right-rail {
   .bottom-panel .hire-list > :nth-child(4) { order: 5; }
   .bottom-panel .hire-list > :nth-child(5) { order: 4; }
 }
+
+
+/* v24.5: desktop status/info message floats near bottom center and lasts 2.5s */
+@media (min-width: 1025px) {
+  #statusOverlay,
+  #statusOverlay.status-overlay,
+  .status-overlay {
+    position: fixed !important;
+    left: calc(var(--desktop-left-panel) + ((100vw - var(--desktop-left-panel) - var(--desktop-right-panel)) / 2)) !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 22px !important;
+    transform: translateX(-50%) !important;
+    margin: 0 !important;
+    width: max-content !important;
+    max-width: min(calc(var(--board-width) - 24px), calc(100vw - var(--desktop-left-panel) - var(--desktop-right-panel) - 28px)) !important;
+    z-index: 1405 !important;
+  }
+}
+
+
+/* v24.8: challenge mode visible but unavailable */
+.coming-soon-toggle,
+#mobileFuncChallengeBtn:disabled {
+  opacity: 0.65 !important;
+  filter: grayscale(0.35);
+}
+
+.coming-soon-toggle:hover,
+.coming-soon-toggle:focus-visible,
+#mobileFuncChallengeBtn:disabled:hover,
+#mobileFuncChallengeBtn:disabled:focus-visible {
+  transform: none !important;
+  border-color: rgba(148, 160, 182, 0.55) !important;
+  box-shadow: none !important;
+}
+
+.coming-soon-toggle,
+.coming-soon-toggle.active {
+  background: linear-gradient(180deg, #4f5561, #3d434e) !important;
+  border-color: #8a93a3 !important;
+  color: rgba(240, 244, 255, 0.92) !important;
+}

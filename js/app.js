@@ -103,6 +103,7 @@ function getRandomTree(){
         { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
+      passive: 'Divine Soldier: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
     },
     pirate: {
       name: 'Pirate',
@@ -834,7 +835,7 @@ function getRandomTree(){
     overlay.style.pointerEvents = '';
   }
 
-  function showStatusOverlay(duration = 3000) {
+  function showStatusOverlay(duration = 2500) {
     const overlay = document.getElementById('statusOverlay');
     if (!overlay) return;
     if (game.statusOverlayTimeout) {
@@ -1178,7 +1179,6 @@ function getRandomTree(){
 
   function updateModeButtons() {
     const easyActive = game.timeScale > 1 && !!game.mobileMode;
-    const challengeActive = !easyActive;
     if (els.speedToggleBtn) {
       els.speedToggleBtn.classList.toggle('active', easyActive);
       els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
@@ -1187,11 +1187,18 @@ function getRandomTree(){
       els.speedToggleBtn.title = 'Easy Mode: 2× speed and auto-casting mobile play enabled.';
     }
     if (els.mobileModeBtn) {
-      els.mobileModeBtn.classList.toggle('active', challengeActive);
-      els.mobileModeBtn.setAttribute('aria-pressed', challengeActive ? 'true' : 'false');
-      els.mobileModeBtn.textContent = '⚔️ Challenge Mode' + (challengeActive ? ' ON' : '');
-      if (els.mobileFuncChallengeBtn) els.mobileFuncChallengeBtn.textContent = 'Challenge Mode' + (challengeActive ? ' ON' : '');
-      els.mobileModeBtn.title = 'Challenge Mode: normal speed with manual active skills.';
+      els.mobileModeBtn.classList.remove('active');
+      els.mobileModeBtn.setAttribute('aria-pressed', 'false');
+      els.mobileModeBtn.setAttribute('aria-disabled', 'true');
+      els.mobileModeBtn.disabled = true;
+      els.mobileModeBtn.textContent = '⚔️ Challenge Mode — Coming Soon';
+      els.mobileModeBtn.title = 'Challenge Mode is coming soon.';
+    }
+    if (els.mobileFuncChallengeBtn) {
+      els.mobileFuncChallengeBtn.disabled = true;
+      els.mobileFuncChallengeBtn.setAttribute('aria-disabled', 'true');
+      els.mobileFuncChallengeBtn.textContent = 'Challenge Mode — Coming Soon';
+      els.mobileFuncChallengeBtn.title = 'Challenge Mode is coming soon.';
     }
   }
 
@@ -2370,6 +2377,10 @@ function getRandomTree(){
         if (this.buffs.rapid_onslaught) mult *= (1 + (this.buffs.rapid_onslaught.strength ?? 1));
         if (this.buffs.rapid_shot) mult *= (1 + (this.buffs.rapid_shot.bonus ?? 0.8));
         if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
+        if (this.type === 'priest') {
+          const divineSoldierBonus = Math.min(0.5, Math.max(0, (this.level ?? 1) - 9) * 0.01);
+          mult *= (1 + divineSoldierBonus);
+        }
         if (this.buffs.blizzardSlow) mult *= 0.5;
         if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.08;
         return this.basicCooldown / 1000 / mult;
@@ -2498,6 +2509,7 @@ function getRandomTree(){
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
+      priest_template_passive: `Divine Soldier. Starting at level 10, the Priest casts 1% faster per level. Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}%. This caps at 50% faster casting speed.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
       starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(30 * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
@@ -4206,7 +4218,7 @@ function getRandomTree(){
     setPlayMode('easy');
   });
   els.mobileModeBtn?.addEventListener('click', () => {
-    setPlayMode('challenge');
+    showBanner('Challenge Mode coming soon', 1400);
   });
   els.pauseBtn?.addEventListener('click', () => {
     setPaused(!game.paused);
@@ -4225,7 +4237,9 @@ function getRandomTree(){
   els.mobileSideMenuToggleBtn?.addEventListener('click', toggleMobileLeftRail);
   els.mobileRightMenuToggleBtn?.addEventListener('click', toggleMobileRightRail);
   els.mobileFuncEasyBtn?.addEventListener('click', () => els.speedToggleBtn?.click());
-  els.mobileFuncChallengeBtn?.addEventListener('click', () => els.mobileModeBtn?.click());
+  els.mobileFuncChallengeBtn?.addEventListener('click', () => {
+    showBanner('Challenge Mode coming soon', 1400);
+  });
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
   els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
   els.mobileFuncHeroesBtn?.addEventListener('click', () => els.heroesBtn?.click());
