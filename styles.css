@@ -555,6 +555,8 @@ button:disabled {
 
 .enemy-layer {
   position: absolute;
+  inset: 0;
+  overflow: visible;
   pointer-events: none;
   z-index: 6;
 }
@@ -1041,6 +1043,7 @@ body{
   background: rgba(122,101,47,0.79) !important;
 }
 .enemy-dot{
+  transform: translate(-50%, -50%);
   transform-origin:center center;
 }
 .enemy-hp-bar{
@@ -3242,6 +3245,22 @@ body{
     transform: rotate(180deg);
   }
 
+  .mobile-flyout-tab.has-notice {
+    position: relative;
+  }
+
+  .mobile-flyout-tab.has-notice::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #8dff9c;
+    box-shadow: 0 0 0 2px rgba(13, 23, 38, 0.88), 0 0 10px rgba(141, 255, 156, 0.75);
+  }
+
   .mobile-menu-overlay {
     z-index: 1200;
   }
@@ -4227,6 +4246,25 @@ body.intro-open .mobile-right-rail {
     pointer-events: none !important;
   }
 
+  #statusOverlay.hidden,
+  #statusOverlay.status-overlay.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+
+  body.intro-open #statusOverlay,
+  body.intro-open #statusOverlay.status-overlay,
+  body.intro-open .center-panel #statusOverlay,
+  body.intro-open .center-panel #statusOverlay.status-overlay {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
   #statusOverlay .phase-label {
     flex: 0 0 auto;
     font-size: 0.86rem !important;
@@ -4364,5 +4402,47 @@ body.intro-open .mobile-right-rail {
   .selected-info,
   .abilities-panel {
     flex: 1 1 auto;
+  }
+}
+
+
+/* v20 balance + mobile quick status */
+.mobile-quick-status {
+  display: none;
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .mobile-quick-status {
+    display: grid;
+    gap: 6px;
+    width: var(--mobile-rail-w);
+    padding: 7px 5px;
+    border-radius: 12px;
+    border: 1px solid rgba(145, 170, 221, 0.35);
+    background: linear-gradient(180deg, rgba(18, 28, 44, 0.95), rgba(12, 20, 33, 0.95));
+    box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+  }
+
+  .mobile-quick-stat {
+    display: grid;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .mobile-quick-stat-label {
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(214, 223, 241, 0.72);
+  }
+
+  .mobile-quick-stat-value {
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+    word-break: break-word;
   }
 }

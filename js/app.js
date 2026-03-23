@@ -31,6 +31,8 @@ function getRandomTree(){
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
   const HIRE_COSTS = [20, 40, 70, 110];
   const UPGRADE_COST_MULTIPLIER = 3.3062;
+  const ARCHER_BASE_ATTACK_INTERVAL = 1.089;
+  const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const BARRIER_REBUILD_COST = 120;
@@ -62,7 +64,7 @@ function getRandomTree(){
       letter: 'ARC',
       hp: 242,
       damage: 28,
-      attackInterval: 0.9,
+      attackInterval: ARCHER_BASE_ATTACK_INTERVAL,
       range: 4,
       autoAttack: true,
       abilities: [
@@ -123,6 +125,7 @@ function getRandomTree(){
     grunt: { name: 'Grunt', hp: 120, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 6, typeClass: 'grunt' },
     runner: { name: 'Runner', hp: 80, damage: 10, moveInterval: 0.4275, attackInterval: 1.0, jewel: 5, typeClass: 'runner' },
     brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 20, typeClass: 'brute' },
+    skitter: { name: 'Skitter', hp: 12, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
 
   const BOSSES = [
@@ -240,6 +243,8 @@ function getRandomTree(){
     grid: document.getElementById('grid'),
     portalHp: document.getElementById('portalHp'),
     jewelCount: document.getElementById('jewelCount'),
+    mobileGoldCount: document.getElementById('mobileGoldCount'),
+    mobilePortalHp: document.getElementById('mobilePortalHp'),
     waveCount: document.getElementById('waveCount'),
     patternLabel: document.getElementById('patternLabel'),
     mutationLabel: document.getElementById('mutationLabel'),
@@ -305,6 +310,7 @@ function getRandomTree(){
     mobileQuickStartBtn: document.getElementById('mobileQuickStartBtn'),
     mobileQuickUpgradeBtn: document.getElementById('mobileQuickUpgradeBtn'),
     mobileQuickMoveBtn: document.getElementById('mobileQuickMoveBtn'),
+    mobileQuickSatelliteBtn: document.getElementById('mobileQuickSatelliteBtn'),
     mobileFuncEasyBtn: document.getElementById('mobileFuncEasyBtn'),
     mobileFuncChallengeBtn: document.getElementById('mobileFuncChallengeBtn'),
     mobileFuncPauseBtn: document.getElementById('mobileFuncPauseBtn'),
@@ -503,7 +509,6 @@ function getRandomTree(){
       els.enemyLayer = document.createElement('div');
       els.enemyLayer.id = 'enemyLayer';
       els.enemyLayer.className = 'enemy-layer';
-      els.grid.parentElement.appendChild(els.enemyLayer);
     }
     for (let y = 0; y < HEIGHT; y += 1) {
       for (let x = 0; x < WIDTH; x += 1) {
@@ -527,6 +532,7 @@ function getRandomTree(){
         game.tilesByKey.set(key(x, y), tile);
       }
     }
+    if (els.enemyLayer) els.grid.appendChild(els.enemyLayer);
   }
 
 
@@ -808,19 +814,46 @@ function getRandomTree(){
   }
 
 
+  function syncStatusOverlayVisibility(forceHidden = game.introOpen) {
+    const overlay = document.getElementById('statusOverlay');
+    if (!overlay) return;
+    if (forceHidden) {
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.display = 'none';
+      overlay.style.visibility = 'hidden';
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      return;
+    }
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.style.display = '';
+    overlay.style.visibility = '';
+    overlay.style.opacity = '';
+    overlay.style.pointerEvents = '';
+  }
+
   function showStatusOverlay(duration = 3000) {
     const overlay = document.getElementById('statusOverlay');
     if (!overlay) return;
+    if (game.statusOverlayTimeout) {
+      clearTimeout(game.statusOverlayTimeout);
+      game.statusOverlayTimeout = null;
+    }
+    if (game.introOpen || document.body.classList.contains('intro-open')) {
+      syncStatusOverlayVisibility(true);
+      return;
+    }
     overlay.style.left = '';
     overlay.style.right = '';
     overlay.style.top = '';
     overlay.style.bottom = '';
     overlay.style.transform = '';
-    overlay.style.display = 'inline-flex';
-    overlay.classList.remove('hidden');
-    if (game.statusOverlayTimeout) clearTimeout(game.statusOverlayTimeout);
+    syncStatusOverlayVisibility(false);
     game.statusOverlayTimeout = setTimeout(() => {
-      overlay.classList.add('hidden');
+      syncStatusOverlayVisibility(true);
+      game.statusOverlayTimeout = null;
     }, duration);
   }
 
@@ -1023,6 +1056,11 @@ function getRandomTree(){
     game.introSet = setName;
     game.introPageIndex = Math.max(0, Math.min(pages.length - 1, pageIndex));
     game.introOpen = true;
+    if (game.statusOverlayTimeout) {
+      clearTimeout(game.statusOverlayTimeout);
+      game.statusOverlayTimeout = null;
+    }
+    syncStatusOverlayVisibility(true);
     document.body.classList.add('intro-open');
     if (els.introModal) {
       els.introModal.classList.remove('hidden');
@@ -1038,6 +1076,8 @@ function getRandomTree(){
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
     }
+    syncStatusOverlayVisibility(false);
+    showStatusOverlay();
   }
 
   function maybeShowIntroOnOpen() {
@@ -1047,8 +1087,12 @@ function getRandomTree(){
   }
 
   function updateTopbar() {
-    els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))}/2500`;
-    els.jewelCount.textContent = formatJewel(game.jewel);
+    const portalText = `${Math.max(0, Math.round(game.portalHp))}`;
+    const goldText = formatJewel(game.jewel);
+    els.portalHp.textContent = portalText;
+    els.jewelCount.textContent = goldText;
+    if (els.mobilePortalHp) els.mobilePortalHp.textContent = portalText;
+    if (els.mobileGoldCount) els.mobileGoldCount.textContent = goldText;
     els.waveCount.textContent = `${game.waveNumber}`;
     els.patternLabel.textContent = game.nextWavePlan ? prettyPattern(game.nextWavePlan.pattern) : (game.runningWave ? prettyPattern(game.currentPattern || 'boss') : '--');
     els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
@@ -1068,29 +1112,63 @@ function getRandomTree(){
   }
 
 
+  function getArcherDamageStepMultiplier(nextLevel) {
+    if (nextLevel <= 1) return 1;
+    const reductionSteps = Math.floor((nextLevel - 2) / 3);
+    return Math.max(1.05, 1.15 - (reductionSteps * 0.02));
+  }
+
+  function getArcherDamageMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    let multiplier = 1;
+    for (let nextLevel = 2; nextLevel <= safeLevel; nextLevel += 1) {
+      multiplier *= getArcherDamageStepMultiplier(nextLevel);
+    }
+    return multiplier;
+  }
+
+  function getArcherCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    return Math.pow(1.03, safeLevel - 1);
+  }
+
   function getBaseTowerStatsForLevel(type, level) {
     const template = TOWER_TEMPLATES[type];
     const safeLevel = Math.max(1, Number(level || 1));
-    const multiplier = Math.pow(1.15, safeLevel - 1);
+    const hpMultiplier = type === 'archer'
+      ? Math.pow(ARCHER_HP_LEVEL_MULTIPLIER, safeLevel - 1)
+      : Math.pow(1.15, safeLevel - 1);
+    const damageMultiplier = type === 'archer'
+      ? getArcherDamageMultiplierForLevel(safeLevel)
+      : hpMultiplier;
     return {
-      hp: template.hp * multiplier,
-      damage: template.damage * multiplier,
+      hp: template.hp * hpMultiplier,
+      damage: template.damage * damageMultiplier,
       range: template.range,
     };
   }
 
-  function normalizeArcherStats(tower) {
+  function normalizeArcherStats(tower, preserveHpRatio = false) {
     if (!tower || tower.type !== 'archer') return;
+    const previousMaxHp = Number.isFinite(tower.maxHp) && tower.maxHp > 0 ? tower.maxHp : null;
+    const previousHp = Number.isFinite(tower.hp) ? tower.hp : null;
+    const hpRatio = preserveHpRatio && previousMaxHp ? Math.max(0, Math.min(1, previousHp / previousMaxHp)) : null;
     const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
     tower.damage = base.damage;
     tower.range = base.range;
+    tower.basicCooldown = (ARCHER_BASE_ATTACK_INTERVAL * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1);
     if (tower.isSatellite) {
       tower.maxHp = base.hp * 0.5;
     } else {
       tower.maxHp = base.hp;
     }
-    if (!Number.isFinite(tower.hp)) tower.hp = tower.maxHp;
-    tower.hp = Math.min(tower.hp, tower.maxHp);
+    if (!Number.isFinite(previousHp)) {
+      tower.hp = tower.maxHp;
+    } else if (hpRatio !== null) {
+      tower.hp = tower.maxHp * hpRatio;
+    } else {
+      tower.hp = Math.min(previousHp, tower.maxHp);
+    }
   }
 
   function formatJewel(value) {
@@ -1606,9 +1684,10 @@ function getRandomTree(){
 
   function updateMobileHireNotice(canHireNow) {
     const show = !!canHireNow && isLandscapeMobileUi();
-    [els.mobileHireMenuBtn, els.mobileFuncMenuBtn].forEach((btn) => btn?.classList.toggle('has-notice', show));
-    els.mobileBarToggleBtn?.classList.toggle('has-notice', show);
-    els.mobileBarToggleNotice?.classList.toggle('hidden', !show);
+    els.mobileHireMenuBtn?.classList.toggle('has-notice', show);
+    els.mobileFuncMenuBtn?.classList.remove('has-notice');
+    els.mobileBarToggleBtn?.classList.remove('has-notice');
+    els.mobileBarToggleNotice?.classList.add('hidden');
   }
 
   function closeMobileMenus() {
@@ -1792,6 +1871,7 @@ function getRandomTree(){
 
   function syncMobileQuickActions() {
     const tower = getSelectedTower();
+    const satelliteTowerReady = !!tower && !tower.isSatellite && (tower.type === 'warrior' || tower.type === 'archer') && !!getPassiveEntries(tower).find(entry => !entry.locked && (entry.key === 'new_blood' || entry.key === 'eagle_nest')) && (tower.satelliteCharges || 0) > 0 && game.phase !== SETUP_PHASES.GAME_OVER;
     if (els.mobileQuickUpgradeBtn) {
       els.mobileQuickUpgradeBtn.disabled = !tower || els.upgradeBtn.disabled;
       els.mobileQuickUpgradeBtn.classList.toggle('is-live', !!tower && !els.upgradeBtn.disabled);
@@ -1805,6 +1885,14 @@ function getRandomTree(){
       els.mobileQuickStartBtn.disabled = !canStart;
       els.mobileQuickStartBtn.classList.toggle('is-live', canStart);
       els.mobileQuickStartBtn.textContent = game.runningWave ? 'Live' : 'Start';
+    }
+    if (els.mobileQuickSatelliteBtn) {
+      const charges = tower && !tower.isSatellite ? (tower.satelliteCharges || 0) : 0;
+      const satelliteLabel = tower?.type === 'archer' ? 'Sat Arc' : 'Sat';
+      els.mobileQuickSatelliteBtn.disabled = !satelliteTowerReady;
+      els.mobileQuickSatelliteBtn.classList.toggle('is-live', satelliteTowerReady);
+      els.mobileQuickSatelliteBtn.textContent = satelliteTowerReady ? `${satelliteLabel} ${charges}` : 'Sat';
+      els.mobileQuickSatelliteBtn.title = satelliteTowerReady ? `Place satellite (${charges} ready)` : 'Select a warrior or archer with a satellite charge';
     }
   }
 
@@ -2426,6 +2514,7 @@ function getRandomTree(){
     else if (nextLevel <= 10) base = 2;
     else if (nextLevel <= 15) base = 4;
     else if (nextLevel <= 20) base = 8;
+    if (nextLevel > 10) base *= 1.5;
     const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
     return Math.round(base * UPGRADE_COST_MULTIPLIER * satelliteMult * 10) / 10;
   }
@@ -2440,11 +2529,15 @@ function getRandomTree(){
     if (game.jewel < cost) return;
     game.jewel -= cost;
     tower.level = nextLevel;
-    const hpRatio = tower.hp / tower.maxHp;
-    tower.maxHp *= 1.045;
-    tower.hp = tower.maxHp * hpRatio;
-    tower.damage *= 1.05;
-    tower.basicCooldown /= tower.type === 'archer' ? 1.045 : 1.05;
+    if (tower.type === 'archer') {
+      normalizeArcherStats(tower, true);
+    } else {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.045;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= 1.05;
+      tower.basicCooldown /= 1.05;
+    }
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
     render();
   }
@@ -2828,9 +2921,13 @@ function getRandomTree(){
     return lane;
   }
 
-  function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
+  function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
     const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber);
-    const baseCount = Math.round((6 + waveNumber * 2) * countMultiplier);
+    return Math.round((6 + waveNumber * 2) * countMultiplier);
+  }
+
+  function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
+    const baseCount = getStandardWaveEnemyCount(waveNumber, sizeMultiplier);
     const enemies = [];
     if (pattern === 'lane') {
       const lane = chooseLane();
@@ -2856,7 +2953,14 @@ function getRandomTree(){
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    return [{ bossId: boss.id, lane, delayMs: 1000 }];
+    const enemies = [{ bossId: boss.id, lane, delayMs: 1000 }];
+    if (waveNumber % 10 === 0) {
+      const skitterCount = getStandardWaveEnemyCount(waveNumber, 1) * 2;
+      for (let i = 0; i < skitterCount; i += 1) {
+        enemies.push({ type: 'skitter', lane: pickRandom(LANE_NAMES), delayMs: 150 + (i * 60) });
+      }
+    }
+    return enemies;
   }
 
   function chooseEnemyType(waveNumber) {
@@ -2908,13 +3012,13 @@ function getRandomTree(){
     return waveNumber > 15 ? 1.1 : 1;
   }
 
-  function getBruteHpMultiplier(waveNumber) {
-    return waveNumber > 15 ? 1.1 : 1;
+  function getLargeEnemySpeedMultiplier(waveNumber) {
+    if (waveNumber <= 10) return 1;
+    return Math.min(1.25, 1 + ((waveNumber - 10) * 0.02));
   }
 
-  function getArcherPost15DamageMultiplier(level) {
-    if (level <= 15) return 1;
-    return Math.max(0, 1 - ((level - 15) * 0.10));
+  function getBruteHpMultiplier(waveNumber) {
+    return waveNumber > 15 ? 1.1 : 1;
   }
 
   function spawnEnemyFromPlan(plan) {
@@ -2941,6 +3045,9 @@ function getRandomTree(){
       enemy.hp *= bruteHpMultiplier;
       enemy.maxHp *= bruteHpMultiplier;
       enemy.spawnMaxHp = enemy.maxHp;
+    }
+    if (enemy.isBoss || enemy.typeClass === 'brute') {
+      enemy.moveInterval /= getLargeEnemySpeedMultiplier(game.waveNumber || 0);
     }
 
         game.enemies.push(enemy);
@@ -3034,6 +3141,58 @@ function getRandomTree(){
     };
   }
 
+  function canEnemyEnterIgnoringCrowd(x, y, enemy) {
+    if (!inBounds(x, y)) return false;
+    const tile = tileAt(x, y);
+    if (!tile || tile.obstacle || tile.portal) return false;
+    if (tile.towerId) {
+      const tower = game.towers.find(t => t.id === tile.towerId);
+      return !tower || tower.type !== 'warrior';
+    }
+    return true;
+  }
+
+  function tryResolveEnemyStall(enemy, current) {
+    const portalTargets = getPortalTargets();
+    const targetPool = portalTargets.length ? portalTargets : [{ x: game.portal?.x || enemy.x, y: game.portal?.y || enemy.y }];
+    enemy.tauntedTo = null;
+    enemy.tauntUntil = 0;
+    enemy.aggroTargetId = null;
+    enemy.threat = {};
+
+    const bestStep = adjacentTiles(enemy.x, enemy.y)
+      .filter(step => canEnemyEnterIgnoringCrowd(step.x, step.y, enemy))
+      .sort((a, b) => heuristic(a, targetPool) - heuristic(b, targetPool))[0];
+
+    if (!bestStep) return false;
+    if (bestStep.x === enemy.x && bestStep.y === enemy.y) return false;
+
+    enemy.prevX = enemy.x;
+    enemy.prevY = enemy.y;
+    enemy.x = bestStep.x;
+    enemy.y = bestStep.y;
+    enemy.moveStartedAt = current;
+    enemy.moveEndAt = current + Math.min(220, getEnemyMoveMs(enemy));
+    enemy.nextMoveAt = enemy.moveEndAt;
+    enemy.attacking = false;
+    enemy.targetPath = [];
+    enemy.stuckAt = 0;
+    markProgress(`${enemy.name} was nudged forward.`);
+    return true;
+  }
+
+  function attemptResolveBattleStall(current) {
+    let rescued = false;
+    for (const enemy of game.enemies) {
+      if (tryResolveEnemyStall(enemy, current)) rescued = true;
+    }
+    if (rescued) {
+      log('Deadlock breaker moved stalled enemies forward.');
+      render();
+    }
+    return rescued;
+  }
+
   function update() {
     if (game.phase === SETUP_PHASES.GAME_OVER) return;
     const current = now();
@@ -3072,8 +3231,13 @@ function getRandomTree(){
       game.diagnostics.lastProgressHash = progressHash;
       game.diagnostics.lastProgressAt = current;
     } else if (game.runningWave && !game.diagnostics.softLockTriggered && game.enemies.length > 0 && current - game.diagnostics.lastProgressAt > 7000) {
-      game.diagnostics.softLockTriggered = true;
-      showCrashReport('softlock', new Error('No battle-state change for 7 seconds during an active wave.'));
+      if (attemptResolveBattleStall(current)) {
+        game.diagnostics.lastProgressHash = buildProgressHash();
+        game.diagnostics.lastProgressAt = current;
+      } else {
+        game.diagnostics.softLockTriggered = true;
+        showCrashReport('softlock', new Error('No battle-state change for 7 seconds during an active wave.'));
+      }
     }
 
     if (game.portalHp <= 0 && game.phase !== SETUP_PHASES.GAME_OVER) {
@@ -3386,6 +3550,7 @@ function getRandomTree(){
     const portalTargets = getPortalTargets();
     let targets = portalTargets;
     let attackTarget = null;
+    let movedThisTick = false;
 
     if (enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
       const tauntTarget = enemy.tauntedTo;
@@ -3423,6 +3588,9 @@ function getRandomTree(){
             enemy.moveStartedAt = current;
             enemy.moveEndAt = current + getEnemyMoveMs(enemy);
             enemy.nextMoveAt = enemy.moveEndAt;
+            movedThisTick = true;
+            enemy.stuckAt = 0;
+            markProgress(`${enemy.name} moved.`);
           } else {
             enemy.nextMoveAt = current + 200;
           }
@@ -3441,6 +3609,8 @@ function getRandomTree(){
             enemy.moveStartedAt = current;
             enemy.moveEndAt = current + getEnemyMoveMs(enemy);
             enemy.nextMoveAt = enemy.moveEndAt;
+            movedThisTick = true;
+            enemy.stuckAt = 0;
             markProgress(`${enemy.name} moved.`);
           }
         }
@@ -3453,6 +3623,7 @@ function getRandomTree(){
 
     if (attackTarget) {
       enemy.attacking = true;
+      enemy.stuckAt = 0;
       if (current >= enemy.nextAttackAt) {
         if (attackTarget.portal) {
           game.portalHp -= enemy.damage;
@@ -3464,6 +3635,13 @@ function getRandomTree(){
         }
         enemy.nextAttackAt = current + enemy.attackInterval * 1000;
       }
+    } else if (!movedThisTick && !enemy.debuffs.rooted) {
+      if (!enemy.stuckAt) enemy.stuckAt = current;
+      if (current - enemy.stuckAt >= 1200) {
+        tryResolveEnemyStall(enemy, current);
+      }
+    } else {
+      enemy.stuckAt = 0;
     }
   }
 
@@ -3499,11 +3677,36 @@ function getRandomTree(){
   function getTilePixelPosition(x, y) {
     const tile = tileAt(x, y);
     if (!tile || !tile.el) return { left: 0, top: 0, width: 84, height: 84 };
+    const el = tile.el;
+    const tileComputed = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    const width = el.offsetWidth || (tileComputed ? parseFloat(tileComputed.width) : 0) || 84;
+    const height = el.offsetHeight || (tileComputed ? parseFloat(tileComputed.height) : 0) || width || 84;
+    if (Number.isFinite(el.offsetLeft) && Number.isFinite(el.offsetTop)) {
+      return {
+        left: el.offsetLeft,
+        top: el.offsetTop,
+        width,
+        height,
+      };
+    }
+    const gridRect = els.grid?.getBoundingClientRect?.();
+    const tileRect = el.getBoundingClientRect?.();
+    if (gridRect && tileRect) {
+      return {
+        left: tileRect.left - gridRect.left,
+        top: tileRect.top - gridRect.top,
+        width: tileRect.width || width,
+        height: tileRect.height || height,
+      };
+    }
+    const gridComputed = window.getComputedStyle ? window.getComputedStyle(els.grid) : null;
+    const gapX = gridComputed ? parseFloat(gridComputed.columnGap || gridComputed.gap || '0') || 0 : 0;
+    const gapY = gridComputed ? parseFloat(gridComputed.rowGap || gridComputed.gap || '0') || 0 : 0;
     return {
-      left: tile.el.offsetLeft,
-      top: tile.el.offsetTop,
-      width: tile.el.offsetWidth,
-      height: tile.el.offsetHeight,
+      left: x * (width + gapX),
+      top: y * (height + gapY),
+      width,
+      height,
     };
   }
 
@@ -3542,6 +3745,19 @@ function getRandomTree(){
     return { x: pos.left + pos.width / 2, y: pos.top + pos.height / 2 };
   }
 
+  function getEnemyStackOffset(enemy, enemiesHere) {
+    if (!enemy) return { x: 0, y: 0 };
+    const stack = Array.isArray(enemiesHere) && enemiesHere.length ? enemiesHere : [enemy];
+    if (stack.length <= 1) return { x: 0, y: 0 };
+    const stackIndex = Math.max(0, stack.findIndex(e => e.id === enemy.id));
+    const laneOffsets = [
+      { x: -10, y: 8 },
+      { x: 0, y: 0 },
+      { x: 10, y: -8 },
+    ];
+    return laneOffsets[Math.min(stackIndex, laneOffsets.length - 1)] || { x: 0, y: 0 };
+  }
+
   function getEnemyPixelCenter(enemy) {
     if (!enemy) return { x: 0, y: 0 };
     const current = now();
@@ -3552,13 +3768,7 @@ function getRandomTree(){
       byTile.get(k).push(e);
     }
     const enemiesHere = byTile.get(`${enemy.x},${enemy.y}`) || [enemy];
-    const stackIndex = Math.max(0, enemiesHere.findIndex(e => e.id === enemy.id));
-    const laneOffsets = [
-      { x: -10, y: 8 },
-      { x: 0, y: 0 },
-      { x: 10, y: -8 },
-    ];
-    const offset = laneOffsets[Math.min(stackIndex, laneOffsets.length - 1)];
+    const offset = getEnemyStackOffset(enemy, enemiesHere);
     const pos = getTilePixelPosition(enemy.x, enemy.y);
     let px = pos.left + pos.width / 2;
     let py = pos.top + pos.height / 2;
@@ -3576,17 +3786,19 @@ function getRandomTree(){
   function renderEnemyLayer() {
     if (!els.enemyLayer) return;
     els.enemyLayer.innerHTML = '';
-    els.enemyLayer.style.left = `${els.grid.offsetLeft}px`;
-    els.enemyLayer.style.top = `${els.grid.offsetTop}px`;
-    els.enemyLayer.style.width = `${els.grid.offsetWidth}px`;
-    els.enemyLayer.style.height = `${els.grid.offsetHeight}px`;
+    const layerWidth = els.grid?.clientWidth || els.grid?.offsetWidth || 0;
+    const layerHeight = els.grid?.clientHeight || els.grid?.offsetHeight || 0;
+    els.enemyLayer.style.left = `0px`;
+    els.enemyLayer.style.top = `0px`;
+    els.enemyLayer.style.width = `${layerWidth}px`;
+    els.enemyLayer.style.height = `${layerHeight}px`;
     const current = now();
     game.attackLines = game.attackLines.filter(line => line.until > current);
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'attack-line-layer');
-    svg.setAttribute('viewBox', `0 0 ${els.grid.offsetWidth} ${els.grid.offsetHeight}`);
-    svg.setAttribute('width', `${els.grid.offsetWidth}`);
-    svg.setAttribute('height', `${els.grid.offsetHeight}`);
+    svg.setAttribute('viewBox', `0 0 ${layerWidth} ${layerHeight}`);
+    svg.setAttribute('width', `${layerWidth}`);
+    svg.setAttribute('height', `${layerHeight}`);
     els.enemyLayer.appendChild(svg);
     const byTile = new Map();
     for (const enemy of game.enemies) {
@@ -3594,11 +3806,6 @@ function getRandomTree(){
       if (!byTile.has(key)) byTile.set(key, []);
       byTile.get(key).push(enemy);
     }
-    const laneOffsets = [
-      { x: -10, y: 8 },
-      { x: 0, y: 0 },
-      { x: 10, y: -8 },
-    ];
     for (const line of game.attackLines) {
       const tower = game.towers.find(t => t.id === line.sourceTowerId);
       if (!tower) continue;
@@ -3624,8 +3831,7 @@ function getRandomTree(){
     }
     for (const enemy of game.enemies) {
       const enemiesHere = byTile.get(`${enemy.x},${enemy.y}`) || [enemy];
-      const stackIndex = Math.max(0, enemiesHere.findIndex(e => e.id === enemy.id));
-      const offset = laneOffsets[Math.min(stackIndex, laneOffsets.length - 1)];
+      const offset = getEnemyStackOffset(enemy, enemiesHere);
       const pos = getTilePixelPosition(enemy.x, enemy.y);
       let px = pos.left + pos.width / 2;
       let py = pos.top + pos.height / 2;
@@ -4029,6 +4235,11 @@ function getRandomTree(){
   els.mobileQuickStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileQuickUpgradeBtn?.addEventListener('click', () => els.upgradeBtn?.click());
   els.mobileQuickMoveBtn?.addEventListener('click', () => els.moveBtn?.click());
+  els.mobileQuickSatelliteBtn?.addEventListener('click', () => {
+    const tower = getSelectedTower();
+    if (!tower) return;
+    beginSatellitePlacement(tower);
+  });
   els.mobileInstallBtn?.addEventListener('click', handleMobileInstallAction);
   els.mobileInstallDismissBtn?.addEventListener('click', () => {
     game.mobileInstallDismissed = true;
