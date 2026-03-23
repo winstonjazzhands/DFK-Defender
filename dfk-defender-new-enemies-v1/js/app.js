@@ -36,9 +36,10 @@ function getRandomTree(){
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
   const HIRE_COSTS = [20, 40, 70, 110];
   const UPGRADE_COST_MULTIPLIER = 3.3062;
-  const ARCHER_BASE_ATTACK_INTERVAL = 1.089;
+  const ARCHER_BASE_ATTACK_INTERVAL = 1.198;
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
+  const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const BARRIER_REBUILD_COST = 120;
   const WAVE_REBUILD_INTERVAL = 15;
@@ -1040,7 +1041,7 @@ function getRandomTree(){
           <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
           <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
           <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, full Archer damage, and a higher upgrade cost.</li>
+          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent Archer's damage, and a higher upgrade cost.</li>
         </ul>
         <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
       `,
@@ -1431,7 +1432,7 @@ function getRandomTree(){
     const previousHp = Number.isFinite(tower.hp) ? tower.hp : null;
     const hpRatio = preserveHpRatio && previousMaxHp ? Math.max(0, Math.min(1, previousHp / previousMaxHp)) : null;
     const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
-    tower.damage = base.damage;
+    tower.damage = tower.isSatellite ? (base.damage * SATELLITE_DAMAGE_MULTIPLIER) : base.damage;
     tower.range = base.range;
     tower.basicCooldown = (ARCHER_BASE_ATTACK_INTERVAL * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1);
     if (tower.isSatellite) {
@@ -2811,14 +2812,14 @@ function getRandomTree(){
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. Use that charge during prep to place a level 1 Satellite Warrior on any valid open tile. The Satellite Warrior has half of the current Warrior's max HP and costs 50% more to level up.${scale}`,
+      new_blood: `Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. Use that charge during prep to place a level 1 Satellite Warrior on any valid open tile. The Satellite Warrior has half of the current Warrior's max HP, 75% of the parent Warrior's damage, and costs 50% more to level up.${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level and deals the same damage as a normal Archer at the same level. It costs 50% more to level up.`,
+      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent Archer's damage, and costs 50% more to level up.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
@@ -3014,7 +3015,7 @@ function getRandomTree(){
       tower.level = 1;
       tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
       tower.hp = tower.maxHp;
-      tower.damage = sourceTower.damage;
+      tower.damage = sourceTower.damage * SATELLITE_DAMAGE_MULTIPLIER;
       tower.range = sourceTower.range;
       tower.basicCooldown = sourceTower.basicCooldown;
       tower.satelliteOwnerId = sourceTower.id;
