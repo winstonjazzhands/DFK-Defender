@@ -2948,11 +2948,17 @@ body{
 }
 
 #banner {
-  position: static;
-  transform: none;
-  margin: 0 auto 8px;
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translateX(-50%);
+  margin: 0;
   width: fit-content;
-  max-width: calc(100vw - 16px);
+  max-width: min(calc(var(--board-width) - 16px), calc(100vw - 16px));
+  z-index: 40;
+  pointer-events: none;
 }
 
 .grid {
@@ -3099,7 +3105,12 @@ body{
 @media (min-width: 1025px) {
   :root {
     --tile-gap: 6px;
-    --tile-size: clamp(46px, calc((100vw - 560px) / 14), 84px);
+    --desktop-board-edge-room: 72px;
+    --tile-size: clamp(
+      46px,
+      calc((100vw - var(--desktop-left-panel) - var(--desktop-right-panel) - var(--desktop-board-edge-room)) / 14),
+      84px
+    );
   }
 
   html, body { overflow-x: hidden; }
@@ -4445,4 +4456,61 @@ body.intro-open .mobile-right-rail {
     color: var(--text);
     word-break: break-word;
   }
+}
+
+
+/* v24.2: desktop bottom HUD split into two clean rows; keep mobile unchanged */
+@media (min-width: 1025px) {
+  .bottom-panel .controls-row.action-row,
+  .bottom-panel .controls-row.action-row.controls-row-lean {
+    display: grid;
+    grid-template-columns: max-content max-content minmax(150px, 1fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bottom-panel .footer-topbar,
+  .bottom-panel .footer-topbar.footer-topbar-separated {
+    display: contents;
+  }
+
+  .bottom-panel .footer-topbar .hud-pill {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+  }
+
+  .bottom-panel .controls-stack {
+    margin-top: 8px;
+  }
+
+  .bottom-panel .hire-section {
+    width: 100%;
+  }
+
+  .bottom-panel .hire-list {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .bottom-panel .hire-list .card,
+  .bottom-panel .hire-button-card {
+    min-width: 0;
+  }
+
+  .bottom-panel .hire-list .card button,
+  .bottom-panel .hire-button-card button {
+    width: 100%;
+    padding: 8px 6px;
+    font-size: 0.72rem;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .bottom-panel .hire-list > :nth-child(1) { order: 3; }
+  .bottom-panel .hire-list > :nth-child(2) { order: 2; }
+  .bottom-panel .hire-list > :nth-child(3) { order: 1; }
+  .bottom-panel .hire-list > :nth-child(4) { order: 5; }
+  .bottom-panel .hire-list > :nth-child(5) { order: 4; }
 }
