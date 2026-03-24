@@ -2,7 +2,6 @@
   'use strict';
 
   const CONFIG = Object.freeze({
-    apiBase: window.DFK_DEFENSE_API_BASE || '/api',
     chainId: 53935,
     chainHex: '0xd2af',
     chainName: 'DFK Chain',
@@ -11,12 +10,18 @@
     nativeCurrency: { name: 'JEWEL', symbol: 'JEWEL', decimals: 18 },
   });
 
+  const CONTRACTS = Object.freeze({
+    dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
+    profileSelector: '0x0e7b29bf',
+  });
+
   const state = {
     providers: [],
     selectedProvider: null,
     providerInfo: null,
     address: null,
     balance: null,
+    profileName: null,
     user: null,
     mode: 'local',
     depositAddress: null,
@@ -33,8 +38,161 @@
     return `${address.slice(0, 6)}…${address.slice(-4)}`;
   }
   function setText(el, text) { if (el) el.textContent = text; }
+  function emitWalletState() {
+    window.dispatchEvent(new CustomEvent('dfk-defense:wallet-state', {
+      detail: {
+        address: state.address,
+        profileName: state.profileName,
+        balance: state.balance,
+        providerName: providerLabel(state.providerInfo),
+      },
+    }));
+  }
   function setHtml(el, text) { if (el) el.innerHTML = text; }
   function normalizeAddress(address) { return String(address || '').trim().toLowerCase(); }
+
+  function formatJewelBalance(rawBalance) {
+    const value = Number(rawBalance || 0);
+    if (!Number.isFinite(value)) return '--';
+    if (value >= 1000) return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} JEWEL`;
+    if (value >= 10) return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} JEWEL`;
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })} JEWEL`;
+  }
+
+  function formatEtherFromHex(hexValue) {
+    try {
+      const wei = BigInt(hexValue || '0x0');
+      const whole = wei / (10n ** 18n);
+      const fraction = wei % (10n ** 18n);
+      const fractionText = fraction.toString().padStart(18, '0').slice(0, 4).replace(/0+$/, '');
+      return Number(fractionText ? `${whole}.${fractionText}` : `${whole}`);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function fetchNativeBalance(address) {
+    if (!state.selectedProvider || !address) return null;
+    const hexBalance = await request(state.selectedProvider, 'eth_getBalance', [address, 'latest']);
+    const parsed = formatEtherFromHex(hexBalance);
+    return parsed == null ? null : { balance: parsed };
+  }
+
+  function stripHexPrefix(value) {
+    return String(value || '').replace(/^0x/i, '');
+  }
+
+  function encodeAddressArg(address) {
+    const normalized = stripHexPrefix(normalizeAddress(address));
+    if (!/^[0-9a-f]{40}$/.test(normalized)) return null;
+    return `0x${'0'.repeat(24)}${normalized}`;
+  }
+
+  function readAbiString(hex, offsetBytes) {
+    const clean = stripHexPrefix(hex);
+    const start = offsetBytes * 2;
+    const lengthHex = clean.slice(start, start + 64);
+    if (!lengthHex) return '';
+    const byteLength = Number.parseInt(lengthHex, 16);
+    if (!Number.isFinite(byteLength) || byteLength < 0) return '';
+    const dataStart = start + 64;
+    const dataHex = clean.slice(dataStart, dataStart + (byteLength * 2));
+    if (!dataHex) return '';
+    try {
+      const parts = dataHex.match(/.{1,2}/g) || [];
+      return new TextDecoder().decode(Uint8Array.from(parts.map((part) => Number.parseInt(part, 16)))).replace(/\0+$/g, '').trim();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function decodeAddressToProfileName(hex) {
+    const clean = stripHexPrefix(hex);
+    if (clean.length < 64 * 6) return '';
+    const nameOffset = Number.parseInt(clean.slice(64, 128), 16);
+    if (!Number.isFinite(nameOffset) || nameOffset < 0) return '';
+    return readAbiString(clean, nameOffset);
+  }
+
+  async function fetchProfileNameFromChain(address) {
+    if (!state.selectedProvider || !address) return null;
+    const encodedAddress = encodeAddressArg(address);
+    if (!encodedAddress) return null;
+    try {
+      const result = await request(state.selectedProvider, 'eth_call', [{
+        to: CONTRACTS.dfkProfiles,
+        data: `${CONTRACTS.profileSelector}${encodedAddress.slice(2)}`,
+      }, 'latest']);
+      const name = decodeAddressToProfileName(result);
+      return name || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function fetchProfileName(address) {
+    if (!address) return null;
+    const candidates = Array.from(new Set([
+      String(address).trim(),
+      normalizeAddress(address),
+      String(address).trim().toUpperCase(),
+    ].filter(Boolean)));
+
+    for (const candidate of candidates) {
+      try {
+        const response = await fetch('https://api.defikingdoms.com/graphql', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'query ProfileByAddress($id: ID!, $owner: String!) { profile(id: $id) { name } profiles(where: { owner: $owner }, first: 1) { name } ownerMatch: profiles(where: { id: $owner }, first: 1) { name } }',
+            variables: { id: candidate, owner: candidate },
+          }),
+        });
+        if (!response.ok) continue;
+        const payload = await response.json();
+        const directName = payload && payload.data && payload.data.profile && payload.data.profile.name
+          ? String(payload.data.profile.name).trim()
+          : '';
+        if (directName) return directName;
+        const listName = payload && payload.data && Array.isArray(payload.data.profiles) && payload.data.profiles[0] && payload.data.profiles[0].name
+          ? String(payload.data.profiles[0].name).trim()
+          : '';
+        if (listName) return listName;
+        const ownerMatch = payload && payload.data && Array.isArray(payload.data.ownerMatch) && payload.data.ownerMatch[0] && payload.data.ownerMatch[0].name
+          ? String(payload.data.ownerMatch[0].name).trim()
+          : '';
+        if (ownerMatch) return ownerMatch;
+      } catch (error) {
+        // Try the next variant.
+      }
+    }
+    return fetchProfileNameFromChain(address);
+  }
+
+  async function refreshWalletDetails() {
+    if (!state.address) {
+      state.balance = null;
+      state.profileName = null;
+      render();
+      emitWalletState();
+      return null;
+    }
+    try {
+      const [balance, profileName] = await Promise.all([
+        fetchNativeBalance(state.address),
+        fetchProfileName(state.address),
+      ]);
+      state.balance = balance;
+      state.profileName = profileName;
+      render();
+      emitWalletState();
+      return { balance, profileName };
+    } catch (error) {
+      render();
+      return null;
+    }
+  }
 
   function providerLabel(info) {
     if (!info) return 'wallet';
@@ -66,6 +224,7 @@
       state.providerInfo = detail.info;
     }
     render();
+    emitWalletState();
   }
 
   function addLegacyProvider(provider, uuidHint) {
@@ -149,6 +308,8 @@
     state.address = accounts && accounts[0] ? accounts[0] : null;
     bindProviderEvents(chosen.provider);
     render();
+    emitWalletState();
+    await refreshWalletDetails();
     return state.address;
   }
 
@@ -170,138 +331,58 @@
           state.user = null;
           state.mode = 'local';
           state.balance = null;
+          state.profileName = null;
+          render();
+          emitWalletState();
+          return;
         }
         render();
+        emitWalletState();
+        refreshWalletDetails();
       });
-      provider.on('chainChanged', render);
+      provider.on('chainChanged', () => { render(); emitWalletState(); refreshWalletDetails(); });
       provider.on('disconnect', () => {
         state.address = null;
         state.user = null;
         state.mode = 'local';
         state.balance = null;
+        state.profileName = null;
         render();
+        emitWalletState();
       });
     }
   }
 
-  function cleanApiErrorMessage(text, fallback) {
-    const stripped = String(text || '')
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!stripped) return fallback;
-    return stripped.length > 180 ? `${stripped.slice(0, 177)}...` : stripped;
-  }
-
-  async function fetchJson(path, options) {
-    const response = await fetch(`${CONFIG.apiBase}${path}`, {
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...(options && options.headers ? options.headers : {}) },
-      ...options,
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(cleanApiErrorMessage(text, `Request failed: ${response.status}`));
-    }
-    return response.status === 204 ? null : response.json();
-  }
-
-  function buildLoginMessage(nonce, address) {
-    const domain = window.location.host;
-    const origin = window.location.origin;
-    return [
-      `${domain} wants you to sign in with your Ethereum account:`,
-      address,
-      '',
-      'Sign in to DFK Defense.',
-      '',
-      `URI: ${origin}`,
-      'Version: 1',
-      `Chain ID: ${CONFIG.chainId}`,
-      `Nonce: ${nonce}`,
-      `Issued At: ${new Date().toISOString()}`,
-    ].join('\n');
-  }
-
   async function signIn() {
-    if (!state.address) await connectWallet();
-    if (!state.address || !state.selectedProvider) throw new Error('Wallet connection required before signing in.');
-    const noncePayload = await fetchJson('/auth/nonce', {
-      method: 'POST',
-      body: JSON.stringify({ address: state.address }),
-    });
-    const message = buildLoginMessage(noncePayload.nonce, state.address);
-    const signature = await request(state.selectedProvider, 'personal_sign', [message, state.address]);
-    const verifyPayload = await fetchJson('/auth/verify', {
-      method: 'POST',
-      body: JSON.stringify({ address: state.address, message, signature, walletProvider: providerLabel(state.providerInfo) }),
-    });
-    state.user = verifyPayload && verifyPayload.user ? verifyPayload.user : { primaryWallet: state.address };
-    state.mode = 'settled';
-    await refreshBank();
-    render();
-    return verifyPayload;
+    const message = 'Sign in was removed in this wallet-only build.';
+    renderInfo(message);
+    return { ok: false, mode: 'wallet-only', message };
   }
 
   async function refreshBank() {
-    try {
-      const [balancePayload, depositConfig] = await Promise.all([
-        fetchJson('/me/balance', { method: 'GET' }),
-        fetchJson('/deposits/config', { method: 'GET' }),
-      ]);
-      state.balance = balancePayload;
-      state.depositAddress = depositConfig && depositConfig.depositAddress ? depositConfig.depositAddress : null;
-      if (state.user || (balancePayload && balancePayload.authenticated)) state.mode = 'settled';
-      render();
-      window.dispatchEvent(new CustomEvent('dfk-defense:bank-balance', { detail: balancePayload }));
-      return balancePayload;
-    } catch (error) {
-      state.mode = 'local';
+    if (!state.address) {
       state.balance = null;
-      state.depositAddress = null;
       render();
-      const message = /failed to fetch|request failed|not found|cannot get|unexpected token|networkerror|load failed/i.test(String(error && error.message || ''))
-        ? 'Refresh Bank needs the server API. This build is staying in local bank mode.'
-        : (error && error.message ? error.message : 'Refresh Bank failed.');
-      renderError(new Error(message));
+      emitWalletState();
       return null;
     }
+    const balance = await fetchNativeBalance(state.address);
+    state.balance = balance;
+    render();
+    emitWalletState();
+    return balance;
   }
 
   async function depositJewel() {
-    if (!state.address) await connectWallet();
-    if (!state.user) await signIn();
-    const depositConfig = await fetchJson('/deposits/config', { method: 'GET' });
-    state.depositAddress = depositConfig.depositAddress;
-    const provider = state.selectedProvider;
-    if (!provider) throw new Error('No wallet provider selected.');
-    await ensureChain(provider);
-    const prompt = window.prompt('Deposit amount in JEWEL (native token). Example: 3', '3');
-    if (prompt == null) return null;
-    const amountText = String(prompt).trim();
-    if (!/^\d+(\.\d+)?$/.test(amountText)) throw new Error('Enter a valid deposit amount.');
-    const wei = toWei(amountText, 18);
-    const txHash = await request(provider, 'eth_sendTransaction', [{
-      from: state.address,
-      to: depositConfig.depositAddress,
-      value: `0x${wei.toString(16)}`,
-    }]);
-    renderInfo(`Deposit submitted. Tx: ${txHash.slice(0, 10)}…`);
-    return txHash;
-  }
-
-  function toWei(amountText, decimals) {
-    const [wholeRaw, fracRaw = ''] = amountText.split('.');
-    const whole = wholeRaw.replace(/^0+(?=\d)/, '') || '0';
-    const frac = (fracRaw + '0'.repeat(decimals)).slice(0, decimals);
-    return BigInt(whole) * (10n ** BigInt(decimals)) + BigInt(frac || '0');
+    const message = 'Deposit JEWEL is disabled in this wallet-only build.';
+    renderInfo(message);
+    return null;
   }
 
   async function disconnectWallet() {
     state.address = null;
     state.balance = null;
+    state.profileName = null;
     state.user = null;
     state.mode = 'local';
     render();
@@ -320,42 +401,34 @@
   function render() {
     if (!ui.walletStatus) return;
     const providerName = providerLabel(state.providerInfo);
-    const walletCount = state.providers.length;
-    const settled = state.mode === 'settled';
-    setText(ui.walletMode, settled ? 'Settled server balance' : 'Local only');
     setText(ui.walletAddress, state.address ? `${providerName}: ${shortAddress(state.address)}` : 'No wallet connected.');
-    setText(ui.walletBalance, state.balance && state.balance.balance != null ? `${state.balance.balance} JEWEL` : '--');
-    setText(ui.walletDepositAddress, state.depositAddress || '--');
+    setText(ui.walletProfileName, `In-game Name: ${state.profileName || '--'}`);
+    setText(ui.walletJewelBalance, `Wallet JEWEL: ${state.balance && state.balance.balance != null ? formatJewelBalance(state.balance.balance) : '--'}`);
+    setText(ui.walletPanelTitle, 'Player Profile');
     if (state.address) {
-      setText(ui.walletStatus, settled ? `Signed in with ${providerName}` : `${providerName} connected${walletCount > 1 ? ` • ${walletCount} wallets detected` : ''}`);
-      ui.walletStatus.className = `wallet-status ${settled ? 'wallet-good' : 'wallet-warn'}`;
+      setText(ui.walletStatus, `${providerName} Connected`);
+      ui.walletStatus.className = 'wallet-status wallet-good';
     } else {
-      setText(ui.walletStatus, walletCount ? 'Wallet available. Connect to use secure bank mode.' : 'Offline Bank Mode');
+      setText(ui.walletStatus, state.providers.length ? 'Wallet available.' : 'Offline');
       ui.walletStatus.className = 'wallet-status wallet-warn';
     }
-    if (ui.depositWalletBtn) ui.depositWalletBtn.disabled = !state.address;
-    if (ui.signInWalletBtn) ui.signInWalletBtn.disabled = !state.address && !state.providers.length;
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.disabled = !state.address;
   }
 
   function bindUi() {
     Object.assign(ui, {
       walletStatus: qs('walletStatus'),
+      walletPanelTitle: qs('walletPanelTitle'),
+      walletProfileName: qs('walletProfileName'),
+      walletJewelBalance: qs('walletJewelBalance'),
       walletAddress: qs('walletAddress'),
-      walletMode: qs('walletMode'),
-      walletBalance: qs('walletBalance'),
-      walletDepositAddress: qs('walletDepositAddress'),
       connectWalletBtn: qs('connectWalletBtn'),
-      signInWalletBtn: qs('signInWalletBtn'),
-      refreshBankBtn: qs('refreshBankBtn'),
-      depositWalletBtn: qs('depositWalletBtn'),
       disconnectWalletBtn: qs('disconnectWalletBtn'),
+      enableTrackingBtn: qs('enableTrackingBtn'),
     });
     if (ui.connectWalletBtn) ui.connectWalletBtn.addEventListener('click', () => connectWallet().catch(renderError));
-    if (ui.signInWalletBtn) ui.signInWalletBtn.addEventListener('click', () => signIn().catch(renderError));
-    if (ui.refreshBankBtn) ui.refreshBankBtn.addEventListener('click', () => refreshBank().catch(renderError));
-    if (ui.depositWalletBtn) ui.depositWalletBtn.addEventListener('click', () => depositJewel().catch(renderError));
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.addEventListener('click', () => disconnectWallet().catch(renderError));
+    // Run-tracker owns the enable/disable tracking button to avoid duplicate auth requests.
   }
 
   async function init() {

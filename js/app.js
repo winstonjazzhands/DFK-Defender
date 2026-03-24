@@ -99,7 +99,7 @@ function getRandomTree(){
       range: 3,
       autoAttack: false,
       abilities: [
-        { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 8 },
+        { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 4 },
         { key: 'slow_totem', name: 'Slow Totem', cooldown: 60, manualOnly: true },
         { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
@@ -412,6 +412,11 @@ function getRandomTree(){
     introSet: 'intro',
     introOpen: false,
     introAutoShown: false,
+    runTracking: {
+      clientRunId: null,
+      startedAt: null,
+      submitted: false,
+    },
   };
 
   function now() { return game.virtualNow || Date.now(); }
@@ -445,6 +450,97 @@ function getRandomTree(){
 
   function updatePremiumJewelInfo() {
     if (els.premiumJewelCount) els.premiumJewelCount.textContent = String(game.premiumJewels);
+  }
+
+  function buildRunTrackingHeroes() {
+    const buckets = new Map();
+    for (const tower of game.towers) {
+      const key = tower.type || 'unknown';
+      if (!buckets.has(key)) buckets.set(key, { type: key, count: 0, highestLevel: 0, satellites: 0 });
+      const row = buckets.get(key);
+      row.count += 1;
+      row.highestLevel = Math.max(row.highestLevel, Number(tower.level || 1));
+      if (tower.isSatellite) row.satellites += 1;
+    }
+    return Array.from(buckets.values()).sort((a, b) => a.type.localeCompare(b.type));
+  }
+
+  function buildCompletedRunPayload(result = 'loss') {
+    return {
+      clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      gameVersion: 'V6',
+      mode: game.mobileMode ? 'easy' : 'challenge',
+      result,
+      waveReached: Number(game.waveNumber || 0),
+      wavesCleared: Number(game.waveNumber || 0),
+      portalHpLeft: Math.max(0, Math.round(Number(game.portalHp || 0))),
+      goldOnHand: Math.max(0, Math.round(Number(game.jewel || 0))),
+      premiumJewels: Math.max(0, Math.round(Number(game.premiumJewels || 0))),
+      heroes: buildRunTrackingHeroes(),
+      stats: {
+        towerCount: game.towers.length,
+        satelliteCount: game.towers.filter(t => t.isSatellite).length,
+        playerBarriersPlaced: Number(game.playerObstacleCount || 0),
+        randomObstacles: Number(6),
+        barrierRefits: Number(game.barrierRefitCount || 0),
+        hireCount: Number(game.hireCount || 0),
+        crashed: Boolean(game.crashed),
+      },
+    };
+  }
+
+
+  function hasTrackableRunInProgress() {
+    return Boolean(
+      game.runTracking
+      && game.runTracking.clientRunId
+      && !game.runTracking.submitted
+      && game.phase !== SETUP_PHASES.GAME_OVER
+    );
+  }
+
+  function isRunTrackingEnabled() {
+    return Boolean(
+      window.DFKRunTracker
+      && typeof window.DFKRunTracker.isTrackingEnabled === 'function'
+      && window.DFKRunTracker.isTrackingEnabled()
+    );
+  }
+
+  function captureTrackedRunNow(result = 'abandoned') {
+    if (!hasTrackableRunInProgress() || !isRunTrackingEnabled()) return false;
+    game.runTracking.submitted = true;
+    const payload = buildCompletedRunPayload(result);
+    if (window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRunKeepalive === 'function') {
+      const queued = window.DFKRunTracker.submitCompletedRunKeepalive(payload);
+      if (!queued) game.runTracking.submitted = false;
+      return queued;
+    }
+    game.runTracking.submitted = false;
+    return false;
+  }
+
+  async function maybeConfirmAndCaptureTrackedReset() {
+    if (!hasTrackableRunInProgress() || !isRunTrackingEnabled()) return true;
+    const confirmed = window.confirm('You are quitting this run and starting a new one, the score will be saved at the current wave. Are you sure?');
+    if (!confirmed) return false;
+    await submitCompletedRunOnce('abandoned');
+    return true;
+  }
+
+  async function submitCompletedRunOnce(result = 'loss') {
+    if (game.runTracking.submitted) return;
+    if (!window.DFKRunTracker || typeof window.DFKRunTracker.submitCompletedRun !== 'function') return;
+    game.runTracking.submitted = true;
+    try {
+      await window.DFKRunTracker.submitCompletedRun(buildCompletedRunPayload(result));
+      log(`Run tracked at wave ${game.waveNumber}.`);
+    } catch (error) {
+      game.runTracking.submitted = false;
+      log(`Run tracking failed: ${error && error.message ? error.message : 'Unknown error'}.`);
+    }
   }
 
   function syncPremiumJewelsFromSettledBank(detail) {
@@ -555,7 +651,9 @@ function getRandomTree(){
     }
   }
 
-  function resetGame() {
+  async function resetGame() {
+    const canReset = await maybeConfirmAndCaptureTrackedReset();
+    if (!canReset) return;
     loadPremiumJewels();
     if (game.premiumJewels < game.runEntryCost) {
       showBanner(`Not enough Jewel to start a run (${game.premiumJewels}/${game.runEntryCost})`, 2400);
@@ -566,6 +664,11 @@ function getRandomTree(){
     game.premiumJewels -= game.runEntryCost;
     savePremiumJewels();
     game.phase = SETUP_PHASES.PORTAL;
+    game.runTracking = {
+      clientRunId: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      startedAt: new Date().toISOString(),
+      submitted: false,
+    };
     game.portal = null;
     game.towers = [];
     game.enemies = [];
@@ -1803,11 +1906,11 @@ function getRandomTree(){
       if (hireSection && els.hirePanel.parentElement !== hireSection) {
         hireSection.appendChild(els.hirePanel);
       }
-      if (leftPanel && els.bankPanel && els.bankPanel.parentElement !== leftPanel) {
-        leftPanel.insertBefore(els.bankPanel, els.walletPanel || null);
-      }
       if (leftPanel && els.walletPanel && els.walletPanel.parentElement !== leftPanel) {
-        leftPanel.appendChild(els.walletPanel);
+        leftPanel.insertBefore(els.walletPanel, leftPanel.children[1] || null);
+      }
+      if (leftPanel && els.bankPanel && els.bankPanel.parentElement !== leftPanel) {
+        leftPanel.appendChild(els.bankPanel);
       }
       const footerTopbar = document.querySelector('.footer-topbar');
       if (footerTopbar && footerTopbarHome && footerTopbar.parentElement !== footerTopbarHome) {
@@ -2172,6 +2275,11 @@ function getRandomTree(){
     clearPortalTiles();
     game.portal = null;
     game.phase = SETUP_PHASES.PORTAL;
+    game.runTracking = {
+      clientRunId: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      startedAt: new Date().toISOString(),
+      submitted: false,
+    };
     setInstruction('Move the 2x2 portal to a new location. After placing it again, continue setup.');
     log('Portal picked up for repositioning before wave 1.');
     return true;
@@ -2492,7 +2600,7 @@ function getRandomTree(){
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies for ${Math.round(120 * game.modifiers.priestHealing)} HP.${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(120 * game.modifiers.priestHealing)} HP.${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
@@ -3028,6 +3136,22 @@ function getRandomTree(){
     return waveNumber > 15 ? 1.1 : 1;
   }
 
+  function isEarlyWave(waveNumber) {
+    return waveNumber <= 10;
+  }
+
+  function getEarlyWaveStatMultiplier(waveNumber) {
+    return isEarlyWave(waveNumber) ? 0.9 : 1;
+  }
+
+  function getEarlyWaveSpeedMultiplier(waveNumber) {
+    return isEarlyWave(waveNumber) ? 0.9 : 1;
+  }
+
+  function getEarlyWaveGoldMultiplier(waveNumber) {
+    return isEarlyWave(waveNumber) ? 1.25 : 1;
+  }
+
   function spawnEnemyFromPlan(plan) {
     let enemy;
     if (plan.bossId) {
@@ -3053,6 +3177,7 @@ function getRandomTree(){
       enemy.maxHp *= bruteHpMultiplier;
       enemy.spawnMaxHp = enemy.maxHp;
     }
+    enemy.moveInterval /= getEarlyWaveSpeedMultiplier(game.waveNumber || 0);
     if (enemy.isBoss || enemy.typeClass === 'brute') {
       enemy.moveInterval /= getLargeEnemySpeedMultiplier(game.waveNumber || 0);
     }
@@ -3073,7 +3198,7 @@ function getRandomTree(){
     const template = ENEMY_TEMPLATES[type];
     const lane = BREACH_LANES[laneName];
     const spawn = pickRandom(lane);
-    const earlyWaveMultiplier = game.waveNumber <= 10 ? 0.95 : 1;
+    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(game.waveNumber);
     const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
     const enemyHp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
     const enemyDamage = template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
@@ -3088,7 +3213,7 @@ function getRandomTree(){
       damage: enemyDamage,
       moveInterval: template.moveInterval,
       attackInterval: template.attackInterval,
-      jewel: template.jewel * ENEMY_JEWEL_MULTIPLIER,
+      jewel: template.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber),
       cssClass: template.typeClass,
       targetPath: [],
       nextMoveAt: now() + 200,
@@ -3119,12 +3244,12 @@ function getRandomTree(){
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * (game.waveNumber <= 10 ? 0.95 : 1),
-      maxHp: boss.hp * (game.waveNumber <= 10 ? 0.95 : 1),
-      damage: boss.damage * (game.waveNumber <= 10 ? 0.95 : 1),
+      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber),
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber),
+      damage: boss.damage * getEarlyWaveStatMultiplier(game.waveNumber),
       moveInterval: boss.moveInterval,
       attackInterval: boss.attackInterval,
-      jewel: boss.jewel * ENEMY_JEWEL_MULTIPLIER,
+      jewel: boss.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber),
       cssClass: 'boss',
       targetPath: [],
       nextMoveAt: now() + 300,
@@ -3254,6 +3379,7 @@ function getRandomTree(){
       showBanner('Game Over', 3000);
       markProgress('The portal was destroyed.');
       log('The portal was destroyed.');
+      submitCompletedRunOnce('loss');
     }
   }
 
@@ -3888,7 +4014,7 @@ function getRandomTree(){
   function getGlobalEnemyHpRange() {
     const hpValues = [];
     const activeMutation = game.activeMutation && game.activeMutation.apply ? game.activeMutation : null;
-    const earlyWaveMultiplier = game.waveNumber <= 10 ? 0.95 : 1;
+    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(game.waveNumber);
     const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
 
     for (const template of Object.values(ENEMY_TEMPLATES)) {
@@ -4137,7 +4263,7 @@ function getRandomTree(){
         return true;
       },
       prayer_of_healing() {
-        const allies = game.towers.filter(t => dist(t, tower) <= 3 && t.hp < t.maxHp);
+        const allies = game.towers.filter(t => dist(t, tower) <= 5 && t.hp < t.maxHp);
         if (!allies.length) return false;
         allies.forEach(a => { healTower(a, 120 * game.modifiers.priestHealing, null); createTowerLine(tower, a, 'priest'); });
         return true;
@@ -4221,6 +4347,24 @@ function getRandomTree(){
   els.startWaveBtn.addEventListener('click', () => {
     if (buyableWaveStart()) startWave();
   });
+
+  window.addEventListener('pagehide', () => {
+    captureTrackedRunNow('closed');
+  });
+  window.addEventListener('beforeunload', () => {
+    captureTrackedRunNow('closed');
+  });
+  window.addEventListener('dfk-defense:wallet-state', (event) => {
+    const detail = event && event.detail ? event.detail : null;
+    if (!detail || !detail.address) {
+      if (hasTrackableRunInProgress() && isRunTrackingEnabled()) {
+        submitCompletedRunOnce('disconnected');
+      } else {
+        captureTrackedRunNow('disconnected');
+      }
+    }
+  });
+
   els.restartBtn.addEventListener('click', resetGame);
   window.addEventListener('dfk-defense:bank-balance', (event) => {
     syncPremiumJewelsFromSettledBank(event.detail || null);
