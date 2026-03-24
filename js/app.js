@@ -33,8 +33,13 @@ function getRandomTree(){
   const UPGRADE_COST_MULTIPLIER = 3.3062;
   const ARCHER_BASE_ATTACK_INTERVAL = 1.1979;
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
+  const ARCHER_BASE_HP_MULTIPLIER = 0.9;
+  const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.0285;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
+  const SATELLITE_DISSIPATE_AFTER_WAVES = 10;
+  const SATELLITE_FADE_STAGE_ONE_WAVES = 3;
+  const SATELLITE_FADE_STAGE_TWO_WAVES = 7;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const BARRIER_REBUILD_COST = 120;
   const WAVE_REBUILD_INTERVAL = 15;
@@ -63,7 +68,7 @@ function getRandomTree(){
     archer: {
       name: 'Archer',
       letter: 'ARC',
-      hp: 242,
+      hp: 242 * ARCHER_BASE_HP_MULTIPLIER,
       damage: 28,
       attackInterval: ARCHER_BASE_ATTACK_INTERVAL,
       range: 4,
@@ -127,7 +132,7 @@ function getRandomTree(){
     grunt: { name: 'Grunt', hp: 120, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 6, typeClass: 'grunt' },
     runner: { name: 'Runner', hp: 80, damage: 10, moveInterval: 0.4275, attackInterval: 1.0, jewel: 5, typeClass: 'runner' },
     brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 20, typeClass: 'brute' },
-    skitter: { name: 'Skitter', hp: 12, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
+    skitter: { name: 'Skitter', hp: 24, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
 
   const BOSSES = [
@@ -470,7 +475,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V6',
+      gameVersion: 'V16',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1075,7 +1080,7 @@ function getRandomTree(){
           <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
           <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
           <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost.</li>
+          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely and must be summoned again.</li>
         </ul>
         <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
       `,
@@ -1220,7 +1225,7 @@ function getRandomTree(){
 
   function getArcherCooldownMultiplierForLevel(level) {
     const safeLevel = Math.max(1, Number(level || 1));
-    return Math.pow(1.03, safeLevel - 1);
+    return Math.pow(1 + ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL, safeLevel - 1);
   }
 
   function getBaseTowerStatsForLevel(type, level) {
@@ -1362,6 +1367,42 @@ function getRandomTree(){
     }
   }
 
+  function getSatelliteWavesSurvived(tower) {
+    if (!tower || !tower.isSatellite || tower.type !== 'archer') return 0;
+    const summonedAtWave = Number.isFinite(tower.summonedAtWave) ? tower.summonedAtWave : Number(game.waveNumber || 0);
+    return Math.max(0, Number(game.waveNumber || 0) - summonedAtWave);
+  }
+
+  function getSatelliteVisualOpacity(tower) {
+    if (!tower || !tower.isSatellite || tower.type !== 'archer') return 1;
+    const wavesSurvived = getSatelliteWavesSurvived(tower);
+    if (wavesSurvived >= SATELLITE_FADE_STAGE_TWO_WAVES) return 0.5;
+    if (wavesSurvived >= SATELLITE_FADE_STAGE_ONE_WAVES) return 0.75;
+    return 1;
+  }
+
+  function removeTower(tower, reason = '') {
+    if (!tower) return;
+    const tile = tileAt(tower.x, tower.y);
+    if (tile) tile.towerId = null;
+    game.towers = game.towers.filter(t => t.id !== tower.id);
+    if (game.selectedId === tower.id) game.selectedId = null;
+    if (reason) {
+      markProgress(reason);
+      log(reason);
+    }
+  }
+
+  function dissipateExpiredSatelliteArchers() {
+    const expiredSatellites = game.towers.filter(t => t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
+    for (const satellite of expiredSatellites) {
+      removeTower(satellite, `${satellite.name} dissipated after 10 cleared waves.`);
+    }
+    if (expiredSatellites.length) {
+      showBanner(`Eagle Nest: ${expiredSatellites.length} Satellite Archer${expiredSatellites.length === 1 ? '' : 's'} dissipated.`, 2600);
+    }
+  }
+
   function render() {
     for (const tower of game.towers) normalizeArcherStats(tower);
     renderGrid();
@@ -1377,7 +1418,8 @@ function getRandomTree(){
 
   function renderGrid() {
     const selectedTower = getSelectedTower();
-    const moveTargets = selectedTower && game.movingTowerId === selectedTower.id ? getAdjacentMoveTargets(selectedTower) : [];
+    const moveTargets = selectedTower && game.movingTowerId === selectedTower.id ? getMoveTargetsForTower(selectedTower) : [];
+    const rangeTiles = selectedTower ? getSelectedRangeTiles(selectedTower) : [];
 
     for (const tile of game.grid) {
       tile.el.className = 'tile';
@@ -1399,6 +1441,7 @@ function getRandomTree(){
       if (tile.hitFlash && tile.hitFlash.until <= now()) tile.hitFlash = null;
       if (tile.hitFlash) tile.el.classList.add(`hit-${tile.hitFlash.colorKey}`);
       if (selectedTower && selectedTower.x === tile.x && selectedTower.y === tile.y) tile.el.classList.add('selected');
+      if (rangeTiles.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('range-tile', `range-${selectedTower.type}`);
       if (moveTargets.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('move-target');
       const tower = tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
       if (tower) tile.el.classList.add(`tile-hero-${tower.type}`);
@@ -1415,11 +1458,14 @@ function getRandomTree(){
         portrait.alt = tower.name;
         portrait.draggable = false;
         portrait.src = HERO_TILE_IMAGES[tower.type] || '';
+        const satelliteOpacity = getSatelliteVisualOpacity(tower);
+        portrait.style.opacity = `${satelliteOpacity}`;
         tile.el.appendChild(portrait);
 
         const heroLabel = document.createElement('div');
         heroLabel.className = 'tile-hero-label';
         heroLabel.textContent = HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase();
+        heroLabel.style.opacity = `${satelliteOpacity}`;
         tile.el.appendChild(heroLabel);
 
         const hpBar = document.createElement('div');
@@ -1446,6 +1492,14 @@ function getRandomTree(){
         hoverTitle.className = 'tile-hover-title';
         hoverTitle.textContent = tower.name;
         hover.appendChild(hoverTitle);
+
+        if (tower.isSatellite && tower.type === 'archer') {
+          const etherealNote = document.createElement('div');
+          etherealNote.className = 'tile-hover-meta';
+          const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
+          etherealNote.textContent = `Ethereal • ${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
+          hover.appendChild(etherealNote);
+        }
 
         const hoverSkills = document.createElement('div');
         hoverSkills.className = 'tile-hover-skills';
@@ -2579,6 +2633,11 @@ function getRandomTree(){
     }
   }
 
+  function getPrayerOfHealingAmount(tower) {
+    const level = Math.max(1, tower?.level || 1);
+    return (120 + ((level - 1) * 5)) * game.modifiers.priestHealing;
+  }
+
   function getAbilityDescription(tower, abilityKey) {
     const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
     const stronger = powerMult > 1 ? ' This is an unlock skill, so it is 100% stronger and has 50% longer cooldown.' : '';
@@ -2595,12 +2654,12 @@ function getRandomTree(){
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.`,
+      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely and must be summoned again.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(120 * game.modifiers.priestHealing)} HP.${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at 120 HP on level 1.${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
@@ -2735,7 +2794,7 @@ function getRandomTree(){
       if (moving && moveTower(moving, x, y)) {
         game.movingTowerId = null;
       } else {
-        showBanner('Move must be to an adjacent open tile and cannot break pathing', 1500);
+        showBanner(moving?.type === 'warrior' ? 'Warrior can move to any open tile' : 'Move must be on an open tile and cannot break pathing', 1500);
       }
       render();
       return;
@@ -2796,6 +2855,7 @@ function getRandomTree(){
       tower.basicCooldown = sourceTower.basicCooldown;
       tower.satelliteOwnerId = sourceTower.id;
       tower.isSatellite = true;
+      tower.summonedAtWave = Number(game.waveNumber || 0);
       tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : 'Sat Warrior';
     }
 
@@ -2829,8 +2889,44 @@ function getRandomTree(){
     render();
   }
 
-  function getAdjacentMoveTargets(tower) {
-    return adjacentTiles(tower.x, tower.y).filter(pos => isOpenForTower(pos.x, pos.y) && moveWouldPreservePath(tower, pos.x, pos.y));
+  function getMoveRangeForTower(tower) {
+    return tower.type === 'warrior' ? Math.max(WIDTH, HEIGHT) : Math.max(WIDTH, HEIGHT);
+  }
+
+  function chebyshevDist(a, b) {
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  }
+
+  function getMoveTargetsForTower(tower) {
+    const moveRange = getMoveRangeForTower(tower);
+    const targets = [];
+    for (let y = 0; y < HEIGHT; y += 1) {
+      for (let x = 0; x < WIDTH; x += 1) {
+        if (x === tower.x && y === tower.y) continue;
+        if (!inBounds(x, y)) continue;
+        if (!isOpenForTower(x, y)) continue;
+        if (tower.type !== 'warrior' && chebyshevDist(tower, { x, y }) > moveRange) continue;
+        if (!moveWouldPreservePath(tower, x, y)) continue;
+        targets.push({ x, y });
+      }
+    }
+    return targets;
+  }
+
+  function getSelectedRangeTiles(tower) {
+    const tiles = [];
+    const radius = Math.max(1, Number(tower.range || 1));
+    for (let y = tower.y - radius; y <= tower.y + radius; y += 1) {
+      for (let x = tower.x - radius; x <= tower.x + radius; x += 1) {
+        if (!inBounds(x, y)) continue;
+        if (x === tower.x && y === tower.y) continue;
+        const probe = { x, y };
+        const inRange = tower.type === 'warrior' ? chebyshevDist(tower, probe) <= 1 : dist(tower, probe) <= radius;
+        if (!inRange) continue;
+        tiles.push(probe);
+      }
+    }
+    return tiles;
   }
 
   function moveWouldPreservePath(tower, nx, ny) {
@@ -2846,7 +2942,7 @@ function getRandomTree(){
       if (toTile) toTile.towerId = tower.id;
       tower.x = nx;
       tower.y = ny;
-      return tower.type === 'warrior' ? placementKeepsEnemiesReachable(tower) : existsPathFromBreachToPortal();
+      return tower.type === 'warrior' ? true : existsPathFromBreachToPortal();
     } finally {
       tower.x = oldX;
       tower.y = oldY;
@@ -2856,14 +2952,14 @@ function getRandomTree(){
   }
 
   function moveTower(tower, nx, ny) {
-    if (!adjacentTiles(tower.x, tower.y).some(p => p.x === nx && p.y === ny)) return false;
+    if (!getMoveTargetsForTower(tower).some(p => p.x === nx && p.y === ny)) return false;
     if (!isOpenForTower(nx, ny)) return false;
     if (!moveWouldPreservePath(tower, nx, ny)) return false;
     tileAt(tower.x, tower.y).towerId = null;
     tower.x = nx;
     tower.y = ny;
     tileAt(nx, ny).towerId = tower.id;
-    tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5700 : 6000);
+    tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5000 : 30000);
     tower.attackCooldownMs = 1000;
     log(`${tower.name} moved to (${nx + 1}, ${ny + 1}).`);
     return true;
@@ -3069,11 +3165,9 @@ function getRandomTree(){
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
     const enemies = [{ bossId: boss.id, lane, delayMs: 1000 }];
-    if (waveNumber % 10 === 0) {
-      const skitterCount = getStandardWaveEnemyCount(waveNumber, 1) * 2;
-      for (let i = 0; i < skitterCount; i += 1) {
-        enemies.push({ type: 'skitter', lane: pickRandom(LANE_NAMES), delayMs: 150 + (i * 60) });
-      }
+    const skitterCount = Math.max(6, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * 1.5));
+    for (let i = 0; i < skitterCount; i += 1) {
+      enemies.push({ type: 'skitter', lane: pickRandom(LANE_NAMES), delayMs: 150 + (i * 60), bossWaveSkitter: true });
     }
     return enemies;
   }
@@ -3115,7 +3209,11 @@ function getRandomTree(){
 
   function getWaveHpMultiplier(waveNumber) {
     if (waveNumber < 20) return 1;
-    return Math.pow(2, Math.floor((waveNumber - 20) / 10) + 1);
+    return Math.pow(1.2, Math.floor((waveNumber - 20) / 10) + 1);
+  }
+
+  function getWaveDamageMultiplier(waveNumber) {
+    return waveNumber > 20 ? 1.15 : 1;
   }
 
   function getWaveEnemyCountMultiplier(waveNumber) {
@@ -3168,6 +3266,11 @@ function getRandomTree(){
     enemy.hp *= waveHpMultiplier;
     enemy.maxHp *= waveHpMultiplier;
     enemy.spawnMaxHp = enemy.maxHp;
+    enemy.damage *= getWaveDamageMultiplier(game.waveNumber || 0);
+    if (enemy.type === 'skitter' && plan.bossWaveSkitter) {
+      enemy.isBossWaveSkitter = true;
+      enemy.moveInterval /= 0.75;
+    }
     if (enemy.typeClass === 'runner') {
       enemy.moveInterval /= getRunnerSpeedMultiplier(game.waveNumber || 0);
     }
@@ -3232,6 +3335,7 @@ function getRandomTree(){
       lastAggroAt: 0,
       isBoss: false,
       slowResistance: 0,
+      isBossWaveSkitter: false,
     };
   }
 
@@ -3430,6 +3534,7 @@ function getRandomTree(){
       showBanner(`Milestone reward: +1 extra hero hire unlocked (${game.bonusHeroHireCharges} available).`, 3000);
       log(`Milestone reward unlocked after wave ${game.waveNumber}: +1 extra hero hire (now ${game.bonusHeroHireCharges} available).`);
     }
+    dissipateExpiredSatelliteArchers();
     if (game.waveNumber % 7 === 0) {
       offerRelics();
       setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${game.bonusHeroHireCharges > 0 ? ` You can also use ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? '' : 's'}.` : ''}`);
@@ -3548,7 +3653,7 @@ function getRandomTree(){
       autoPriestHeal(tower);
       return;
     }
-    const target = nearestEnemyInRange(tower, tower.range);
+    const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
     if (!target) return;
     let damage = tower.damage;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.10;
@@ -3581,7 +3686,7 @@ function getRandomTree(){
   function getReachableWarriorPlan(enemy) {
     const warriors = getWarriorTowers().slice().sort((a, b) => dist(enemy, a) - dist(enemy, b));
     for (const warrior of warriors) {
-      if (dist(enemy, warrior) <= 1) {
+      if (chebyshevDist(enemy, warrior) <= 1) {
         return { warrior, attackNow: true, path: null };
       }
       const warriorAdj = getTowerApproachTiles(warrior);
@@ -3615,6 +3720,13 @@ function getRandomTree(){
     healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
     createTowerLine(tower, target, 'priest');
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
+  }
+
+  function nearestEnemyForWarrior(tower) {
+    const enemies = game.enemies.filter(e => chebyshevDist(tower, e) <= 1);
+    if (!enemies.length) return null;
+    enemies.sort((a, b) => chebyshevDist(tower, a) - chebyshevDist(tower, b) || dist(tower, a) - dist(tower, b));
+    return enemies[0] || null;
   }
 
   function nearestEnemyInRange(tower, range) {
@@ -3769,6 +3881,12 @@ function getRandomTree(){
           game.portalHp -= enemy.damage;
           markProgress(`${enemy.name} hit the portal.`);
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
+        } else if (enemy.type === 'skitter') {
+          const splashDamage = ENEMY_TEMPLATES.skitter.damage * 7.5 * getWaveDamageMultiplier(game.waveNumber || 0);
+          damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`);
+          enemy.hp = 0;
+          markProgress(`${enemy.name} exploded on ${attackTarget.name}.`);
+          log(`${enemy.name} exploded on ${attackTarget.name} for ${Math.round(splashDamage)}.`);
         } else {
           damageTower(game, attackTarget, enemy.damage, `${enemy.name} hit ${attackTarget.name}`);
           markProgress(`${enemy.name} hit ${attackTarget.name}.`);
@@ -4063,11 +4181,7 @@ function getRandomTree(){
     }
     for (const tower of [...game.towers]) {
       if (tower.hp <= 0) {
-        tileAt(tower.x, tower.y).towerId = null;
-        game.towers = game.towers.filter(t => t.id !== tower.id);
-        markProgress(`${tower.name} fell.`);
-        log(`${tower.name} fell.`);
-        if (game.selectedId === tower.id) game.selectedId = null;
+        removeTower(tower, `${tower.name} fell.`);
       }
     }
   }
@@ -4236,7 +4350,7 @@ function getRandomTree(){
         return false;
       },
       firebolt() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         damageEnemy(tower, target, 40 * game.modifiers.wizardSpellDamage, `${tower.name} cast Firebolt`);
         return true;
@@ -4245,7 +4359,7 @@ function getRandomTree(){
         return false;
       },
       fireball() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
         targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, 70 * powerMult * game.modifiers.wizardSpellDamage, null); });
@@ -4255,7 +4369,7 @@ function getRandomTree(){
         return true;
       },
       frost_lance() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         let dmg = 90 * powerMult * game.modifiers.wizardSpellDamage;
         if (getEnemySlowPercent(target) > 0) dmg *= 2;
@@ -4265,7 +4379,8 @@ function getRandomTree(){
       prayer_of_healing() {
         const allies = game.towers.filter(t => dist(t, tower) <= 5 && t.hp < t.maxHp);
         if (!allies.length) return false;
-        allies.forEach(a => { healTower(a, 120 * game.modifiers.priestHealing, null); createTowerLine(tower, a, 'priest'); });
+        const healAmount = getPrayerOfHealingAmount(tower);
+        allies.forEach(a => { healTower(a, healAmount, null); createTowerLine(tower, a, 'priest'); });
         return true;
       },
       slow_totem() {
@@ -4283,13 +4398,13 @@ function getRandomTree(){
         return true;
       },
       warning_shot() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         applyDebuff(target, 'warning_shot', 6, {});
         return true;
       },
       starboard_cannons() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const shots = 5 + game.modifiers.extraCannons;
         for (let i = 0; i < shots; i += 1) {
@@ -4300,7 +4415,7 @@ function getRandomTree(){
         return true;
       },
       kraken() {
-        const target = nearestEnemyInRange(tower, tower.range);
+        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
         targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: 30 * powerMult, percent: 0.5, nextTickAt: now() + 1000 }));
@@ -4462,7 +4577,7 @@ function getRandomTree(){
     const tower = getSelectedTower();
     if (!tower) return;
     game.movingTowerId = tower.id;
-    log(`Select an adjacent tile to move ${tower.name}.`);
+    log(tower.type === 'warrior' ? `Select any open tile to move ${tower.name}.` : `Select any open tile to move ${tower.name}.`);
     render();
   });
 
