@@ -143,6 +143,34 @@
     return json;
   }
 
+  function isAuthErrorMessage(message) {
+    return /invalid or expired session|session not found|missing authorization header|jwt|expired/i.test(String(message || ''));
+  }
+
+  async function ensureAuthenticatedSession(options = {}) {
+    const forceRefresh = !!options.forceRefresh;
+    const wallet = getWalletState();
+    if (!wallet || !wallet.address || !wallet.selectedProvider) {
+      throw new Error('Connect your wallet first.');
+    }
+    state.address = wallet.address;
+    state.profileName = wallet.profileName || state.profileName || null;
+    if (forceRefresh) {
+      clearSession(wallet.address);
+      state.session = null;
+    }
+    if (state.session && !forceRefresh) {
+      return state.session;
+    }
+    const restored = !forceRefresh ? restoreSession(wallet.address) : null;
+    if (restored) {
+      state.session = restored;
+      state.lastAuthenticatedAddress = normalizeAddress(wallet.address);
+      return restored;
+    }
+    return authenticate();
+  }
+
   function buildLoginMessage(nonce, address) {
     const domain = window.location.host;
     const origin = window.location.origin;
@@ -405,8 +433,13 @@
   }
 
   async function saveVanityName() {
-    if (!state.client || !state.session || !state.address) {
-      applyStatus('Run Tracking: Enable tracking first', 'warn');
+    if (!state.client) {
+      applyStatus('Run Tracking: Not configured', 'warn');
+      return;
+    }
+    const wallet = getWalletState();
+    if (!wallet || !wallet.address) {
+      applyStatus('Run Tracking: Connect wallet first', 'warn');
       return;
     }
     const raw = ui.vanityInput ? String(ui.vanityInput.value || '').trim() : '';
@@ -417,13 +450,27 @@
     }
     if (ui.saveVanityBtn) ui.saveVanityBtn.disabled = true;
     try {
-      const result = await callFunction('set-vanity-name', { vanityName }, state.session.sessionToken);
+      await ensureAuthenticatedSession();
+      let result;
+      try {
+        result = await callFunction('set-vanity-name', { vanityName }, state.session && state.session.sessionToken ? state.session.sessionToken : '');
+      } catch (error) {
+        if (!isAuthErrorMessage(error && error.message ? error.message : error)) {
+          throw error;
+        }
+        await ensureAuthenticatedSession({ forceRefresh: true });
+        result = await callFunction('set-vanity-name', { vanityName }, state.session && state.session.sessionToken ? state.session.sessionToken : '');
+      }
       state.vanityName = result && Object.prototype.hasOwnProperty.call(result, 'vanityName') ? (result.vanityName || null) : vanityName;
       await refreshSummary();
       applyStatus(vanityName ? 'Run Tracking: Vanity name saved' : 'Run Tracking: Vanity name cleared', 'good');
       if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.setVanityName === 'function') {
         window.DFKDefenseWallet.setVanityName(vanityName);
       }
+      if (window.DFKLeaderboardRows) {
+        window.DFKLeaderboardRows = [];
+      }
+      window.dispatchEvent(new CustomEvent('dfk:leaderboard-refresh-requested'));
     } finally {
       render();
     }

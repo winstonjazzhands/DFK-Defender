@@ -130,7 +130,8 @@ create policy "sessions_write_none"
 create or replace view public.public_run_leaderboard as
 select
   wallet_address,
-  coalesce(display_name, wallet_address) as display_name,
+  vanity_name,
+  coalesce(vanity_name, display_name, wallet_address) as display_name,
   best_wave,
   total_runs,
   total_waves_cleared,

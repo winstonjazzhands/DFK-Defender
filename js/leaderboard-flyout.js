@@ -60,7 +60,7 @@
   }
 
   function normalizeRow(row) {
-    var playerName = row.player_name || row.vanity_name || row.display_name || row.name || row.username || 'Unknown Player';
+    var playerName = row.vanity_name || row.player_name || row.display_name || row.name || row.username || 'Unknown Player';
     var wallet = row.wallet || row.wallet_address || row.address || row.player_wallet || '';
     var score = row.score;
     if (score == null && row.total_waves_cleared != null) score = row.total_waves_cleared;
@@ -219,6 +219,10 @@
 
     if (refreshBtn) refreshBtn.addEventListener('click', function () {
       refreshLeaderboard();
+    });
+
+    window.addEventListener('dfk:leaderboard-refresh-requested', function () {
+      refreshLeaderboard({ silent: true });
     });
   }
 

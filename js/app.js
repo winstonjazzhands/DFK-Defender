@@ -51,10 +51,15 @@ function getRandomTree(){
   const BIG_ENEMY_HP_MULTIPLIER = 1.25;
   const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
   const ENEMY_TILE_LIMIT = 7;
-  const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 37.5;
+  const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 28.125;
   const EXPLODING_STATUE_RADIUS = 2;
   const EXPLODING_STATUE_DAMAGE_PERCENT = 0.20;
   const EXPLODING_STATUE_ANIMATION_MS = 3000;
+  const ARCHER_PROJECTILE_ANIMATION_MS = 3000;
+  const ARCHER_PROJECTILE_SIZE_MULTIPLIER = 0.85;
+  const STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER = 2.35;
+  const GREEN_FIRE_GIF_PATH = 'assets/green-fire.gif';
+  const RED_FIRE_GIF_PATH = 'assets/red-fire.gif';
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 9;
@@ -411,6 +416,7 @@ function getRandomTree(){
     ownedRelics: [],
     attackLines: [],
     explosionEffects: [],
+    projectileEffects: [],
     slowTotems: [],
     modifiers: {
       wizardSpellDamage: 1,
@@ -731,6 +737,7 @@ function getRandomTree(){
     game.ownedRelics = [];
     game.attackLines = [];
     game.explosionEffects = [];
+    game.projectileEffects = [];
     game.slowTotems = [];
     game.infoPopupPinned = false;
     game.infoPopupHover = false;
@@ -1426,6 +1433,10 @@ function getRandomTree(){
 
   function removeTower(tower, reason = '') {
     if (!tower) return;
+    if (tower.isSatellite && tower.type === 'archer') {
+      createExplosionEffect(tower.x, tower.y, 'archer', 0.9, 3000, GREEN_FIRE_GIF_PATH);
+      createTileFlashArea([{ x: tower.x, y: tower.y }], 'archer');
+    }
     const tile = tileAt(tower.x, tower.y);
     if (tile) tile.towerId = null;
     game.towers = game.towers.filter(t => t.id !== tower.id);
@@ -2746,7 +2757,7 @@ function getRandomTree(){
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, the Priest casts 1% faster per level.<br><strong>Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}% faster casting</strong><br>This caps at 50% faster casting speed.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
-      starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
+      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
     };
     if (tower.type === 'pirate') {
@@ -3389,8 +3400,13 @@ function getRandomTree(){
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    const enemies = [{ bossId: boss.id, lane, delayMs: 100 }];
-    const skitterCount = Math.max(6, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * 1.5));
+    const bossCount = waveNumber >= 30 ? 2 : 1;
+    const enemies = [];
+    for (let i = 0; i < bossCount; i += 1) {
+      enemies.push({ bossId: boss.id, lane, delayMs: 100 + (i * 900) });
+    }
+    const skitterMultiplier = waveNumber >= 30 ? 2 : 1.5;
+    const skitterCount = Math.max(6, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * skitterMultiplier));
     for (let i = 0; i < skitterCount; i += 1) {
       enemies.push({ type: 'skitter', lane, delayMs: 500 + (i * 120), bossWaveSkitter: true });
     }
@@ -4297,6 +4313,33 @@ function getRandomTree(){
     });
   }
 
+
+  function createProjectileEffect(effect) {
+    if (!effect || !game) return;
+    if (!game.projectileEffects) game.projectileEffects = [];
+    game.projectileEffects.push({
+      id: `projectile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      ...effect,
+      startedAt: effect.startedAt || now(),
+      until: effect.until || (now() + (effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)),
+    });
+  }
+
+  function createArcherProjectileEffect(sourceTower, enemy) {
+    if (!sourceTower || !enemy) return;
+    const from = getTowerPixelCenter(sourceTower);
+    const to = getEnemyPixelCenter(enemy);
+    createProjectileEffect({
+      kind: 'archer-green-fire',
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs: ARCHER_PROJECTILE_ANIMATION_MS,
+      imagePath: GREEN_FIRE_GIF_PATH,
+    });
+  }
+
   function createTowerLine(sourceTower, targetTower, colorKey) {
     if (!sourceTower || !targetTower) return;
     game.attackLines.push({
@@ -4314,7 +4357,7 @@ function getRandomTree(){
     }
   }
 
-  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS) {
+  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH) {
     if (!inBounds(x, y)) return;
     if (!game.explosionEffects) game.explosionEffects = [];
     game.explosionEffects.push({
@@ -4326,6 +4369,8 @@ function getRandomTree(){
       startedAt: now(),
       until: now() + durationMs,
       durationMs,
+      kind: 'statue-red-fire',
+      imagePath,
     });
   }
 
@@ -4406,6 +4451,27 @@ function getRandomTree(){
     svg.setAttribute('width', `${layerWidth}`);
     svg.setAttribute('height', `${layerHeight}`);
     els.enemyLayer.appendChild(svg);
+    game.projectileEffects = (game.projectileEffects || []).filter(effect => effect.until > current);
+    for (const effect of game.projectileEffects) {
+      const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)));
+      const x = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * progress);
+      const y = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * progress);
+      const sampleSize = game.grid?.[0]?.el?.offsetWidth || 36;
+      const size = Math.max(18, sampleSize * ARCHER_PROJECTILE_SIZE_MULTIPLIER);
+      const sprite = document.createElement('img');
+      sprite.src = effect.imagePath || GREEN_FIRE_GIF_PATH;
+      sprite.alt = '';
+      sprite.setAttribute('aria-hidden', 'true');
+      sprite.style.position = 'absolute';
+      sprite.style.left = `${x - (size / 2)}px`;
+      sprite.style.top = `${y - (size / 2)}px`;
+      sprite.style.width = `${size}px`;
+      sprite.style.height = `${size}px`;
+      sprite.style.pointerEvents = 'none';
+      sprite.style.opacity = `${Math.max(0.35, 1 - (progress * 0.45))}`;
+      sprite.style.filter = 'drop-shadow(0 0 8px rgba(140,255,170,0.95))';
+      els.enemyLayer.appendChild(sprite);
+    }
     game.explosionEffects = (game.explosionEffects || []).filter(effect => effect.until > current);
     for (const effect of game.explosionEffects) {
       const pos = getTilePixelPosition(effect.x, effect.y);
@@ -4416,6 +4482,24 @@ function getRandomTree(){
       const finalRadiusPx = Math.max(pos.width, pos.height) * (effect.radiusTiles + 0.9);
       const radiusPx = baseRadiusPx + ((finalRadiusPx - baseRadiusPx) * progress);
       const alpha = Math.max(0, 0.55 - (progress * 0.45));
+
+      if (effect.kind === 'statue-red-fire') {
+        const spriteSize = Math.max(pos.width, pos.height) * STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER;
+        const sprite = document.createElement('img');
+        sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
+        sprite.alt = '';
+        sprite.setAttribute('aria-hidden', 'true');
+        sprite.style.position = 'absolute';
+        sprite.style.left = `${centerX - (spriteSize / 2)}px`;
+        sprite.style.top = `${centerY - (spriteSize / 2)}px`;
+        sprite.style.width = `${spriteSize}px`;
+        sprite.style.height = `${spriteSize}px`;
+        sprite.style.pointerEvents = 'none';
+        sprite.style.opacity = `${Math.max(0.4, 1 - (progress * 0.35))}`;
+        sprite.style.filter = 'drop-shadow(0 0 14px rgba(255,80,40,0.95))';
+        els.enemyLayer.appendChild(sprite);
+      }
+
       const ring = document.createElement('div');
       ring.style.position = 'absolute';
       ring.style.left = `${centerX - radiusPx}px`;
@@ -4781,7 +4865,7 @@ function getRandomTree(){
       starboard_cannons() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
-        const shots = 5 + game.modifiers.extraCannons;
+        const shots = 4 + game.modifiers.extraCannons;
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
