@@ -52,14 +52,14 @@ function getRandomTree(){
     warrior: {
       name: 'Warrior',
       letter: 'WAR',
-      hp: 792,
+      hp: 990,
       damage: 38.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
       abilities: [
         { key: 'gladiator_strike', name: 'Gladiator Strike', cooldown: 0, passive: true },
-        { key: 'new_blood', name: 'New Blood', cooldown: 0, passive: true },
+        { key: 'new_blood', name: 'Statue', cooldown: 0, passive: true },
         { key: 'whirlwind', name: 'Whirlwind', cooldown: 7 },
         { key: 'rapid_onslaught', name: 'Rapid Onslaught', cooldown: 12 },
         
@@ -387,6 +387,7 @@ function getRandomTree(){
     ownedRelics: [],
     attackLines: [],
     slowTotems: [],
+    tileBursts: [],
     modifiers: {
       wizardSpellDamage: 1,
       wizardCooldown: 1,
@@ -705,6 +706,7 @@ function getRandomTree(){
     game.ownedRelics = [];
     game.attackLines = [];
     game.slowTotems = [];
+    game.tileBursts = [];
     game.infoPopupPinned = false;
     game.infoPopupHover = false;
     if (game.infoPopupHideTimer) { clearTimeout(game.infoPopupHideTimer); game.infoPopupHideTimer = null; }
@@ -1053,7 +1055,7 @@ function getRandomTree(){
         <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
         <ul>
           <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
-          <li><span class="intro-highlight">New Blood</span> — Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. During prep, you can spend that charge to place a level 1 helper Warrior on any valid tile. The helper has half of the current Warrior's max HP, deals 75% of the parent hero's damage, and costs more to level up.</li>
+          <li><span class="intro-highlight">Statue</span> — Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field damaged. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at half of that total.</li>
           <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
           <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
         </ul>
@@ -1393,9 +1395,22 @@ function getRandomTree(){
     }
   }
 
+  function addTileBurst(x, y, kind = 'ethereal') {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (!Array.isArray(game.tileBursts)) game.tileBursts = [];
+    game.tileBursts.push({
+      id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      x,
+      y,
+      kind,
+      until: now() + 760,
+    });
+  }
+
   function dissipateExpiredSatelliteArchers() {
     const expiredSatellites = game.towers.filter(t => t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
     for (const satellite of expiredSatellites) {
+      addTileBurst(satellite.x, satellite.y, 'ethereal');
       removeTower(satellite, `${satellite.name} dissipated after 10 cleared waves.`);
     }
     if (expiredSatellites.length) {
@@ -1449,8 +1464,13 @@ function getRandomTree(){
 
       if (tower) {
         const small = document.createElement('div');
-        small.className = 'tile-small';
-        small.textContent = `${tower.level}`;
+        small.className = `tile-small ${tower.isSatellite && tower.type === 'archer' ? 'tile-small-ethereal' : ''}`;
+        small.textContent = tower.isSatellite && tower.type === 'archer'
+          ? `${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))}`
+          : `${tower.level}`;
+        small.title = tower.isSatellite && tower.type === 'archer'
+          ? `${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))} wave${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower)) === 1 ? '' : 's'} left before dissipating`
+          : `Level ${tower.level}`;
         tile.el.appendChild(small);
 
         const portrait = document.createElement('img');
@@ -1460,30 +1480,44 @@ function getRandomTree(){
         portrait.src = HERO_TILE_IMAGES[tower.type] || '';
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
+        if (isStatueTower(tower)) {
+          portrait.classList.add('tile-statue-hero');
+        } else if (tower.isSatellite && tower.type === 'archer') {
+          portrait.classList.add('tile-ethereal-hero');
+          portrait.style.setProperty('--ethereal-glow', 'rgba(70, 255, 110, 1)');
+        }
         tile.el.appendChild(portrait);
 
         const heroLabel = document.createElement('div');
         heroLabel.className = 'tile-hero-label';
-        heroLabel.textContent = HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase();
+        heroLabel.textContent = isStatueTower(tower) ? 'STATUE' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase());
         heroLabel.style.opacity = `${satelliteOpacity}`;
+        if (isStatueTower(tower)) {
+          heroLabel.classList.add('tile-statue-label');
+        } else if (tower.isSatellite && tower.type === 'archer') {
+          heroLabel.classList.add('tile-ethereal-label');
+          heroLabel.style.setProperty('--ethereal-glow', 'rgba(70, 255, 110, 0.98)');
+        }
         tile.el.appendChild(heroLabel);
 
         const hpBar = document.createElement('div');
-        hpBar.className = 'hp-bar';
+        hpBar.className = isStatueTower(tower) ? 'hp-bar statue-hp-bar' : 'hp-bar';
         const hpFill = document.createElement('div');
         hpFill.className = 'hp-fill';
         hpFill.style.width = `${Math.max(0, (tower.hp / tower.maxHp) * 100)}%`;
         hpBar.appendChild(hpFill);
         tile.el.appendChild(hpBar);
 
-        const cdBar = document.createElement('div');
-        cdBar.className = 'cooldown-bar';
-        const cdFill = document.createElement('div');
-        cdFill.className = 'cooldown-fill';
-        const ratio = tower.basicCooldown > 0 ? 1 - clamp(tower.attackCooldownMs / tower.basicCooldown, 0, 1) : 1;
-        cdFill.style.width = `${ratio * 100}%`;
-        cdBar.appendChild(cdFill);
-        tile.el.appendChild(cdBar);
+        if (!isStatueTower(tower)) {
+          const cdBar = document.createElement('div');
+          cdBar.className = 'cooldown-bar';
+          const cdFill = document.createElement('div');
+          cdFill.className = 'cooldown-fill';
+          const ratio = tower.basicCooldown > 0 ? 1 - clamp(tower.attackCooldownMs / tower.basicCooldown, 0, 1) : 1;
+          cdFill.style.width = `${ratio * 100}%`;
+          cdBar.appendChild(cdFill);
+          tile.el.appendChild(cdBar);
+        }
 
         const hover = document.createElement('div');
         hover.className = 'tile-hover-card';
@@ -1493,7 +1527,12 @@ function getRandomTree(){
         hoverTitle.textContent = tower.name;
         hover.appendChild(hoverTitle);
 
-        if (tower.isSatellite && tower.type === 'archer') {
+        if (isStatueTower(tower)) {
+          const statueNote = document.createElement('div');
+          statueNote.className = 'tile-hover-meta';
+          statueNote.textContent = 'Statue • Blocks enemies • Cannot move • Cannot be healed';
+          hover.appendChild(statueNote);
+        } else if (tower.isSatellite && tower.type === 'archer') {
           const etherealNote = document.createElement('div');
           etherealNote.className = 'tile-hover-meta';
           const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
@@ -1551,6 +1590,21 @@ function getRandomTree(){
           txt.textContent = tile.hitFlash.text;
           tile.el.appendChild(txt);
         }
+      }
+
+      const activeBursts = (game.tileBursts || []).filter(burst => burst.until > now() && burst.x === tile.x && burst.y === tile.y);
+      for (const burst of activeBursts) {
+        const fx = document.createElement('div');
+        fx.className = `tile-burst tile-burst-${burst.kind}`;
+        for (let i = 0; i < 5; i += 1) {
+          const puff = document.createElement('span');
+          puff.className = 'tile-burst-puff';
+          puff.style.setProperty('--puff-x', `${[-16, -7, 0, 8, 16][i]}px`);
+          puff.style.setProperty('--puff-y', `${[-8, -14, -18, -12, -6][i]}px`);
+          puff.style.setProperty('--puff-delay', `${i * 45}ms`);
+          fx.appendChild(puff);
+        }
+        tile.el.appendChild(fx);
       }
 
       if (enemiesHere.length) {
@@ -2039,7 +2093,7 @@ function getRandomTree(){
     }
     if (els.mobileQuickSatelliteBtn) {
       const charges = tower && !tower.isSatellite ? (tower.satelliteCharges || 0) : 0;
-      const satelliteLabel = tower?.type === 'archer' ? 'Sat Arc' : 'Sat';
+      const satelliteLabel = tower?.type === 'archer' ? 'Sat Arc' : 'Statue';
       els.mobileQuickSatelliteBtn.disabled = !satelliteTowerReady;
       els.mobileQuickSatelliteBtn.classList.toggle('is-live', satelliteTowerReady);
       els.mobileQuickSatelliteBtn.textContent = satelliteTowerReady ? `${satelliteLabel} ${charges}` : 'Sat';
@@ -2071,10 +2125,11 @@ function getRandomTree(){
       Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
-      Level Cap This Wave: L${getUpgradeLevelCap()}
+      Level Cap This Wave: L${getUpgradeLevelCap()}<br>
+      Relics Owned: ${game.ownedRelics.length}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
-    els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
 
@@ -2142,10 +2197,11 @@ function getRandomTree(){
       Attack Interval: ${tower.getAttackInterval().toFixed(2)}s<br>
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
-      Level Cap This Wave: L${getUpgradeLevelCap()}
+      Level Cap This Wave: L${getUpgradeLevelCap()}<br>
+      Relics Owned: ${game.ownedRelics.length}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
-    els.moveBtn.disabled = now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
     const rows = els.abilitiesPanel.querySelectorAll('.ability-row');
@@ -2578,6 +2634,7 @@ function getRandomTree(){
   }
 
   function canUpgradeTower(tower) {
+    if (isStatueTower(tower)) return false;
     const nextLevel = tower.level + 1;
     return nextLevel <= getUpgradeLevelCap() && game.jewel >= getUpgradeCost(nextLevel, tower);
   }
@@ -2623,8 +2680,8 @@ function getRandomTree(){
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
-        const satLabel = passiveEntry.key === 'eagle_nest' ? 'Satellite Archer' : 'Satellite Warrior';
-        btn.textContent = charges > 0 ? `Place ${satLabel} (${charges})` : 'No Satellite Charges';
+        const satLabel = passiveEntry.key === 'eagle_nest' ? 'Satellite Archer' : 'Statue';
+        btn.textContent = charges > 0 ? `Place ${satLabel} (${charges})` : (passiveEntry.key === 'eagle_nest' ? 'No Satellite Charges' : 'No Statue Charges');
         btn.disabled = charges <= 0 || game.phase === SETUP_PHASES.GAME_OVER;
         btn.addEventListener('click', () => beginSatellitePlacement(tower));
         passive.appendChild(btn);
@@ -2647,7 +2704,7 @@ function getRandomTree(){
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 10 cleared waves, New Blood grants 1 Satellite Warrior charge. Use that charge during prep to place a level 1 Satellite Warrior on any valid open tile. The Satellite Warrior has half of the current Warrior's max HP, deals 75% of the parent hero's damage, and costs 50% more to level up.${scale}`,
+      new_blood: `Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field damaged. Its maximum health equals double the Warrior's current health when summoned, and it begins at half of that total.${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
@@ -2699,7 +2756,7 @@ function getRandomTree(){
       normalizeArcherStats(tower, true);
     } else {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.045;
+      tower.maxHp *= 1.065;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= 1.05;
       tower.basicCooldown /= 1.05;
@@ -2716,17 +2773,21 @@ function getRandomTree(){
     return game.towers.filter(t => t.isSatellite && t.satelliteOwnerId === ownerId).length;
   }
 
+  function isStatueTower(tower) {
+    return !!tower && tower.type === 'warrior' && tower.isSatellite && !!tower.isStatue;
+  }
+
   function beginSatellitePlacement(tower) {
     if (!tower || (tower.type !== 'warrior' && tower.type !== 'archer') || (tower.satelliteCharges || 0) <= 0) return;
     if (getActiveSatelliteCountForOwner(tower.id) >= 1) {
-      showBanner('That hero already has its maximum of 1 active satellite.', 1700);
+      showBanner(tower?.type === 'warrior' ? 'That Warrior already has its maximum of 1 active Statue.' : 'That hero already has its maximum of 1 active satellite.', 1700);
       return;
     }
     game.placingHeroType = tower.type;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = tower.id;
-    const satLabel = tower.type === 'archer' ? 'Satellite Archer' : 'Satellite Warrior';
+    const satLabel = tower.type === 'archer' ? 'Satellite Archer' : 'Statue';
     log(`Select an open tile to place a ${satLabel} from ${tower.name}.`);
     render();
   }
@@ -2794,7 +2855,7 @@ function getRandomTree(){
       if (moving && moveTower(moving, x, y)) {
         game.movingTowerId = null;
       } else {
-        showBanner(moving?.type === 'warrior' ? 'Warrior can move to any open tile' : 'Move must be on an open tile and cannot break pathing', 1500);
+        showBanner(moving?.type === 'warrior' ? 'Warrior moves 1 tile onto any open space' : 'Move must be on an open tile that is not blocked by a barrier or hero', 1500);
       }
       render();
       return;
@@ -2808,7 +2869,7 @@ function getRandomTree(){
     const isSatellitePlacement = !!sourceTower;
 
     if (!isOpenForTower(x, y)) {
-      showBanner(isSatellitePlacement ? 'Pick an open tile for the satellite hero' : 'Pick an open tile for the new hero', 1200);
+      showBanner(isSatellitePlacement ? (sourceTower?.type === 'warrior' ? 'Pick an open tile for the Statue' : 'Pick an open tile for the satellite hero') : 'Pick an open tile for the new hero', 1200);
       return;
     }
 
@@ -2818,7 +2879,7 @@ function getRandomTree(){
 
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
-        showBanner('No satellite charge is available for that hero.', 1500);
+        showBanner(sourceTower?.type === 'warrior' ? 'No Statue charge is available for that Warrior.' : 'No satellite charge is available for that hero.', 1500);
         game.placingHeroType = null;
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
@@ -2827,7 +2888,7 @@ function getRandomTree(){
         return;
       }
       if (getActiveSatelliteCountForOwner(sourceTower.id) >= 1) {
-        showBanner('That hero already has its maximum of 1 active satellite.', 1700);
+        showBanner(sourceTower?.type === 'warrior' ? 'That Warrior already has its maximum of 1 active Statue.' : 'That hero already has its maximum of 1 active satellite.', 1700);
         game.placingHeroType = null;
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
@@ -2850,13 +2911,24 @@ function getRandomTree(){
       tower.level = 1;
       tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
       tower.hp = tower.maxHp;
-      tower.damage = sourceTower.damage * SATELLITE_DAMAGE_MULTIPLIER;
-      tower.range = sourceTower.range;
-      tower.basicCooldown = sourceTower.basicCooldown;
+      if (sourceTower.type === 'warrior') {
+        const statueHp = Math.max(1, Math.round(sourceTower.hp * 2));
+        tower.maxHp = statueHp;
+        tower.hp = Math.max(1, Math.round(statueHp * 0.5));
+        tower.damage = 0;
+        tower.range = 0;
+        tower.basicCooldown = 0;
+        tower.moveReadyAt = Number.POSITIVE_INFINITY;
+        tower.isStatue = true;
+      } else {
+        tower.damage = sourceTower.damage * SATELLITE_DAMAGE_MULTIPLIER;
+        tower.range = sourceTower.range;
+        tower.basicCooldown = sourceTower.basicCooldown;
+      }
       tower.satelliteOwnerId = sourceTower.id;
       tower.isSatellite = true;
       tower.summonedAtWave = Number(game.waveNumber || 0);
-      tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : 'Sat Warrior';
+      tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : 'Statue';
     }
 
     normalizeArcherStats(tower);
@@ -2890,7 +2962,7 @@ function getRandomTree(){
   }
 
   function getMoveRangeForTower(tower) {
-    return tower.type === 'warrior' ? Math.max(WIDTH, HEIGHT) : Math.max(WIDTH, HEIGHT);
+    return tower.type === 'warrior' ? 1 : Math.max(WIDTH, HEIGHT);
   }
 
   function chebyshevDist(a, b) {
@@ -2898,6 +2970,7 @@ function getRandomTree(){
   }
 
   function getMoveTargetsForTower(tower) {
+    if (isStatueTower(tower)) return [];
     const moveRange = getMoveRangeForTower(tower);
     const targets = [];
     for (let y = 0; y < HEIGHT; y += 1) {
@@ -2906,7 +2979,7 @@ function getRandomTree(){
         if (!inBounds(x, y)) continue;
         if (!isOpenForTower(x, y)) continue;
         if (tower.type !== 'warrior' && chebyshevDist(tower, { x, y }) > moveRange) continue;
-        if (!moveWouldPreservePath(tower, x, y)) continue;
+        if ((tower.type === 'warrior' || isStatueTower(tower)) && !moveWouldPreservePath(tower, x, y)) continue;
         targets.push({ x, y });
       }
     }
@@ -2942,7 +3015,7 @@ function getRandomTree(){
       if (toTile) toTile.towerId = tower.id;
       tower.x = nx;
       tower.y = ny;
-      return tower.type === 'warrior' ? true : existsPathFromBreachToPortal();
+      return true;
     } finally {
       tower.x = oldX;
       tower.y = oldY;
@@ -2952,9 +3025,10 @@ function getRandomTree(){
   }
 
   function moveTower(tower, nx, ny) {
+    if (isStatueTower(tower)) return false;
     if (!getMoveTargetsForTower(tower).some(p => p.x === nx && p.y === ny)) return false;
     if (!isOpenForTower(nx, ny)) return false;
-    if (!moveWouldPreservePath(tower, nx, ny)) return false;
+    if ((tower.type === 'warrior' || isStatueTower(tower)) && !moveWouldPreservePath(tower, nx, ny)) return false;
     tileAt(tower.x, tower.y).towerId = null;
     tower.x = nx;
     tower.y = ny;
@@ -3383,7 +3457,7 @@ function getRandomTree(){
     if (!tile || tile.obstacle || tile.portal) return false;
     if (tile.towerId) {
       const tower = game.towers.find(t => t.id === tile.towerId);
-      return !tower || tower.type !== 'warrior';
+      return !tower || (tower.type !== 'warrior' && !isStatueTower(tower));
     }
     return true;
   }
@@ -3515,8 +3589,8 @@ function getRandomTree(){
         warrior.satelliteCharges = Math.min(1, (warrior.satelliteCharges || 0) + 1);
       }
       if (unlockedWarriors.length) {
-        showBanner(`New Blood: +1 Satellite Warrior charge ready${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`, 2500);
-        log(`New Blood triggered after wave ${game.waveNumber}: +1 Satellite Warrior charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
+        showBanner(`Statue: +1 charge ready${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`, 2500);
+        log(`Statue triggered after wave ${game.waveNumber}: +1 charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
       }
     }
     if (game.waveNumber > 0 && game.waveNumber % 7 === 0) {
@@ -3646,6 +3720,8 @@ function getRandomTree(){
       }
     }
 
+    if (isStatueTower(tower)) return;
+
     if (tryAutoCastMobileAbility(tower, current)) return;
 
     if (!tower.template.autoAttack || tower.attackCooldownMs > 0 || game.phase === SETUP_PHASES.GAME_OVER) return;
@@ -3708,13 +3784,13 @@ function getRandomTree(){
     if (isAbilityUnlocked(tower, 'healing_aura')) {
       const tickAt = tower.auraTickAt || 0;
       if (now() >= tickAt) {
-        const auraTargets = game.towers.filter(t => t.id !== tower.id && dist(t, tower) <= 2 && t.hp < t.maxHp);
+        const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
         const auraHeal = 2 * tower.level;
         auraTargets.forEach(target => healTower(target, auraHeal, null));
         tower.auraTickAt = now() + 1000;
       }
     }
-    const allies = game.towers.filter(t => dist(t, tower) <= tower.range && t.hp < t.maxHp);
+    const allies = game.towers.filter(t => !isStatueTower(t) && dist(t, tower) <= tower.range && t.hp < t.maxHp);
     if (!allies.length) return;
     const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
     healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
@@ -3751,7 +3827,27 @@ function getRandomTree(){
   }
 
 
+  function getPreferredStatueTarget(enemy) {
+    const statues = game.towers
+      .filter(t => isStatueTower(t) && t.hp > 0)
+      .slice()
+      .sort((a, b) => dist(enemy, a) - dist(enemy, b));
+    for (const statue of statues) {
+      if (dist(enemy, statue) <= 1) return { tower: statue, attackNow: true, path: null };
+      const adj = getTowerApproachTiles(statue);
+      if (!adj.length) continue;
+      const statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj);
+      if (statuePath && statuePath.length > 1) return { tower: statue, attackNow: false, path: statuePath };
+    }
+    return null;
+  }
+
   function getEnemyAggroTarget(enemy) {
+    const statuePlan = getPreferredStatueTarget(enemy);
+    if (statuePlan?.tower) {
+      enemy.aggroTargetId = statuePlan.tower.id;
+      return statuePlan.tower;
+    }
     if (!enemy.threat) return null;
     for (const [tid, value] of Object.entries(enemy.threat)) {
       const next = value * 0.985;
@@ -3803,7 +3899,17 @@ function getRandomTree(){
     let attackTarget = null;
     let movedThisTick = false;
 
-    if (enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+    const statuePlan = getPreferredStatueTarget(enemy);
+    if (statuePlan?.tower) {
+      if (statuePlan.attackNow) {
+        attackTarget = statuePlan.tower;
+      } else if (statuePlan.path) {
+        targets = statuePlan.path.slice(-1);
+      }
+      enemy.tauntedTo = null;
+      enemy.tauntUntil = 0;
+      enemy.aggroTargetId = statuePlan.tower.id;
+    } else if (enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
       const tauntTarget = enemy.tauntedTo;
       const adj = getTowerApproachTiles(tauntTarget);
       if (dist(enemy, tauntTarget) <= 1) {
@@ -3929,7 +4035,7 @@ function getRandomTree(){
     if (!tile || tile.obstacle || tile.portal) return false;
     if (tile.towerId) {
       const tower = game.towers.find(t => t.id === tile.towerId);
-      return !tower || tower.type !== 'warrior';
+      return !tower || (tower.type !== 'warrior' && !isStatueTower(tower));
     }
     const occupants = getEnemyOccupancy(x, y, enemy?.id || null);
     return occupants < 5 || (enemy.x === x && enemy.y === y);
@@ -4224,6 +4330,7 @@ function getRandomTree(){
   }
 
   function healTower(tower, amount, message) {
+    if (isStatueTower(tower)) return;
     tower.hp = Math.min(tower.maxHp, tower.hp + amount);
     markProgress(`${tower.name} was healed.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(amount)}.`);
@@ -4577,7 +4684,7 @@ function getRandomTree(){
     const tower = getSelectedTower();
     if (!tower) return;
     game.movingTowerId = tower.id;
-    log(tower.type === 'warrior' ? `Select any open tile to move ${tower.name}.` : `Select any open tile to move ${tower.name}.`);
+    log(tower.type === 'warrior' ? `Select an adjacent open tile to move ${tower.name}.` : `Select any open tile to move ${tower.name}.`);
     render();
   });
 
@@ -4591,6 +4698,7 @@ function getRandomTree(){
     game.virtualNow += realDelta * game.timeScale;
     try {
       update();
+      game.tileBursts = (game.tileBursts || []).filter(burst => burst.until > now());
       // Keep the battlefield/top bar live without rebuilding the control panel every frame.
       // Rebuilding buttons on every animation frame can interrupt click events before they fire.
       renderGrid();

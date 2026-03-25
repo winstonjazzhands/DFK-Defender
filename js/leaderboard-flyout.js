@@ -104,19 +104,37 @@
     throw new Error(errors[0] || 'Unable to load leaderboard data.');
   }
 
+  function syncFlyoutSizing(rows) {
+    var flyout = el('leaderboardFlyout');
+    if (!flyout) return;
+    var needsWide = Array.isArray(rows) && rows.some(function (row) {
+      return String(row && row.player_name || '').length > 18;
+    });
+    flyout.classList.toggle('leaderboard-flyout-wide', !!needsWide);
+  }
+
+  function truncateName(value) {
+    var name = String(value || '');
+    if (name.length <= 18) return name;
+    return name.slice(0, 15) + '…';
+  }
+
   function renderRows(rows, sortKey) {
     var tbody = el('leaderboardTableBody');
     if (!tbody) return;
     var items = rows.slice().sort(SORTS[sortKey] || SORTS.best_wave);
+    syncFlyoutSizing(items);
     if (!items.length) {
       tbody.innerHTML = '<tr><td colspan="5" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (row, index) {
+      var fullName = escapeHtml(row.player_name);
+      var shownName = escapeHtml(truncateName(row.player_name));
       return '<tr>' +
         '<td class="leaderboard-rank">' + (index + 1) + '</td>' +
-        '<td class="leaderboard-name-cell">' + escapeHtml(row.player_name) + '</td>' +
-        '<td title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
+        '<td class="leaderboard-name-cell" title="' + fullName + '">' + shownName + '</td>' +
+        '<td class="leaderboard-wallet-cell" title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
         '<td>' + escapeHtml(String(row.best_wave)) + '</td>' +
         '<td>' + escapeHtml(String(row.runs)) + '</td>' +
       '</tr>';
