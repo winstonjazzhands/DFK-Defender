@@ -29,12 +29,12 @@ function getRandomTree(){
   };
 
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Mythic'];
-  const HIRE_COSTS = [20, 40, 70, 110];
+  const HIRE_COSTS = [25, 50, 88, 138];
   const UPGRADE_COST_MULTIPLIER = 3.3062;
-  const ARCHER_BASE_ATTACK_INTERVAL = 1.1979;
+  const ARCHER_BASE_ATTACK_INTERVAL = 1.29657803625;
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
   const ARCHER_BASE_HP_MULTIPLIER = 0.9;
-  const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.0285;
+  const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.027075;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 10;
@@ -53,7 +53,7 @@ function getRandomTree(){
       name: 'Warrior',
       letter: 'WAR',
       hp: 990,
-      damage: 38.5,
+      damage: 41.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
@@ -69,12 +69,12 @@ function getRandomTree(){
       name: 'Archer',
       letter: 'ARC',
       hp: 242 * ARCHER_BASE_HP_MULTIPLIER,
-      damage: 28,
+      damage: 21,
       attackInterval: ARCHER_BASE_ATTACK_INTERVAL,
       range: 4,
       autoAttack: true,
       abilities: [
-        { key: 'multi_shot', name: 'Multi-Shot', cooldown: 6 },
+        { key: 'multi_shot', name: 'Multi-Shot', cooldown: 8 },
         { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 20 },
         { key: 'piercing_shot', name: 'Piercing Shot', cooldown: 7 },
         { key: 'eagle_nest', name: 'Eagle Nest', cooldown: 0, passive: true },
@@ -129,8 +129,8 @@ function getRandomTree(){
   };
 
   const ENEMY_TEMPLATES = {
-    grunt: { name: 'Grunt', hp: 120, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 6, typeClass: 'grunt' },
-    runner: { name: 'Runner', hp: 80, damage: 10, moveInterval: 0.4275, attackInterval: 1.0, jewel: 5, typeClass: 'runner' },
+    grunt: { name: 'Grunt', hp: 150, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 4.5, typeClass: 'grunt' },
+    runner: { name: 'Runner', hp: 100, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 3.75, typeClass: 'runner' },
     brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 20, typeClass: 'brute' },
     skitter: { name: 'Skitter', hp: 24, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
@@ -784,14 +784,10 @@ function getRandomTree(){
     while (els.log.children.length > game.logLimit) els.log.removeChild(els.log.lastChild);
   }
 
-  function showBanner(text, duration = 2400) {
-    if (!els.banner) return;
-    const finalDuration = isLandscapeMobileUi() ? 1000 : duration;
-    els.banner.textContent = text;
-    els.banner.classList.remove('hidden');
-    clearTimeout(game.bannerTimeout);
-    game.bannerTimeout = setTimeout(() => els.banner.classList.add('hidden'), finalDuration);
-  }
+  function showBanner(message, duration = 1500) {
+    // Disabled per user request (was covering UI)
+    return;
+}
 
 
   function pushDiagnosticEvent(message) {
@@ -1080,7 +1076,7 @@ function getRandomTree(){
           <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
           <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
           <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely and must be summoned again.</li>
+          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 10 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely. After that, you must clear 10 more waves before summoning the next one.</li>
         </ul>
         <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
       `,
@@ -1225,7 +1221,9 @@ function getRandomTree(){
 
   function getArcherCooldownMultiplierForLevel(level) {
     const safeLevel = Math.max(1, Number(level || 1));
-    return Math.pow(1 + ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL, safeLevel - 1);
+    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2);
+    const speedSteps = Math.floor((tierLevel - 1) / 2);
+    return Math.pow(1 + ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
   }
 
   function getBaseTowerStatsForLevel(type, level) {
@@ -1252,7 +1250,9 @@ function getRandomTree(){
     const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
     tower.damage = tower.isSatellite ? base.damage * SATELLITE_DAMAGE_MULTIPLIER : base.damage;
     tower.range = base.range;
-    tower.basicCooldown = (ARCHER_BASE_ATTACK_INTERVAL * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1);
+    const normalizedLevel = Math.max(1, Number(tower.level || 1));
+    const speedTierLevel = 1 + (Math.floor((normalizedLevel - 1) / 2) * 2);
+    tower.basicCooldown = (ARCHER_BASE_ATTACK_INTERVAL * 1000) / getArcherCooldownMultiplierForLevel(speedTierLevel);
     if (tower.isSatellite) {
       tower.maxHp = base.hp * 0.5;
     } else {
@@ -2082,8 +2082,14 @@ function getRandomTree(){
       return;
     }
     const nextCost = getUpgradeCost(tower.level + 1, tower);
+    const satelliteWavesRemaining = tower.isSatellite && tower.type === 'archer'
+      ? Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))
+      : null;
+    const selectedHeader = tower.isSatellite && tower.type === 'archer'
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><span>${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="margin-left:auto;text-align:right;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
+      : `${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
     els.selectedInfo.innerHTML = `
-      ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
+      ${selectedHeader}<br>
       HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
       Damage: ${Math.round(tower.damage)}<br>
       Range: ${tower.range}<br>
@@ -2187,12 +2193,12 @@ function getRandomTree(){
     renderMobileAbilityDock();
   }
 
-  function getLivingHireCount() {
-    return game.towers.filter(t => t.type !== 'warrior').length + (game.placingHeroType ? 1 : 0);
+  function getLivingHireCount(includePendingPlacement = false) {
+    return game.towers.filter(t => t.type !== 'warrior').length + (includePendingPlacement && game.placingHeroType ? 1 : 0);
   }
 
-  function getNextHireCost() {
-    const index = Math.min(getLivingHireCount(), HIRE_COSTS.length - 1);
+  function getNextHireCost(includePendingPlacement = false) {
+    const index = Math.min(getLivingHireCount(includePendingPlacement), HIRE_COSTS.length - 1);
     return HIRE_COSTS[index];
   }
 
@@ -2204,8 +2210,8 @@ function getRandomTree(){
     const bonusAvailable = game.bonusHeroHireCharges > 0
       ? heroTypes.filter(type => game.towers.some(t => t.type === type) && game.placingHeroType !== type)
       : [];
-    const cost = getNextHireCost();
-    const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && game.jewel >= cost && (normalAvailable.length > 0 || bonusAvailable.length > 0);
+    const cost = getNextHireCost(false);
+    const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
 
     function appendHireButton(type, usesBonus, forceDisabled = false) {
@@ -2220,11 +2226,11 @@ function getRandomTree(){
         : pendingThisType
           ? `Placing… ${formatJewel(game.placingHeroCost)} Gold`
           : `${labelPrefix} ${t.name} (${formatJewel(cost)} Gold)`;
-      btn.disabled = forceDisabled || game.jewel < cost || game.phase === SETUP_PHASES.GAME_OVER;
+      btn.disabled = forceDisabled || ((Number(game.jewel || 0) + 1e-9) < cost) || game.phase === SETUP_PHASES.GAME_OVER;
       if (!forceDisabled) {
         btn.addEventListener('click', () => {
           if (game.phase === SETUP_PHASES.GAME_OVER) return;
-          if (game.jewel < cost) {
+          if ((Number(game.jewel || 0) + 1e-9) < cost) {
             showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
             return;
           }
@@ -2676,7 +2682,7 @@ function getRandomTree(){
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 7 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely and must be summoned again.`,
+      eagle_nest: `Passive. Every 10 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely. After that, you must clear 10 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
@@ -2705,7 +2711,8 @@ function getRandomTree(){
     if (nextLevel > 10) base *= 1.5;
 
     const levelProgress = Math.max(0, Math.min((nextLevel - 2) / 38, 1));
-    const curvedMarkup = 1.05 + (0.10 * Math.pow(levelProgress, 1.35));
+    const baseMarkup = 1.05 + (0.10 * Math.pow(levelProgress, 1.35));
+    const curvedMarkup = 1 + ((baseMarkup - 1) * 1.15);
     const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
     return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * 10) / 10;
   }
@@ -2843,7 +2850,7 @@ function getRandomTree(){
 
     const typeToPlace = game.placingHeroType;
     const usesBonusHire = !!game.placingHeroUsesBonus;
-    const cost = isSatellitePlacement ? 0 : (game.placingHeroCost || getNextHireCost());
+    const cost = isSatellitePlacement ? 0 : (Number.isFinite(game.placingHeroCost) && game.placingHeroCost > 0 ? game.placingHeroCost : getNextHireCost(false));
 
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
@@ -2864,7 +2871,7 @@ function getRandomTree(){
         render();
         return;
       }
-    } else if (game.jewel < cost) {
+    } else if ((Number(game.jewel || 0) + 1e-9) < cost) {
       showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
       game.placingHeroType = null;
       game.placingHeroCost = 0;
@@ -2914,7 +2921,7 @@ function getRandomTree(){
       log(`Placed ${tower.name} from ${sourceTower.name} at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed ${tower.name}.`);
     } else {
-      game.jewel -= cost;
+      game.jewel = Math.max(0, Number(game.jewel || 0) - cost);
       if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
       log(`Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
@@ -3069,34 +3076,146 @@ function getRandomTree(){
     return targets;
   }
 
-  function pathfind(start, targets, allowPortalTargets = true) {
+  function getPortalFlowKey() {
+    const blockers = game.towers
+      .filter(t => t.type === 'warrior')
+      .map(t => `${t.x},${t.y},${isStatueTower(t) ? 'statue' : 'warrior'}`)
+      .sort()
+      .join('|');
+    const portal = game.portal ? `${game.portal.x},${game.portal.y}` : 'none';
+    return `${portal}::${blockers}`;
+  }
+
+  function ensurePortalFlowField() {
+    const flowKey = getPortalFlowKey();
+    if (game.portalFlowField?.key === flowKey) return game.portalFlowField;
+    const portalTargets = getPortalTargets();
+    const distances = new Map();
+    const queue = [];
+    for (const target of portalTargets) {
+      const k = key(target.x, target.y);
+      distances.set(k, 0);
+      queue.push({ x: target.x, y: target.y });
+    }
+    while (queue.length) {
+      const current = queue.shift();
+      const currentDistance = distances.get(key(current.x, current.y)) || 0;
+      for (const step of adjacentTiles(current.x, current.y)) {
+        const tile = tileAt(step.x, step.y);
+        if (!tile || isBlockedForPath(tile, true)) continue;
+        const stepKey = key(step.x, step.y);
+        if (distances.has(stepKey)) continue;
+        distances.set(stepKey, currentDistance + 1);
+        queue.push(step);
+      }
+    }
+    game.portalFlowField = { key: flowKey, distances };
+    return game.portalFlowField;
+  }
+
+  function getPortalFlowDistance(x, y) {
+    const flow = ensurePortalFlowField();
+    return flow?.distances?.get(key(x, y)) ?? Number.POSITIVE_INFINITY;
+  }
+
+  function getPortalFlowStep(enemy, options = {}) {
+    const allowReverse = !!options.allowReverse;
+    const currentDistance = getPortalFlowDistance(enemy.x, enemy.y);
+    const steps = adjacentTiles(enemy.x, enemy.y)
+      .filter(step => canEnemyEnter(step.x, step.y, enemy))
+      .map(step => {
+        const distanceScore = getPortalFlowDistance(step.x, step.y);
+        const occupancyPenalty = getEnemyOccupancyPenalty(enemy, step.x, step.y, false);
+        const reversePenalty = (!allowReverse && enemy.prevX === step.x && enemy.prevY === step.y && !(enemy.prevX === enemy.x && enemy.prevY === enemy.y)) ? 2 : 0;
+        return {
+          ...step,
+          score: distanceScore + occupancyPenalty + reversePenalty,
+          distanceScore,
+        };
+      })
+      .filter(step => Number.isFinite(step.score))
+      .sort((a, b) => a.score - b.score);
+    const best = steps[0] || null;
+    if (!best) return null;
+    if (Number.isFinite(currentDistance) && best.distanceScore > currentDistance && !allowReverse) return null;
+    return { x: best.x, y: best.y };
+  }
+
+  function moveEnemyToStep(enemy, step, current) {
+    if (!step) return false;
+    if (!canEnemyEnter(step.x, step.y, enemy)) return false;
+    enemy.prevX = enemy.x;
+    enemy.prevY = enemy.y;
+    enemy.x = step.x;
+    enemy.y = step.y;
+    enemy.moveStartedAt = current;
+    enemy.moveEndAt = current + getEnemyMoveMs(enemy);
+    enemy.nextMoveAt = enemy.moveEndAt;
+    enemy.attacking = false;
+    enemy.targetPath = [];
+    enemy.stuckAt = 0;
+    enemy.lastProgressAt = current;
+    markProgress(`${enemy.name} moved.`);
+    return true;
+  }
+
+  function getEnemyTileCapacity(enemy, x, y) {
+    const tile = tileAt(x, y);
+    if (!tile || tile.portal || tile.obstacle) return 0;
+    if (enemy?.type === 'skitter') return 20;
+    if (enemy?.isBoss) return 2;
+    return 5;
+  }
+
+  function getEnemyOccupancyPenalty(enemy, x, y, isTarget = false) {
+    const occupants = getEnemyOccupancy(x, y, enemy?.id || null);
+    const cap = getEnemyTileCapacity(enemy, x, y);
+    if (cap <= 0) return Number.POSITIVE_INFINITY;
+    if (occupants <= 0) return 0;
+    if (occupants >= cap && !isTarget) return Number.POSITIVE_INFINITY;
+    const pressure = occupants / cap;
+    return pressure >= 1 ? 50 : pressure * 8;
+  }
+
+  function pathfind(start, targets, options = {}) {
+    const enemy = options.enemy || null;
+    const avoidBacktrack = options.avoidBacktrack !== false;
+    const softCrowd = options.softCrowd !== false;
     const targetKeys = new Set(targets.map(t => key(t.x, t.y)));
     const startKey = key(start.x, start.y);
-    const frontier = [{ x: start.x, y: start.y }];
+    const frontier = [{ x: start.x, y: start.y, priority: 0 }];
     const cameFrom = new Map();
-    const visited = new Set([startKey]);
+    const costSoFar = new Map([[startKey, 0]]);
     while (frontier.length) {
+      frontier.sort((a, b) => a.priority - b.priority);
       const current = frontier.shift();
-      if (targetKeys.has(key(current.x, current.y))) {
-        return reconstructPath(cameFrom, current, start);
+      const currentKey = key(current.x, current.y);
+      if (targetKeys.has(currentKey)) {
+        return reconstructPath(cameFrom, { x: current.x, y: current.y }, start);
       }
-      const next = adjacentTiles(current.x, current.y).sort((a, b) => {
-        const aPenalty = getEnemyOccupancy(a.x, a.y) * 3;
-        const bPenalty = getEnemyOccupancy(b.x, b.y) * 3;
-        return (heuristic(a, targets) + aPenalty) - (heuristic(b, targets) + bPenalty);
-      });
+      const next = adjacentTiles(current.x, current.y).sort((a, b) => heuristic(a, targets) - heuristic(b, targets));
       for (const n of next) {
         const k = key(n.x, n.y);
-        if (visited.has(k)) continue;
         const tile = tileAt(n.x, n.y);
         if (!tile) continue;
         if (isBlockedForPath(tile, true)) continue;
-        const crowded = getEnemyOccupancy(n.x, n.y) >= 5;
         const isTarget = targetKeys.has(k);
-        if (crowded && !isTarget && k !== startKey) continue;
-        visited.add(k);
-        cameFrom.set(k, current);
-        frontier.push(n);
+        const penalty = softCrowd ? getEnemyOccupancyPenalty(enemy, n.x, n.y, isTarget) : 0;
+        if (!Number.isFinite(penalty)) continue;
+        let stepCost = 1 + penalty;
+        if (avoidBacktrack && enemy && enemy.prevX === n.x && enemy.prevY === n.y && !(enemy.x === enemy.prevX && enemy.y === enemy.prevY)) {
+          stepCost += 2.5;
+        }
+        const newCost = (costSoFar.get(currentKey) || 0) + stepCost;
+        if (!costSoFar.has(k) || newCost < costSoFar.get(k)) {
+          costSoFar.set(k, newCost);
+          cameFrom.set(k, { x: current.x, y: current.y });
+          frontier.push({
+            x: n.x,
+            y: n.y,
+            priority: newCost + heuristic(n, targets),
+          });
+        }
       }
     }
     return null;
@@ -3268,8 +3387,8 @@ function getRandomTree(){
   }
 
   function getLargeEnemySpeedMultiplier(waveNumber) {
-    if (waveNumber <= 10) return 1;
-    return Math.min(1.25, 1 + ((waveNumber - 10) * 0.02));
+    const waveBoost = waveNumber <= 10 ? 1 : Math.min(1.25, 1 + ((waveNumber - 10) * 0.02));
+    return waveBoost * 1.15;
   }
 
   function getBruteHpMultiplier(waveNumber) {
@@ -3345,7 +3464,9 @@ function getRandomTree(){
     const spawn = pickRandom(lane);
     const earlyWaveMultiplier = getEarlyWaveStatMultiplier(game.waveNumber);
     const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
-    const enemyHp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const isSmallOrMediumEnemy = type === 'grunt' || type === 'runner';
+    const hpCurvePerWave = isSmallOrMediumEnemy ? 0.132 : 0.12;
+    const enemyHp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
     const enemyDamage = template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
     return {
       id: `e${game.nextEnemyId++}`,
@@ -3375,6 +3496,7 @@ function getRandomTree(){
       threat: {},
       aggroTargetId: null,
       lastAggroAt: 0,
+      lastPortalFlowKey: null,
       isBoss: false,
       slowResistance: 0,
       isBossWaveSkitter: false,
@@ -3412,6 +3534,7 @@ function getRandomTree(){
       threat: {},
       aggroTargetId: null,
       lastAggroAt: 0,
+      lastPortalFlowKey: null,
       isBoss: true,
       bossTemplate: boss,
       nextAbilityAt: now() + boss.abilityInterval * 1000,
@@ -3431,31 +3554,33 @@ function getRandomTree(){
   }
 
   function tryResolveEnemyStall(enemy, current) {
-    const portalTargets = getPortalTargets();
-    const targetPool = portalTargets.length ? portalTargets : [{ x: game.portal?.x || enemy.x, y: game.portal?.y || enemy.y }];
+    const candidates = adjacentTiles(enemy.x, enemy.y)
+      .filter(step => canEnemyEnterIgnoringCrowd(step.x, step.y, enemy))
+      .map(step => {
+        const flowDistance = getPortalFlowDistance(step.x, step.y);
+        const reversePenalty = (enemy.prevX === step.x && enemy.prevY === step.y && !(enemy.prevX === enemy.x && enemy.prevY === enemy.y)) ? 2 : 0;
+        const occupancyPenalty = Math.max(0, getEnemyOccupancy(step.x, step.y, enemy.id) / Math.max(1, getEnemyTileCapacity(enemy, step.x, step.y)));
+        return {
+          ...step,
+          score: flowDistance + reversePenalty + occupancyPenalty,
+          flowDistance,
+        };
+      })
+      .filter(step => Number.isFinite(step.score))
+      .sort((a, b) => a.score - b.score);
+    const bestStep = candidates[0];
+    if (!bestStep) return false;
     enemy.tauntedTo = null;
     enemy.tauntUntil = 0;
     enemy.aggroTargetId = null;
-    enemy.threat = {};
-
-    const bestStep = adjacentTiles(enemy.x, enemy.y)
-      .filter(step => canEnemyEnterIgnoringCrowd(step.x, step.y, enemy))
-      .sort((a, b) => heuristic(a, targetPool) - heuristic(b, targetPool))[0];
-
-    if (!bestStep) return false;
-    if (bestStep.x === enemy.x && bestStep.y === enemy.y) return false;
-
-    enemy.prevX = enemy.x;
-    enemy.prevY = enemy.y;
-    enemy.x = bestStep.x;
-    enemy.y = bestStep.y;
-    enemy.moveStartedAt = current;
+    enemy.targetPath = [];
+    enemy.navMode = 'portal';
+    enemy.navCommitUntil = current + 600;
+    enemy.lastStallRecoveryAt = current;
+    moveEnemyToStep(enemy, bestStep, current);
     enemy.moveEndAt = current + Math.min(220, getEnemyMoveMs(enemy));
     enemy.nextMoveAt = enemy.moveEndAt;
-    enemy.attacking = false;
-    enemy.targetPath = [];
-    enemy.stuckAt = 0;
-    markProgress(`${enemy.name} was nudged forward.`);
+    markProgress(`${enemy.name} recovered forward movement.`);
     return true;
   }
 
@@ -3561,7 +3686,7 @@ function getRandomTree(){
         log(`Statue triggered after wave ${game.waveNumber}: +1 charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 7 === 0) {
+    if (game.waveNumber > 0 && game.waveNumber % 10 === 0) {
       const unlockedArchers = game.towers.filter(t => t.type === 'archer' && !t.isSatellite && isAbilityUnlocked(t, 'eagle_nest'));
       for (const archer of unlockedArchers) {
         archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
@@ -3571,7 +3696,7 @@ function getRandomTree(){
         log(`Eagle Nest triggered after wave ${game.waveNumber}: +1 Satellite Archer charge${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 15 === 0) {
+    if (game.waveNumber > 0 && game.waveNumber % 25 === 0) {
       game.bonusHeroHireCharges += 1;
       showBanner(`Milestone reward: +1 extra hero hire unlocked (${game.bonusHeroHireCharges} available).`, 3000);
       log(`Milestone reward unlocked after wave ${game.waveNumber}: +1 extra hero hire (now ${game.bonusHeroHireCharges} available).`);
@@ -3735,7 +3860,7 @@ function getRandomTree(){
       }
       const warriorAdj = getTowerApproachTiles(warrior);
       if (!warriorAdj.length) continue;
-      const warriorPath = pathfind({ x: enemy.x, y: enemy.y }, warriorAdj);
+      const warriorPath = pathfind({ x: enemy.x, y: enemy.y }, warriorAdj, { enemy, avoidBacktrack: true, softCrowd: true });
       if (warriorPath && warriorPath.length > 1) {
         return { warrior, attackNow: false, path: warriorPath };
       }
@@ -3804,42 +3929,58 @@ function getRandomTree(){
       if (dist(enemy, statue) <= 1) return { tower: statue, attackNow: true, path: null };
       const adj = getTowerApproachTiles(statue);
       if (!adj.length) continue;
-      const statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj);
+      const statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj, { enemy, avoidBacktrack: true, softCrowd: true });
       if (statuePath && statuePath.length > 1) return { tower: statue, attackNow: false, path: statuePath };
     }
     return null;
   }
 
-  function getEnemyAggroTarget(enemy) {
-    const statuePlan = getPreferredStatueTarget(enemy);
+  function getEnemyAggroTarget(enemy, current = now()) {
+    const flow = ensurePortalFlowField();
+    const flowKey = flow?.key || null;
+    if (flowKey && enemy.lastPortalFlowKey && enemy.lastPortalFlowKey !== flowKey) {
+      enemy.tauntedTo = null;
+      enemy.tauntUntil = 0;
+      enemy.aggroTargetId = null;
+      enemy.targetPath = [];
+      enemy.threat = {};
+      enemy.navMode = 'portal';
+      enemy.navCommitUntil = current + 350;
+      enemy.forcePortalUntil = current + 900;
+      return null;
+    }
+    enemy.lastPortalFlowKey = flowKey;
+
+    const forcePortal = enemy.forcePortalUntil && current < enemy.forcePortalUntil;
+    const statuePlan = !forcePortal ? getPreferredStatueTarget(enemy) : null;
     if (statuePlan?.tower) {
       enemy.aggroTargetId = statuePlan.tower.id;
       return statuePlan.tower;
     }
     if (!enemy.threat) return null;
     for (const [tid, value] of Object.entries(enemy.threat)) {
-      const next = value * 0.985;
-      if (next < 1) delete enemy.threat[tid];
+      const next = value * 0.92;
+      if (next < 2) delete enemy.threat[tid];
       else enemy.threat[tid] = next;
     }
     let bestId = enemy.aggroTargetId;
     let bestThreat = bestId ? (enemy.threat[bestId] || 0) : 0;
     for (const [tid, value] of Object.entries(enemy.threat)) {
-      if (!bestId || value > bestThreat * 1.25) {
+      if (!bestId || value > bestThreat * 2.15) {
         bestId = tid;
         bestThreat = value;
       }
     }
-    if (!bestId || bestThreat <= 10) return null;
+    if (!bestId || bestThreat <= 32) return null;
     const tower = game.towers.find(t => t.id === bestId);
-    if (!tower) {
+    if (!tower || !canEnemyAggroTower(enemy, tower)) {
       delete enemy.threat[bestId];
       if (enemy.aggroTargetId === bestId) enemy.aggroTargetId = null;
       return null;
     }
     const portalBiasDistance = portalDistance(enemy);
     const towerDistance = Math.abs(enemy.x - tower.x) + Math.abs(enemy.y - tower.y);
-    if (towerDistance > portalBiasDistance + 2) {
+    if (towerDistance > portalBiasDistance) {
       if (enemy.aggroTargetId === bestId) enemy.aggroTargetId = null;
       return null;
     }
@@ -3854,6 +3995,14 @@ function getRandomTree(){
     });
   }
 
+  function canEnemyAggroTower(enemy, tower) {
+    if (!enemy || !tower || tower.hp <= 0) return false;
+    if (isStatueTower(tower) || tower.type === 'warrior') return true;
+    if (tower.type === 'priest') return false;
+    const towerDistance = Math.abs(enemy.x - tower.x) + Math.abs(enemy.y - tower.y);
+    return towerDistance <= 1;
+  }
+
   function updateEnemy(enemy, current) {
     tickEffects(enemy, current);
 
@@ -3862,83 +4011,104 @@ function getRandomTree(){
       enemy.nextAbilityAt = current + enemy.bossTemplate.abilityInterval * 1000;
     }
 
+    const flowKey = ensurePortalFlowField()?.key || null;
+    if (flowKey && enemy.lastPortalFlowKey && enemy.lastPortalFlowKey !== flowKey) {
+      enemy.tauntedTo = null;
+      enemy.tauntUntil = 0;
+      enemy.aggroTargetId = null;
+      enemy.targetPath = [];
+      enemy.threat = {};
+      enemy.navMode = 'portal';
+      enemy.navCommitUntil = current + 350;
+      enemy.forcePortalUntil = current + 900;
+    }
+    enemy.lastPortalFlowKey = flowKey;
+
     const portalTargets = getPortalTargets();
-    let targets = portalTargets;
     let attackTarget = null;
     let movedThisTick = false;
+    let navMode = 'portal';
+    let navTargets = portalTargets;
+    const forcePortal = enemy.forcePortalUntil && current < enemy.forcePortalUntil;
 
-    const statuePlan = getPreferredStatueTarget(enemy);
+    const statuePlan = !forcePortal ? getPreferredStatueTarget(enemy) : null;
     if (statuePlan?.tower) {
+      navMode = 'statue';
       if (statuePlan.attackNow) {
         attackTarget = statuePlan.tower;
-      } else if (statuePlan.path) {
-        targets = statuePlan.path.slice(-1);
+      } else {
+        navTargets = getTowerApproachTiles(statuePlan.tower);
       }
       enemy.tauntedTo = null;
       enemy.tauntUntil = 0;
       enemy.aggroTargetId = statuePlan.tower.id;
-    } else if (enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+    } else if (!forcePortal && enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+      navMode = 'taunt';
       const tauntTarget = enemy.tauntedTo;
-      const adj = getTowerApproachTiles(tauntTarget);
       if (dist(enemy, tauntTarget) <= 1) {
         attackTarget = tauntTarget;
-      } else if (adj.length) {
-        targets = adj;
+      } else {
+        navTargets = getTowerApproachTiles(tauntTarget);
       }
     } else {
       enemy.tauntedTo = null;
-      const aggroTarget = getEnemyAggroTarget(enemy);
+      const aggroTarget = getEnemyAggroTarget(enemy, current);
       if (aggroTarget) {
-        const adj = getTowerApproachTiles(aggroTarget);
+        navMode = 'aggro';
         if (dist(enemy, aggroTarget) <= 1) {
           attackTarget = aggroTarget;
-        } else if (adj.length) {
-          targets = adj;
+        } else {
+          navTargets = getTowerApproachTiles(aggroTarget);
         }
       }
     }
 
-    if (!attackTarget) {
-      const path = pathfind({ x: enemy.x, y: enemy.y }, targets);
-      if (path && path.length > 1) {
-        enemy.targetPath = path;
-        enemy.attacking = false;
-        if (current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
-          const next = path[1];
-          if (canEnemyEnter(next.x, next.y, enemy)) {
-            enemy.prevX = enemy.x;
-            enemy.prevY = enemy.y;
-            enemy.x = next.x;
-            enemy.y = next.y;
-            enemy.moveStartedAt = current;
-            enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-            enemy.nextMoveAt = enemy.moveEndAt;
-            movedThisTick = true;
-            enemy.stuckAt = 0;
-            markProgress(`${enemy.name} moved.`);
-          } else {
-            enemy.targetPath = [];
-            enemy.nextMoveAt = current + 120;
-          }
+    const committedMode = enemy.navMode || 'portal';
+    const sameMode = committedMode === navMode;
+    if (!sameMode && enemy.navCommitUntil && current < enemy.navCommitUntil && committedMode !== 'portal') {
+      navMode = committedMode;
+      if (committedMode === 'taunt' && enemy.tauntedTo && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+        navTargets = getTowerApproachTiles(enemy.tauntedTo);
+        if (dist(enemy, enemy.tauntedTo) <= 1) attackTarget = enemy.tauntedTo;
+      } else if (committedMode === 'aggro' && enemy.aggroTargetId) {
+        const committedTarget = game.towers.find(t => t.id === enemy.aggroTargetId);
+        if (committedTarget) {
+          navTargets = getTowerApproachTiles(committedTarget);
+          if (dist(enemy, committedTarget) <= 1) attackTarget = committedTarget;
         }
-      } else {
+      }
+    } else {
+      enemy.navMode = navMode;
+      enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : 550);
+    }
+
+    if (!attackTarget && current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+      let nextStep = null;
+      if (navMode === 'portal') {
+        nextStep = getPortalFlowStep(enemy);
+      } else if (navTargets?.length) {
+        const path = pathfind({ x: enemy.x, y: enemy.y }, navTargets, { enemy, avoidBacktrack: true, softCrowd: true });
+        if (path && path.length > 1) {
+          enemy.targetPath = path;
+          nextStep = path[1];
+        }
+      }
+      if (!nextStep && !attackTarget) {
         const warriorPlan = getReachableWarriorPlan(enemy);
         if (warriorPlan?.attackNow) {
           attackTarget = warriorPlan.warrior;
-        } else if (warriorPlan?.path && current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
-          const next = warriorPlan.path[1];
-          if (canEnemyEnter(next.x, next.y, enemy)) {
-            enemy.prevX = enemy.x;
-            enemy.prevY = enemy.y;
-            enemy.x = next.x;
-            enemy.y = next.y;
-            enemy.moveStartedAt = current;
-            enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-            enemy.nextMoveAt = enemy.moveEndAt;
-            movedThisTick = true;
-            enemy.stuckAt = 0;
-            markProgress(`${enemy.name} moved.`);
-          }
+        } else if (!getPortalFlowStep(enemy, { allowReverse: true }) && warriorPlan?.path?.length > 1) {
+          enemy.navMode = 'warrior';
+          enemy.navCommitUntil = current + 350;
+          enemy.targetPath = warriorPlan.path;
+          nextStep = warriorPlan.path[1];
+        }
+      }
+      if (nextStep) {
+        movedThisTick = moveEnemyToStep(enemy, nextStep, current);
+        if (!movedThisTick) {
+          enemy.targetPath = [];
+          enemy.nextMoveAt = current + 120;
         }
       }
     }
@@ -3969,14 +4139,13 @@ function getRandomTree(){
       }
     } else if (!movedThisTick && !enemy.debuffs.rooted) {
       if (!enemy.stuckAt) enemy.stuckAt = current;
-      if (current - enemy.stuckAt >= 1200) {
+      if (current - enemy.stuckAt >= 900) {
         tryResolveEnemyStall(enemy, current);
       }
     } else {
       enemy.stuckAt = 0;
     }
   }
-
   function getEnemySlowPercent(enemy) {
     let total = 0;
     if (enemy.debuffs.slow) total += enemy.debuffs.slow.percent || 0.3;
@@ -4006,7 +4175,9 @@ function getRandomTree(){
       return !tower || (tower.type !== 'warrior' && !isStatueTower(tower));
     }
     const occupants = getEnemyOccupancy(x, y, enemy?.id || null);
-    return occupants < 5 || (enemy.x === x && enemy.y === y);
+    const capacity = getEnemyTileCapacity(enemy, x, y);
+    if (enemy?.x === x && enemy?.y === y) return true;
+    return occupants < capacity;
   }
 
 
@@ -4272,13 +4443,14 @@ function getRandomTree(){
     if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
     enemy.hp -= damage;
     enemy.killedBy = sourceTower.type;
-    const aggroGain = damage * 0.65;
+    const towerCanPullAggro = !!sourceTower && (sourceTower.type === 'warrior' || isStatueTower(sourceTower));
+    const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
     enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + aggroGain;
     enemy.lastAggroAt = now();
     const currentThreat = enemy.aggroTargetId ? (enemy.threat[enemy.aggroTargetId] || 0) : 0;
     const portalBiasDistance = portalDistance(enemy);
     const towerDistance = Math.abs(enemy.x - sourceTower.x) + Math.abs(enemy.y - sourceTower.y);
-    if ((!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 1.35) && towerDistance <= portalBiasDistance + 2) {
+    if (towerCanPullAggro && canEnemyAggroTower(enemy, sourceTower) && (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 2.4) && towerDistance <= portalBiasDistance) {
       enemy.aggroTargetId = sourceTower.id;
     }
     createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
