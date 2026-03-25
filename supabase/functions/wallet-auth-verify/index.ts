@@ -1,5 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { verifyMessage } from 'npm:ethers@6';
+import { Contract, JsonRpcProvider, verifyMessage } from 'npm:ethers@6';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,11 +7,66 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+const DFK_CHAIN_RPC_URL = Deno.env.get('DFK_CHAIN_RPC_URL') || 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
+const DFK_PROFILES_ADDRESS = '0xC4cD8C09D1A90b21Be417be91A81603B03993E81';
+const PROFILES_ABI = [
+  'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
+  'function getProfile(address) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
+  'function getProfileByAddress(address) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
+];
+
+function normalizeAddress(address: string | null | undefined) {
+  return String(address || '').trim().toLowerCase();
+}
+
+function cleanName(value: unknown) {
+  const name = typeof value === 'string' ? value.trim() : '';
+  return name || null;
+}
+
+async function resolveChainDisplayName(address: string) {
+  const provider = new JsonRpcProvider(DFK_CHAIN_RPC_URL, 53935, { staticNetwork: true });
+  const contract = new Contract(DFK_PROFILES_ADDRESS, PROFILES_ABI, provider);
+  const normalized = normalizeAddress(address);
+
+  const attempts = [
+    async () => {
+      const result = await contract.addressToProfile(normalized);
+      const owner = normalizeAddress(result?.owner);
+      const name = cleanName(result?.name);
+      return owner === normalized && name ? name : null;
+    },
+    async () => {
+      const result = await contract.getProfile(normalized);
+      const owner = normalizeAddress(result?.owner);
+      const name = cleanName(result?.name);
+      return owner === normalized && name ? name : null;
+    },
+    async () => {
+      const result = await contract.getProfileByAddress(normalized);
+      const owner = normalizeAddress(result?._owner);
+      const name = cleanName(result?._name);
+      return owner === normalized && name ? name : null;
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const name = await attempt();
+      if (name) return name;
+    } catch (_error) {
+      // continue
+    }
+  }
+  return null;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const { address, message, signature, displayName } = await req.json();
-    const normalized = String(address || '').trim().toLowerCase();
+    const normalized = normalizeAddress(address);
     if (!/^0x[a-f0-9]{40}$/.test(normalized)) return json({ error: 'Valid wallet address required.' }, 400);
     if (!message || !signature) return json({ error: 'Message and signature are required.' }, 400);
     const recovered = verifyMessage(String(message), String(signature)).toLowerCase();
@@ -32,10 +87,18 @@ Deno.serve(async (req) => {
     if (nonceRow.nonce !== nonce) return json({ error: 'Nonce mismatch.' }, 401);
     if (Date.now() >= new Date(nonceRow.expires_at).getTime()) return json({ error: 'Nonce expired.' }, 401);
 
-    const safeDisplayName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 64) : null;
+    const requestedDisplayName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 64) : null;
+    const { data: existingPlayer } = await admin
+      .from('players')
+      .select('display_name')
+      .eq('wallet_address', normalized)
+      .maybeSingle();
+    const chainDisplayName = requestedDisplayName ? null : await resolveChainDisplayName(normalized);
+    const resolvedDisplayName = cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
+
     const { error: playerError } = await admin.from('players').upsert({
       wallet_address: normalized,
-      display_name: safeDisplayName,
+      display_name: resolvedDisplayName,
       last_run_at: null,
     }, { onConflict: 'wallet_address' });
     if (playerError) throw playerError;
@@ -51,7 +114,7 @@ Deno.serve(async (req) => {
       .single();
     if (sessionError || !sessionRow) throw sessionError || new Error('Session creation failed.');
 
-    return json({ sessionToken: sessionRow.session_token, expiresAt: sessionRow.expires_at }, 200);
+    return json({ sessionToken: sessionRow.session_token, expiresAt: sessionRow.expires_at, displayName: resolvedDisplayName }, 200);
   } catch (error) {
     return json({ error: error.message || 'Verification failed.' }, 500);
   }

@@ -11,6 +11,25 @@
     sessionHours: Number(window.DFK_SUPABASE_SESSION_HOURS || 168),
   });
 
+  const SESSION_TOKEN_STORAGE_KEY = 'dfk_wallet_session_token';
+
+  function persistSessionToken(token) {
+    if (!token) return;
+    try { sessionStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token); } catch (_error) {}
+    try { localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token); } catch (_error) {}
+  }
+
+  function getPersistedSessionToken() {
+    try {
+      return sessionStorage.getItem(SESSION_TOKEN_STORAGE_KEY)
+        || localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)
+        || null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+
   const state = {
     client: null,
     address: null,
@@ -217,6 +236,13 @@
           displayName: wallet.profileName || null,
           walletProvider: wallet.providerInfo && wallet.providerInfo.name ? wallet.providerInfo.name : null,
         });
+        if (verifyPayload && verifyPayload.displayName) {
+          state.profileName = String(verifyPayload.displayName);
+        }
+        if (verifyPayload && verifyPayload.sessionToken) {
+          state.sessionToken = String(verifyPayload.sessionToken);
+          persistSessionToken(state.sessionToken);
+        }
       } catch (error) {
         const errorMessage = String(error && error.message ? error.message : '');
         if (/nonce (?:already used|mismatch|expired)|nonce not found/i.test(errorMessage)) {

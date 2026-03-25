@@ -35,9 +35,10 @@ function getRandomTree(){
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
   const ARCHER_BASE_HP_MULTIPLIER = 0.9;
   const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.027075;
+  const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.05;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
-  const SATELLITE_DISSIPATE_AFTER_WAVES = 10;
+  const SATELLITE_DISSIPATE_AFTER_WAVES = 12;
   const SATELLITE_FADE_STAGE_ONE_WAVES = 3;
   const SATELLITE_FADE_STAGE_TWO_WAVES = 7;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
@@ -69,7 +70,7 @@ function getRandomTree(){
       name: 'Archer',
       letter: 'ARC',
       hp: 242 * ARCHER_BASE_HP_MULTIPLIER,
-      damage: 21,
+      damage: 16,
       attackInterval: ARCHER_BASE_ATTACK_INTERVAL,
       range: 4,
       autoAttack: true,
@@ -84,7 +85,7 @@ function getRandomTree(){
       name: 'Wizard',
       letter: 'WIZ',
       hp: 286,
-      damage: 30,
+      damage: 25,
       attackInterval: 1.425,
       range: 3,
       autoAttack: true,
@@ -104,9 +105,9 @@ function getRandomTree(){
       range: 3,
       autoAttack: false,
       abilities: [
-        { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 4 },
+        { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 6 },
         { key: 'slow_totem', name: 'Slow Totem', cooldown: 60, manualOnly: true },
-        { key: 'swiftness', name: 'Swiftness', cooldown: 10 },
+        { key: 'swiftness', name: 'Swiftness', cooldown: 30 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
       passive: 'Passive: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
@@ -116,7 +117,7 @@ function getRandomTree(){
       letter: 'PIR',
       hp: 308,
       damage: 35.28,
-      attackInterval: 1.2,
+      attackInterval: 1.45,
       range: 3,
       autoAttack: true,
       abilities: [
@@ -475,7 +476,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V16',
+      gameVersion: 'V31',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1224,6 +1225,13 @@ function getRandomTree(){
     const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2);
     const speedSteps = Math.floor((tierLevel - 1) / 2);
     return Math.pow(1 + ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
+  }
+
+  function getPirateCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2);
+    const speedSteps = Math.floor((tierLevel - 1) / 2);
+    return Math.pow(1 + PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
   }
 
   function getBaseTowerStatsForLevel(type, level) {
@@ -2540,7 +2548,7 @@ function getRandomTree(){
       hp: template.hp,
       damage: template.damage,
       range: template.range,
-      basicCooldown: baseAttackInterval * 1000,
+      basicCooldown: (type === 'pirate' ? ((TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(level)) : (baseAttackInterval * 1000)),
       attackCooldownMs: 0,
       basicAttackCount: 0,
       moveReadyAt: now(),
@@ -2729,6 +2737,12 @@ function getRandomTree(){
     tower.level = nextLevel;
     if (tower.type === 'archer') {
       normalizeArcherStats(tower, true);
+    } else if (tower.type === 'pirate') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= 1.05;
+      tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     } else {
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= 1.065;
@@ -3325,10 +3339,10 @@ function getRandomTree(){
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    const enemies = [{ bossId: boss.id, lane, delayMs: 1000 }];
+    const enemies = [{ bossId: boss.id, lane, delayMs: 100 }];
     const skitterCount = Math.max(6, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * 1.5));
     for (let i = 0; i < skitterCount; i += 1) {
-      enemies.push({ type: 'skitter', lane: pickRandom(LANE_NAMES), delayMs: 150 + (i * 60), bossWaveSkitter: true });
+      enemies.push({ type: 'skitter', lane, delayMs: 500 + (i * 120), bossWaveSkitter: true });
     }
     return enemies;
   }
@@ -3430,7 +3444,7 @@ function getRandomTree(){
     enemy.damage *= getWaveDamageMultiplier(game.waveNumber || 0);
     if (enemy.type === 'skitter' && plan.bossWaveSkitter) {
       enemy.isBossWaveSkitter = true;
-      enemy.moveInterval /= 0.75;
+      enemy.moveInterval *= 3;
     }
     if (enemy.typeClass === 'runner') {
       enemy.moveInterval /= getRunnerSpeedMultiplier(game.waveNumber || 0);
@@ -3442,6 +3456,9 @@ function getRandomTree(){
       enemy.spawnMaxHp = enemy.maxHp;
     }
     enemy.moveInterval /= getEarlyWaveSpeedMultiplier(game.waveNumber || 0);
+    if (enemy.isBoss) {
+      enemy.moveInterval /= 1.25;
+    }
     if (enemy.isBoss || enemy.typeClass === 'brute') {
       enemy.moveInterval /= getLargeEnemySpeedMultiplier(game.waveNumber || 0);
     }
@@ -4636,7 +4653,7 @@ function getRandomTree(){
         return true;
       },
       swiftness() {
-        const allies = game.towers.filter(t => dist(t, tower) <= 3);
+        const allies = game.towers.filter(t => dist(t, tower) <= 2);
         const hotHeal = 5 + Math.floor(tower.level / 5);
         allies.forEach(a => {
           applyBuff(a, 'swiftness', 30, { bonus: 0.25 * powerMult, hotHeal, nextTickAt: now() + 1000 });

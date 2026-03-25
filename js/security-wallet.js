@@ -8,11 +8,13 @@
     rpcUrls: ['https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc'],
     blockExplorerUrls: ['https://subnets.avax.network/defi-kingdoms/'],
     nativeCurrency: { name: 'JEWEL', symbol: 'JEWEL', decimals: 18 },
+    supabaseUrl: window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '',
+    supabaseAnonKey: window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '',
+    resolveProfileFunction: window.DFK_SUPABASE_RESOLVE_PROFILE_FUNCTION || 'resolve-profile-name',
   });
 
   const CONTRACTS = Object.freeze({
     dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
-    profileSelector: '0x0e7b29bf',
   });
 
   const state = {
@@ -78,96 +80,33 @@
     return parsed == null ? null : { balance: parsed };
   }
 
-  function stripHexPrefix(value) {
-    return String(value || '').replace(/^0x/i, '');
-  }
-
-  function encodeAddressArg(address) {
-    const normalized = stripHexPrefix(normalizeAddress(address));
-    if (!/^[0-9a-f]{40}$/.test(normalized)) return null;
-    return `0x${'0'.repeat(24)}${normalized}`;
-  }
-
-  function readAbiString(hex, offsetBytes) {
-    const clean = stripHexPrefix(hex);
-    const start = offsetBytes * 2;
-    const lengthHex = clean.slice(start, start + 64);
-    if (!lengthHex) return '';
-    const byteLength = Number.parseInt(lengthHex, 16);
-    if (!Number.isFinite(byteLength) || byteLength < 0) return '';
-    const dataStart = start + 64;
-    const dataHex = clean.slice(dataStart, dataStart + (byteLength * 2));
-    if (!dataHex) return '';
+  async function resolveProfileNameViaFunction(address) {
+    if (!address || !CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return null;
     try {
-      const parts = dataHex.match(/.{1,2}/g) || [];
-      return new TextDecoder().decode(Uint8Array.from(parts.map((part) => Number.parseInt(part, 16)))).replace(/\0+$/g, '').trim();
-    } catch (error) {
-      return '';
-    }
-  }
-
-  function decodeAddressToProfileName(hex) {
-    const clean = stripHexPrefix(hex);
-    if (clean.length < 64 * 6) return '';
-    const nameOffset = Number.parseInt(clean.slice(64, 128), 16);
-    if (!Number.isFinite(nameOffset) || nameOffset < 0) return '';
-    return readAbiString(clean, nameOffset);
-  }
-
-  async function fetchProfileNameFromChain(address) {
-    if (!state.selectedProvider || !address) return null;
-    const encodedAddress = encodeAddressArg(address);
-    if (!encodedAddress) return null;
-    try {
-      const result = await request(state.selectedProvider, 'eth_call', [{
-        to: CONTRACTS.dfkProfiles,
-        data: `${CONTRACTS.profileSelector}${encodedAddress.slice(2)}`,
-      }, 'latest']);
-      const name = decodeAddressToProfileName(result);
+      const response = await fetch(`${CONFIG.supabaseUrl}/functions/v1/${CONFIG.resolveProfileFunction}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: CONFIG.supabaseAnonKey,
+        },
+        body: JSON.stringify({ address }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) return null;
+      const name = payload && payload.name ? String(payload.name).trim() : '';
       return name || null;
     } catch (error) {
       return null;
     }
   }
 
+  async function fetchProfileNameFromChain(address) {
+    return resolveProfileNameViaFunction(address);
+  }
+
   async function fetchProfileName(address) {
     if (!address) return null;
-    const candidates = Array.from(new Set([
-      String(address).trim(),
-      normalizeAddress(address),
-      String(address).trim().toUpperCase(),
-    ].filter(Boolean)));
-
-    for (const candidate of candidates) {
-      try {
-        const response = await fetch('https://api.defikingdoms.com/graphql', {
-          method: 'POST',
-          cache: 'no-store',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: 'query ProfileByAddress($id: ID!, $owner: String!) { profile(id: $id) { name } profiles(where: { owner: $owner }, first: 1) { name } ownerMatch: profiles(where: { id: $owner }, first: 1) { name } }',
-            variables: { id: candidate, owner: candidate },
-          }),
-        });
-        if (!response.ok) continue;
-        const payload = await response.json();
-        const directName = payload && payload.data && payload.data.profile && payload.data.profile.name
-          ? String(payload.data.profile.name).trim()
-          : '';
-        if (directName) return directName;
-        const listName = payload && payload.data && Array.isArray(payload.data.profiles) && payload.data.profiles[0] && payload.data.profiles[0].name
-          ? String(payload.data.profiles[0].name).trim()
-          : '';
-        if (listName) return listName;
-        const ownerMatch = payload && payload.data && Array.isArray(payload.data.ownerMatch) && payload.data.ownerMatch[0] && payload.data.ownerMatch[0].name
-          ? String(payload.data.ownerMatch[0].name).trim()
-          : '';
-        if (ownerMatch) return ownerMatch;
-      } catch (error) {
-        // Try the next variant.
-      }
-    }
-    return fetchProfileNameFromChain(address);
+    return await fetchProfileNameFromChain(address);
   }
 
   async function refreshWalletDetails() {
