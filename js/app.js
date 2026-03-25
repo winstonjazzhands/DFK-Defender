@@ -55,7 +55,7 @@ function getRandomTree(){
       name: 'Warrior',
       letter: 'WAR',
       hp: 990,
-      damage: 41.5,
+      damage: 51.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
@@ -93,7 +93,7 @@ function getRandomTree(){
       abilities: [
         { key: 'firebolt', name: 'Firebolt', cooldown: 5 },
         { key: 'frost_bolt', name: 'Ice Aura', cooldown: 0, passive: true },
-        { key: 'fireball', name: 'Fireball', cooldown: 12 },
+        { key: 'fireball', name: 'Fireball', cooldown: 9 },
         { key: 'frost_lance', name: 'Frost Lance', cooldown: 9 },
       ],
     },
@@ -117,7 +117,7 @@ function getRandomTree(){
       name: 'Pirate',
       letter: 'PIR',
       hp: 308,
-      damage: 35.28,
+      damage: 40.28,
       attackInterval: 1.45,
       range: 3,
       autoAttack: true,
@@ -131,9 +131,9 @@ function getRandomTree(){
   };
 
   const ENEMY_TEMPLATES = {
-    grunt: { name: 'Grunt', hp: 150, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 4.5, typeClass: 'grunt' },
-    runner: { name: 'Runner', hp: 100, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 3.75, typeClass: 'runner' },
-    brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 20, typeClass: 'brute' },
+    grunt: { name: 'Grunt', hp: 150, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 5.5, typeClass: 'grunt' },
+    runner: { name: 'Runner', hp: 100, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 4.75, typeClass: 'runner' },
+    brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 19, typeClass: 'brute' },
     skitter: { name: 'Skitter', hp: 24, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
 
@@ -477,7 +477,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V34',
+      gameVersion: 'V35',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -3191,8 +3191,7 @@ function getRandomTree(){
   function getEnemyTileCapacity(enemy, x, y) {
     const tile = tileAt(x, y);
     if (!tile || tile.portal || tile.obstacle) return 0;
-    if (enemy?.type === 'skitter') return 20;
-    if (enemy?.isBoss) return 2;
+    if (enemy?.type === 'skitter' || enemy?.isBoss) return 9999;
     return 5;
   }
 
@@ -3403,7 +3402,8 @@ function getRandomTree(){
   }
 
   function getWaveDamageMultiplier(waveNumber) {
-    return waveNumber > 20 ? 1.15 : 1;
+    const base = waveNumber > 20 ? 1.15 : 1;
+    return (waveNumber || 0) <= 10 ? base * 0.9 : base;
   }
 
   function getWaveEnemyCountMultiplier(waveNumber) {
@@ -4591,8 +4591,13 @@ function getRandomTree(){
         return false;
       },
       whirlwind() {
-        const targets = game.enemies.filter(e => dist(e, tower) <= 1);
-        const tiles = adjacentTiles(tower.x, tower.y).concat([{x:tower.x,y:tower.y}]);
+        const targets = game.enemies.filter(e => dist(e, tower) <= 2);
+        const tiles = [];
+        for (let xx = tower.x - 2; xx <= tower.x + 2; xx++) {
+          for (let yy = tower.y - 2; yy <= tower.y + 2; yy++) {
+            if (inBounds(xx, yy) && Math.abs(xx - tower.x) + Math.abs(yy - tower.y) <= 2) tiles.push({ x: xx, y: yy });
+          }
+        }
         createTileFlashArea(tiles, 'warrior');
         if (!targets.length) return false;
         targets.forEach(e => damageEnemy(tower, e, 60 * powerMult, null));
