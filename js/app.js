@@ -387,7 +387,6 @@ function getRandomTree(){
     ownedRelics: [],
     attackLines: [],
     slowTotems: [],
-    tileBursts: [],
     modifiers: {
       wizardSpellDamage: 1,
       wizardCooldown: 1,
@@ -706,7 +705,6 @@ function getRandomTree(){
     game.ownedRelics = [];
     game.attackLines = [];
     game.slowTotems = [];
-    game.tileBursts = [];
     game.infoPopupPinned = false;
     game.infoPopupHover = false;
     if (game.infoPopupHideTimer) { clearTimeout(game.infoPopupHideTimer); game.infoPopupHideTimer = null; }
@@ -1395,22 +1393,9 @@ function getRandomTree(){
     }
   }
 
-  function addTileBurst(x, y, kind = 'ethereal') {
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    if (!Array.isArray(game.tileBursts)) game.tileBursts = [];
-    game.tileBursts.push({
-      id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      x,
-      y,
-      kind,
-      until: now() + 760,
-    });
-  }
-
   function dissipateExpiredSatelliteArchers() {
     const expiredSatellites = game.towers.filter(t => t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
     for (const satellite of expiredSatellites) {
-      addTileBurst(satellite.x, satellite.y, 'ethereal');
       removeTower(satellite, `${satellite.name} dissipated after 10 cleared waves.`);
     }
     if (expiredSatellites.length) {
@@ -1464,13 +1449,8 @@ function getRandomTree(){
 
       if (tower) {
         const small = document.createElement('div');
-        small.className = `tile-small ${tower.isSatellite && tower.type === 'archer' ? 'tile-small-ethereal' : ''}`;
-        small.textContent = tower.isSatellite && tower.type === 'archer'
-          ? `${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))}`
-          : `${tower.level}`;
-        small.title = tower.isSatellite && tower.type === 'archer'
-          ? `${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))} wave${Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower)) === 1 ? '' : 's'} left before dissipating`
-          : `Level ${tower.level}`;
+        small.className = 'tile-small';
+        small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
 
         const portrait = document.createElement('img');
@@ -1590,21 +1570,6 @@ function getRandomTree(){
           txt.textContent = tile.hitFlash.text;
           tile.el.appendChild(txt);
         }
-      }
-
-      const activeBursts = (game.tileBursts || []).filter(burst => burst.until > now() && burst.x === tile.x && burst.y === tile.y);
-      for (const burst of activeBursts) {
-        const fx = document.createElement('div');
-        fx.className = `tile-burst tile-burst-${burst.kind}`;
-        for (let i = 0; i < 5; i += 1) {
-          const puff = document.createElement('span');
-          puff.className = 'tile-burst-puff';
-          puff.style.setProperty('--puff-x', `${[-16, -7, 0, 8, 16][i]}px`);
-          puff.style.setProperty('--puff-y', `${[-8, -14, -18, -12, -6][i]}px`);
-          puff.style.setProperty('--puff-delay', `${i * 45}ms`);
-          fx.appendChild(puff);
-        }
-        tile.el.appendChild(fx);
       }
 
       if (enemiesHere.length) {
@@ -2738,8 +2703,11 @@ function getRandomTree(){
     else if (nextLevel <= 15) base = 4;
     else if (nextLevel <= 20) base = 8;
     if (nextLevel > 10) base *= 1.5;
+
+    const levelProgress = Math.max(0, Math.min((nextLevel - 2) / 38, 1));
+    const curvedMarkup = 1.05 + (0.10 * Math.pow(levelProgress, 1.35));
     const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
-    return Math.round(base * UPGRADE_COST_MULTIPLIER * satelliteMult * 10) / 10;
+    return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * 10) / 10;
   }
 
   function upgradeTower(tower) {
@@ -4698,7 +4666,6 @@ function getRandomTree(){
     game.virtualNow += realDelta * game.timeScale;
     try {
       update();
-      game.tileBursts = (game.tileBursts || []).filter(burst => burst.until > now());
       // Keep the battlefield/top bar live without rebuilding the control panel every frame.
       // Rebuilding buttons on every animation frame can interrupt click events before they fire.
       renderGrid();
