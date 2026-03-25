@@ -90,11 +90,11 @@ Deno.serve(async (req) => {
     const requestedDisplayName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 64) : null;
     const { data: existingPlayer } = await admin
       .from('players')
-      .select('display_name')
+      .select('display_name, vanity_name')
       .eq('wallet_address', normalized)
       .maybeSingle();
     const chainDisplayName = requestedDisplayName ? null : await resolveChainDisplayName(normalized);
-    const resolvedDisplayName = cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
+    const resolvedDisplayName = cleanName(existingPlayer?.vanity_name) || cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
 
     const { error: playerError } = await admin.from('players').upsert({
       wallet_address: normalized,

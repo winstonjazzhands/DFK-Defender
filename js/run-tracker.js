@@ -34,6 +34,7 @@
     client: null,
     address: null,
     profileName: null,
+    vanityName: null,
     status: 'Run Tracking: Not configured',
     statusClass: 'warn',
     summary: 'Tracked Runs: -- · Best Wave: --',
@@ -66,6 +67,14 @@
     if (ui.enableBtn) {
       ui.enableBtn.disabled = !state.address || !state.client;
       ui.enableBtn.textContent = state.session ? 'Disable Run Tracking' : 'Enable Run Tracking';
+    }
+    if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
+    if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
+    if (ui.saveVanityBtn) ui.saveVanityBtn.disabled = !state.session || !state.client || !state.address;
+    if (ui.vanitySection) {
+      const showVanity = !!state.address;
+      ui.vanitySection.classList.toggle('hidden', !showVanity);
+      ui.vanitySection.setAttribute('aria-hidden', showVanity ? 'false' : 'true');
     }
   }
 
@@ -293,7 +302,7 @@
     const address = normalizeAddress(state.address);
     const { data, error } = await state.client
       .from('players')
-      .select('wallet_address,display_name,best_wave,total_runs,last_run_at')
+      .select('wallet_address,display_name,vanity_name,best_wave,total_runs,last_run_at')
       .eq('wallet_address', address)
       .maybeSingle();
     if (error) {
@@ -306,6 +315,7 @@
       render();
       return null;
     }
+    state.vanityName = data.vanity_name || null;
     const runs = Number(data.total_runs || 0);
     const bestWave = Number(data.best_wave || 0);
     state.summary = `Tracked Runs: ${runs} · Best Wave: ${bestWave}`;
@@ -394,10 +404,44 @@
     await refreshSummary();
   }
 
+  async function saveVanityName() {
+    if (!state.client || !state.session || !state.address) {
+      applyStatus('Run Tracking: Enable tracking first', 'warn');
+      return;
+    }
+    const raw = ui.vanityInput ? String(ui.vanityInput.value || '').trim() : '';
+    const vanityName = raw ? raw.slice(0, 32) : null;
+    if (vanityName && !/^[a-zA-Z0-9 _\-]{2,32}$/.test(vanityName)) {
+      applyStatus('Run Tracking: Vanity name must be 2-32 letters, numbers, spaces, - or _', 'bad');
+      return;
+    }
+    if (ui.saveVanityBtn) ui.saveVanityBtn.disabled = true;
+    try {
+      const result = await callFunction('set-vanity-name', { vanityName }, state.session.sessionToken);
+      state.vanityName = result && Object.prototype.hasOwnProperty.call(result, 'vanityName') ? (result.vanityName || null) : vanityName;
+      await refreshSummary();
+      applyStatus(vanityName ? 'Run Tracking: Vanity name saved' : 'Run Tracking: Vanity name cleared', 'good');
+      if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.setVanityName === 'function') {
+        window.DFKDefenseWallet.setVanityName(vanityName);
+      }
+    } finally {
+      render();
+    }
+  }
+
   function bindUi() {
     ui.status = qs('walletTrackingStatus');
     ui.summary = qs('walletTrackingSummary');
     ui.enableBtn = qs('enableTrackingBtn');
+    ui.vanitySection = qs('walletVanitySection');
+    ui.vanityInput = qs('walletVanityInput');
+    ui.vanityStatus = qs('walletVanityStatus');
+    ui.saveVanityBtn = qs('saveVanityBtn');
+    if (ui.saveVanityBtn) {
+      ui.saveVanityBtn.addEventListener('click', () => {
+        saveVanityName().catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
+      });
+    }
     if (ui.enableBtn) {
       ui.enableBtn.addEventListener('click', async () => {
         if (state.session) {

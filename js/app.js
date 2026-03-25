@@ -37,9 +37,27 @@ function getRandomTree(){
   const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.027075;
   const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
+  const REDUCED_DAMAGE_GROWTH_FACTOR = 0.85;
+  const PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
+  const ICE_AURA_BASE_SLOW = 0.12;
+  const ICE_AURA_SLOW_PER_LEVEL = 0.004;
+  const ICE_AURA_BASE_RANGE = 3;
+  const ICE_AURA_BONUS_RANGE_AT_LEVEL_15 = 1;
+  const SLOW_TOTEM_RANGE = 2;
+  const SLOW_TOTEM_PERCENT = 0.35;
+  const STARBOARD_CANNONS_BASE_DAMAGE = 40;
+  const KRAKEN_BASE_DAMAGE = 20;
+  const MULTI_SHOT_BASE_DAMAGE_BONUS = 2;
+  const BIG_ENEMY_HP_MULTIPLIER = 1.25;
+  const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
+  const ENEMY_TILE_LIMIT = 7;
+  const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 37.5;
+  const EXPLODING_STATUE_RADIUS = 2;
+  const EXPLODING_STATUE_DAMAGE_PERCENT = 0.20;
+  const EXPLODING_STATUE_ANIMATION_MS = 3000;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
-  const SATELLITE_DISSIPATE_AFTER_WAVES = 12;
+  const SATELLITE_DISSIPATE_AFTER_WAVES = 9;
   const SATELLITE_FADE_STAGE_ONE_WAVES = 3;
   const SATELLITE_FADE_STAGE_TWO_WAVES = 7;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
@@ -108,7 +126,7 @@ function getRandomTree(){
       abilities: [
         { key: 'prayer_of_healing', name: 'Prayer of Healing', cooldown: 6 },
         { key: 'slow_totem', name: 'Slow Totem', cooldown: 60, manualOnly: true },
-        { key: 'swiftness', name: 'Swiftness', cooldown: 30 },
+        { key: 'swiftness', name: 'Swiftness', cooldown: 40 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
       passive: 'Passive: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
@@ -155,10 +173,13 @@ function getRandomTree(){
           const tower = game.towers.find(t => t.x === tile.x && t.y === tile.y);
           const activeTotem = getActiveSlowTotems().find(t => t.x === tile.x && t.y === tile.y);
       if (activeTotem) {
-        const totemBadge = document.createElement('div');
-        totemBadge.className = 'slow-totem-badge';
-        totemBadge.textContent = 'TOTEM';
-        tile.el.appendChild(totemBadge);
+        const boardTile = tileAt(tile.x, tile.y);
+        if (boardTile && boardTile.el) {
+          const totemBadge = document.createElement('div');
+          totemBadge.className = 'slow-totem-badge';
+          totemBadge.textContent = 'TOTEM';
+          boardTile.el.appendChild(totemBadge);
+        }
       }
 
       if (tower) {
@@ -237,6 +258,7 @@ function getRandomTree(){
     { id: 'shield_wall', name: 'Shield Wall', desc: 'Warrior takes 10% less damage if Priest is adjacent', cost: 150, apply: game => game.modifiers.shieldWall = true },
     { id: 'ranger_line', name: 'Ranger Line', desc: 'Archers behind Warrior deal +10% damage', cost: 140, apply: game => game.modifiers.rangerLine = true },
     { id: 'sense_weakness', name: 'Sense Weakness', desc: 'Archer auto-attacks prioritize slowed or debuffed enemies', cost: 135, apply: game => game.modifiers.senseWeakness = true },
+    { id: 'exploding_statue', name: 'Exploding Statue', desc: "Statues explode on death, damaging all enemies within 2 tiles for 20% of the Statue's max HP", cost: 145, apply: game => game.modifiers.explodingStatue = true },
   ];
 
   const MUTATIONS = [
@@ -388,6 +410,7 @@ function getRandomTree(){
     relicChoices: [],
     ownedRelics: [],
     attackLines: [],
+    explosionEffects: [],
     slowTotems: [],
     modifiers: {
       wizardSpellDamage: 1,
@@ -400,6 +423,7 @@ function getRandomTree(){
       shieldWall: false,
       rangerLine: false,
       senseWeakness: false,
+      explodingStatue: false,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -477,7 +501,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V35',
+      gameVersion: 'V39',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -706,6 +730,7 @@ function getRandomTree(){
     game.relicChoices = [];
     game.ownedRelics = [];
     game.attackLines = [];
+    game.explosionEffects = [];
     game.slowTotems = [];
     game.infoPopupPinned = false;
     game.infoPopupHover = false;
@@ -722,6 +747,7 @@ function getRandomTree(){
       shieldWall: false,
       rangerLine: false,
       senseWeakness: false,
+      explodingStatue: false,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -1051,7 +1077,7 @@ function getRandomTree(){
         <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
         <ul>
           <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
-          <li><span class="intro-highlight">Statue</span> — Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field damaged. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at half of that total.</li>
+          <li><span class="intro-highlight">Statue</span> — Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at 100% of that total.</li>
           <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
           <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
         </ul>
@@ -1078,7 +1104,7 @@ function getRandomTree(){
           <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
           <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
           <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 10 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely. After that, you must clear 10 more waves before summoning the next one.</li>
+          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.</li>
         </ul>
         <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
       `,
@@ -1209,7 +1235,8 @@ function getRandomTree(){
   function getArcherDamageStepMultiplier(nextLevel) {
     if (nextLevel <= 1) return 1;
     const reductionSteps = Math.floor((nextLevel - 2) / 3);
-    return Math.max(1.05, 1.15 - (reductionSteps * 0.02));
+    const baseIncrease = Math.max(0.05, 0.15 - (reductionSteps * 0.02));
+    return 1 + (baseIncrease * REDUCED_DAMAGE_GROWTH_FACTOR);
   }
 
   function getArcherDamageMultiplierForLevel(level) {
@@ -1250,7 +1277,7 @@ function getRandomTree(){
       : Math.pow(1.15, safeLevel - 1);
     const damageMultiplier = type === 'archer'
       ? getArcherDamageMultiplierForLevel(safeLevel)
-      : hpMultiplier;
+      : ((type === 'pirate' || type === 'wizard') ? Math.pow(PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL, safeLevel - 1) : hpMultiplier);
     return {
       hp: template.hp * hpMultiplier,
       damage: template.damage * damageMultiplier,
@@ -1412,7 +1439,7 @@ function getRandomTree(){
   function dissipateExpiredSatelliteArchers() {
     const expiredSatellites = game.towers.filter(t => t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
     for (const satellite of expiredSatellites) {
-      removeTower(satellite, `${satellite.name} dissipated after 10 cleared waves.`);
+      removeTower(satellite, `${satellite.name} dissipated after 9 cleared waves.`);
     }
     if (expiredSatellites.length) {
       showBanner(`Eagle Nest: ${expiredSatellites.length} Satellite Archer${expiredSatellites.length === 1 ? '' : 's'} dissipated.`, 2600);
@@ -1468,6 +1495,15 @@ function getRandomTree(){
         small.className = 'tile-small';
         small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
+
+        if (tower.isSatellite && tower.type === 'archer') {
+          const wavesLeftBadge = document.createElement('div');
+          wavesLeftBadge.className = 'tile-small tile-small-right';
+          const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
+          wavesLeftBadge.textContent = `${wavesLeft}`;
+          wavesLeftBadge.title = `${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
+          tile.el.appendChild(wavesLeftBadge);
+        }
 
         const portrait = document.createElement('img');
         portrait.className = 'tile-hero-portrait';
@@ -2692,26 +2728,26 @@ function getRandomTree(){
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field damaged. Its maximum health equals double the Warrior's current health when summoned, and it begins at half of that total.${scale}`,
+      new_blood: `Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 20% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 10 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 10 cleared waves they dissipate completely. After that, you must clear 10 more waves before summoning the next one.`,
+      eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
-      frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by 0.5% per Wizard level, starting at 15%. Range is 4, and at level 15 it expands to 5 tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
+      frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at 120 HP on level 1.${common}${scale}`,
-      slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within 2 tiles are slowed by 35%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
+      slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within ${SLOW_TOTEM_RANGE} tiles are slowed by ${(SLOW_TOTEM_PERCENT * 100).toFixed(0)}%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, the Priest casts 1% faster per level.<br><strong>Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}% faster casting</strong><br>This caps at 50% faster casting speed.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
       starboard_cannons: `Fires ${5 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
-      kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(30 * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
+      kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
     };
     if (tower.type === 'pirate') {
       map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
@@ -2750,13 +2786,13 @@ function getRandomTree(){
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= 1.065;
       tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= 1.05;
+      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     } else if (tower.type === 'wizard') {
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= 1.065;
       tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= 1.05;
+      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     } else {
       const hpRatio = tower.hp / tower.maxHp;
@@ -2918,7 +2954,7 @@ function getRandomTree(){
       if (sourceTower.type === 'warrior') {
         const statueHp = Math.max(1, Math.round(sourceTower.hp * 2));
         tower.maxHp = statueHp;
-        tower.hp = Math.max(1, Math.round(statueHp * 0.5));
+        tower.hp = statueHp;
         tower.damage = 0;
         tower.range = 0;
         tower.basicCooldown = 0;
@@ -3191,8 +3227,8 @@ function getRandomTree(){
   function getEnemyTileCapacity(enemy, x, y) {
     const tile = tileAt(x, y);
     if (!tile || tile.portal || tile.obstacle) return 0;
-    if (enemy?.type === 'skitter' || enemy?.isBoss) return 9999;
-    return 5;
+    if (enemy?.isBoss) return 9999;
+    return ENEMY_TILE_LIMIT;
   }
 
   function getEnemyOccupancyPenalty(enemy, x, y, isTarget = false) {
@@ -3465,17 +3501,17 @@ function getRandomTree(){
       enemy.moveInterval /= getRunnerSpeedMultiplier(game.waveNumber || 0);
     }
     if (enemy.typeClass === 'brute') {
-      const bruteHpMultiplier = getBruteHpMultiplier(game.waveNumber || 0);
+      const bruteHpMultiplier = getBruteHpMultiplier(game.waveNumber || 0) * BIG_ENEMY_HP_MULTIPLIER;
       enemy.hp *= bruteHpMultiplier;
       enemy.maxHp *= bruteHpMultiplier;
       enemy.spawnMaxHp = enemy.maxHp;
     }
     enemy.moveInterval /= getEarlyWaveSpeedMultiplier(game.waveNumber || 0);
     if (enemy.isBoss) {
-      enemy.moveInterval /= 1.25;
+      enemy.moveInterval /= (1.25 * BIG_ENEMY_SPEED_MULTIPLIER);
     }
     if (enemy.isBoss || enemy.typeClass === 'brute') {
-      enemy.moveInterval /= getLargeEnemySpeedMultiplier(game.waveNumber || 0);
+      enemy.moveInterval /= (getLargeEnemySpeedMultiplier(game.waveNumber || 0) * BIG_ENEMY_SPEED_MULTIPLIER);
     }
 
         game.enemies.push(enemy);
@@ -3544,8 +3580,8 @@ function getRandomTree(){
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber),
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber),
+      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
       damage: boss.damage * getEarlyWaveStatMultiplier(game.waveNumber),
       moveInterval: boss.moveInterval,
       attackInterval: boss.attackInterval,
@@ -3718,7 +3754,7 @@ function getRandomTree(){
         log(`Statue triggered after wave ${game.waveNumber}: +1 charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 10 === 0) {
+    if (game.waveNumber > 0 && game.waveNumber % 12 === 0) {
       const unlockedArchers = game.towers.filter(t => t.type === 'archer' && !t.isSatellite && isAbilityUnlocked(t, 'eagle_nest'));
       for (const archer of unlockedArchers) {
         archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
@@ -3830,8 +3866,8 @@ function getRandomTree(){
     if (tower.type === 'wizard' && isAbilityUnlocked(tower, 'frost_bolt')) {
       const tickAt = tower.iceAuraTickAt || 0;
       if (current >= tickAt) {
-        const iceRange = tower.level >= 15 ? 5 : 4;
-        const icePercent = 0.15 + ((tower.level - 1) * 0.005);
+        const iceRange = ICE_AURA_BASE_RANGE + (tower.level >= 15 ? ICE_AURA_BONUS_RANGE_AT_LEVEL_15 : 0);
+        const icePercent = ICE_AURA_BASE_SLOW + ((tower.level - 1) * ICE_AURA_SLOW_PER_LEVEL);
         const targets = game.enemies
           .filter(e => dist(e, tower) <= iceRange)
           .sort((a, b) => dist(tower, a) - dist(tower, b))
@@ -4158,7 +4194,7 @@ function getRandomTree(){
           markProgress(`${enemy.name} hit the portal.`);
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
         } else if (enemy.type === 'skitter') {
-          const splashDamage = ENEMY_TEMPLATES.skitter.damage * 7.5 * getWaveDamageMultiplier(game.waveNumber || 0);
+          const splashDamage = ENEMY_TEMPLATES.skitter.damage * SKITTER_EXPLOSION_DAMAGE_MULTIPLIER * getWaveDamageMultiplier(game.waveNumber || 0);
           damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`);
           enemy.hp = 0;
           markProgress(`${enemy.name} exploded on ${attackTarget.name}.`);
@@ -4278,6 +4314,37 @@ function getRandomTree(){
     }
   }
 
+  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS) {
+    if (!inBounds(x, y)) return;
+    if (!game.explosionEffects) game.explosionEffects = [];
+    game.explosionEffects.push({
+      id: `explosion-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      x,
+      y,
+      colorKey,
+      radiusTiles,
+      startedAt: now(),
+      until: now() + durationMs,
+      durationMs,
+    });
+  }
+
+  function triggerExplodingStatue(tower) {
+    if (!tower || !isStatueTower(tower) || !game.modifiers.explodingStatue) return;
+    const damage = Math.max(1, Math.round((tower.maxHp || tower.hp || 0) * EXPLODING_STATUE_DAMAGE_PERCENT));
+    const targets = game.enemies.filter(enemy => dist(enemy, tower) <= EXPLODING_STATUE_RADIUS);
+    createExplosionEffect(tower.x, tower.y, 'warrior', EXPLODING_STATUE_RADIUS, EXPLODING_STATUE_ANIMATION_MS);
+    createTileFlashArea([{ x: tower.x, y: tower.y }], 'warrior');
+    for (const enemy of targets) {
+      enemy.hp -= damage;
+      enemy.killedBy = 'warrior';
+      createHitFlash(enemy.x, enemy.y, 'warrior', `-${Math.round(damage)}`);
+    }
+    if (targets.length) {
+      log(`Exploding Statue hit ${targets.length} ${targets.length === 1 ? 'enemy' : 'enemies'} for ${damage}.`);
+    }
+  }
+
   function getTowerPixelCenter(tower) {
     if (!tower) return { x: 0, y: 0 };
     const pos = getTilePixelPosition(tower.x, tower.y);
@@ -4339,6 +4406,29 @@ function getRandomTree(){
     svg.setAttribute('width', `${layerWidth}`);
     svg.setAttribute('height', `${layerHeight}`);
     els.enemyLayer.appendChild(svg);
+    game.explosionEffects = (game.explosionEffects || []).filter(effect => effect.until > current);
+    for (const effect of game.explosionEffects) {
+      const pos = getTilePixelPosition(effect.x, effect.y);
+      const centerX = pos.left + (pos.width / 2);
+      const centerY = pos.top + (pos.height / 2);
+      const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs)));
+      const baseRadiusPx = Math.max(pos.width, pos.height) * 0.35;
+      const finalRadiusPx = Math.max(pos.width, pos.height) * (effect.radiusTiles + 0.9);
+      const radiusPx = baseRadiusPx + ((finalRadiusPx - baseRadiusPx) * progress);
+      const alpha = Math.max(0, 0.55 - (progress * 0.45));
+      const ring = document.createElement('div');
+      ring.style.position = 'absolute';
+      ring.style.left = `${centerX - radiusPx}px`;
+      ring.style.top = `${centerY - radiusPx}px`;
+      ring.style.width = `${radiusPx * 2}px`;
+      ring.style.height = `${radiusPx * 2}px`;
+      ring.style.borderRadius = '50%';
+      ring.style.pointerEvents = 'none';
+      ring.style.boxSizing = 'border-box';
+      ring.style.border = `${Math.max(2, Math.round(8 - (progress * 5)))}px solid rgba(255, 173, 66, ${alpha.toFixed(3)})`;
+      ring.style.background = `radial-gradient(circle, rgba(255, 240, 180, ${(0.28 * (1 - progress)).toFixed(3)}) 0%, rgba(255, 163, 66, ${(0.24 * (1 - progress)).toFixed(3)}) 40%, rgba(255, 120, 30, 0) 75%)`;
+      els.enemyLayer.appendChild(ring);
+    }
     const byTile = new Map();
     for (const enemy of game.enemies) {
       const key = `${enemy.x},${enemy.y}`;
@@ -4458,6 +4548,7 @@ function getRandomTree(){
     }
     for (const tower of [...game.towers]) {
       if (tower.hp <= 0) {
+        triggerExplodingStatue(tower);
         removeTower(tower, `${tower.name} fell.`);
       }
     }
@@ -4562,8 +4653,8 @@ function getRandomTree(){
       y: caster.y,
       sourceId: caster.id,
       until: now() + 45000,
-      range: 2,
-      percent: 0.35,
+      range: SLOW_TOTEM_RANGE,
+      percent: SLOW_TOTEM_PERCENT,
     };
     if (!game.slowTotems) game.slowTotems = [];
     game.slowTotems.push(totem);
@@ -4616,7 +4707,7 @@ function getRandomTree(){
       multi_shot() {
         const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
         if (!targets.length) return false;
-        targets.forEach(e => { createAttackLine(tower, e, 'archer', 'archer-multishot'); damageEnemy(tower, e, tower.damage * 0.7, null); });
+        targets.forEach(e => { createAttackLine(tower, e, 'archer', 'archer-multishot'); damageEnemy(tower, e, (tower.damage + MULTI_SHOT_BASE_DAMAGE_BONUS) * 0.7, null); });
         createTileFlashArea(targets.map(e => ({x:e.x,y:e.y})), 'archer');
         return true;
       },
@@ -4694,7 +4785,7 @@ function getRandomTree(){
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
-          damageEnemy(tower, chosen, 45, null);
+          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE, null);
         }
         return true;
       },
@@ -4702,7 +4793,7 @@ function getRandomTree(){
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
-        targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: 30 * powerMult, percent: 0.5, nextTickAt: now() + 1000 }));
+        targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: KRAKEN_BASE_DAMAGE * powerMult, percent: 0.5, nextTickAt: now() + 1000 }));
         return true;
       },
     };

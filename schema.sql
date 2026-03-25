@@ -5,6 +5,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.players (
   wallet_address text primary key,
   display_name text,
+  vanity_name text,
   best_wave integer not null default 0 check (best_wave >= 0),
   total_runs integer not null default 0 check (total_runs >= 0),
   total_waves_cleared integer not null default 0 check (total_waves_cleared >= 0),
@@ -137,3 +138,5 @@ select
   updated_at
 from public.players
 order by best_wave desc, total_waves_cleared desc, updated_at desc, wallet_address asc;
+
+create unique index if not exists players_vanity_name_unique on public.players (lower(vanity_name)) where vanity_name is not null;

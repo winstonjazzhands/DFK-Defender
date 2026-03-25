@@ -102,12 +102,12 @@ Deno.serve(async (req) => {
 
     const { data: existingPlayer } = await admin
       .from('players')
-      .select('display_name, best_wave, total_runs, total_waves_cleared')
+      .select('display_name, vanity_name, best_wave, total_runs, total_waves_cleared')
       .eq('wallet_address', walletAddress)
       .maybeSingle();
 
     const chainDisplayName = requestedDisplayName ? null : await resolveChainDisplayName(walletAddress);
-    const resolvedDisplayName = cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
+    const resolvedDisplayName = cleanName(existingPlayer?.vanity_name) || cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
 
     const { error: runError } = await admin.from('runs').insert({
       wallet_address: walletAddress,

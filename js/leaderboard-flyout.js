@@ -22,7 +22,7 @@
     var wallet = String(value || '');
     if (!wallet) return '—';
     if (wallet.length <= 14) return wallet;
-    return wallet.slice(0, 6) + '…' + wallet.slice(-4);
+    return wallet.slice(0, 5) + '…' + wallet.slice(-4);
   }
 
   function escapeHtml(value) {
@@ -60,13 +60,14 @@
   }
 
   function normalizeRow(row) {
-    var playerName = row.player_name || row.display_name || row.name || row.username || 'Unknown Player';
+    var playerName = row.player_name || row.vanity_name || row.display_name || row.name || row.username || 'Unknown Player';
     var wallet = row.wallet || row.wallet_address || row.address || row.player_wallet || '';
     var score = row.score;
     if (score == null && row.total_waves_cleared != null) score = row.total_waves_cleared;
     if (score == null && row.points != null) score = row.points;
     return {
       player_name: playerName,
+      vanity_name: row.vanity_name || null,
       wallet: wallet,
       score: score == null ? '—' : score,
       best_wave: row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0),
@@ -81,9 +82,9 @@
     }
 
     var attempts = [
+      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared' },
       { endpoint: 'public_run_leaderboard', select: '*' },
-      { endpoint: 'leaderboard', select: 'player_name,wallet,score,best_wave,runs' },
-      { endpoint: 'players', select: '*' }
+      { endpoint: 'leaderboard', select: 'player_name,wallet,score,best_wave,runs' }
     ];
 
     var errors = [];
@@ -135,8 +136,8 @@
         '<td class="leaderboard-rank">' + (index + 1) + '</td>' +
         '<td class="leaderboard-name-cell" title="' + fullName + '">' + shownName + '</td>' +
         '<td class="leaderboard-wallet-cell" title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
-        '<td>' + escapeHtml(String(row.best_wave)) + '</td>' +
-        '<td>' + escapeHtml(String(row.runs)) + '</td>' +
+        '<td class="leaderboard-wave-cell">' + escapeHtml(String(row.best_wave)) + '</td>' +
+        '<td class="leaderboard-runs-cell">' + escapeHtml(String(row.runs)) + '</td>' +
       '</tr>';
     }).join('');
   }
@@ -162,7 +163,7 @@
       var currentSort = window.DFKLeaderboardSort || 'best_wave';
       renderRows(rows, currentSort);
       updateSortButtons(currentSort);
-      if (status) status.textContent = rows.length ? ('Loaded ' + rows.length + ' players') : 'No players on the board yet';
+      if (status) status.textContent = rows.length ? '' : 'No players on the board yet';
     } catch (error) {
       if (status) {
         status.textContent = 'Leaderboard load failed. ' + (error && error.message ? error.message : '');

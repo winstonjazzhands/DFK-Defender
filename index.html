@@ -36,6 +36,13 @@
           <div id="walletAddress" class="wallet-address">No wallet connected.</div>
           <div id="walletTrackingStatus" class="wallet-tracking-status">Run Tracking: Not connected</div>
           <div id="walletTrackingSummary" class="wallet-tracking-summary">Tracked Runs: -- · Best Wave: --</div>
+          <div id="walletVanitySection" class="wallet-vanity-section hidden" aria-hidden="true">
+            <div class="wallet-vanity-row">
+              <input id="walletVanityInput" class="wallet-vanity-input" type="text" maxlength="32" placeholder="Set vanity name" />
+              <button id="saveVanityBtn" class="wallet-btn secondary vanity-btn" type="button">Save Name</button>
+            </div>
+            <div id="walletVanityStatus" class="wallet-tracking-summary">Vanity Name: --</div>
+          </div>
           <div class="wallet-actions">
             <button id="connectWalletBtn" class="wallet-btn" type="button">Connect Wallet</button>
             <button id="disconnectWalletBtn" class="wallet-btn secondary" type="button">Disconnect</button>

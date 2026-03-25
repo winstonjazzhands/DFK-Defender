@@ -24,6 +24,7 @@
     address: null,
     balance: null,
     profileName: null,
+    vanityName: null,
     user: null,
     mode: 'local',
     depositAddress: null,
@@ -44,7 +45,8 @@
     window.dispatchEvent(new CustomEvent('dfk-defense:wallet-state', {
       detail: {
         address: state.address,
-        profileName: state.profileName,
+        profileName: state.vanityName || state.profileName,
+        vanityName: state.vanityName,
         balance: state.balance,
         providerName: providerLabel(state.providerInfo),
       },
@@ -341,7 +343,7 @@
     if (!ui.walletStatus) return;
     const providerName = providerLabel(state.providerInfo);
     setText(ui.walletAddress, state.address ? `${providerName}: ${shortAddress(state.address)}` : 'No wallet connected.');
-    setText(ui.walletProfileName, `In-game Name: ${state.profileName || '--'}`);
+    setText(ui.walletProfileName, `${state.vanityName ? 'Vanity Name' : 'In-game Name'}: ${(state.vanityName || state.profileName || '--')}`);
     setText(ui.walletJewelBalance, `Wallet JEWEL: ${state.balance && state.balance.balance != null ? formatJewelBalance(state.balance.balance) : '--'}`);
     setText(ui.walletPanelTitle, 'Player Profile');
     if (state.address) {
@@ -352,6 +354,11 @@
       ui.walletStatus.className = 'wallet-status wallet-warn';
     }
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.disabled = !state.address;
+    if (ui.walletVanitySection) {
+      const showVanity = !!state.address;
+      ui.walletVanitySection.classList.toggle('hidden', !showVanity);
+      ui.walletVanitySection.setAttribute('aria-hidden', showVanity ? 'false' : 'true');
+    }
   }
 
   function bindUi() {
@@ -364,6 +371,7 @@
       connectWalletBtn: qs('connectWalletBtn'),
       disconnectWalletBtn: qs('disconnectWalletBtn'),
       enableTrackingBtn: qs('enableTrackingBtn'),
+      walletVanitySection: qs('walletVanitySection'),
     });
     if (ui.connectWalletBtn) ui.connectWalletBtn.addEventListener('click', () => connectWallet().catch(renderError));
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.addEventListener('click', () => disconnectWallet().catch(renderError));
