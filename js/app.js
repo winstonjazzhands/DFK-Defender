@@ -476,7 +476,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V32',
+      gameVersion: 'V33',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -2548,7 +2548,7 @@ function getRandomTree(){
       hp: template.hp,
       damage: template.damage,
       range: template.range,
-      basicCooldown: (type === 'pirate' ? ((TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(1)) : (baseAttackInterval * 1000)),
+      basicCooldown: baseAttackInterval * 1000,
       attackCooldownMs: 0,
       basicAttackCount: 0,
       moveReadyAt: now(),
@@ -2571,6 +2571,7 @@ function getRandomTree(){
       },
     };
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
+    if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     return tower;
   }
 
