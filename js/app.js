@@ -35,7 +35,8 @@ function getRandomTree(){
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
   const ARCHER_BASE_HP_MULTIPLIER = 0.9;
   const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.027075;
-  const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.05;
+  const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
+  const WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 12;
@@ -47,7 +48,7 @@ function getRandomTree(){
   const UPDATE_MS = 200;
   const WAVE_BREAK_SECONDS = 6;
   const RANDOM_OBSTACLE_COUNT = 11;
-  const PLAYER_OBSTACLE_COUNT = 11;
+  const PLAYER_OBSTACLE_COUNT = 9;
 
   const TOWER_TEMPLATES = {
     warrior: {
@@ -476,7 +477,7 @@ function getRandomTree(){
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V33',
+      gameVersion: 'V34',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1232,6 +1233,13 @@ function getRandomTree(){
     const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2);
     const speedSteps = Math.floor((tierLevel - 1) / 2);
     return Math.pow(1 + PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
+  }
+
+  function getWizardCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2);
+    const speedSteps = Math.floor((tierLevel - 1) / 2);
+    return Math.pow(1 + WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
   }
 
   function getBaseTowerStatsForLevel(type, level) {
@@ -2567,7 +2575,7 @@ function getRandomTree(){
         }
         if (this.buffs.blizzardSlow) mult *= 0.5;
         if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.08;
-        return this.basicCooldown / 1000 / mult;
+        return Math.max(0.30, this.basicCooldown / 1000 / mult);
       },
     };
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
@@ -2744,6 +2752,12 @@ function getRandomTree(){
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= 1.05;
       tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
+    } else if (tower.type === 'wizard') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= 1.05;
+      tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     } else {
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= 1.065;
