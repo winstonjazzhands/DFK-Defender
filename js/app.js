@@ -3657,9 +3657,90 @@ function getRandomTree(){
     return lane;
   }
 
+  function isWaveInRange(waveNumber, start, end) {
+    return waveNumber >= start && waveNumber <= end;
+  }
+
+  function isSpecialSpikeWave(waveNumber) {
+    return [13, 28, 36, 39, 50, 63, 74, 85, 90, 91, 100].includes(waveNumber)
+      || isWaveInRange(waveNumber, 40, 50)
+      || isWaveInRange(waveNumber, 105, 120);
+  }
+
+  function getWaveSpecificEnemyCountMultiplier(waveNumber) {
+    if (waveNumber === 13 || waveNumber === 63 || waveNumber === 74) return 1.25;
+    if (waveNumber === 28) return 1.5;
+    if (waveNumber === 36) return 1.4;
+    if (waveNumber === 85) return 1.2;
+    if (waveNumber === 90) return 1.1;
+    if (!isSpecialSpikeWave(waveNumber)) return 0.9;
+    return 1;
+  }
+
   function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
-    const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber);
+    const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber) * getWaveSpecificEnemyCountMultiplier(waveNumber);
     return Math.max(1, Math.round((6 + waveNumber * 2) * countMultiplier * 0.92));
+  }
+
+  function getWaveBossOverrideCount(waveNumber, defaultBossCount) {
+    if (waveNumber === 50) return defaultBossCount + 1;
+    if (waveNumber === 100) return 15;
+    if (waveNumber === 90) return defaultBossCount + 2;
+    return defaultBossCount;
+  }
+
+  function addMidWaveSkitters(enemies, waveNumber, skitterCount, options = {}) {
+    if (skitterCount <= 0) return;
+    const extraDelay = Number.isFinite(options.extraDelay) ? options.extraDelay : 0;
+    const spacing = Number.isFinite(options.spacing) ? options.spacing : 90;
+    const totalDelay = enemies.length ? Math.max(...enemies.map(enemy => enemy.delayMs || 0)) : 0;
+    const midDelay = Math.max(800, Math.round(totalDelay * 0.5) + extraDelay);
+    for (let i = 0; i < skitterCount; i += 1) {
+      enemies.push({ type: 'skitter', lane: pickRandom(LANE_NAMES), delayMs: midDelay + (i * spacing), scriptedExtraSkitter: true, sourceWave: waveNumber });
+    }
+  }
+
+  function addExtraBosses(enemies, waveNumber, extraBossCount, startDelay) {
+    if (extraBossCount <= 0) return;
+    const boss = BOSSES[(Math.floor(waveNumber / 5) - 1 + BOSSES.length) % BOSSES.length];
+    const delayBase = Number.isFinite(startDelay) ? startDelay : ((enemies.length ? Math.max(...enemies.map(enemy => enemy.delayMs || 0)) : 0) + 800);
+    for (let i = 0; i < extraBossCount; i += 1) {
+      enemies.push({ bossId: boss.id, lane: chooseLane(), delayMs: delayBase + (i * 850), scriptedExtraBoss: true, sourceWave: waveNumber });
+    }
+  }
+
+  function applyWaveEnemyOverrides(waveNumber, enemies) {
+    if (waveNumber === 13 || waveNumber === 63 || waveNumber === 74) {
+      addMidWaveSkitters(enemies, waveNumber, 50);
+    }
+    if (waveNumber === 28) {
+      addExtraBosses(enemies, waveNumber, 1);
+    }
+    if (waveNumber === 36) {
+      addExtraBosses(enemies, waveNumber, 2);
+    }
+    if (waveNumber === 39 || waveNumber === 91) {
+      addMidWaveSkitters(enemies, waveNumber, 50);
+    }
+    if (isWaveInRange(waveNumber, 40, 50)) {
+      addMidWaveSkitters(enemies, waveNumber, 50, { extraDelay: 300 });
+    }
+    if (waveNumber === 50) {
+      addExtraBosses(enemies, waveNumber, 1, 600);
+    }
+    if (waveNumber === 85) {
+      addExtraBosses(enemies, waveNumber, 1);
+    }
+    if (waveNumber === 90) {
+      addExtraBosses(enemies, waveNumber, 2, 700);
+    }
+    if (waveNumber === 100) {
+      addMidWaveSkitters(enemies, waveNumber, 250, { extraDelay: 500, spacing: 60 });
+    }
+    if (isWaveInRange(waveNumber, 105, 120)) {
+      addMidWaveSkitters(enemies, waveNumber, 50, { extraDelay: 300 });
+    }
+    return enemies;
   }
 
   function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
@@ -3683,13 +3764,13 @@ function getRandomTree(){
         enemies.push({ type: chooseEnemyType(waveNumber), lane: pickRandom(LANE_NAMES), delayMs: i * 600 });
       }
     }
-    return enemies;
+    return applyWaveEnemyOverrides(waveNumber, enemies);
   }
 
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    const bossCount = waveNumber >= 30 ? 2 : 1;
+    const bossCount = getWaveBossOverrideCount(waveNumber, waveNumber >= 30 ? 2 : 1);
     const enemies = [];
     for (let i = 0; i < bossCount; i += 1) {
       enemies.push({ bossId: boss.id, lane, delayMs: 100 + (i * 900) });
@@ -3699,7 +3780,7 @@ function getRandomTree(){
     for (let i = 0; i < skitterCount; i += 1) {
       enemies.push({ type: 'skitter', lane, delayMs: 500 + (i * 120), bossWaveSkitter: true });
     }
-    return enemies;
+    return applyWaveEnemyOverrides(waveNumber, enemies);
   }
 
   function chooseEnemyType(waveNumber) {
