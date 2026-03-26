@@ -54,7 +54,7 @@
         <button id="mobileModeBtn" class="mobile-toggle coming-soon-toggle" type="button" aria-pressed="false" aria-disabled="true" disabled title="Challenge Mode is coming soon">⚔️ Challenge Mode — Coming Soon</button>
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
-        <button id="heroesBtn" class="intro-toggle secondary-guide" type="button">🛡️ Meet the Heroes</button>
+        <button id="bountyBtn" class="intro-toggle secondary-guide bounty-toggle" type="button">🏆 Bounty Board</button>
         <div id="log" class="log"></div>
         <div class="meta-currency panel-lite collapsed" id="bankPanel">
           <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
@@ -145,6 +145,19 @@
       </div>
     </div>
 
+    <div id="bountyModal" class="intro-modal bounty-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card bounty-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="bountyTitle">
+        <div class="intro-modal-header bounty-modal-header">
+          <div>
+            <div class="intro-kicker">DFK Defender Rewards Board</div>
+            <h2 id="bountyTitle">Bounty Board</h2>
+          </div>
+          <button id="closeBountyBtn" type="button" class="intro-close" aria-label="Close bounty board">×</button>
+        </div>
+        <div id="bountyBody" class="intro-body bounty-body"></div>
+      </div>
+    </div>
+
     <div id="mobileHud" class="mobile-hud hidden" aria-hidden="true">
       <button id="mobileSideMenuToggleBtn" class="mobile-side-menu-toggle hidden" type="button" aria-pressed="true" aria-label="Open side menu">›</button>
       <div id="mobileLeftRail" class="mobile-side-rail mobile-left-rail collapsed" aria-hidden="true">
@@ -179,7 +192,7 @@
             <button id="mobileFuncChallengeBtn" type="button" disabled aria-disabled="true" title="Challenge Mode is coming soon">Challenge Mode — Coming Soon</button>
             <button id="mobileFuncPauseBtn" type="button">Pause</button>
             <button id="mobileFuncIntroBtn" type="button">Intro</button>
-            <button id="mobileFuncHeroesBtn" type="button">Meet the Heroes</button>
+            <button id="mobileFuncBountyBtn" type="button">Bounties</button>
             <button id="mobileFuncStartBtn" type="button">Start Next Wave</button>
             <button id="mobileFuncSkipBtn" type="button">Auto-Place Warrior</button>
             <button id="mobileFuncRestartBtn" type="button">New Run</button>

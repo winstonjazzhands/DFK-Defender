@@ -46,6 +46,8 @@ function getRandomTree(){
   const SLOW_TOTEM_RANGE = 2;
   const SLOW_TOTEM_PERCENT = 0.35;
   const STARBOARD_CANNONS_BASE_DAMAGE = 40;
+  const ABILITY_DAMAGE_PER_LEVEL = 3;
+  const PRAYER_OF_HEALING_BASE_AMOUNT = 127;
   const KRAKEN_BASE_DAMAGE = 20;
   const MULTI_SHOT_BASE_DAMAGE_BONUS = 2;
   const BIG_ENEMY_HP_MULTIPLIER = 1.25;
@@ -77,8 +79,8 @@ function getRandomTree(){
     warrior: {
       name: 'Warrior',
       letter: 'WAR',
-      hp: 990,
-      damage: 51.5,
+      hp: 1090,
+      damage: 55.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
@@ -94,7 +96,7 @@ function getRandomTree(){
       name: 'Archer',
       letter: 'ARC',
       hp: 242 * ARCHER_BASE_HP_MULTIPLIER,
-      damage: 16,
+      damage: 33,
       attackInterval: ARCHER_BASE_ATTACK_INTERVAL,
       range: 4,
       autoAttack: true,
@@ -109,7 +111,7 @@ function getRandomTree(){
       name: 'Wizard',
       letter: 'WIZ',
       hp: 286,
-      damage: 25,
+      damage: 33,
       attackInterval: 1.425,
       range: 3,
       autoAttack: true,
@@ -134,13 +136,13 @@ function getRandomTree(){
         { key: 'swiftness', name: 'Swiftness', cooldown: 40 },
         { key: 'healing_aura', name: 'Healing Aura', cooldown: 0, passive: true },
       ],
-      passive: 'Passive: starting at level 10, the Priest casts 1% faster per level, up to 50% faster total.',
+      passive: 'Passive: starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per level, to a minimum cooldown of 1.0s.',
     },
     pirate: {
       name: 'Pirate',
       letter: 'PIR',
       hp: 308,
-      damage: 40.28,
+      damage: 40,
       attackInterval: 1.45,
       range: 3,
       autoAttack: true,
@@ -292,8 +294,12 @@ function getRandomTree(){
     mobileModeBtn: document.getElementById('mobileModeBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
+    bountyBtn: document.getElementById('bountyBtn'),
     heroesBtn: document.getElementById('heroesBtn'),
     introModal: document.getElementById('introModal'),
+    bountyModal: document.getElementById('bountyModal'),
+    bountyBody: document.getElementById('bountyBody'),
+    closeBountyBtn: document.getElementById('closeBountyBtn'),
     introBody: document.getElementById('introBody'),
     introPageLabel: document.getElementById('introPageLabel'),
     introPrevBtn: document.getElementById('introPrevBtn'),
@@ -351,6 +357,7 @@ function getRandomTree(){
     mobileFuncChallengeBtn: document.getElementById('mobileFuncChallengeBtn'),
     mobileFuncPauseBtn: document.getElementById('mobileFuncPauseBtn'),
     mobileFuncIntroBtn: document.getElementById('mobileFuncIntroBtn'),
+    mobileFuncBountyBtn: document.getElementById('mobileFuncBountyBtn'),
     mobileFuncHeroesBtn: document.getElementById('mobileFuncHeroesBtn'),
     mobileFuncStartBtn: document.getElementById('mobileFuncStartBtn'),
     mobileFuncSkipBtn: document.getElementById('mobileFuncSkipBtn'),
@@ -688,9 +695,23 @@ function getRandomTree(){
     }
   }
 
-  async function resetGame() {
-    const canReset = await maybeConfirmAndCaptureTrackedReset();
-    if (!canReset) return;
+  function hasMeaningfulRunInProgress() {
+    return game.phase !== SETUP_PHASES.GAME_OVER && (
+      game.runningWave
+      || game.waveNumber > 0
+      || !!game.portal
+      || game.towers.length > 0
+      || game.playerObstacleCount > 0
+      || game.countdownMs > 0
+    );
+  }
+
+  async function resetGame(options = {}) {
+    const skipTrackedResetConfirm = !!(options && options.skipTrackedResetConfirm);
+    if (!skipTrackedResetConfirm) {
+      const canReset = await maybeConfirmAndCaptureTrackedReset();
+      if (!canReset) return false;
+    }
     loadPremiumJewels();
     if (game.premiumJewels < game.runEntryCost) {
       showBanner(`Not enough Jewel to start a run (${game.premiumJewels}/${game.runEntryCost})`, 2400);
@@ -777,6 +798,7 @@ function getRandomTree(){
     showStatusOverlay();
     render();
     maybeShowIntroOnOpen();
+    return true;
   }
 
   function placeRandomObstacles() {
@@ -999,64 +1021,312 @@ function getRandomTree(){
   }
 
 
+
+
+  const BOUNTY_BOARD_ENTRIES = [
+    {
+      tier: '01',
+      title: 'First player to beat wave 20',
+      reward: '50J',
+      status: 'open',
+      detail: 'Live now. First verified tracked run to reach wave 20 claims the bounty.',
+    },
+    {
+      tier: '02',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+    {
+      tier: '03',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+    {
+      tier: '04',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+    {
+      tier: '05',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+    {
+      tier: '06',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+    {
+      tier: '07',
+      title: 'Locked Bounty',
+      reward: 'Locked',
+      status: 'locked',
+      detail: 'Complete earlier bounty to unlock the next.',
+    },
+  ];
+
+  function renderBountyBoard() {
+    if (!els.bountyBody) return;
+    const cards = BOUNTY_BOARD_ENTRIES.map((entry, index) => `
+      <article class="bounty-card ${entry.status === 'open' ? 'is-open' : 'is-locked'}">
+        <div class="bounty-card-top">
+          <div class="bounty-tier-wrap">
+            <div class="bounty-tier-label">Bounty ${entry.tier}</div>
+            <div class="bounty-tier-index">${index + 1}</div>
+          </div>
+          <div class="bounty-reward-pill ${entry.status === 'open' ? 'is-open' : 'is-locked'}">${entry.reward}</div>
+        </div>
+        <h3 class="bounty-card-title">${entry.title}</h3>
+        <p class="bounty-card-copy">${entry.detail}</p>
+        <div class="bounty-card-footer">
+          <span class="bounty-state-chip ${entry.status === 'open' ? 'is-open' : 'is-locked'}">${entry.status === 'open' ? 'Open Now' : 'Locked'}</span>
+          <span class="bounty-chain-note">Tracked run required</span>
+        </div>
+      </article>
+    `).join('');
+    els.bountyBody.innerHTML = `
+      <div class="bounty-hero-strip">
+        <div>
+          <div class="bounty-strip-kicker">Community challenge ladder</div>
+          <p class="bounty-strip-copy">Finish the current open bounty to reveal the next one. Rewards are paid manually by the game owner after the qualifying tracked run is verified.</p>
+        </div>
+        <div class="bounty-strip-badge">7 total bounties</div>
+      </div>
+      <div class="bounty-grid">${cards}</div>
+    `;
+  }
+
+  function openBountyModal() {
+    if (game.statusOverlayTimeout) {
+      clearTimeout(game.statusOverlayTimeout);
+      game.statusOverlayTimeout = null;
+    }
+    closeIntroModal();
+    renderBountyBoard();
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+    if (els.bountyModal) {
+      els.bountyModal.classList.remove('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function closeBountyModal() {
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
+    game.introOpen = false;
+    document.body.classList.remove('intro-open');
+    syncStatusOverlayVisibility(false);
+    showStatusOverlay();
+  }
+
   const INTRO_PAGES = [
     {
-      title: 'Combat – Attacks, Flow, and Passives',
+      title: 'Objective, Wallet, and Leaderboard',
       body: `
-        <p>You control several attack styles, and each has a job.</p>
-        <ul>
-          <li><span class="intro-highlight">Basic attacks</span> → always automatic, steady pressure. Automated with no cool down, so the player can focus on Heavy and AoE attacks.</li>
-          <li><span class="intro-highlight">Heavy attacks</span> → slower, higher impact, ideal for large enemies. Automated with a short cooldown then a 10 second wait, and the player can bypass the wait by manually running the skill.</li>
-          <li><span class="intro-highlight">AoE attacks</span> → control groups and stop overwhelm. Automated with a short cooldown then a 10 second wait, and the player can bypass the wait by manually running the skill.</li>
-        </ul>
-        <p>The skill is in <span class="intro-highlight">when</span> and <span class="intro-highlight">where</span> you use them, not just in firing them. That attack flow is what defines how <span class="intro-highlight">Normal Mode</span> feels in practice.</p>
-        <p class="intro-page-subheading">Passives – Always Working</p>
-        <p>Passives run in the background and reward consistency: bonus effects every few attacks, damage or attack speed boosts, and splash or slow effects that build momentum over time.</p>
+        <div class="intro-section-card">
+          <p><span class="intro-highlight">Objective</span> — Defend the portal for as many waves as possible. Your main score is your <span class="intro-highlight">best wave reached</span>.</p>
+          <p><span class="intro-highlight">Core loop</span> — Place heroes, kill enemies for Gold, strengthen your defense, and survive as long as you can.</p>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Wallet Connection and Run Tracking</p>
+          <ul class="intro-compact-list">
+            <li>Connect your wallet to link your runs to your wallet address.</li>
+            <li>No transaction is required just to connect or track runs.</li>
+            <li>If run tracking is enabled and you leave mid-run, the run ends and your current wave is saved.</li>
+            <li>This prevents players from dodging bad endings by closing the game without recording the result.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Leaderboard</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Primary ranking</span> — Best Wave</li>
+            <li><span class="intro-highlight">Secondary stat</span> — Runs</li>
+            <li>Name priority is <span class="intro-highlight">Vanity Name → In-game Name → Wallet</span>.</li>
+            <li>Sorting lets you compare peak performance or total attempts.</li>
+          </ul>
+        </div>
       `,
     },
     {
-      title: 'Normal Mode – Fast, Active, and Forgiving',
+      title: 'Warrior and Statue',
       body: `
-        <p class="intro-page-subheading">Normal Mode</p>
-        <p>Normal Mode keeps the battlefield moving at <span class="intro-highlight">2× speed</span> and handles ability automation for you after a short cooldown window.</p>
-        <p>Basic attacks are always automatic, while Heavy and AoE skills will auto-fire after their cooldown and then enter a 10 second wait. You can ignore the automation and manually cast them sooner whenever the moment matters.</p>
-        <p>That makes Normal Mode a flexible middle ground: relaxed enough to play like a modern tower defense, but still active enough to reward timing, target priority, and manual skill use during dangerous waves.</p>
-        <p>It is the best place to learn spacing, wave flow, threat priority, and how each hero kit works before the board gets crowded. Once you understand that flow, the next step is learning how to position heroes and apply those tools correctly.</p>
+        <div class="intro-section-card">
+          <p><span class="intro-highlight">Warrior</span> is your front-line tank and main path control tool.</p>
+          <ul class="intro-compact-list">
+            <li>The Warrior is the one hero built to block enemies directly.</li>
+            <li>He can move <span class="intro-highlight">1 tile</span> at a time.</li>
+            <li>He has a <span class="intro-highlight">5 second</span> move cooldown.</li>
+            <li>He is allowed to move in ways that block the path.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Warrior Skills</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Gladiator Strike</span> — Passive bonus hit that also heals the Warrior.</li>
+            <li><span class="intro-highlight">Whirlwind</span> — Heavy adjacent area damage.</li>
+            <li><span class="intro-highlight">Rapid Onslaught</span> — Short burst of faster attacks.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Statue</p>
+          <ul class="intro-compact-list">
+            <li>Generated from the Warrior as a separate placement charge.</li>
+            <li>Starts with <span class="intro-highlight">double the Warrior's current HP</span> when created.</li>
+            <li>Cannot move.</li>
+            <li>Cannot be healed.</li>
+            <li>Enemies strongly prefer to attack a reachable Statue.</li>
+            <li>If a Statue cannot realistically be reached, enemies ignore it.</li>
+            <li>When a Statue dies, it triggers a <span class="intro-highlight">red fire explosion</span>.</li>
+          </ul>
+          <p>Use the Warrior and Statue to stall bosses, hold dangerous lanes, and buy time for your damage heroes.</p>
+        </div>
       `,
     },
     {
-      title: 'Strategy Basics – Positioning and Hero Roles',
+      title: 'Archer and Satellite Archer',
       body: `
-        <p>The game uses a compact set of enemy visuals, but their size tells you how dangerous they are.</p>
-        <ul>
-          <li><span class="intro-highlight">Small</span> → fast, fragile, swarm pressure</li>
-          <li><span class="intro-highlight">Medium</span> → balanced threats</li>
-          <li><span class="intro-highlight">Large</span> → slow, durable, heavy damage</li>
-        </ul>
-        <p>As waves progress, enemies grow larger, their stats scale upward, and mixed groups become more dangerous. Easy to read. Much harder to manage.</p>
-      
-
-
-        <p class="intro-page-subheading">Winning the Field</p>
-        <p>This is where strong runs are decided: not just by damage, but by positioning, aggro control, and using each hero for the right job.</p>
-        <ul>
-          <li>Do not let enemies stack on the same lane. Pressure becomes lethal when groups overlap on the portal.</li>
-          <li>Prioritize targets: AoE attacks clean swarm waves, while heavy attacks should be saved for large enemies and bosses.</li>
-          <li>Protect your damage dealers. Warriors hold space, but Wizards, Archers, Pirates, and Priests do the work that actually clears the wave.</li>
-          <li>Enemy aggro matters. Enemies are drawn toward heroes that damage them, so smart placements can pull pressure off the portal and off fragile allies.</li>
-          <li>Adapt constantly. Static play gets punished once mixed waves and faster enemies start stacking together.</li>
-        </ul>
-        <p class="intro-page-subheading">Hero Skill Roles</p>
-        <ul>
-          <li><span class="intro-highlight">Warrior</span> blocks the path and buys time. Use him to anchor lanes and keep enemies away from softer heroes.</li>
-          <li><span class="intro-highlight">Wizard</span> brings explosive AoE pressure. He is strongest when multiple enemies bunch up inside his damage zone.</li>
-          <li><span class="intro-highlight">Archer</span> supplies consistent ranged damage and helps finish priority targets before they reach your line.</li>
-          <li><span class="intro-highlight">Pirate</span> adds aggressive burst and benefits from staying active in busy lanes where his skills can snowball momentum.</li>
-          <li><span class="intro-highlight">Priest</span> supports the team with healing and faster casting, letting your front line survive longer and your damage heroes keep firing.</li>
-        </ul>
-        <p><span class="intro-highlight">If you fail, the portal falls.</span></p>
+        <div class="intro-section-card">
+          <p><span class="intro-highlight">Archer</span> is your main sustained ranged damage hero. Archers reward survival and positioning, not reckless trading.</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Multi-Shot</span> — 3 arrows for split burst damage.</li>
+            <li><span class="intro-highlight">Rapid Shot</span> — Short burst of faster attacks.</li>
+            <li><span class="intro-highlight">Piercing Shot</span> — Line shot that can hit up to 3 enemies.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Satellite Archer Rules</p>
+          <ul class="intro-compact-list">
+            <li>An Archer must survive for <span class="intro-highlight">12 cleared waves</span> before earning a Satellite Archer charge.</li>
+            <li>The Satellite Archer is a temporary ethereal helper placed during prep.</li>
+            <li>It starts at level 1 with half max HP.</li>
+            <li>It deals <span class="intro-highlight">75% of the parent Archer's damage</span>.</li>
+            <li>It lasts for <span class="intro-highlight">9 cleared waves total</span>.</li>
+            <li>After 3 cleared waves it fades to about 25% translucency.</li>
+            <li>After 7 cleared waves it fades to about 50% translucency.</li>
+            <li>After 9 cleared waves it dissipates completely and triggers <span class="intro-highlight">green fire</span>.</li>
+            <li>Once it is gone, that Archer must survive 12 more cleared waves before earning the next one.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p>Do not judge Archers only by current damage. If they die early, they never reach their satellite timing, and you lose a large part of their long-run value.</p>
+        </div>
       `,
-    }
+    },
+    {
+      title: 'Wizard, Priest, and Pirate',
+      body: `
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Wizard</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Firebolt</span> — Reliable direct spell damage.</li>
+            <li><span class="intro-highlight">Ice Aura</span> — Passive slow around the Wizard that grows stronger with level.</li>
+            <li><span class="intro-highlight">Fireball</span> — Area damage for clustered enemies.</li>
+            <li><span class="intro-highlight">Frost Lance</span> — Heavy hit that is stronger against slowed targets.</li>
+          </ul>
+          <p>The Wizard is strongest when enemies are stacked together by terrain, pathing, or Warrior control.</p>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Priest</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies.</li>
+            <li><span class="intro-highlight">Slow Totem</span> — Manual totem that slows enemies within 2 tiles for 45 seconds.</li>
+            <li><span class="intro-highlight">Swiftness</span> — Attack speed boost for nearby allies.</li>
+            <li><span class="intro-highlight">Healing Aura</span> — Passive healing at higher level.</li>
+            <li><span class="intro-highlight">Divine Soldier</span> — Starting at level 10, reduces <span class="intro-highlight">Prayer of Healing</span> cooldown by 0.1s per level to a minimum of 1.0s.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Pirate</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Warning Shot</span> — Marks a target so it takes more damage.</li>
+            <li><span class="intro-highlight">Starboard Cannons</span> — Splash damage into a small cluster.</li>
+            <li><span class="intro-highlight">Kraken</span> — Damaging zone that also slows enemies.</li>
+            <li><span class="intro-highlight">Bloody Bastard</span> — Passive bleed, slow, and extra Gold value on Pirate kills.</li>
+          </ul>
+        </div>
+      `,
+    },
+    {
+      title: 'Enemies and Targeting Rules',
+      body: `
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Enemy Types</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Standard enemies</span> — Balanced baseline pressure.</li>
+            <li><span class="intro-highlight">Large enemies</span> — Higher health and more dangerous once scaling ramps up.</li>
+            <li><span class="intro-highlight">Skitters</span> — Slower, high-HP enemies that explode on death.</li>
+            <li><span class="intro-highlight">Bosses</span> — Major pressure spikes that test your control and damage.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Skitter Notes</p>
+          <ul class="intro-compact-list">
+            <li>Skitters are <span class="intro-highlight">50% slower</span> than before.</li>
+            <li>They have much more health than a normal small enemy.</li>
+            <li>They explode on death.</li>
+            <li>Their explosion damage was reduced by <span class="intro-highlight">25%</span>.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Boss Pressure</p>
+          <ul class="intro-compact-list">
+            <li>Boss waves are the main survival checks.</li>
+            <li>At <span class="intro-highlight">wave 30</span>, you get <span class="intro-highlight">2 full-size bosses</span>.</li>
+            <li>That same wave pressure also adds about <span class="intro-highlight">33% more Skitters</span>.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Targeting Rules</p>
+          <ul class="intro-compact-list">
+            <li>Enemies want to reach the portal.</li>
+            <li>If a Statue is reachable, they strongly prefer it.</li>
+            <li>If a Statue is unreachable, they ignore it.</li>
+            <li>Warriors are your main direct path-control unit.</li>
+          </ul>
+        </div>
+      `,
+    },
+    {
+      title: 'Scaling and Strategy Basics',
+      body: `
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Economy and Scaling</p>
+          <ul class="intro-compact-list">
+            <li>Gold comes from kills.</li>
+            <li>Early economy matters because weak early scaling usually turns into a failed midgame.</li>
+            <li>As waves rise, enemy speed, health, and pressure increase.</li>
+            <li>The <span class="intro-highlight">Level Cap This Wave</span> limits how high a hero can be upgraded right now.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Practical Strategy</p>
+          <ul class="intro-compact-list">
+            <li>Keep Archers alive long enough to earn satellites.</li>
+            <li>Use Warrior and Statue to buy time, not just to soak damage.</li>
+            <li>Do not let Skitter deaths happen carelessly inside your whole formation.</li>
+            <li>Protect Wizards, Priests, Pirates, and Archers from direct collapse.</li>
+            <li>Positioning matters more than raw damage once late waves start stacking threats together.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p>The run usually ends when the defense loses structure, not when one number was slightly too low. Good runs come from stable lanes, protected damage, and smart use of your control tools.</p>
+        </div>
+      `,
+    },
   ];
 
 
@@ -1158,7 +1428,7 @@ function getRandomTree(){
   ];
 
   function getActiveGuidePages() {
-    return game.introSet === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+    return INTRO_PAGES;
   }
 
   function renderIntroPage() {
@@ -1167,8 +1437,8 @@ function getRandomTree(){
     const safeIndex = Math.max(0, Math.min(pages.length - 1, game.introPageIndex));
     game.introPageIndex = safeIndex;
     const page = pages[safeIndex];
-    if (els.introKicker) els.introKicker.textContent = game.introSet === 'heroes' ? 'DFK Defense Hero Guide' : 'DFK Defense Briefing';
-    if (els.introTitle) els.introTitle.textContent = game.introSet === 'heroes' ? 'Meet the Heroes' : 'DFK Defender – Stand Against the Void';
+    if (els.introKicker) els.introKicker.textContent = 'DFK Defender Field Guide';
+    if (els.introTitle) els.introTitle.textContent = 'Intro / Instructions';
     els.introBody.innerHTML = `<h3 class="intro-page-heading">${page.title}</h3>${page.body}`;
     if (els.introPageLabel) els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
     if (els.introPrevBtn) els.introPrevBtn.disabled = game.introPageIndex <= 0;
@@ -1178,9 +1448,9 @@ function getRandomTree(){
     }
   }
 
-  function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
-    const pages = setName === 'heroes' ? HERO_PAGES : INTRO_PAGES;
-    game.introSet = setName;
+  function openIntroModal(pageIndex = game.introPageIndex || 0, setName = 'intro') {
+    const pages = INTRO_PAGES;
+    game.introSet = 'intro';
     game.introPageIndex = Math.max(0, Math.min(pages.length - 1, pageIndex));
     game.introOpen = true;
     if (game.statusOverlayTimeout) {
@@ -1188,6 +1458,10 @@ function getRandomTree(){
       game.statusOverlayTimeout = null;
     }
     syncStatusOverlayVisibility(true);
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
     document.body.classList.add('intro-open');
     if (els.introModal) {
       els.introModal.classList.remove('hidden');
@@ -1199,6 +1473,10 @@ function getRandomTree(){
   function closeIntroModal() {
     game.introOpen = false;
     document.body.classList.remove('intro-open');
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
     if (els.introModal) {
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
@@ -2616,10 +2894,6 @@ function getRandomTree(){
         if (this.buffs.rapid_onslaught) mult *= (1 + (this.buffs.rapid_onslaught.strength ?? 1));
         if (this.buffs.rapid_shot) mult *= (1 + (this.buffs.rapid_shot.bonus ?? 0.8));
         if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
-        if (this.type === 'priest') {
-          const divineSoldierBonus = Math.min(0.5, Math.max(0, (this.level ?? 1) - 9) * 0.01);
-          mult *= (1 + divineSoldierBonus);
-        }
         if (this.buffs.blizzardSlow) mult *= 0.5;
         if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.08;
         return Math.max(0.30, this.basicCooldown / 1000 / mult);
@@ -2658,14 +2932,29 @@ function getRandomTree(){
     return getAbilityIndex(tower, abilityKey) >= 2 ? 2 : 1;
   }
 
+  function getPriestDivineSoldierPrayerCooldown(tower) {
+    const level = tower?.level ?? 1;
+    if (level < 10) return 6;
+    const reduction = Math.min(5, Math.max(0, level - 9) * 0.1);
+    return Math.max(1, 6 - reduction);
+  }
+
   function getAbilityCooldownSeconds(tower, abilityKey) {
     const base = tower.template.abilities.find(a => a.key === abilityKey)?.cooldown || 5;
     if (abilityKey === 'healing_aura') return 0;
-    return getAbilityIndex(tower, abilityKey) >= 2 ? base * 1.5 : base;
+    const scaledBase = abilityKey === 'prayer_of_healing'
+      ? getPriestDivineSoldierPrayerCooldown(tower)
+      : base;
+    return getAbilityIndex(tower, abilityKey) >= 2 ? scaledBase * 1.5 : scaledBase;
   }
 
   function getUpgradeLevelCap() {
-    return Math.max(7, game.waveNumber + 7);
+    return Math.max(9, game.waveNumber + 9);
+  }
+
+  function getAbilityLevelBonus(tower, perLevel = ABILITY_DAMAGE_PER_LEVEL) {
+    const level = Math.max(1, tower?.level || 1);
+    return Math.max(0, level - 1) * perLevel;
   }
 
   function canUpgradeTower(tower) {
@@ -2727,7 +3016,7 @@ function getRandomTree(){
 
   function getPrayerOfHealingAmount(tower) {
     const level = Math.max(1, tower?.level || 1);
-    return (120 + ((level - 1) * 5)) * game.modifiers.priestHealing;
+    return (PRAYER_OF_HEALING_BASE_AMOUNT + ((level - 1) * 5)) * game.modifiers.priestHealing;
   }
 
   function getAbilityDescription(tower, abilityKey) {
@@ -2745,19 +3034,19 @@ function getRandomTree(){
 
       multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
-      piercing_shot: `Hits up to 3 enemies for ${Math.round(d * 1 * powerMult)}, ${Math.round(d * 0.8 * powerMult)}, and ${Math.round(d * 0.6 * powerMult)} damage.${stronger}${common}${scale}`,
+      piercing_shot: `Hits up to 3 enemies for ${Math.round((d + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, and ${Math.round((d + getAbilityLevelBonus(tower)) * 0.6 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
       eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
-      fireball: `Explodes in a 2-tile area for ${Math.round(70 * powerMult * game.modifiers.wizardSpellDamage)} damage.${stronger}${common}${scale}`,
+      fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at 120 HP on level 1.${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within ${SLOW_TOTEM_RANGE} tiles are slowed by ${(SLOW_TOTEM_PERCENT * 100).toFixed(0)}%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 5s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
-      priest_template_passive: `Passive: Starting at level 10, the Priest casts 1% faster per level.<br><strong>Current bonus: ${Math.round(Math.min(50, Math.max(0, tower.level - 9)))}% faster casting</strong><br>This caps at 50% faster casting speed.`,
+      priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
-      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(45)} damage each in a small splash area.${common}${scale}`,
+      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower))} damage each in a small splash area. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
     };
     if (tower.type === 'pirate') {
@@ -3539,7 +3828,8 @@ function getRandomTree(){
   }
 
   function getPostWave15CountMultiplier(waveNumber) {
-    return waveNumber > 15 ? 1.5 : 1;
+    if (waveNumber >= 15 && waveNumber <= 30) return 1.35;
+    return waveNumber > 30 ? 1.5 : 1;
   }
 
   function createEnemy(type, laneName) {
@@ -3863,7 +4153,7 @@ function getRandomTree(){
 
   function tryAutoCastMobileAbility(tower, current) {
     if (!game.mobileMode || game.phase === SETUP_PHASES.GAME_OVER) return false;
-    const autoDelayMs = 10000;
+    const autoDelayMs = 6000;
     for (const ability of tower.abilities) {
       if (ability.passive) continue;
       if (!isAbilityUnlocked(tower, ability.key)) continue;
@@ -4802,7 +5092,8 @@ function getRandomTree(){
       piercing_shot() {
         const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
         if (!targets.length) return false;
-        [1, 0.8, 0.6].forEach((mult, i) => { if (targets[i]) damageEnemy(tower, targets[i], tower.damage * mult * powerMult, null); });
+        const abilityDamage = tower.damage + getAbilityLevelBonus(tower);
+        [1, 0.8, 0.6].forEach((mult, i) => { if (targets[i]) damageEnemy(tower, targets[i], abilityDamage * mult * powerMult, null); });
         return true;
       },
       eagle_nest() {
@@ -4821,7 +5112,8 @@ function getRandomTree(){
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
-        targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, 70 * powerMult * game.modifiers.wizardSpellDamage, null); });
+        const fireballDamage = (70 + getAbilityLevelBonus(tower)) * powerMult * game.modifiers.wizardSpellDamage;
+        targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, fireballDamage, null); });
         const areaTiles = [];
         for (let xx = target.x - 2; xx <= target.x + 2; xx++) for (let yy = target.y - 2; yy <= target.y + 2; yy++) if (inBounds(xx, yy) && Math.abs(xx - target.x) + Math.abs(yy - target.y) <= 2) areaTiles.push({x:xx,y:yy});
         createTileFlashArea(areaTiles, 'wizard');
@@ -4869,7 +5161,7 @@ function getRandomTree(){
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
-          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE, null);
+          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower), null);
         }
         return true;
       },
@@ -4953,10 +5245,10 @@ function getRandomTree(){
     setPaused(!game.paused);
   });
   els.introBtn?.addEventListener('click', () => {
-    openIntroModal(game.introSet === 'intro' ? (game.introPageIndex || 0) : 0, 'intro');
+    openIntroModal(game.introPageIndex || 0, 'intro');
   });
-  els.heroesBtn?.addEventListener('click', () => {
-    openIntroModal(game.introSet === 'heroes' ? (game.introPageIndex || 0) : 0, 'heroes');
+  els.bountyBtn?.addEventListener('click', () => {
+    openBountyModal();
   });
   els.mobileMenuOverlay?.addEventListener('click', closeMobileMenus);
   els.mobileBarToggleBtn?.addEventListener('click', toggleMobileBarCollapsed);
@@ -4971,7 +5263,7 @@ function getRandomTree(){
   });
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
   els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
-  els.mobileFuncHeroesBtn?.addEventListener('click', () => els.heroesBtn?.click());
+  els.mobileFuncBountyBtn?.addEventListener('click', () => els.bountyBtn?.click());
   els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
   els.mobileFuncRestartBtn?.addEventListener('click', () => els.restartBtn?.click());
@@ -4989,6 +5281,7 @@ function getRandomTree(){
     updateMobileInstallPrompt();
   });
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
+  els.closeBountyBtn?.addEventListener('click', closeBountyModal);
   els.bankPanelToggle?.addEventListener('click', () => {
     const opening = els.bankPanel?.classList.contains('collapsed');
     if (isLandscapeMobileUi()) {
@@ -5163,7 +5456,8 @@ function getRandomTree(){
   }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
-      closeIntroModal();
+      if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();
+      else closeIntroModal();
       return;
     }
     if (!game.introOpen) return;
@@ -5175,6 +5469,11 @@ function getRandomTree(){
       renderIntroPage();
     }
   });
+
+  window.DFKDefenseGameControl = {
+    hasMeaningfulRunInProgress,
+    restartForTracking: () => resetGame({ skipTrackedResetConfirm: true }),
+  };
 
   resetGame();
   game.lastTick = now();

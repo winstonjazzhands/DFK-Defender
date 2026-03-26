@@ -109,15 +109,13 @@
     var flyout = el('leaderboardFlyout');
     if (!flyout) return;
     var needsWide = Array.isArray(rows) && rows.some(function (row) {
-      return String(row && row.player_name || '').length > 18;
+      return String(row && row.player_name || '').length > 22;
     });
     flyout.classList.toggle('leaderboard-flyout-wide', !!needsWide);
   }
 
   function truncateName(value) {
-    var name = String(value || '');
-    if (name.length <= 18) return name;
-    return name.slice(0, 15) + '…';
+    return String(value || '');
   }
 
   function renderRows(rows, sortKey) {

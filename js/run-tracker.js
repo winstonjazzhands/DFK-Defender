@@ -240,6 +240,22 @@
     return !state.session;
   }
 
+  function hasMeaningfulUntrackedGameInProgress() {
+    if (state.session) return false;
+    const controller = window.DFKDefenseGameControl;
+    return Boolean(
+      controller
+      && typeof controller.hasMeaningfulRunInProgress === 'function'
+      && controller.hasMeaningfulRunInProgress()
+    );
+  }
+
+  async function restartGameForTrackingIfNeeded() {
+    const controller = window.DFKDefenseGameControl;
+    if (!controller || typeof controller.restartForTracking !== 'function') return;
+    await controller.restartForTracking();
+  }
+
   async function authenticate() {
     if (state.authPromise) return state.authPromise;
 
@@ -500,9 +516,26 @@
           }
           return;
         }
-        const shouldEnable = window.confirm('If the player enables tracking, runs will be tracked until they disable it. Leaving in the middle of a game will end the run and the score will appear at whatever wave the player was at.');
+
+        const enablingDuringActiveUntrackedGame = hasMeaningfulUntrackedGameInProgress();
+        const confirmMessage = enablingDuringActiveUntrackedGame
+          ? 'This will cancel the current game and start a new one with run tracking enabled. Continue?'
+          : 'If the player enables tracking, runs will be tracked until they disable it. Leaving in the middle of a game will end the run and the score will appear at whatever wave the player was at.';
+        const shouldEnable = window.confirm(confirmMessage);
         if (!shouldEnable) return;
-        authenticate().catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
+
+        ui.enableBtn.disabled = true;
+        try {
+          await authenticate();
+          if (enablingDuringActiveUntrackedGame) {
+            await restartGameForTrackingIfNeeded();
+          }
+          applyStatus('Run Tracking: Ready', 'good');
+        } catch (error) {
+          applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad');
+        } finally {
+          render();
+        }
       });
     }
   }
