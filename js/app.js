@@ -48,7 +48,7 @@ function getRandomTree(){
   const STARBOARD_CANNONS_BASE_DAMAGE = 40;
   const ABILITY_DAMAGE_PER_LEVEL = 3;
   const PRAYER_OF_HEALING_BASE_AMOUNT = 127;
-  const KRAKEN_BASE_DAMAGE = 20;
+  const KRAKEN_BASE_DAMAGE = 14;
   const MULTI_SHOT_BASE_DAMAGE_BONUS = 2;
   const BIG_ENEMY_HP_MULTIPLIER = 1.25;
   const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
@@ -72,22 +72,22 @@ function getRandomTree(){
   const WAVE_REBUILD_INTERVAL = 15;
   const UPDATE_MS = 200;
   const WAVE_BREAK_SECONDS = 6;
-  const RANDOM_OBSTACLE_COUNT = 11;
+  const RANDOM_OBSTACLE_COUNT = 10;
   const PLAYER_OBSTACLE_COUNT = 9;
 
   const TOWER_TEMPLATES = {
     warrior: {
       name: 'Warrior',
       letter: 'WAR',
-      hp: 1090,
-      damage: 55.5,
+      hp: 1190,
+      damage: 58.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
       abilities: [
         { key: 'gladiator_strike', name: 'Gladiator Strike', cooldown: 0, passive: true },
         { key: 'new_blood', name: 'Statue', cooldown: 0, passive: true },
-        { key: 'whirlwind', name: 'Whirlwind', cooldown: 7 },
+        { key: 'whirlwind', name: 'Whirlwind', cooldown: 6 },
         { key: 'rapid_onslaught', name: 'Rapid Onslaught', cooldown: 12 },
         
       ],
@@ -149,17 +149,17 @@ function getRandomTree(){
       abilities: [
         { key: 'warning_shot', name: 'Warning Shot', cooldown: 7 },
         { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 10 },
-        { key: 'kraken', name: 'Kraken', cooldown: 20 },
+        { key: 'kraken', name: 'Kraken', cooldown: 10 },
       ],
       passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
     },
   };
 
   const ENEMY_TEMPLATES = {
-    grunt: { name: 'Grunt', hp: 150, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 5.5, typeClass: 'grunt' },
+    grunt: { name: 'Grunt', hp: 142.5, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 5.5, typeClass: 'grunt' },
     runner: { name: 'Runner', hp: 100, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 4.75, typeClass: 'runner' },
     brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 19, typeClass: 'brute' },
-    skitter: { name: 'Skitter', hp: 24, damage: 3, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
+    skitter: { name: 'Skitter', hp: 24, damage: 6, moveInterval: 0.18, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
 
   const BOSSES = [
@@ -1232,9 +1232,9 @@ function getRandomTree(){
         <div class="intro-section-card">
           <p class="intro-page-subheading">Wizard</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Firebolt</span> — Reliable direct spell damage.</li>
+            <li><span class="intro-highlight">Firebolt</span> — Reliable direct spell damage that scales with Wizard level.</li>
             <li><span class="intro-highlight">Ice Aura</span> — Passive slow around the Wizard that grows stronger with level.</li>
-            <li><span class="intro-highlight">Fireball</span> — Area damage for clustered enemies.</li>
+            <li><span class="intro-highlight">Fireball</span> — Area damage for clustered enemies that scales harder with Wizard level.</li>
             <li><span class="intro-highlight">Frost Lance</span> — Heavy hit that is stronger against slowed targets.</li>
           </ul>
           <p>The Wizard is strongest when enemies are stacked together by terrain, pathing, or Warrior control.</p>
@@ -1242,7 +1242,7 @@ function getRandomTree(){
         <div class="intro-section-card">
           <p class="intro-page-subheading">Priest</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies.</li>
+            <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies with a stronger base heal.</li>
             <li><span class="intro-highlight">Slow Totem</span> — Manual totem that slows enemies within 2 tiles for 45 seconds.</li>
             <li><span class="intro-highlight">Swiftness</span> — Attack speed boost for nearby allies.</li>
             <li><span class="intro-highlight">Healing Aura</span> — Passive healing at higher level.</li>
@@ -1253,8 +1253,8 @@ function getRandomTree(){
           <p class="intro-page-subheading">Pirate</p>
           <ul class="intro-compact-list">
             <li><span class="intro-highlight">Warning Shot</span> — Marks a target so it takes more damage.</li>
-            <li><span class="intro-highlight">Starboard Cannons</span> — Splash damage into a small cluster.</li>
-            <li><span class="intro-highlight">Kraken</span> — Damaging zone that also slows enemies.</li>
+            <li><span class="intro-highlight">Starboard Cannons</span> — Splash damage into a small cluster that scales harder with Pirate level.</li>
+            <li><span class="intro-highlight">Kraken</span> — Wide damaging zone with a stronger slow, lower damage, and a shorter cooldown.</li>
             <li><span class="intro-highlight">Bloody Bastard</span> — Passive bleed, slow, and extra Gold value on Pirate kills.</li>
           </ul>
         </div>
@@ -1354,7 +1354,7 @@ function getRandomTree(){
         <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
         <ul>
           <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
-          <li><span class="intro-highlight">Statue</span> — Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at 100% of that total.</li>
+          <li><span class="intro-highlight">Statue</span> — Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at 100% of that total.</li>
           <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
           <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
         </ul>
@@ -1419,7 +1419,7 @@ function getRandomTree(){
         <ul>
           <li><span class="intro-highlight">Warning Shot</span> — Marks one enemy so it takes more damage from the rest of your team.</li>
           <li><span class="intro-highlight">Starboard Cannons</span> — Fires multiple cannonballs into a small splash zone, which is great for clustered lanes.</li>
-          <li><span class="intro-highlight">Kraken</span> — Creates a damaging area that slows enemies hard over several seconds.</li>
+          <li><span class="intro-highlight">Kraken</span> — Creates a larger damaging area with a stronger slow, lower damage, and a shorter cooldown.</li>
           <li><span class="intro-highlight">Bloody Bastard</span> — Pirate kills steal extra Gold. Also, every 10th basic attack makes the target bleed, dealing percent max HP damage over time and adding a slow. The Pirate prefers targets that are not already bleeding so the effect spreads.</li>
         </ul>
         <p>The Pirate is at his best in longer waves where bleed, slows, and splash all have time to stack pressure across the board.</p>
@@ -3028,17 +3028,17 @@ function getRandomTree(){
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 10 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 20% of its max HP.' : ''}${scale}`,
+      new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 20% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
-      multi_shot: `Fires 3 arrows for ${Math.round(d * 0.7)} damage each.${common}${scale}`,
+      multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round((d + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, and ${Math.round((d + getAbilityLevelBonus(tower)) * 0.6 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
       eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
-      firebolt: `Deals ${Math.round(40 * game.modifiers.wizardSpellDamage)} spell damage.${common}${scale}`,
+      firebolt: `Deals ${Math.round((40 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage. Gains +1 damage per level.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
-      fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
+      fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 4)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +4 damage per level.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within ${SLOW_TOTEM_RANGE} tiles are slowed by ${(SLOW_TOTEM_PERCENT * 100).toFixed(0)}%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
@@ -3046,8 +3046,8 @@ function getRandomTree(){
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
-      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower))} damage each in a small splash area. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${common}${scale}`,
-      kraken: `Applies a 10s kraken effect in a 2-tile cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by 50%.${stronger}${common}${scale}`,
+      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 4))} damage each in a small splash area. Gains +4 damage per level.${common}${scale}`,
+      kraken: `Applies a 10s kraken effect in a 3-tile cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by 65%.${stronger}${common}${scale}`,
     };
     if (tower.type === 'pirate') {
       map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
@@ -3659,7 +3659,7 @@ function getRandomTree(){
 
   function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
     const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber);
-    return Math.round((6 + waveNumber * 2) * countMultiplier);
+    return Math.max(1, Math.round((6 + waveNumber * 2) * countMultiplier * 0.92));
   }
 
   function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
@@ -3853,7 +3853,7 @@ function getRandomTree(){
       damage: enemyDamage,
       moveInterval: template.moveInterval,
       attackInterval: template.attackInterval,
-      jewel: template.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber),
+      jewel: (template.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0),
       cssClass: template.typeClass,
       targetPath: [],
       nextMoveAt: now() + 200,
@@ -3891,7 +3891,7 @@ function getRandomTree(){
       damage: boss.damage * getEarlyWaveStatMultiplier(game.waveNumber),
       moveInterval: boss.moveInterval,
       attackInterval: boss.attackInterval,
-      jewel: boss.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber),
+      jewel: (boss.jewel * ENEMY_JEWEL_MULTIPLIER * getEarlyWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0),
       cssClass: 'boss',
       targetPath: [],
       nextMoveAt: now() + 300,
@@ -5081,7 +5081,8 @@ function getRandomTree(){
       multi_shot() {
         const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
         if (!targets.length) return false;
-        targets.forEach(e => { createAttackLine(tower, e, 'archer', 'archer-multishot'); damageEnemy(tower, e, (tower.damage + MULTI_SHOT_BASE_DAMAGE_BONUS) * 0.7, null); });
+        const multiShotLevelBonusPerArrow = getAbilityLevelBonus(tower, 1) / 3;
+        targets.forEach(e => { createAttackLine(tower, e, 'archer', 'archer-multishot'); damageEnemy(tower, e, (tower.damage * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + multiShotLevelBonusPerArrow, null); });
         createTileFlashArea(targets.map(e => ({x:e.x,y:e.y})), 'archer');
         return true;
       },
@@ -5102,7 +5103,7 @@ function getRandomTree(){
       firebolt() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
-        damageEnemy(tower, target, 40 * game.modifiers.wizardSpellDamage, `${tower.name} cast Firebolt`);
+        damageEnemy(tower, target, (40 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage, `${tower.name} cast Firebolt`);
         return true;
       },
       frost_bolt() {
@@ -5112,7 +5113,7 @@ function getRandomTree(){
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
-        const fireballDamage = (70 + getAbilityLevelBonus(tower)) * powerMult * game.modifiers.wizardSpellDamage;
+        const fireballDamage = (70 + getAbilityLevelBonus(tower, 4)) * powerMult * game.modifiers.wizardSpellDamage;
         targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, fireballDamage, null); });
         const areaTiles = [];
         for (let xx = target.x - 2; xx <= target.x + 2; xx++) for (let yy = target.y - 2; yy <= target.y + 2; yy++) if (inBounds(xx, yy) && Math.abs(xx - target.x) + Math.abs(yy - target.y) <= 2) areaTiles.push({x:xx,y:yy});
@@ -5161,15 +5162,15 @@ function getRandomTree(){
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
-          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower), null);
+          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 4), null);
         }
         return true;
       },
       kraken() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
-        const targets = game.enemies.filter(e => dist(e, target) <= 2);
-        targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: KRAKEN_BASE_DAMAGE * powerMult, percent: 0.5, nextTickAt: now() + 1000 }));
+        const targets = game.enemies.filter(e => dist(e, target) <= 3);
+        targets.forEach(e => applyDebuff(e, 'kraken', 10, { damage: KRAKEN_BASE_DAMAGE * powerMult, percent: 0.65, nextTickAt: now() + 1000 }));
         return true;
       },
     };
