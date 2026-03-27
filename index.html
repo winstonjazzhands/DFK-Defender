@@ -48,6 +48,7 @@
             <button id="disconnectWalletBtn" class="wallet-btn secondary" type="button">Disconnect</button>
           </div>
           <button id="enableTrackingBtn" class="wallet-btn secondary tracking-btn" type="button">Enable Run Tracking</button>
+          <button id="addGoldBtn" class="wallet-btn secondary tracking-btn hidden" type="button" title="Authorized test button">Add 10000 Gold</button>
           </div>
         </div>
         <button id="speedToggleBtn" class="speed-toggle" type="button" aria-pressed="false">✨ Normal Mode</button>
@@ -55,6 +56,7 @@
         <button id="pauseBtn" class="pause-toggle" type="button" aria-pressed="false">⏸ Pause</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
         <button id="bountyBtn" class="intro-toggle secondary-guide bounty-toggle" type="button">🏆 Bounty Board</button>
+        <button id="knownRelicsBtn" class="intro-toggle secondary-guide known-relics-toggle" type="button">🧿 Known Relics</button>
         <div id="log" class="log"></div>
         <div class="meta-currency panel-lite collapsed" id="bankPanel">
           <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
@@ -158,6 +160,34 @@
       </div>
     </div>
 
+    <div id="knownRelicsModal" class="intro-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card known-relics-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="knownRelicsTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">DFK Defender Field Notes</div>
+            <h2 id="knownRelicsTitle">Known Relics</h2>
+          </div>
+          <button id="closeKnownRelicsBtn" type="button" class="intro-close" aria-label="Close known relics">×</button>
+        </div>
+        <div id="knownRelicsBody" class="intro-body known-relics-body"></div>
+      </div>
+    </div>
+
+    <div id="eliteWaveModal" class="intro-modal elite-wave-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card elite-wave-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="eliteWaveTitle">
+        <div class="intro-modal-header elite-wave-modal-header">
+          <div>
+            <div class="intro-kicker">Brace Yourself</div>
+            <h2 id="eliteWaveTitle">Elite Wave Incoming</h2>
+          </div>
+        </div>
+        <div id="eliteWaveBody" class="intro-body elite-wave-body"></div>
+        <div class="intro-modal-footer elite-wave-footer">
+          <button id="eliteWaveOkBtn" type="button" class="small-action">OK</button>
+        </div>
+      </div>
+    </div>
+
     <div id="mobileHud" class="mobile-hud hidden" aria-hidden="true">
       <button id="mobileSideMenuToggleBtn" class="mobile-side-menu-toggle hidden" type="button" aria-pressed="true" aria-label="Open side menu">›</button>
       <div id="mobileLeftRail" class="mobile-side-rail mobile-left-rail collapsed" aria-hidden="true">
@@ -193,6 +223,7 @@
             <button id="mobileFuncPauseBtn" type="button">Pause</button>
             <button id="mobileFuncIntroBtn" type="button">Intro</button>
             <button id="mobileFuncBountyBtn" type="button">Bounties</button>
+            <button id="mobileFuncKnownRelicsBtn" type="button">Known Relics</button>
             <button id="mobileFuncStartBtn" type="button">Start Next Wave</button>
             <button id="mobileFuncSkipBtn" type="button">Auto-Place Warrior</button>
             <button id="mobileFuncRestartBtn" type="button">New Run</button>

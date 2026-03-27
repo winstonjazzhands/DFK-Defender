@@ -5300,3 +5300,31 @@ body.leaderboard-open {
     max-width: min(94vw, 860px);
   }
 }
+
+
+/* V46.3 elite waves + relic codex */
+.known-relics-toggle { margin-top: 8px; }
+.known-relics-modal-card { max-width: min(920px, calc(100vw - 40px)); }
+.known-relics-body { display: grid; gap: 16px; }
+.known-relic-section { display: grid; gap: 12px; }
+.known-relic-heading { font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+.known-relic-card { padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12); background: rgba(15,18,28,0.88); }
+.known-relic-card h4 { margin: 0 0 6px; }
+.known-relic-card p { margin: 0; line-height: 1.55; }
+.relic-choice-card { position: relative; }
+.relic-choice-rarity { display: inline-block; margin-bottom: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.relic-rarity-common { color: #b8bec8; border-color: rgba(184,190,200,0.28); }
+.relic-rarity-rare { color: #79b8ff; border-color: rgba(121,184,255,0.3); }
+.relic-rarity-legendary { color: #ffb261; border-color: rgba(255,178,97,0.36); }
+.relic-choice-card.relic-rarity-common, .known-relic-card.relic-rarity-common, .relic-pill.relic-rarity-common { box-shadow: inset 0 0 0 1px rgba(184,190,200,0.18); }
+.relic-choice-card.relic-rarity-rare, .known-relic-card.relic-rarity-rare, .relic-pill.relic-rarity-rare { box-shadow: inset 0 0 0 1px rgba(121,184,255,0.22); }
+.relic-choice-card.relic-rarity-legendary, .known-relic-card.relic-rarity-legendary, .relic-pill.relic-rarity-legendary { box-shadow: inset 0 0 0 1px rgba(255,178,97,0.24); }
+.relic-hidden-card { text-align: center; }
+.elite-wave-modal-card { max-width: min(640px, calc(100vw - 40px)); border-color: rgba(255,140,92,0.45); box-shadow: 0 20px 48px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(255,255,255,0.04); }
+.elite-wave-body { display: grid; gap: 12px; text-align: center; }
+.elite-wave-kicker { color: #ffb580; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.elite-wave-title { margin: 0; color: #fff2d8; font-size: 26px; }
+.elite-wave-copy { margin: 0; color: #efe5d6; }
+.elite-wave-summary { padding: 14px 16px; border-radius: 14px; background: rgba(255,145,87,0.1); border: 1px solid rgba(255,145,87,0.25); color: #ffe3c3; line-height: 1.6; }
+body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ease-in-out; }
+@keyframes eliteWaveShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
