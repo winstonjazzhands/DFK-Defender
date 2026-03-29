@@ -333,12 +333,16 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
     bountyBtn: document.getElementById('bountyBtn'),
+    trackedRunsBtn: document.getElementById('trackedRunsBtn'),
     knownRelicsBtn: document.getElementById('knownRelicsBtn'),
     heroesBtn: document.getElementById('heroesBtn'),
     introModal: document.getElementById('introModal'),
     bountyModal: document.getElementById('bountyModal'),
     bountyBody: document.getElementById('bountyBody'),
     closeBountyBtn: document.getElementById('closeBountyBtn'),
+    trackedRunsModal: document.getElementById('trackedRunsModal'),
+    trackedRunsBody: document.getElementById('trackedRunsBody'),
+    closeTrackedRunsBtn: document.getElementById('closeTrackedRunsBtn'),
     knownRelicsModal: document.getElementById('knownRelicsModal'),
     knownRelicsBody: document.getElementById('knownRelicsBody'),
     closeKnownRelicsBtn: document.getElementById('closeKnownRelicsBtn'),
@@ -522,6 +526,16 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     },
     damageReportVisible: false,
     damageReportExpandedTowerIds: {},
+    bountyBoard: {
+      loading: false,
+      claiming: false,
+      error: '',
+      entries: [],
+      runs: [],
+      currentTimeIso: null,
+      nextRevealAt: null,
+      tickTimer: null,
+    },
   };
 
   function now() { return game.virtualNow || Date.now(); }
@@ -1371,87 +1385,316 @@ function renderDamageReport() {
 
 
 
-  const BOUNTY_BOARD_ENTRIES = [
-    {
-      tier: '01',
-      title: 'First player to beat wave 20',
-      reward: '50J',
-      status: 'open',
-      detail: 'Live now. First verified tracked run to reach wave 20 claims the bounty.',
-    },
-    {
-      tier: '02',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-    {
-      tier: '03',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-    {
-      tier: '04',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-    {
-      tier: '05',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-    {
-      tier: '06',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-    {
-      tier: '07',
-      title: 'Locked Bounty',
-      reward: 'Locked',
-      status: 'locked',
-      detail: 'Complete earlier bounty to unlock the next.',
-    },
-  ];
+  const BOUNTY_BOARD_FUNCTION = window.DFK_SUPABASE_BOUNTY_BOARD_FUNCTION || 'bounty-board';
+  const CLAIM_BOUNTY_FUNCTION = window.DFK_SUPABASE_CLAIM_BOUNTY_FUNCTION || 'claim-bounty';
+
+  function getBountySupabaseConfig() {
+    const url = window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
+    const key = window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '';
+    return { url, key };
+  }
+
+  function getRunTrackerSessionToken() {
+    if (!window.DFKRunTracker || typeof window.DFKRunTracker.getState !== 'function') return '';
+    const trackerState = window.DFKRunTracker.getState() || {};
+    return trackerState.session && trackerState.session.sessionToken ? String(trackerState.session.sessionToken) : '';
+  }
+
+  async function callBountyFunction(functionName, payload = {}, requireAuth = false) {
+    const { url, key } = getBountySupabaseConfig();
+    if (!url || !key) throw new Error('Supabase bounty board is not configured.');
+    const token = getRunTrackerSessionToken();
+    if (requireAuth && !token) throw new Error('Enable run tracking before claiming a bounty.');
+    const endpoint = `${url}/functions/v1/${functionName}`;
+    const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
+    const hasPayload = Object.keys(normalizedPayload).length > 0;
+
+    const readOnlyBoardRequest = functionName === BOUNTY_BOARD_FUNCTION && !requireAuth && !token && !hasPayload;
+    const headers = readOnlyBoardRequest ? {} : {
+      'Content-Type': 'application/json',
+      apikey: key,
+    };
+    if (!readOnlyBoardRequest && token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(endpoint, readOnlyBoardRequest ? {
+      method: 'GET',
+      headers,
+    } : {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(normalizedPayload),
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
+    }
+    return json || {};
+  }
+
+  function formatBountyCountdown(targetIso, nowIso) {
+    const targetMs = new Date(targetIso || 0).getTime();
+    const nowMs = new Date(nowIso || Date.now()).getTime();
+    const diff = Math.max(0, targetMs - nowMs);
+    const totalSeconds = Math.ceil(diff / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function getBountyCardClass(status) {
+    if (status === 'claimed') return 'is-claimed';
+    if (status === 'open') return 'is-open';
+    return 'is-locked';
+  }
+
+  function getBountyStateLabel(entry, currentTimeIso) {
+    if (entry.status === 'claimed') return 'Claimed';
+    if (entry.status === 'open') return 'Open Now';
+    if (entry.status === 'cooldown' && entry.revealAt) return `Reveals In ${formatBountyCountdown(entry.revealAt, currentTimeIso)}`;
+    return 'Locked';
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderTrackedRunsBoard() {
+    if (!els.trackedRunsBody) return;
+    const state = game.bountyBoard || {};
+    if (state.loading && (!state.runs || !state.runs.length)) {
+      els.trackedRunsBody.innerHTML = '<div class="bounty-status-banner">Loading tracked runs…</div>';
+      return;
+    }
+    if (state.error && (!state.runs || !state.runs.length)) {
+      els.trackedRunsBody.innerHTML = `<div class="bounty-status-banner is-error">${escapeHtml(state.error)}</div>`;
+      return;
+    }
+    const allRuns = Array.isArray(state.runs) ? state.runs : [];
+    const runs = allRuns
+      .filter((run) => (Number(run.bestWave || 0) || 0) > 0)
+      .sort((a, b) => {
+        const waveDiff = (Number(b.bestWave || 0) || 0) - (Number(a.bestWave || 0) || 0);
+        if (waveDiff) return waveDiff;
+        return (Number(a.runNumber || 0) || 0) - (Number(b.runNumber || 0) || 0);
+      });
+    if (!runs.length) {
+      els.trackedRunsBody.innerHTML = '<div class="bounty-status-banner">No tracked runs yet. Runs with 0 waves completed are not shown.</div>';
+      return;
+    }
+    const search = String(game.trackedRunsSearchQuery || '').trim().toLowerCase();
+    const filteredRuns = runs.filter((run) => {
+      if (!search) return true;
+      const id = String(run.id || '').toLowerCase();
+      const shortId = id.slice(0, 8);
+      const wave = String(Number(run.bestWave || 0) || 0);
+      const runNumber = String(Number(run.runNumber || 0) || 0);
+      return id.includes(search) || shortId.includes(search) || wave.includes(search) || runNumber.includes(search);
+    });
+    const items = filteredRuns.map((run) => {
+      const runNumber = Number(run.runNumber || 0) || 0;
+      const bestWave = Number(run.bestWave || 0) || 0;
+      const shortId = String(run.id || '').slice(0, 8) || 'unknown';
+      const used = Boolean(run.used);
+      const statusText = used ? 'Used for bounty claim' : 'Available';
+      return `
+        <article class="tracked-run-card ${used ? 'is-used' : 'is-available'}">
+          <div class="tracked-run-card-top">
+            <div>
+              <div class="tracked-run-label">Run ${runNumber}</div>
+              <div class="tracked-run-id">#${escapeHtml(shortId)}</div>
+            </div>
+            <div class="tracked-run-wave">Wave ${bestWave}</div>
+          </div>
+          <div class="tracked-run-status ${used ? 'is-used' : 'is-available'}">${statusText}</div>
+        </article>
+      `;
+    }).join('');
+    const emptyState = filteredRuns.length
+      ? `<div class="tracked-runs-grid">${items}</div>`
+      : '<div class="bounty-status-banner">No tracked runs match that search.</div>';
+    els.trackedRunsBody.innerHTML = `
+      <div class="tracked-runs-hero-strip">
+        <div>
+          <div class="bounty-strip-kicker">Tracked run ledger</div>
+          <p class="bounty-strip-copy">Bounty claims always consume the lowest qualifying unused run. Runs highlighted in green have already been spent on a bounty.</p>
+          <p class="tracked-runs-note">Runs with 0 waves completed are not shown.</p>
+        </div>
+        <div class="bounty-strip-badge">${filteredRuns.length}/${runs.length} tracked run${runs.length === 1 ? '' : 's'}</div>
+      </div>
+      <label class="tracked-runs-search-wrap">
+        <span class="tracked-runs-search-label">Search by run ID or waves completed</span>
+        <input id="trackedRunsSearchInput" class="tracked-runs-search-input" type="search" placeholder="Search by ID or wave" value="${escapeHtml(game.trackedRunsSearchQuery || '')}" />
+      </label>
+      ${emptyState}
+    `;
+  }
+
+  function openTrackedRunsModal() {
+    if (game.statusOverlayTimeout) {
+      clearTimeout(game.statusOverlayTimeout);
+      game.statusOverlayTimeout = null;
+    }
+    closeIntroModal();
+    closeBountyModal();
+    closeKnownRelicsModal();
+    renderTrackedRunsBoard();
+    refreshBountyBoard().catch(() => {});
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+    if (els.trackedRunsModal) {
+      els.trackedRunsModal.classList.remove('hidden');
+      els.trackedRunsModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function closeTrackedRunsModal() {
+    if (els.trackedRunsModal) {
+      els.trackedRunsModal.classList.add('hidden');
+      els.trackedRunsModal.setAttribute('aria-hidden', 'true');
+    }
+    game.introOpen = false;
+    document.body.classList.remove('intro-open');
+    syncStatusOverlayVisibility(false);
+    showStatusOverlay();
+  }
 
   function renderBountyBoard() {
     if (!els.bountyBody) return;
-    const cards = BOUNTY_BOARD_ENTRIES.map((entry, index) => `
-      <article class="bounty-card ${entry.status === 'open' ? 'is-open' : 'is-locked'}">
-        <div class="bounty-card-top">
-          <div class="bounty-tier-wrap">
-            <div class="bounty-tier-label">Bounty ${entry.tier}</div>
-            <div class="bounty-tier-index">${index + 1}</div>
+    const state = game.bountyBoard || {};
+    if (state.loading && !state.entries.length) {
+      els.bountyBody.innerHTML = '<div class="bounty-status-banner">Loading bounty board…</div>';
+      return;
+    }
+    if (state.error && !state.entries.length) {
+      els.bountyBody.innerHTML = `<div class="bounty-status-banner is-error">${state.error}</div>`;
+      return;
+    }
+    const cards = (state.entries || []).map((entry, index) => {
+      const cardClass = getBountyCardClass(entry.status);
+      const nowIso = new Date().toISOString();
+      const stateLabel = getBountyStateLabel(entry, nowIso);
+      const showDetails = Boolean(entry.revealed);
+      const rewardText = showDetails ? entry.reward : 'Locked';
+      const titleText = showDetails ? entry.title : 'Locked Bounty';
+      const detailText = entry.status === 'claimed'
+        ? `${showDetails ? entry.detail : 'Bounty claimed.'}`
+        : entry.status === 'open'
+          ? entry.detail
+          : entry.status === 'cooldown' && entry.revealAt
+            ? 'The next bounty unlocks 24 hours after the last claim.'
+            : 'Complete earlier bounty to unlock the next.';
+      const claimantText = entry.claimedByDisplay ? `Claimed by ${entry.claimedByDisplay}` : 'Tracked run required';
+      const eligibilityText = entry.status === 'open'
+        ? (entry.viewerEligible ? `Eligible tracked run found: wave ${entry.requiredWave}+` : `Tracked run must reach wave ${entry.requiredWave}`)
+        : claimantText;
+      const claimButton = entry.status === 'open'
+        ? `<button type="button" class="bounty-claim-btn" data-bounty-id="${entry.id}" ${entry.viewerCanClaim && !state.claiming ? '' : 'disabled'}>${state.claiming ? 'Claiming…' : (entry.viewerCanClaim ? 'Claim Bounty' : 'Claim Locked')}</button>`
+        : '';
+      return `
+        <article class="bounty-card ${cardClass}">
+          <div class="bounty-card-top">
+            <div class="bounty-tier-wrap">
+              <div class="bounty-tier-label">Bounty ${String(entry.tier || '').padStart(2, '0')}</div>
+              <div class="bounty-tier-index">${index + 1}</div>
+            </div>
+            <div class="bounty-reward-pill ${cardClass}">${rewardText}</div>
           </div>
-          <div class="bounty-reward-pill ${entry.status === 'open' ? 'is-open' : 'is-locked'}">${entry.reward}</div>
-        </div>
-        <h3 class="bounty-card-title">${entry.title}</h3>
-        <p class="bounty-card-copy">${entry.detail}</p>
-        <div class="bounty-card-footer">
-          <span class="bounty-state-chip ${entry.status === 'open' ? 'is-open' : 'is-locked'}">${entry.status === 'open' ? 'Open Now' : 'Locked'}</span>
-          <span class="bounty-chain-note">Tracked run required</span>
-        </div>
-      </article>
-    `).join('');
+          <h3 class="bounty-card-title">${titleText}</h3>
+          <p class="bounty-card-copy">${detailText}</p>
+          <div class="bounty-card-footer">
+            <span class="bounty-state-chip ${cardClass}">${stateLabel}</span>
+            <span class="bounty-chain-note">${eligibilityText}</span>
+          </div>
+          ${entry.claimedByDisplay ? `<div class="bounty-claimant">Claimed by <strong>${entry.claimedByDisplay}</strong></div>` : ''}
+          ${claimButton}
+        </article>
+      `;
+    }).join('');
+    const banner = state.error ? `<div class="bounty-status-banner is-error">${state.error}</div>` : '';
+    const nextRevealText = state.nextRevealAt
+      ? `Next reveal in ${formatBountyCountdown(state.nextRevealAt, new Date().toISOString())}`
+      : 'Current bounty is live';
     els.bountyBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
           <div class="bounty-strip-kicker">Community challenge ladder</div>
-          <p class="bounty-strip-copy">Finish the current open bounty to reveal the next one. Rewards are paid manually by the game owner after the qualifying tracked run is verified.</p>
+          <p class="bounty-strip-copy">Only tracked runs can claim bounties. When a bounty is claimed, the next one stays hidden for 24 hours before it opens.</p>
         </div>
-        <div class="bounty-strip-badge">7 total bounties</div>
+        <div class="bounty-strip-badge">${nextRevealText}</div>
       </div>
+      ${banner}
       <div class="bounty-grid">${cards}</div>
     `;
+  }
+
+  function startBountyCountdownTick() {
+    if (game.bountyBoard.tickTimer) clearInterval(game.bountyBoard.tickTimer);
+    game.bountyBoard.tickTimer = setInterval(() => {
+      if (!els.bountyModal || els.bountyModal.classList.contains('hidden')) return;
+      renderBountyBoard();
+    }, 1000);
+  }
+
+  function stopBountyCountdownTick() {
+    if (!game.bountyBoard.tickTimer) return;
+    clearInterval(game.bountyBoard.tickTimer);
+    game.bountyBoard.tickTimer = null;
+  }
+
+  async function refreshBountyBoard() {
+    game.bountyBoard.loading = true;
+    game.bountyBoard.error = '';
+    renderBountyBoard();
+    try {
+      const walletAddress = getConnectedWalletAddress();
+      const response = await callBountyFunction(BOUNTY_BOARD_FUNCTION, walletAddress ? { walletAddress } : {});
+      game.bountyBoard.entries = Array.isArray(response.entries) ? response.entries : [];
+      game.bountyBoard.runs = Array.isArray(response.runs) ? response.runs : [];
+      game.bountyBoard.currentTimeIso = response.currentTime || new Date().toISOString();
+      game.bountyBoard.nextRevealAt = response.nextRevealAt || null;
+    } catch (error) {
+      game.bountyBoard.error = error && error.message ? error.message : 'Failed to load bounty board.';
+    } finally {
+      game.bountyBoard.loading = false;
+      renderBountyBoard();
+      renderTrackedRunsBoard();
+    }
+  }
+
+  async function claimActiveBounty() {
+    if (game.bountyBoard.claiming) return;
+    const walletAddress = getConnectedWalletAddress();
+    if (!walletAddress) {
+      showBanner('Connect your wallet first.', 2200);
+      return;
+    }
+    game.bountyBoard.claiming = true;
+    game.bountyBoard.error = '';
+    renderBountyBoard();
+    try {
+      const result = await callBountyFunction(CLAIM_BOUNTY_FUNCTION, { walletAddress }, true);
+      showBanner(result && result.message ? result.message : 'Bounty claimed.', 2600);
+      await refreshBountyBoard();
+      if (window.DFKRunTracker && typeof window.DFKRunTracker.refreshSummary === 'function') {
+        window.DFKRunTracker.refreshSummary().catch(() => {});
+      }
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Bounty claim failed.';
+      game.bountyBoard.error = message;
+      showBanner(message, 2600);
+      renderBountyBoard();
+    } finally {
+      game.bountyBoard.claiming = false;
+      renderBountyBoard();
+      renderTrackedRunsBoard();
+    }
   }
 
 
@@ -1522,6 +1765,8 @@ function renderDamageReport() {
     }
     closeIntroModal();
     renderBountyBoard();
+    refreshBountyBoard().catch(() => {});
+    startBountyCountdownTick();
     game.introOpen = true;
     syncStatusOverlayVisibility(true);
     document.body.classList.add('intro-open');
@@ -1532,9 +1777,14 @@ function renderDamageReport() {
   }
 
   function closeBountyModal() {
+    stopBountyCountdownTick();
     if (els.bountyModal) {
       els.bountyModal.classList.add('hidden');
       els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
+    if (els.trackedRunsModal) {
+      els.trackedRunsModal.classList.add('hidden');
+      els.trackedRunsModal.setAttribute('aria-hidden', 'true');
     }
     game.introOpen = false;
     document.body.classList.remove('intro-open');
@@ -6088,6 +6338,9 @@ function renderDamageReport() {
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
   });
+  els.trackedRunsBtn?.addEventListener('click', () => {
+    openTrackedRunsModal();
+  });
   els.knownRelicsBtn?.addEventListener('click', () => {
     openKnownRelicsModal();
   });
@@ -6124,6 +6377,20 @@ function renderDamageReport() {
   });
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
   els.closeBountyBtn?.addEventListener('click', closeBountyModal);
+  els.closeTrackedRunsBtn?.addEventListener('click', closeTrackedRunsModal);
+  els.trackedRunsBody?.addEventListener('input', (event) => {
+    const searchInput = event.target instanceof HTMLInputElement && event.target.id === 'trackedRunsSearchInput'
+      ? event.target
+      : null;
+    if (!searchInput) return;
+    game.trackedRunsSearchQuery = searchInput.value || '';
+    renderTrackedRunsBoard();
+  });
+  els.bountyBody?.addEventListener('click', (event) => {
+    const claimBtn = event.target instanceof Element ? event.target.closest('.bounty-claim-btn') : null;
+    if (!claimBtn) return;
+    claimActiveBounty().catch(() => {});
+  });
   els.closeKnownRelicsBtn?.addEventListener('click', closeKnownRelicsModal);
   els.eliteWaveOkBtn?.addEventListener('click', () => {
     game.eliteWarningAcknowledgedWave = game.nextWavePlan?.waveNumber || game.eliteWarningAcknowledgedWave;
@@ -6304,6 +6571,7 @@ function renderDamageReport() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();
+      if (els.trackedRunsModal && !els.trackedRunsModal.classList.contains('hidden')) closeTrackedRunsModal();
       else closeIntroModal();
       return;
     }

@@ -141,3 +141,53 @@ from public.players
 order by best_wave desc, total_waves_cleared desc, updated_at desc, wallet_address asc;
 
 create unique index if not exists players_vanity_name_unique on public.players (lower(vanity_name)) where vanity_name is not null;
+
+
+create table if not exists public.bounties (
+  id bigserial primary key,
+  sort_order integer not null unique,
+  title text not null,
+  reward_text text not null,
+  required_wave integer not null check (required_wave > 0),
+  detail text not null default '',
+  unlock_delay_hours integer not null default 24 check (unlock_delay_hours >= 0),
+  reveal_at timestamptz not null default now(),
+  claimed_by_wallet text references public.players(wallet_address) on delete set null,
+  claimed_by_name text,
+  claimed_run_id uuid references public.runs(id) on delete set null,
+  claimed_at timestamptz
+);
+
+create index if not exists idx_bounties_sort_order on public.bounties (sort_order asc);
+
+
+create unique index if not exists idx_bounties_claimed_run_unique
+  on public.bounties (claimed_run_id)
+  where claimed_run_id is not null;
+
+alter table public.bounties enable row level security;
+
+drop policy if exists "bounties_read_none" on public.bounties;
+create policy "bounties_read_none"
+  on public.bounties
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+insert into public.bounties (sort_order, title, reward_text, required_wave, detail, unlock_delay_hours, reveal_at)
+values
+  (1, 'First player to beat wave 20', '50J', 20, 'First verified tracked run to reach wave 20 claims this bounty.', 24, now()),
+  (2, 'First player to beat wave 25', '75J', 25, 'First verified tracked run to reach wave 25 claims this bounty.', 24, now() + interval '100 years'),
+  (3, 'First player to beat wave 30', '100J', 30, 'First verified tracked run to reach wave 30 claims this bounty.', 24, now() + interval '100 years'),
+  (4, 'First player to beat wave 35', '125J', 35, 'First verified tracked run to reach wave 35 claims this bounty.', 24, now() + interval '100 years'),
+  (5, 'First player to beat wave 40', '150J', 40, 'First verified tracked run to reach wave 40 claims this bounty.', 24, now() + interval '100 years'),
+  (6, 'First player to beat wave 45', '200J', 45, 'First verified tracked run to reach wave 45 claims this bounty.', 24, now() + interval '100 years'),
+  (7, 'First player to beat wave 50', '250J', 50, 'First verified tracked run to reach wave 50 claims this bounty.', 24, now() + interval '100 years')
+on conflict (sort_order) do update
+set
+  title = excluded.title,
+  reward_text = excluded.reward_text,
+  required_wave = excluded.required_wave,
+  detail = excluded.detail,
+  unlock_delay_hours = excluded.unlock_delay_hours;
