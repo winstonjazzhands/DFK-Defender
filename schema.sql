@@ -180,10 +180,10 @@ values
   (1, 'First player to beat wave 20', '50J', 20, 'First verified tracked run to reach wave 20 claims this bounty.', 24, now()),
   (2, 'First player to beat wave 25', '75J', 25, 'First verified tracked run to reach wave 25 claims this bounty.', 24, now() + interval '100 years'),
   (3, 'First player to beat wave 30', '100J', 30, 'First verified tracked run to reach wave 30 claims this bounty.', 24, now() + interval '100 years'),
-  (4, 'First player to beat wave 35', '125J', 35, 'First verified tracked run to reach wave 35 claims this bounty.', 24, now() + interval '100 years'),
-  (5, 'First player to beat wave 40', '150J', 40, 'First verified tracked run to reach wave 40 claims this bounty.', 24, now() + interval '100 years'),
-  (6, 'First player to beat wave 45', '200J', 45, 'First verified tracked run to reach wave 45 claims this bounty.', 24, now() + interval '100 years'),
-  (7, 'First player to beat wave 50', '250J', 50, 'First verified tracked run to reach wave 50 claims this bounty.', 24, now() + interval '100 years')
+  (4, 'First player to beat wave 35', '100J', 35, 'First verified tracked run to reach wave 35 claims this bounty.', 24, now() + interval '100 years'),
+  (5, 'First player to beat wave 40', '100J', 40, 'First verified tracked run to reach wave 40 claims this bounty.', 24, now() + interval '100 years'),
+  (6, 'First player to beat wave 45', '100J', 45, 'First verified tracked run to reach wave 45 claims this bounty.', 24, now() + interval '100 years'),
+  (7, 'First player to beat wave 50', '100J', 50, 'First verified tracked run to reach wave 50 claims this bounty.', 24, now() + interval '100 years')
 on conflict (sort_order) do update
 set
   title = excluded.title,

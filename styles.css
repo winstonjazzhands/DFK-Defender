@@ -330,7 +330,7 @@ body::before {
 .enemy-grunt { background: #df5d5d; }
 .enemy-runner { background: #ffad61; }
 .enemy-brute { background: #ca4c8a; }
-.enemy-boss { background: #ff3ec6; width: 12px; height: 16px; }
+.enemy-boss { background: transparent; width: 12px; height: 16px; border: 0; }
 .enemy-slowed { background: #57a8ff !important; box-shadow: 0 0 8px rgba(87,168,255,0.65); }
 
 .phase-label {
@@ -3148,9 +3148,10 @@ body{
   text-align: center;
 }
 
-.footer-topbar .hud-pill-portal { min-width: 168px; }
+.footer-topbar .hud-pill-portal { min-width: 142px; }
 .footer-topbar .hud-pill-gold,
-.footer-topbar .hud-pill-wave { min-width: 116px; }
+.footer-topbar .hud-pill-wave { min-width: 90px; }
+.footer-topbar .hud-pill strong { margin-right: 4px; }
 
 .controls-stack {
   display: flex;
@@ -3515,13 +3516,22 @@ body{
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(6, 10, 20, 0.92);
+    background: rgba(6, 10, 20, 0.94);
+    backdrop-filter: blur(6px);
   }
   .mobile-rotate-card {
     width: min(92vw, 420px);
     text-align: center;
-    padding: 22px 18px;
+    padding: 24px 18px 22px;
     border-radius: 18px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+  }
+  .mobile-rotate-icon {
+    font-size: 2.8rem;
+    line-height: 1;
+    margin-bottom: 10px;
+    animation: mobileRotatePromptBob 1.6s ease-in-out infinite;
+    transform-origin: 50% 60%;
   }
   .mobile-rotate-title {
     font-size: 1.35rem;
@@ -3532,6 +3542,13 @@ body{
     color: var(--muted);
     line-height: 1.45;
   }
+}
+
+@keyframes mobileRotatePromptBob {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-8deg) scale(1.03); }
+  50% { transform: rotate(10deg) scale(1.05); }
+  80% { transform: rotate(-4deg) scale(1.02); }
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
@@ -4606,7 +4623,7 @@ body.intro-open .mobile-right-rail {
   .bottom-panel .controls-row.action-row,
   .bottom-panel .controls-row.action-row.controls-row-lean {
     display: grid;
-    grid-template-columns: max-content max-content minmax(150px, 1fr) minmax(112px, 0.9fr) minmax(112px, 0.9fr);
+    grid-template-columns: max-content max-content max-content minmax(132px, 1fr) minmax(92px, 0.8fr) minmax(92px, 0.8fr);
     align-items: center;
     gap: 8px;
   }
@@ -5360,6 +5377,9 @@ body.leaderboard-open {
 .known-relics-body { display: grid; gap: 16px; }
 .known-relic-section { display: grid; gap: 12px; }
 .known-relic-heading { font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+.known-relic-heading-found { color: #f6db9b; }
+.known-relic-found-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.known-relic-found-empty { color: var(--muted); }
 .known-relic-card { padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12); background: rgba(15,18,28,0.88); }
 .known-relic-card h4 { margin: 0 0 6px; }
 .known-relic-card p { margin: 0; line-height: 1.55; }
@@ -5368,9 +5388,11 @@ body.leaderboard-open {
 .relic-rarity-common { color: #b8bec8; border-color: rgba(184,190,200,0.28); }
 .relic-rarity-rare { color: #79b8ff; border-color: rgba(121,184,255,0.3); }
 .relic-rarity-legendary { color: #ffb261; border-color: rgba(255,178,97,0.36); }
+.relic-rarity-mythic { color: #d06dff; border-color: rgba(208,109,255,0.42); }
 .relic-choice-card.relic-rarity-common, .known-relic-card.relic-rarity-common, .relic-pill.relic-rarity-common { box-shadow: inset 0 0 0 1px rgba(184,190,200,0.18); }
 .relic-choice-card.relic-rarity-rare, .known-relic-card.relic-rarity-rare, .relic-pill.relic-rarity-rare { box-shadow: inset 0 0 0 1px rgba(121,184,255,0.22); }
 .relic-choice-card.relic-rarity-legendary, .known-relic-card.relic-rarity-legendary, .relic-pill.relic-rarity-legendary { box-shadow: inset 0 0 0 1px rgba(255,178,97,0.24); }
+.relic-choice-card.relic-rarity-mythic, .known-relic-card.relic-rarity-mythic, .relic-pill.relic-rarity-mythic { box-shadow: inset 0 0 0 1px rgba(208,109,255,0.26); }
 .relic-hidden-card { text-align: center; }
 .elite-wave-modal-card { max-width: min(640px, calc(100vw - 40px)); border-color: rgba(255,140,92,0.45); box-shadow: 0 20px 48px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(255,255,255,0.04); }
 .elite-wave-body { display: grid; gap: 12px; text-align: center; }
@@ -5526,3 +5548,19 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     max-width: min(100vw - 20px, 720px);
   }
 }
+
+
+.quests-toggle { margin-top: 8px; }
+.quests-modal-card { max-width: min(920px, calc(100vw - 40px)); }
+.quests-body { display: grid; gap: 16px; }
+.quest-progress-row { display: grid; gap: 8px; margin-bottom: 12px; }
+.quest-progress-track { position: relative; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+.quest-progress-track span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, rgba(102,184,255,0.95), rgba(138,240,196,0.95)); }
+.quest-progress-text { color: #d9e7ff; font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.quest-card { min-height: 220px; }
+.quests-summary-strip { border-color: rgba(102, 184, 255, 0.22); background: linear-gradient(180deg, rgba(10, 24, 40, 0.94), rgba(7, 16, 28, 0.92)); }
+@media (max-width: 1024px) and (orientation: landscape) { .quests-modal-card { max-width: min(94vw, 860px); } }
+
+
+.desktop-only-inline { display: inline-flex; }
+@media (max-width: 900px) { .desktop-only-inline { display: none !important; } }

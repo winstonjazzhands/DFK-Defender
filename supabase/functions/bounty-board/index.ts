@@ -19,6 +19,15 @@ function cleanName(value: unknown) {
   return text || null;
 }
 
+
+function capRewardText(value: unknown) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  const match = text.match(/^(\d+)\s*J$/i);
+  if (!match) return text || '100J';
+  const amount = Math.min(100, Number(match[1] || 0));
+  return `${amount}J`;
+}
+
 function createAdmin() {
   return createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -103,7 +112,7 @@ Deno.serve(async (req) => {
         id: row.id,
         tier: row.sort_order,
         title: row.title,
-        reward: row.reward_text,
+        reward: capRewardText(row.reward_text),
         requiredWave: Number(row.required_wave || 0),
         detail: row.detail,
         status,

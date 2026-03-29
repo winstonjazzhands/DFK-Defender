@@ -10,13 +10,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app">
   <div id="mobileRotatePrompt" class="mobile-rotate-prompt" aria-live="polite">
     <div class="mobile-rotate-card panel">
-      <div class="mobile-rotate-title">Flip to landscape</div>
-      <div class="mobile-rotate-copy">This mobile build is designed for landscape so the full board stays on screen.</div>
+      <div class="mobile-rotate-icon" aria-hidden="true">📱↻</div>
+      <div class="mobile-rotate-title">Rotate your device</div>
+      <div class="mobile-rotate-copy">This game plays best in landscape so the full board and menus stay on screen.</div>
     </div>
   </div>
+  <div id="app">
     <main class="main-layout">
 <section class="left-panel panel" id="runLogPanel">
         <div id="runLogHeader" class="runlog-header">
@@ -56,6 +57,7 @@
         <button id="introBtn" class="intro-toggle" type="button">📖 Intro / Instructions</button>
         <button id="leaderboardFlyoutBtn" class="leaderboard-flyout-btn intro-toggle secondary-guide" type="button" aria-expanded="false" aria-controls="leaderboardFlyout">📊 Leaderboard</button>
         <button id="bountyBtn" class="intro-toggle secondary-guide bounty-toggle" type="button">🏆 Bounty Board</button>
+        <button id="questsBtn" class="intro-toggle secondary-guide quests-toggle" type="button">✅ Daily Quests</button>
         <button id="trackedRunsBtn" class="intro-toggle secondary-guide tracked-runs-toggle" type="button">📜 Tracked Runs</button>
         <button id="knownRelicsBtn" class="intro-toggle secondary-guide known-relics-toggle" type="button">🧿 Known Relics</button>
         <div id="log" class="log"></div>
@@ -84,6 +86,7 @@
         <footer class="bottom-panel panel">
           <div class="controls-row action-row controls-row-lean">
             <button id="startWaveBtn" class="small-action lean-action" disabled>Start Next Wave</button>
+            <button id="autoStartBtn" class="secondary small-action lean-action" type="button" aria-pressed="false">Auto Start: Off</button>
             <button id="skipSetupBtn" class="secondary small-action hidden">Auto-Place Warrior</button>
             <button id="restartBtn" class="small-action lean-action">New Run</button>
             <div class="topbar footer-topbar footer-topbar-separated">
@@ -118,7 +121,8 @@
         <div class="action-group">
           <button id="upgradeBtn" disabled>Level Up</button>
           <button id="moveBtn" disabled>Move</button>
-          <button id="rebuildBarriersBtn" class="secondary" disabled>Rebuild Barriers</button>
+          <button id="maxLevelBtn" class="secondary desktop-only-inline" disabled>Max Lvl</button>
+          <button id="rebuildBarriersBtn" class="secondary hidden" disabled hidden aria-hidden="true" tabindex="-1">Rebuild Barriers</button>
         </div>
         <div id="abilitiesPanel" class="abilities-panel"></div>
       </section>
@@ -158,6 +162,19 @@
           <button id="closeBountyBtn" type="button" class="intro-close" aria-label="Close bounty board">×</button>
         </div>
         <div id="bountyBody" class="intro-body bounty-body"></div>
+      </div>
+    </div>
+
+    <div id="questsModal" class="intro-modal quests-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card quests-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="questsTitle">
+        <div class="intro-modal-header quests-modal-header">
+          <div>
+            <div class="intro-kicker">DFK Defender Daily Rewards</div>
+            <h2 id="questsTitle">Daily Quests</h2>
+          </div>
+          <button id="closeQuestsBtn" type="button" class="intro-close" aria-label="Close daily quests">×</button>
+        </div>
+        <div id="questsBody" class="intro-body quests-body"></div>
       </div>
     </div>
 
@@ -236,6 +253,7 @@
             <button id="mobileFuncPauseBtn" type="button">Pause</button>
             <button id="mobileFuncIntroBtn" type="button">Intro</button>
             <button id="mobileFuncBountyBtn" type="button">Bounties</button>
+            <button id="mobileFuncQuestsBtn" type="button">Daily Quests</button>
             <button id="mobileFuncKnownRelicsBtn" type="button">Known Relics</button>
             <button id="mobileFuncStartBtn" type="button">Start Next Wave</button>
             <button id="mobileFuncSkipBtn" type="button">Auto-Place Warrior</button>

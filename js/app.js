@@ -32,6 +32,7 @@ function getRandomTree(){
     common: { label: 'Common', className: 'relic-rarity-common', color: '#b8bec8' },
     rare: { label: 'Rare', className: 'relic-rarity-rare', color: '#79b8ff' },
     legendary: { label: 'Legendary', className: 'relic-rarity-legendary', color: '#ffb261' },
+    mythic: { label: 'Mythic', className: 'relic-rarity-mythic', color: '#d06dff' },
   };
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
   const TEST_GOLD_ADMIN_WALLETS = Object.freeze((Array.isArray(window.DFK_TEST_GOLD_WALLETS) && window.DFK_TEST_GOLD_WALLETS.length
@@ -56,8 +57,8 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 1.5;
-const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
+const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
+const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
   const ICE_AURA_BONUS_RANGE_AT_LEVEL_15 = 1;
   const SLOW_TOTEM_RANGE = 2;
@@ -81,13 +82,16 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
   };
   const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 28.125;
   const EXPLODING_STATUE_RADIUS = 2;
-  const EXPLODING_STATUE_DAMAGE_PERCENT = 0.20;
+  const EXPLODING_STATUE_DAMAGE_PERCENT = 0.11;
   const EXPLODING_STATUE_ANIMATION_MS = 3000;
   const ARCHER_PROJECTILE_ANIMATION_MS = 3000;
   const ARCHER_PROJECTILE_SIZE_MULTIPLIER = 0.85;
-  const STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER = 2.35;
+  const STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER = 2.0;
   const GREEN_FIRE_GIF_PATH = 'assets/green-fire.gif';
   const RED_FIRE_GIF_PATH = 'assets/red-fire.gif';
+  const PURPLE_FIRE_GIF_PATH = 'assets/purple-fire.gif';
+  const TORN_SOUL_BURN_DURATION_SECONDS = 10;
+  const TORN_SOUL_BURN_RADIUS = 1;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 9;
@@ -114,8 +118,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
       abilities: [
         { key: 'gladiator_strike', name: 'Gladiator Strike', cooldown: 0, passive: true },
         { key: 'new_blood', name: 'Statue', cooldown: 0, passive: true },
-        { key: 'whirlwind', name: 'Whirlwind', cooldown: 6 },
+        { key: 'whirlwind', name: 'Whirlwind', cooldown: 4.5 },
         { key: 'rapid_onslaught', name: 'Rapid Onslaught', cooldown: 12 },
+        { key: 'shield_bash', name: 'Shield Bash', cooldown: 25 },
         
       ],
     },
@@ -280,30 +285,33 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
   ];
 
   const RELICS = [
-    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 120 Gold to fletch a nastier volley and increase Archer damage by 12%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.12 }) },
-    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 120 Gold to tighten the Archer kit and increase Archer attack speed by 10%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.10 }) },
-    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 130 Gold to sharpen the Wizard's spellwork and increase spell damage by 12%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.12 },
-    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 130 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 10%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.90 },
-    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 130 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 20%.', cost: 130, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.20, healToMatchPercent: true }) },
-    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 120 Gold to drill the Warrior harder and make Warrior cooldowns recover 10% faster.', cost: 120, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.90 },
+    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 120 Gold to fletch a nastier volley and increase Archer damage by 6%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.06 }) },
+    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 120 Gold to tighten the Archer kit and increase Archer attack speed by 5%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.05 }) },
+    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 130 Gold to sharpen the Wizard's spellwork and increase spell damage by 6%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.06 },
+    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 130 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 5%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.95 },
+    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 130 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 11%.', cost: 130, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.11, healToMatchPercent: true }) },
+    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 120 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 120, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
 { id: 'blade_dancer', name: 'Blade Dancer', desc: 'Spend 350 Gold to teach the Warrior blade dancing and reduce Whirlwind cooldown by 2 seconds.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.whirlwindCooldownAdjust += 2 },
-    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 125 Gold to deepen the Priest's devotion and increase Priest healing by 15%.", cost: 125, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.15 },
+    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 125 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 125, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
 { id: 'devotion', name: 'Devotion', desc: "The Priest studies the old ways and Prayer of Healing cooldown is reduced by 0.5 seconds.", cost: 150, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 0.5 },
-    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 140 Gold to bless the battle line so towers near the Priest gain 8% attack speed.', cost: 140, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
-    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 140 Gold to fatten the Pirate's take and raise steal bonus to 20%.", cost: 140, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.20 },
+    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 140 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 140, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
+    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 140 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 140, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
     { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 150 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 150, rarity: 'common', apply: game => game.modifiers.extraCannons += 1 },
-    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 150 Gold to tighten formation and make the Warrior take 10% less damage beside a Priest.', cost: 150, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
-    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 140 Gold to set the backline and make Archers behind the Warrior deal 10% more damage.', cost: 140, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
+    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 150 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 150, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
+    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 140 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 140, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
     { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 135 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 135, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
-    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 145 Gold to pack the Statue with spite so it explodes on death for 20% of its max HP in 2 tiles.', cost: 145, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
-    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 150 Gold to patch the Statue back together and restore 25% of its health.', cost: 150, rarity: 'common', apply: game => repairAllStatues(game, 0.25) },
-    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 150 Gold to reinforce the portal and restore 20% of its health.', cost: 150, rarity: 'common', apply: game => repairPortalPercent(game, 0.20) },
+    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 145 Gold to pack the Statue with spite so it explodes on death for 11% of its max HP in 2 tiles.', cost: 145, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
+    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 150 Gold to patch the Statue back together and restore 13% of its health.', cost: 150, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
+    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 150 Gold to reinforce the portal and restore 11% of its health.', cost: 150, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
     { id: 'fire_fiend', name: 'Fire Fiend', desc: 'Spend 200 Gold to feed the Wizard hotter fuel and make Fireball cooldown 1 second shorter.', cost: 200, rarity: 'rare', apply: game => game.modifiers.fireballCooldownAdjust += 1 },
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase his health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
+    { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => buffTowerType(game, 'pirate', { rangeAdd: 1 }) },
+    { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and reduce attack speed by 2%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.98 },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
     { id: 'dark_arts', name: 'Dark Arts', desc: 'Spend 350 Gold to flirt with dark magic so all Wizard cooldowns drop by 2 seconds, but Wizard damage falls by 10%.', cost: 350, rarity: 'legendary', apply: game => { game.modifiers.wizardCooldownFlatReduction += 2; game.modifiers.wizardSpellDamage *= 0.90; } },
     { id: 'dagger_training', name: 'Dagger Training', desc: 'Spend 350 Gold to drill dirty fighting so Archers, Pirate, and Satellite Archers cut enemies for 10% base damage once per hero.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.daggerTraining = true },
+    { id: 'sacred_sculpting', name: 'Sacred Sculpting', desc: 'Spend 500 Gold to teach the Priest to sculpt, allowing Priest healing to restore Statues for 20% of normal healing.', cost: 500, rarity: 'mythic', apply: game => game.modifiers.sacredSculpting = true },
   ];
 
   const MUTATIONS = [
@@ -333,6 +341,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
     bountyBtn: document.getElementById('bountyBtn'),
+    questsBtn: document.getElementById('questsBtn'),
     trackedRunsBtn: document.getElementById('trackedRunsBtn'),
     knownRelicsBtn: document.getElementById('knownRelicsBtn'),
     heroesBtn: document.getElementById('heroesBtn'),
@@ -340,6 +349,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     bountyModal: document.getElementById('bountyModal'),
     bountyBody: document.getElementById('bountyBody'),
     closeBountyBtn: document.getElementById('closeBountyBtn'),
+    questsModal: document.getElementById('questsModal'),
+    questsBody: document.getElementById('questsBody'),
+    closeQuestsBtn: document.getElementById('closeQuestsBtn'),
     trackedRunsModal: document.getElementById('trackedRunsModal'),
     trackedRunsBody: document.getElementById('trackedRunsBody'),
     closeTrackedRunsBtn: document.getElementById('closeTrackedRunsBtn'),
@@ -408,11 +420,13 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     mobileFuncPauseBtn: document.getElementById('mobileFuncPauseBtn'),
     mobileFuncIntroBtn: document.getElementById('mobileFuncIntroBtn'),
     mobileFuncBountyBtn: document.getElementById('mobileFuncBountyBtn'),
+    mobileFuncQuestsBtn: document.getElementById('mobileFuncQuestsBtn'),
     mobileFuncKnownRelicsBtn: document.getElementById('mobileFuncKnownRelicsBtn'),
     mobileFuncHeroesBtn: document.getElementById('mobileFuncHeroesBtn'),
     mobileFuncStartBtn: document.getElementById('mobileFuncStartBtn'),
     mobileFuncSkipBtn: document.getElementById('mobileFuncSkipBtn'),
     mobileFuncRestartBtn: document.getElementById('mobileFuncRestartBtn'),
+    autoStartBtn: document.getElementById('autoStartBtn'),
     premiumJewelCount: document.getElementById('premiumJewelCount'),
     relicModal: document.getElementById('relicModal'),
     relicModalBody: document.getElementById('relicModalBody'),
@@ -422,6 +436,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     skipSetupBtn: document.getElementById('skipSetupBtn'),
     restartBtn: document.getElementById('restartBtn'),
     upgradeBtn: document.getElementById('upgradeBtn'),
+    maxLevelBtn: document.getElementById('maxLevelBtn'),
     moveBtn: document.getElementById('moveBtn'),
     rebuildBarriersBtn: document.getElementById('rebuildBarriersBtn'),
     enemyLayer: null,
@@ -464,6 +479,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     recentMutations: [],
     recentLanes: [],
     hireCount: 0,
+    autoStartEnabled: false,
+    autoStartDelayMs: 15000,
+    autoStartReadyAt: 0,
     bonusHeroHireCharges: 0,
     placingHeroUsesBonus: false,
     rebuildingBarriers: false,
@@ -475,6 +493,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     portalHp: 2500,
     relicChoices: [],
     ownedRelics: [],
+    foundRelics: [],
     attackLines: [],
     explosionEffects: [],
     projectileEffects: [],
@@ -497,6 +516,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
       daggerTraining: false,
       whirlwindCooldownAdjust: 0,
       prayerCooldownAdjust: 0,
+      sacredSculpting: false,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -536,6 +556,17 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
       nextRevealAt: null,
       tickTimer: null,
     },
+    dailyQuestBoard: {
+      loading: false,
+      claiming: false,
+      error: '',
+      dateKey: '',
+      playerKey: '',
+      questIds: [],
+      progress: {},
+      claimed: {},
+      metrics: {},
+    },
   };
 
   function now() { return game.virtualNow || Date.now(); }
@@ -549,9 +580,293 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
 
   function weightedRelicRarity() {
     const roll = Math.random();
-    if (roll < 0.55) return 'common';
-    if (roll < 0.85) return 'rare';
-    return 'legendary';
+    if (roll < 0.58) return 'common';
+    if (roll < 0.92) return 'rare';
+    if (roll < 0.97) return 'legendary';
+    return 'mythic';
+  }
+
+
+  const DAILY_QUEST_POOL = [
+    { id: 'kill_50', name: 'Cull the Weak', description: 'Kill 50 enemies.', metric: 'killsTotal', goal: 50 },
+    { id: 'kill_100', name: 'Field Clearer', description: 'Kill 100 enemies.', metric: 'killsTotal', goal: 100 },
+    { id: 'kill_200', name: 'Relentless Sweep', description: 'Kill 200 enemies.', metric: 'killsTotal', goal: 200 },
+    { id: 'kill_350', name: 'Wall of Bodies', description: 'Kill 350 enemies.', metric: 'killsTotal', goal: 350 },
+    { id: 'small_40', name: 'Pest Control', description: 'Kill 40 small enemies.', metric: 'killsSmall', goal: 40 },
+    { id: 'small_80', name: 'Thinning the Pack', description: 'Kill 80 small enemies.', metric: 'killsSmall', goal: 80 },
+    { id: 'medium_20', name: 'Middleweight Hunter', description: 'Kill 20 medium enemies.', metric: 'killsMedium', goal: 20 },
+    { id: 'medium_40', name: 'Medium Trouble', description: 'Kill 40 medium enemies.', metric: 'killsMedium', goal: 40 },
+    { id: 'large_8', name: 'Breaker Breaker', description: 'Kill 8 large enemies.', metric: 'killsLarge', goal: 8 },
+    { id: 'large_15', name: 'Heavy Cleanup', description: 'Kill 15 large enemies.', metric: 'killsLarge', goal: 15 },
+    { id: 'skitter_5', name: 'Bug Stomper', description: 'Kill 5 skitters.', metric: 'killsSkitter', goal: 5 },
+    { id: 'skitter_12', name: 'Skitter Smasher', description: 'Kill 12 skitters.', metric: 'killsSkitter', goal: 12 },
+    { id: 'boss_1', name: 'Boss Check', description: 'Kill 1 boss.', metric: 'killsBoss', goal: 1 },
+    { id: 'boss_3', name: 'Boss Breaker', description: 'Kill 3 bosses.', metric: 'killsBoss', goal: 3 },
+    { id: 'damage_10k', name: 'Open Fire', description: 'Deal 10,000 total damage.', metric: 'damageTotal', goal: 10000 },
+    { id: 'damage_25k', name: 'Pressure Test', description: 'Deal 25,000 total damage.', metric: 'damageTotal', goal: 25000 },
+    { id: 'damage_50k', name: 'Siege Engine', description: 'Deal 50,000 total damage.', metric: 'damageTotal', goal: 50000 },
+    { id: 'gold_800', name: 'Payday', description: 'Earn 800 gold.', metric: 'goldEarned', goal: 800 },
+    { id: 'gold_1800', name: 'Coin Shower', description: 'Earn 1,800 gold.', metric: 'goldEarned', goal: 1800 },
+    { id: 'gold_3200', name: 'Treasure Tide', description: 'Earn 3,200 gold.', metric: 'goldEarned', goal: 3200 },
+    { id: 'spend_600', name: 'Spend to Win', description: 'Spend 600 gold.', metric: 'goldSpent', goal: 600 },
+    { id: 'spend_1400', name: 'Arms Race', description: 'Spend 1,400 gold.', metric: 'goldSpent', goal: 1400 },
+    { id: 'spend_2600', name: 'No Hoarding', description: 'Spend 2,600 gold.', metric: 'goldSpent', goal: 2600 },
+    { id: 'relics_1', name: 'Treasure Hunter', description: 'Buy 1 relic.', metric: 'relicsBought', goal: 1 },
+    { id: 'relics_2', name: 'Curio Collector', description: 'Buy 2 relics.', metric: 'relicsBought', goal: 2 },
+    { id: 'heroes_3', name: 'Recruitment Drive', description: 'Place 3 heroes.', metric: 'heroesPlaced', goal: 3 },
+    { id: 'heroes_6', name: 'Open Enrollment', description: 'Place 6 heroes.', metric: 'heroesPlaced', goal: 6 },
+    { id: 'upgrades_4', name: 'Sharpen the Blades', description: 'Buy 4 upgrades.', metric: 'upgrades', goal: 4 },
+    { id: 'upgrades_10', name: 'Arsenal Expansion', description: 'Buy 10 upgrades.', metric: 'upgrades', goal: 10 },
+    { id: 'satellites_1', name: 'Support Online', description: 'Place 1 satellite, statue, or Torn Soul.', metric: 'satellitesPlaced', goal: 1 },
+    { id: 'satellites_3', name: 'Secondary Line', description: 'Place 3 satellites, statues, or Torn Souls.', metric: 'satellitesPlaced', goal: 3 },
+    { id: 'waves_10', name: 'Ten Down', description: 'Clear 10 waves total.', metric: 'wavesClearedTotal', goal: 10 },
+    { id: 'waves_20', name: 'Twenty Down', description: 'Clear 20 waves total.', metric: 'wavesClearedTotal', goal: 20 },
+    { id: 'waves_35', name: 'Hold the Line', description: 'Clear 35 waves total.', metric: 'wavesClearedTotal', goal: 35 },
+    { id: 'wave_peak_10', name: 'Break Through', description: 'Reach wave 10 in a run.', metric: 'maxWave', goal: 10 },
+    { id: 'wave_peak_20', name: 'Push Deeper', description: 'Reach wave 20 in a run.', metric: 'maxWave', goal: 20 },
+    { id: 'wave_peak_30', name: 'Dig In', description: 'Reach wave 30 in a run.', metric: 'maxWave', goal: 30 },
+    { id: 'runs_2', name: 'Back Again', description: 'Complete 2 runs.', metric: 'runsCompleted', goal: 2 },
+    { id: 'runs_4', name: 'Long Shift', description: 'Complete 4 runs.', metric: 'runsCompleted', goal: 4 },
+    { id: 'boss_waves_2', name: 'Brace for Impact', description: 'Clear 2 boss waves.', metric: 'bossWavesCleared', goal: 2 },
+  ];
+
+  function getQuestDefinitionById(id) {
+    return DAILY_QUEST_POOL.find((quest) => quest.id === id) || null;
+  }
+
+  function getDailyQuestDateKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function getDailyQuestPlayerKey() {
+    return getConnectedWalletAddress() || 'guest';
+  }
+
+  function getDailyQuestStorageKey(playerKey, dateKey) {
+    return `dfkDefenderDailyQuests:${playerKey}:${dateKey}`;
+  }
+
+  function createEmptyDailyQuestMetrics() {
+    return {
+      killsTotal: 0,
+      killsSmall: 0,
+      killsMedium: 0,
+      killsLarge: 0,
+      killsSkitter: 0,
+      killsBoss: 0,
+      damageTotal: 0,
+      goldEarned: 0,
+      goldSpent: 0,
+      relicsBought: 0,
+      heroesPlaced: 0,
+      upgrades: 0,
+      satellitesPlaced: 0,
+      wavesClearedTotal: 0,
+      maxWave: 0,
+      runsCompleted: 0,
+      bossWavesCleared: 0,
+    };
+  }
+
+  function seededRandom(seed) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return function next() {
+      h += h << 13; h ^= h >>> 7;
+      h += h << 3; h ^= h >>> 17;
+      h += h << 5;
+      return (h >>> 0) / 4294967296;
+    };
+  }
+
+  function pickDailyQuestIds(playerKey, dateKey) {
+    const rng = seededRandom(`${playerKey}:${dateKey}:daily-quests`);
+    const pool = DAILY_QUEST_POOL.map((quest) => quest.id);
+    const selected = [];
+    while (selected.length < Math.min(5, pool.length)) {
+      const index = Math.floor(rng() * pool.length);
+      selected.push(pool.splice(index, 1)[0]);
+    }
+    return selected;
+  }
+
+  function persistDailyQuestBoard() {
+    try {
+      const board = game.dailyQuestBoard || {};
+      if (!board.playerKey || !board.dateKey) return;
+      localStorage.setItem(getDailyQuestStorageKey(board.playerKey, board.dateKey), JSON.stringify({
+        questIds: Array.isArray(board.questIds) ? board.questIds : [],
+        progress: board.progress || {},
+        claimed: board.claimed || {},
+        metrics: board.metrics || createEmptyDailyQuestMetrics(),
+      }));
+    } catch (error) {}
+  }
+
+  function ensureDailyQuestBoard(force = false) {
+    const playerKey = getDailyQuestPlayerKey();
+    const dateKey = getDailyQuestDateKey();
+    const board = game.dailyQuestBoard || (game.dailyQuestBoard = {});
+    if (!force && board.playerKey === playerKey && board.dateKey === dateKey && Array.isArray(board.questIds) && board.questIds.length) return board;
+    let stored = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(getDailyQuestStorageKey(playerKey, dateKey)) || 'null');
+    } catch (error) { stored = null; }
+    board.loading = false;
+    board.claiming = false;
+    board.error = '';
+    board.playerKey = playerKey;
+    board.dateKey = dateKey;
+    board.questIds = Array.isArray(stored?.questIds) && stored.questIds.length ? stored.questIds.slice(0, 5) : pickDailyQuestIds(playerKey, dateKey);
+    board.progress = stored && typeof stored.progress === 'object' && stored.progress ? stored.progress : {};
+    board.claimed = stored && typeof stored.claimed === 'object' && stored.claimed ? stored.claimed : {};
+    board.metrics = { ...createEmptyDailyQuestMetrics(), ...(stored?.metrics || {}) };
+    persistDailyQuestBoard();
+    return board;
+  }
+
+  function getActiveDailyQuests() {
+    const board = ensureDailyQuestBoard();
+    return (board.questIds || []).map((id) => getQuestDefinitionById(id)).filter(Boolean);
+  }
+
+  function getQuestProgressValue(quest, board = ensureDailyQuestBoard()) {
+    const progressValue = Number(board.progress?.[quest.id] ?? board.metrics?.[quest.metric] ?? 0) || 0;
+    return Math.max(0, progressValue);
+  }
+
+  function isQuestComplete(quest, board = ensureDailyQuestBoard()) {
+    return getQuestProgressValue(quest, board) >= Number(quest.goal || 0);
+  }
+
+  function isQuestClaimed(questId, board = ensureDailyQuestBoard()) {
+    return Boolean(board.claimed && board.claimed[questId]);
+  }
+
+  function updateQuestMetric(metric, amount, mode = 'add') {
+    const board = ensureDailyQuestBoard();
+    if (!metric || !board.metrics) return;
+    const nextValue = mode === 'max'
+      ? Math.max(Number(board.metrics[metric] || 0), Number(amount || 0))
+      : Math.max(0, Number(board.metrics[metric] || 0) + Number(amount || 0));
+    board.metrics[metric] = nextValue;
+    for (const quest of getActiveDailyQuests()) {
+      if (quest.metric !== metric) continue;
+      board.progress[quest.id] = Math.max(Number(board.progress[quest.id] || 0), nextValue);
+    }
+    persistDailyQuestBoard();
+    if (els.questsModal && !els.questsModal.classList.contains('hidden')) renderDailyQuestsBoard();
+  }
+
+  function claimDailyQuest(questId) {
+    const board = ensureDailyQuestBoard();
+    const quest = getQuestDefinitionById(questId);
+    if (!quest || isQuestClaimed(questId, board) || !isQuestComplete(quest, board)) return;
+    board.claimed[questId] = true;
+    persistDailyQuestBoard();
+    awardPremiumJewels(1, `Daily quest: ${quest.name}`);
+    renderDailyQuestsBoard();
+  }
+
+  function formatQuestResetCountdown(dateKey) {
+    const nextMidnight = new Date(`${dateKey}T00:00:00.000Z`).getTime() + 86400000;
+    const diff = Math.max(0, nextMidnight - Date.now());
+    const totalSeconds = Math.floor(diff / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function renderDailyQuestsBoard() {
+    if (!els.questsBody) return;
+    const board = ensureDailyQuestBoard();
+    const quests = getActiveDailyQuests();
+    const completedCount = quests.filter((quest) => isQuestComplete(quest, board)).length;
+    const claimedCount = quests.filter((quest) => isQuestClaimed(quest.id, board)).length;
+    const cards = quests.map((quest, index) => {
+      const progress = getQuestProgressValue(quest, board);
+      const complete = isQuestComplete(quest, board);
+      const claimed = isQuestClaimed(quest.id, board);
+      const stateClass = claimed ? 'is-claimed' : (complete ? 'is-open' : 'is-locked');
+      const stateLabel = claimed ? 'Claimed' : (complete ? 'Ready' : 'In Progress');
+      const button = claimed
+        ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
+        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${complete ? '' : 'disabled'}>${complete ? 'Claim 1 Jewel' : 'Complete Quest'}</button>`;
+      return `
+        <article class="bounty-card ${stateClass} quest-card">
+          <div class="bounty-card-top">
+            <div class="bounty-tier-wrap">
+              <div class="bounty-tier-label">Daily Quest</div>
+              <div class="bounty-tier-index">${index + 1}</div>
+            </div>
+            <div class="bounty-reward-pill ${stateClass}">1 Jewel</div>
+          </div>
+          <h3 class="bounty-card-title">${escapeHtml(quest.name)}</h3>
+          <p class="bounty-card-copy">${escapeHtml(quest.description)}</p>
+          <div class="quest-progress-row">
+            <div class="quest-progress-track"><span style="width:${Math.max(0, Math.min(100, (progress / quest.goal) * 100))}%"></span></div>
+            <div class="quest-progress-text">${Math.min(progress, quest.goal)} / ${quest.goal}</div>
+          </div>
+          <div class="bounty-card-footer">
+            <span class="bounty-state-chip ${stateClass}">${stateLabel}</span>
+            <span class="bounty-chain-note">Progress carries all day for this player.</span>
+          </div>
+          ${button}
+        </article>
+      `;
+    }).join('');
+    els.questsBody.innerHTML = `
+      <div class="bounty-hero-strip">
+        <div>
+          <div class="bounty-strip-kicker">Five random quests roll every UTC day</div>
+          <p class="bounty-strip-copy">More than one quest can complete in the same wave. Quests refresh daily and each one pays 1 Jewel.</p>
+        </div>
+        <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)}</div>
+      </div>
+      <div class="tracked-runs-hero-strip quests-summary-strip">
+        <div>
+          <div class="bounty-strip-kicker">Today's progress</div>
+          <p class="bounty-strip-copy">${claimedCount}/5 claimed • ${completedCount}/5 completed • Player: ${escapeHtml(board.playerKey)}</p>
+        </div>
+        <div class="bounty-strip-badge">${board.dateKey}</div>
+      </div>
+      <div class="bounty-grid quests-grid">${cards}</div>
+    `;
+  }
+
+  function openQuestsModal() {
+    if (game.statusOverlayTimeout) {
+      clearTimeout(game.statusOverlayTimeout);
+      game.statusOverlayTimeout = null;
+    }
+    closeIntroModal();
+    closeBountyModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    ensureDailyQuestBoard(true);
+    renderDailyQuestsBoard();
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+    if (els.questsModal) {
+      els.questsModal.classList.remove('hidden');
+      els.questsModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function closeQuestsModal() {
+    if (els.questsModal) {
+      els.questsModal.classList.add('hidden');
+      els.questsModal.setAttribute('aria-hidden', 'true');
+    }
+    game.introOpen = false;
+    document.body.classList.remove('intro-open');
+    syncStatusOverlayVisibility(false);
+    showStatusOverlay();
   }
 
   function pickRelicChoices(pool, count) {
@@ -568,6 +883,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
     }
     return choices;
   }
+
+  function markRelicsFound(relics) {
+    if (!Array.isArray(game.foundRelics)) game.foundRelics = [];
+    for (const relic of relics || []) {
+      if (!relic?.id) continue;
+      if (!game.foundRelics.includes(relic.id)) game.foundRelics.push(relic.id);
+    }
+  }
+
 
   function repairAllStatues(game, percent) {
     const statues = game.towers.filter(t => isStatueTower(t) && t.hp > 0);
@@ -615,6 +939,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 20;
   function awardPremiumJewels(amount, reason) {
     game.premiumJewels += amount;
     savePremiumJewels();
+    updatePremiumJewelInfo();
     if (reason) {
       log(`${reason}: +${amount} Jewel.`);
       showBanner(`${reason}: +${amount} Jewel`, 2200);
@@ -907,6 +1232,7 @@ function renderDamageReport() {
   function captureTrackedRunNow(result = 'abandoned') {
     if (!hasTrackableRunInProgress() || !isRunTrackingEnabled()) return false;
     game.runTracking.submitted = true;
+    updateQuestMetric('runsCompleted', 1);
     const payload = buildCompletedRunPayload(result);
     if (window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRunKeepalive === 'function') {
       const queued = window.DFKRunTracker.submitCompletedRunKeepalive(payload);
@@ -929,6 +1255,7 @@ function renderDamageReport() {
     if (game.runTracking.submitted) return;
     if (!window.DFKRunTracker || typeof window.DFKRunTracker.submitCompletedRun !== 'function') return;
     game.runTracking.submitted = true;
+    updateQuestMetric('runsCompleted', 1);
     try {
       await window.DFKRunTracker.submitCompletedRun(buildCompletedRunPayload(result));
       log(`Run tracked at wave ${game.waveNumber}.`);
@@ -945,6 +1272,7 @@ function renderDamageReport() {
     game.premiumJewels = parsed;
     updatePremiumJewelInfo();
     syncMobileQuickActions();
+    updateAutoStartButton();
   }
   function key(x, y) { return `${x},${y}`; }
   function tileAt(x, y) { return game.tilesByKey.get(key(x, y)); }
@@ -1112,6 +1440,7 @@ function renderDamageReport() {
     game.milestoneJewelsGranted = {};
     game.relicChoices = [];
     game.ownedRelics = [];
+    game.foundRelics = [];
     game.attackLines = [];
     game.explosionEffects = [];
     game.projectileEffects = [];
@@ -1138,6 +1467,7 @@ function renderDamageReport() {
       daggerTraining: false,
       whirlwindCooldownAdjust: 0,
       prayerCooldownAdjust: 0,
+      sacredSculpting: false,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -1501,7 +1831,8 @@ function renderDamageReport() {
       const bestWave = Number(run.bestWave || 0) || 0;
       const shortId = String(run.id || '').slice(0, 8) || 'unknown';
       const used = Boolean(run.used);
-      const statusText = used ? 'Used for bounty claim' : 'Available';
+      const claimedBountyText = escapeHtml(run.claimedBountyTitle || run.claimedBountyName || run.bountyTitle || (run.claimedBountyId ? `Bounty ${run.claimedBountyId}` : 'Bounty claim'));
+      const statusText = used ? `Used for ${claimedBountyText}` : 'Available';
       return `
         <article class="tracked-run-card ${used ? 'is-used' : 'is-available'}">
           <div class="tracked-run-card-top">
@@ -1542,6 +1873,7 @@ function renderDamageReport() {
     }
     closeIntroModal();
     closeBountyModal();
+    closeQuestsModal();
     closeKnownRelicsModal();
     renderTrackedRunsBoard();
     refreshBountyBoard().catch(() => {});
@@ -1555,6 +1887,10 @@ function renderDamageReport() {
   }
 
   function closeTrackedRunsModal() {
+    if (els.questsModal) {
+      els.questsModal.classList.add('hidden');
+      els.questsModal.setAttribute('aria-hidden', 'true');
+    }
     if (els.trackedRunsModal) {
       els.trackedRunsModal.classList.add('hidden');
       els.trackedRunsModal.setAttribute('aria-hidden', 'true');
@@ -1739,15 +2075,21 @@ function renderDamageReport() {
 
   function openKnownRelicsModal() {
     if (!els.knownRelicsModal || !els.knownRelicsBody) return;
-    const commonAndRare = RELICS.filter(r => (r.rarity || 'common') !== 'legendary');
+    closeQuestsModal();
+    const commonAndRare = RELICS.filter(r => ['common', 'rare'].includes(r.rarity || 'common'));
     const hiddenLegendary = RELICS.filter(r => (r.rarity || 'common') === 'legendary');
+    const hiddenMythic = RELICS.filter(r => (r.rarity || 'common') === 'mythic');
+    const foundRelics = (Array.isArray(game.foundRelics) ? game.foundRelics : []).map(id => RELICS.find(r => r.id === id)).filter(Boolean);
+    const foundSection = foundRelics.length
+      ? `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (${foundRelics.length}/${RELICS.length})</div><div class="known-relic-found-list">${foundRelics.map(r => { const rarity = getRelicRarity(r); return `<span class=\"relic-pill ${rarity.className}\" title=\"${r.desc}\">${r.name}</span>`; }).join(' ')}</div></section>`
+      : `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (0/${RELICS.length})</div><article class="known-relic-card known-relic-found-empty"><p>No relics found yet in this run.</p></article></section>`;
     const sections = ['common', 'rare'].map(key => {
       const rarity = RELIC_RARITY_META[key];
       const items = commonAndRare.filter(r => (r.rarity || 'common') === key);
       if (!items.length) return '';
       return `<section class="known-relic-section"><div class="known-relic-heading ${rarity.className}">${rarity.label} Relics</div>${items.map(r => `<article class=\"known-relic-card ${rarity.className}\"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}</section>`;
     }).join('');
-    els.knownRelicsBody.innerHTML = `${sections}<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div><article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>There are ${hiddenLegendary.length} legendary relic${hiddenLegendary.length === 1 ? '' : 's'} in the game. You will have to find them.</p></article></section>`;
+    els.knownRelicsBody.innerHTML = `${foundSection}${sections}<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div><article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>Powerful relics are rumored to exist. You will have to find them.</p></article></section>${hiddenMythic.length ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-mythic">Mythic</div><article class="known-relic-card relic-rarity-mythic relic-hidden-card"><h4>????</h4><p>Little is known about mythic relics. They may not exist at all.</p></article></section>` : ''}`;
     els.knownRelicsModal.classList.remove('hidden');
     els.knownRelicsModal.setAttribute('aria-hidden', 'false');
   }
@@ -1764,6 +2106,7 @@ function renderDamageReport() {
       game.statusOverlayTimeout = null;
     }
     closeIntroModal();
+    closeQuestsModal();
     renderBountyBoard();
     refreshBountyBoard().catch(() => {});
     startBountyCountdownTick();
@@ -1781,6 +2124,10 @@ function renderDamageReport() {
     if (els.bountyModal) {
       els.bountyModal.classList.add('hidden');
       els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
+    if (els.questsModal) {
+      els.questsModal.classList.add('hidden');
+      els.questsModal.setAttribute('aria-hidden', 'true');
     }
     if (els.trackedRunsModal) {
       els.trackedRunsModal.classList.add('hidden');
@@ -2331,6 +2678,126 @@ function renderDamageReport() {
     els.runLogToggleBtn.onclick = window.DFKToggleRunLog;
   }
 
+
+  function isMobilePointerUi() {
+    return window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : ((navigator.maxTouchPoints || 0) > 0);
+  }
+
+  function updateAutoStartButton() {
+    if (!els.autoStartBtn) return;
+    const active = !!game.autoStartEnabled;
+    let label = active ? 'Auto Start: On' : 'Auto Start: Off';
+    if (active && buyableWaveStart() && game.autoStartReadyAt > 0) {
+      const remainingMs = Math.max(0, game.autoStartDelayMs - (now() - game.autoStartReadyAt));
+      label = `Auto Start: ${Math.max(0, Math.ceil(remainingMs / 1000))}s`;
+    }
+    els.autoStartBtn.textContent = label;
+    els.autoStartBtn.classList.toggle('active', active);
+    els.autoStartBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    els.autoStartBtn.title = active
+      ? 'Auto Start is on. The next ready wave will begin after 15 seconds.'
+      : 'Auto Start is off.';
+  }
+
+  function armAutoStartCountdown(reset = false) {
+    if (!game.autoStartEnabled || !buyableWaveStart() || game.startingRelicPending) {
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      return;
+    }
+    if (reset || !game.autoStartReadyAt) game.autoStartReadyAt = now();
+    updateAutoStartButton();
+  }
+
+  function toggleAutoStart(forceValue = null) {
+    const nextValue = typeof forceValue === 'boolean' ? forceValue : !game.autoStartEnabled;
+    game.autoStartEnabled = !!nextValue;
+    if (game.autoStartEnabled) {
+      armAutoStartCountdown(true);
+      showBanner('Auto Start enabled', 1200);
+    } else {
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      showBanner('Auto Start disabled', 1200);
+    }
+    render();
+  }
+
+  function getMaxAffordableUpgradeCount(tower) {
+    if (!tower || isStatueTower(tower)) return 0;
+    const levelCap = getUpgradeLevelCap();
+    let simulatedGold = Number(game.jewel || 0);
+    let simulatedLevel = Number(tower.level || 1);
+    let count = 0;
+    while (simulatedLevel < levelCap) {
+      const nextLevel = simulatedLevel + 1;
+      const cost = getUpgradeCost(nextLevel, tower);
+      if (simulatedGold < cost) break;
+      simulatedGold -= cost;
+      simulatedLevel = nextLevel;
+      count += 1;
+      if (count > 200) break;
+    }
+    return count;
+  }
+
+  function upgradeTowerToCurrentCap(tower) {
+    if (!tower || !canUpgradeTower(tower)) return 0;
+    let upgrades = 0;
+    while (canUpgradeTower(tower)) {
+      const previousLevel = tower.level;
+      upgradeTower(tower);
+      if (tower.level === previousLevel) break;
+      upgrades += 1;
+      if (upgrades > 200) break;
+    }
+    if (upgrades > 1) {
+      showBanner(`${tower.name} leveled up ${upgrades} times.`, 1400);
+    }
+    return upgrades;
+  }
+
+  let mobileUpgradeHoldTimer = null;
+  let mobileUpgradeHoldTriggered = false;
+  let suppressNextUpgradeClick = false;
+
+  function clearMobileUpgradeHold() {
+    if (mobileUpgradeHoldTimer) {
+      clearTimeout(mobileUpgradeHoldTimer);
+      mobileUpgradeHoldTimer = null;
+    }
+  }
+
+  function bindMobileUpgradeHold(button) {
+    if (!button) return;
+    const startHold = (event) => {
+      if (!isMobilePointerUi()) return;
+      if (button.disabled) return;
+      if (event.pointerType && event.pointerType !== 'touch') return;
+      clearMobileUpgradeHold();
+      mobileUpgradeHoldTriggered = false;
+      mobileUpgradeHoldTimer = setTimeout(() => {
+        const tower = getSelectedTower();
+        if (!tower || !canUpgradeTower(tower)) return;
+        const possible = getMaxAffordableUpgradeCount(tower);
+        if (possible <= 1) return;
+        mobileUpgradeHoldTriggered = true;
+        suppressNextUpgradeClick = true;
+        upgradeTowerToCurrentCap(tower);
+      }, 450);
+    };
+    const endHold = () => {
+      clearMobileUpgradeHold();
+      if (mobileUpgradeHoldTriggered) {
+        setTimeout(() => { suppressNextUpgradeClick = false; }, 0);
+      }
+    };
+    button.addEventListener('pointerdown', startHold);
+    button.addEventListener('pointerup', endHold);
+    button.addEventListener('pointercancel', endHold);
+    button.addEventListener('pointerleave', endHold);
+  }
+
   function updatePauseButton() {
 
     if (!els.pauseBtn) return;
@@ -2373,11 +2840,11 @@ function renderDamageReport() {
   function removeTower(tower, reason = '') {
     if (!tower) return;
     if (tower.isSatellite && tower.type === 'archer') {
-      createExplosionEffect(tower.x, tower.y, 'archer', 0.9, 3000, GREEN_FIRE_GIF_PATH);
+      createExplosionEffect(tower.x, tower.y, 'archer', 0.75, 3000, GREEN_FIRE_GIF_PATH);
       createTileFlashArea([{ x: tower.x, y: tower.y }], 'archer');
     }
     if (tower.isSoulSplit) {
-      createExplosionEffect(tower.x, tower.y, 'wizard', 0.8, 1800, RED_FIRE_GIF_PATH);
+      createExplosionEffect(tower.x, tower.y, 'wizard', 0.68, 1800, PURPLE_FIRE_GIF_PATH);
       createTileFlashArea([{ x: tower.x, y: tower.y }], 'wizard');
     }
     const tile = tileAt(tower.x, tower.y);
@@ -3095,6 +3562,7 @@ function renderDamageReport() {
       els.selectedInfo.textContent = 'Nothing selected.';
       els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to level up, move, or cast abilities.</div>';
       els.upgradeBtn.disabled = true;
+      if (els.maxLevelBtn) els.maxLevelBtn.disabled = true;
       els.moveBtn.disabled = true;
       els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
       els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
@@ -3131,6 +3599,7 @@ function renderDamageReport() {
       Relics Owned: ${game.ownedRelics.length}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
+    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 2;
     els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
@@ -3203,6 +3672,7 @@ function renderDamageReport() {
       Relics Owned: ${game.ownedRelics.length}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
+    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 2;
     els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
@@ -3479,6 +3949,7 @@ function renderDamageReport() {
       return;
     }
     game.jewel -= BARRIER_REBUILD_COST;
+    updateQuestMetric('goldSpent', BARRIER_REBUILD_COST);
     for (const tile of game.grid) {
       if (tile.obstacle === 'player') { tile.obstacle = null; tile.treeVariant = null; }
     }
@@ -3591,7 +4062,7 @@ function renderDamageReport() {
         if (this.buffs.rapid_shot) mult *= (1 + (this.buffs.rapid_shot.bonus ?? 0.8));
         if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
         if (this.buffs.blizzardSlow) mult *= 0.5;
-        if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.08;
+        if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.04;
         return Math.max(0.30, this.basicCooldown / 1000 / mult);
       },
     };
@@ -3609,12 +4080,24 @@ function renderDamageReport() {
   }
 
   function getAbilityUnlockLevel(tower, abilityKey) {
-    if (abilityKey === 'healing_aura' || abilityKey === 'frost_lance') return 15;
-    if (abilityKey === 'eagle_nest' || abilityKey === 'soul_split') return 1;
+    const explicit = {
+      whirlwind: 1,
+      rapid_onslaught: 10,
+      shield_bash: 15,
+      rapid_shot: 10,
+      piercing_shot: 15,
+      fireball: 10,
+      frost_lance: 20,
+      starboard_cannons: 10,
+      kraken: 15,
+      healing_aura: 15,
+      eagle_nest: 1,
+      soul_split: 1,
+    };
+    if (explicit[abilityKey] != null) return explicit[abilityKey];
     const idx = getAbilityIndex(tower, abilityKey);
     if (idx < 0) return 1;
     if (idx < 2) return 1;
-    if (abilityKey === 'whirlwind') return 1;
     if (idx === 2) return 10;
     return 20;
   }
@@ -3624,7 +4107,7 @@ function renderDamageReport() {
   }
 
   function getAbilityPowerMultiplier(tower, abilityKey) {
-    if (abilityKey === 'healing_aura') return 1;
+    if (abilityKey === 'healing_aura' || abilityKey === 'shield_bash') return 1;
     return getAbilityIndex(tower, abilityKey) >= 2 ? 2 : 1;
   }
 
@@ -3644,6 +4127,7 @@ function renderDamageReport() {
     if (tower?.type === 'wizard' && abilityKey === 'fireball') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.fireballCooldownAdjust || 0));
     if (tower?.type === 'wizard') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'warrior' && abilityKey === 'whirlwind') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.whirlwindCooldownAdjust || 0));
+    if (abilityKey === 'shield_bash') return scaledBase;
     return getAbilityIndex(tower, abilityKey) >= 2 ? scaledBase * 1.5 : scaledBase;
   }
 
@@ -3732,8 +4216,9 @@ function renderDamageReport() {
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2.3)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 20% of its max HP.' : ''}${scale}`,
+      new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 11% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${game.modifiers.whirlwindCooldownAdjust ? `<br><strong>Blade Dancer active:</strong> cooldown reduced by ${game.modifiers.whirlwindCooldownAdjust.toFixed(1)}s.` : ''}${scale}`,
+      shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
       multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows.${common}${scale}`,
@@ -3742,13 +4227,13 @@ function renderDamageReport() {
       eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
-      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when one enemy passes through its tile it detonates for ${Math.round(tower.damage * 0.5 * SOUL_SPLIT_EXPLOSION_MULTIPLIER)} damage.${common}${scale}`,
+      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when one enemy passes through its tile it detonates for ${Math.round(tower.damage * 0.5 * SOUL_SPLIT_EXPLOSION_MULTIPLIER)} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level.${stronger}${common}${scale}`,
-      frost_lance: `Deals ${Math.round(90 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
+      frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 20% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within ${SLOW_TOTEM_RANGE} tiles are slowed by ${(SLOW_TOTEM_PERCENT * 100).toFixed(0)}%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
-      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${common}${scale}`,
+      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 20% of the aura amount.' : ''}${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level.${common}${scale}`,
@@ -3813,6 +4298,7 @@ function renderDamageReport() {
       tower.basicCooldown /= 1.05;
     }
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
+    updateQuestMetric('upgrades', 1);
     render();
   }
 
@@ -3828,10 +4314,19 @@ function renderDamageReport() {
     return !!tower && tower.type === 'warrior' && tower.isSatellite && !!tower.isStatue;
   }
 
+
+  function removeExistingOwnedStatue(ownerId) {
+    if (!ownerId) return false;
+    const existingStatue = game.towers.find(t => isStatueTower(t) && t.satelliteOwnerId === ownerId);
+    if (!existingStatue) return false;
+    removeTower(existingStatue);
+    return true;
+  }
+
   function beginSatellitePlacement(tower) {
     if (!tower || !['warrior','archer','wizard'].includes(tower.type) || (tower.satelliteCharges || 0) <= 0) return;
-    if (getActiveSatelliteCountForOwner(tower.id) >= 1) {
-      showBanner(tower?.type === 'warrior' ? 'That Warrior already has its maximum of 1 active Statue.' : (tower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.'), 1700);
+    if (tower.type !== 'warrior' && getActiveSatelliteCountForOwner(tower.id) >= 1) {
+      showBanner(tower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.', 1700);
       return;
     }
     game.placingHeroType = tower.type;
@@ -3938,8 +4433,8 @@ function renderDamageReport() {
         render();
         return;
       }
-      if (getActiveSatelliteCountForOwner(sourceTower.id) >= 1) {
-        showBanner(sourceTower?.type === 'warrior' ? 'That Warrior already has its maximum of 1 active Statue.' : (sourceTower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.'), 1700);
+      if (sourceTower.type !== 'warrior' && getActiveSatelliteCountForOwner(sourceTower.id) >= 1) {
+        showBanner(sourceTower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.', 1700);
         game.placingHeroType = null;
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
@@ -3955,6 +4450,11 @@ function renderDamageReport() {
       game.placingSatelliteSourceId = null;
       render();
       return;
+    }
+
+    let replacedExistingStatue = false;
+    if (isSatellitePlacement && sourceTower?.type === 'warrior') {
+      replacedExistingStatue = removeExistingOwnedStatue(sourceTower.id);
     }
 
     const tower = createTower(typeToPlace, x, y);
@@ -4005,10 +4505,13 @@ function renderDamageReport() {
 
     if (isSatellitePlacement) {
       sourceTower.satelliteCharges = Math.max(0, (sourceTower.satelliteCharges || 0) - 1);
-      log(`Placed ${tower.name} from ${sourceTower.name} at (${x + 1}, ${y + 1}).`);
-      if (typeof markProgress === 'function') markProgress(`Placed ${tower.name}.`);
+      log(`Placed ${tower.name} from ${sourceTower.name} at (${x + 1}, ${y + 1}).${replacedExistingStatue ? ' Previous Statue dismissed.' : ''}`);
+      updateQuestMetric('satellitesPlaced', 1);
+      if (typeof markProgress === 'function') markProgress(`Placed ${tower.name}.${replacedExistingStatue ? ' Previous Statue dismissed.' : ''}`);
     } else {
       game.jewel = Math.max(0, Number(game.jewel || 0) - cost);
+      updateQuestMetric('goldSpent', cost);
+      updateQuestMetric('heroesPlaced', 1);
       if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
       log(`Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
@@ -4228,6 +4731,35 @@ function renderDamageReport() {
     return { x: best.x, y: best.y };
   }
 
+  function getTilesInManhattanRange(cx, cy, radius) {
+    const tiles = [];
+    for (let x = cx - radius; x <= cx + radius; x++) {
+      for (let y = cy - radius; y <= cy + radius; y++) {
+        if (!inBounds(x, y)) continue;
+        if (Math.abs(x - cx) + Math.abs(y - cy) <= radius) tiles.push({ x, y });
+      }
+    }
+    return tiles;
+  }
+
+  function igniteTornSoulBurn(sourceTower, centerX, centerY) {
+    if (!game) return;
+    if (!game.groundBurnEffects) game.groundBurnEffects = [];
+    const current = now();
+    const tiles = getTilesInManhattanRange(centerX, centerY, TORN_SOUL_BURN_RADIUS);
+    const until = current + (TORN_SOUL_BURN_DURATION_SECONDS * 1000);
+    game.groundBurnEffects.push({
+      id: `ground-burn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tiles,
+      startedAt: current,
+      until,
+      nextTickAt: current + 1000,
+      tickDamage: Math.max(1, (Number(sourceTower?.damage || 0) || 0) * SOUL_SPLIT_EXPLOSION_MULTIPLIER / TORN_SOUL_BURN_DURATION_SECONDS),
+      sourceTowerId: sourceTower?.id || null,
+      imagePath: PURPLE_FIRE_GIF_PATH,
+    });
+  }
+
   function moveEnemyToStep(enemy, step, current) {
     if (!step) return false;
     if (!canEnemyEnter(step.x, step.y, enemy)) return false;
@@ -4247,9 +4779,10 @@ function renderDamageReport() {
       return tile && tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
     })();
     if (occupantTower && occupantTower.isSoulSplit) {
-      createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.9, 1800, RED_FIRE_GIF_PATH);
-      createTileFlashArea([{ x: occupantTower.x, y: occupantTower.y }], 'wizard');
+      createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.75, 1800, PURPLE_FIRE_GIF_PATH);
+      createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, TORN_SOUL_BURN_RADIUS), 'wizard');
       damageEnemy(occupantTower, enemy, occupantTower.damage * SOUL_SPLIT_EXPLOSION_MULTIPLIER, `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: 'Torn Soul Burst' });
+      igniteTornSoulBurn(occupantTower, occupantTower.x, occupantTower.y);
       removeTower(occupantTower, `${occupantTower.name} collapsed into shadow.`);
     }
     markProgress(`${enemy.name} moved.`);
@@ -4356,13 +4889,15 @@ function renderDamageReport() {
     // allow hiring during waves
 
     game.nextWavePlan = buildWavePlan(game.waveNumber + 1);
+    game.autoStartReadyAt = 0;
     const mutationText = game.nextWavePlan.mutation ? ` • Mutation: ${game.nextWavePlan.mutation.name}` : '';
-    const rebuildText = canStartBarrierRebuild(false) ? ` Barrier rebuild is available for ${formatJewel(BARRIER_REBUILD_COST)} Gold.` : '';
+    const rebuildText = '';
     const relicText = game.startingRelicPending ? ' Choose 1 free starting relic before wave 1 begins.' : '';
     const eliteText = game.nextWavePlan?.elite ? ' Elite Wave incoming. Prepare yourself.' : '';
     setInstruction(`Wave ${game.waveNumber + 1} ready. Pattern: ${prettyPattern(game.nextWavePlan.pattern)}${mutationText}.${eliteText} Spend Gold, move towers, or start the wave.${game.bonusHeroHireCharges > 0 ? ` ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? ' is' : 's are'} available.` : ''}${rebuildText}${relicText}`);
     maybeShowEliteWaveWarning(game.nextWavePlan);
     els.startWaveBtn.disabled = !!game.startingRelicPending;
+    armAutoStartCountdown(true);
     updateTopbar();
       updateMobileBoardFit();
     render();
@@ -4454,7 +4989,7 @@ function renderDamageReport() {
   function getWaveSpecificEnemyCountMultiplier(waveNumber) {
     const elite = getEliteWaveConfig(waveNumber);
     if (elite && elite.enemyMult) return elite.enemyMult;
-    return 0.9;
+    return 0.81225;
   }
 
   function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
@@ -4599,10 +5134,10 @@ function renderDamageReport() {
     const elite = getEliteWaveConfig(waveNumber);
     if (!elite) return enemies;
     if (elite.skitters) {
-      addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8)), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
+      addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8 * (waveNumber >= 15 ? 0.95 : 1))), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
     }
     if (elite.extraBosses) {
-      addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8)), 700);
+      addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8 * (waveNumber >= 15 ? 0.95 : 1))), 700);
     }
     return enemies;
   }
@@ -4633,7 +5168,7 @@ function renderDamageReport() {
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    const bossCount = Math.max(1, Math.round(getWaveBossOverrideCount(waveNumber, waveNumber >= 30 ? 2 : 1) * 0.8));
+    const bossCount = Math.max(1, Math.round(getWaveBossOverrideCount(waveNumber, waveNumber >= 30 ? 2 : 1) * 0.8 * (waveNumber >= 15 ? 0.95 : 1)));
     const enemies = [];
     for (let i = 0; i < bossCount; i += 1) {
       enemies.push({ bossId: boss.id, lane, delayMs: 100 + (i * 900) });
@@ -4663,6 +5198,7 @@ function renderDamageReport() {
 
   function startWave() {
     if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending) return;
+    game.autoStartReadyAt = 0;
     game.waveNumber = game.nextWavePlan.waveNumber;
     game.runningWave = true;
     const currentPlan = game.nextWavePlan;
@@ -4742,6 +5278,15 @@ function renderDamageReport() {
     return getEarlyWaveGoldMultiplier(waveNumber) * getLateWaveGoldDecayMultiplier(waveNumber);
   }
 
+  function getEnemyBaselineHpMultiplier(type) {
+    return type === 'grunt' || type === 'runner' ? 0.95 : 1;
+  }
+
+  function getEnemyBaselineDamageMultiplier(type, isBoss = false) {
+    if (isBoss || type === 'skitter') return 1;
+    return 0.81225;
+  }
+
   function spawnEnemyFromPlan(plan) {
     let enemy;
     if (plan.bossId) {
@@ -4793,8 +5338,9 @@ function renderDamageReport() {
   }
 
   function getPostWave15CountMultiplier(waveNumber) {
-    if (waveNumber >= 15 && waveNumber <= 30) return 1.35;
-    return waveNumber > 30 ? 1.5 : 1;
+    const reduction = waveNumber >= 15 ? 0.95 : 1;
+    if (waveNumber >= 15 && waveNumber <= 30) return 1.35 * reduction;
+    return waveNumber > 30 ? 1.5 * reduction : 1;
   }
 
   function createEnemy(type, laneName) {
@@ -4805,8 +5351,10 @@ function renderDamageReport() {
     const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
     const isSmallOrMediumEnemy = type === 'grunt' || type === 'runner';
     const hpCurvePerWave = isSmallOrMediumEnemy ? 0.132 : 0.12;
-    const enemyHp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
-    const enemyDamage = template.damage * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const baseHpMultiplier = getEnemyBaselineHpMultiplier(type);
+    const baseDamageMultiplier = getEnemyBaselineDamageMultiplier(type, false);
+    const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
     return {
       id: `e${game.nextEnemyId++}`,
       type,
@@ -4853,7 +5401,7 @@ function renderDamageReport() {
       y: spawn.y,
       hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
       maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
-      damage: boss.damage * getEarlyWaveStatMultiplier(game.waveNumber),
+      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(game.waveNumber),
       moveInterval: boss.moveInterval,
       attackInterval: boss.attackInterval,
       jewel: (boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0),
@@ -4964,6 +5512,12 @@ function renderDamageReport() {
       if (game.countdownMs <= 0) prepareNextWave();
     }
 
+    if (game.autoStartEnabled && buyableWaveStart() && game.autoStartReadyAt > 0 && !game.startingRelicPending) {
+      if ((current - game.autoStartReadyAt) >= game.autoStartDelayMs && buyableWaveStart()) {
+        if (buyableWaveStart()) startWave();
+      }
+    }
+
     if (game.runningWave && allSpawnsDone() && game.enemies.length === 0) {
       if (!releaseEliteFinalSpawn(game.waveNumber)) {
         finishWave();
@@ -5005,6 +5559,9 @@ function renderDamageReport() {
     game.activeMutation = null;
     markProgress(`Wave ${game.waveNumber} cleared.`);
     log(`Wave ${game.waveNumber} cleared.`);
+    updateQuestMetric('wavesClearedTotal', 1);
+    updateQuestMetric('maxWave', Number(game.waveNumber || 0), 'max');
+    if (game.waveNumber > 0 && game.waveNumber % 5 === 0) updateQuestMetric('bossWavesCleared', 1);
     if (game.waveNumber === 5 && !game.milestoneJewelsGranted[5]) {
       game.milestoneJewelsGranted[5] = true;
       awardPremiumJewels(1, 'Wave 5 reward');
@@ -5069,8 +5626,8 @@ function renderDamageReport() {
   }
 
   function offerStartingRelic() {
-    const pool = RELICS.filter(r => !game.ownedRelics.includes(r.id));
-    const choices = pickRelicChoices(pool, 3)
+    const pool = RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
+    const choices = pickRelicChoices(pool, 3);
     game.startingRelicPending = true;
     game.relicChoices = choices;
     els.startWaveBtn.disabled = true;
@@ -5078,8 +5635,8 @@ function renderDamageReport() {
   }
 
   function offerRelics() {
-    const pool = RELICS.filter(r => !game.ownedRelics.includes(r.id));
-    const choices = pickRelicChoices(pool, 3)
+    const pool = RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
+    const choices = pickRelicChoices(pool, 3);
     game.relicChoices = choices;
     showBanner('Relic Shop Open', 2500);
   }
@@ -5090,7 +5647,9 @@ function renderDamageReport() {
     const isFreeStartingRelic = game.startingRelicPending;
     if (!isFreeStartingRelic && game.jewel < relic.cost) return;
     if (!isFreeStartingRelic) game.jewel -= relic.cost;
-    game.ownedRelics.push(relic.id);
+    if (!game.ownedRelics.includes(relic.id)) game.ownedRelics.push(relic.id);
+    markRelicsFound([relic]);
+    updateQuestMetric('relicsBought', 1);
     relic.apply(game);
     game.relicChoices = [];
     markProgress(`${isFreeStartingRelic ? 'Chose' : 'Bought'} relic: ${relic.name}.`);
@@ -5115,6 +5674,7 @@ function renderDamageReport() {
       }
       if (opts.damageMult) tower.damage *= opts.damageMult;
       if (opts.speedMult) tower.basicCooldown /= opts.speedMult;
+      if (opts.rangeAdd) tower.range = Math.max(0, Number(tower.range || 0) + Number(opts.rangeAdd || 0));
     }
   }
 
@@ -5170,7 +5730,7 @@ function renderDamageReport() {
     const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
     if (!target) return;
     let damage = tower.damage;
-    if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.10;
+    if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
     if (target.debuffs.warning_shot) damage *= 1.2;
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
@@ -5239,14 +5799,27 @@ function renderDamageReport() {
         const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
         const auraHeal = 2 * tower.level;
         auraTargets.forEach(target => healTower(target, auraHeal, null));
+        if (game.modifiers.sacredSculpting) {
+          const statueTargets = game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
+          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true }));
+        }
         tower.auraTickAt = now() + 1000;
       }
     }
     const allies = game.towers.filter(t => !isStatueTower(t) && dist(t, tower) <= tower.range && t.hp < t.maxHp);
-    if (!allies.length) return;
-    const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
-    healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
-    createTowerLine(tower, target, 'priest');
+    const statueTargets = game.modifiers.sacredSculpting
+      ? game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= tower.range && t.hp < t.maxHp)
+      : [];
+    if (!allies.length && !statueTargets.length) return;
+    const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
+    const statueTarget = statueTargets.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
+    if (target && (!statueTarget || (target.hp / target.maxHp) <= (statueTarget.hp / statueTarget.maxHp))) {
+      healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
+      createTowerLine(tower, target, 'priest');
+    } else if (statueTarget) {
+      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.2, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true });
+      createTowerLine(tower, statueTarget, 'priest');
+    }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
   }
 
@@ -5255,6 +5828,40 @@ function renderDamageReport() {
     if (!enemies.length) return null;
     enemies.sort((a, b) => chebyshevDist(tower, a) - chebyshevDist(tower, b) || dist(tower, a) - dist(tower, b));
     return enemies[0] || null;
+  }
+
+  function isTileOpenForEnemyPush(x, y, enemy) {
+    if (!inBounds(x, y)) return false;
+    const tile = tileAt(x, y);
+    if (!tile || tile.portal || tile.obstacle) return false;
+    const blockingTower = game.towers.find(t => t.x === x && t.y === y && (isStatueTower(t) || t.type === 'warrior'));
+    if (blockingTower) return false;
+    const typeKey = getEnemySizeKey(enemy);
+    const occupants = game.enemies.filter(e => e.id !== enemy.id && e.x === x && e.y === y).length;
+    return occupants < (ENEMY_TILE_LIMITS[typeKey] || ENEMY_TILE_LIMITS.medium);
+  }
+
+  function pushEnemyAwayFromTile(enemy, originX, originY, maxTiles = 5) {
+    if (!enemy) return 0;
+    let dx = enemy.x - originX;
+    let dy = enemy.y - originY;
+    if (dx === 0 && dy === 0) dx = 1;
+    if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+    if (Math.abs(dy) > Math.abs(dx)) dx = 0;
+    dx = Math.sign(dx);
+    dy = Math.sign(dy);
+    let moved = 0;
+    while (moved < maxTiles) {
+      const nextX = enemy.x + dx;
+      const nextY = enemy.y + dy;
+      if (!isTileOpenForEnemyPush(nextX, nextY, enemy)) break;
+      enemy.prevX = enemy.x;
+      enemy.prevY = enemy.y;
+      enemy.x = nextX;
+      enemy.y = nextY;
+      moved += 1;
+    }
+    return moved;
   }
 
   function nearestEnemyInRange(tower, range) {
@@ -5694,7 +6301,7 @@ function renderDamageReport() {
     if (!tower || !isStatueTower(tower) || !game.modifiers.explodingStatue) return;
     const damage = Math.max(1, Math.round((tower.maxHp || tower.hp || 0) * EXPLODING_STATUE_DAMAGE_PERCENT));
     const targets = game.enemies.filter(enemy => dist(enemy, tower) <= EXPLODING_STATUE_RADIUS);
-    createExplosionEffect(tower.x, tower.y, 'warrior', EXPLODING_STATUE_RADIUS, EXPLODING_STATUE_ANIMATION_MS);
+    createExplosionEffect(tower.x, tower.y, 'warrior', EXPLODING_STATUE_RADIUS * 0.85, EXPLODING_STATUE_ANIMATION_MS);
     createTileFlashArea([{ x: tower.x, y: tower.y }], 'warrior');
     for (const enemy of targets) {
       enemy.hp -= damage;
@@ -5728,6 +6335,27 @@ function renderDamageReport() {
   function getEnemyPixelCenter(enemy) {
     if (!enemy) return { x: 0, y: 0 };
     const current = now();
+    game.groundBurnEffects = (game.groundBurnEffects || []).filter(effect => effect.until > current);
+    for (const effect of game.groundBurnEffects) {
+      for (const tile of effect.tiles || []) {
+        const pos = getTilePixelPosition(tile.x, tile.y);
+        const sprite = document.createElement('img');
+        const tileSize = Math.max(pos.width, pos.height);
+        const lifeProgress = Math.max(0, Math.min(1, (effect.until - current) / Math.max(1, effect.until - effect.startedAt)));
+        sprite.src = effect.imagePath || PURPLE_FIRE_GIF_PATH;
+        sprite.alt = '';
+        sprite.setAttribute('aria-hidden', 'true');
+        sprite.style.position = 'absolute';
+        sprite.style.left = `${pos.left + (pos.width * 0.12)}px`;
+        sprite.style.top = `${pos.top + (pos.height * 0.02)}px`;
+        sprite.style.width = `${tileSize * 0.76}px`;
+        sprite.style.height = `${tileSize * 0.92}px`;
+        sprite.style.pointerEvents = 'none';
+        sprite.style.opacity = `${Math.max(0.4, Math.min(0.95, lifeProgress + 0.15))}`;
+        sprite.style.filter = 'drop-shadow(0 0 10px rgba(186, 116, 255, 0.95))';
+        els.enemyLayer.appendChild(sprite);
+      }
+    }
     const byTile = new Map();
     for (const e of game.enemies) {
       const k = `${e.x},${e.y}`;
@@ -5872,13 +6500,23 @@ function renderDamageReport() {
         px = fx + (px - fx) * prog;
         py = fy + (py - fy) * prog;
       }
-      const dot = document.createElement('div');
       const enemySize = getEnemyVisualSize(enemy);
+      const dot = enemy.isBoss ? document.createElement('img') : document.createElement('div');
       dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
-      dot.style.width = `${enemySize}px`;
-      dot.style.height = `${enemySize}px`;
+      dot.style.width = `${enemy.isBoss ? Math.round(enemySize * 1.12) : enemySize}px`;
+      dot.style.height = `${enemy.isBoss ? Math.round(enemySize * 1.12) : enemySize}px`;
+      if (enemy.isBoss) {
+        dot.src = 'assets/billy_corgan_sithloard2.png';
+        dot.alt = '';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.style.objectFit = 'contain';
+        dot.style.borderRadius = '0';
+        dot.style.border = '0';
+        dot.style.background = 'transparent';
+        dot.style.boxShadow = 'none';
+      }
       els.enemyLayer.appendChild(dot);
       if (enemy.hp < enemy.maxHp) {
         const hp = document.createElement('div');
@@ -5959,6 +6597,13 @@ function renderDamageReport() {
     let jewel = enemy.jewel;
     if (enemy.killedBy === 'pirate') jewel *= (1 + game.modifiers.pirateSteal);
     game.jewel += jewel;
+    updateQuestMetric('killsTotal', 1);
+    if (enemy.isBoss) updateQuestMetric('killsBoss', 1);
+    else if (enemy.type === 'skitter') updateQuestMetric('killsSkitter', 1);
+    else if ((enemy.cssClass || '').includes('large')) updateQuestMetric('killsLarge', 1);
+    else if ((enemy.cssClass || '').includes('medium')) updateQuestMetric('killsMedium', 1);
+    else updateQuestMetric('killsSmall', 1);
+    updateQuestMetric('goldEarned', jewel);
     log(`${enemy.name} died. +${formatJewel(jewel)} Gold.`);
   }
 
@@ -5972,6 +6617,7 @@ function renderDamageReport() {
       const methodKey = String(damageMethod?.key || 'basic_attack');
       const methodLabel = String(damageMethod?.label || 'Basic Attack');
       recordTowerDamage(sourceTower, appliedDamage, methodKey, methodLabel);
+      updateQuestMetric('damageTotal', appliedDamage);
     }
     const towerCanPullAggro = !!sourceTower && (sourceTower.type === 'warrior' || isStatueTower(sourceTower));
     const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
@@ -5992,15 +6638,16 @@ function renderDamageReport() {
   function damageTower(gameState, tower, amount, message) {
     let damage = amount;
     if (tower.type === 'warrior' && game.modifiers.shieldWall && game.towers.some(t => t.type === 'priest' && dist(t, tower) === 1)) {
-      damage *= 0.9;
+      damage *= 0.93;
     }
     tower.hp -= damage;
     markProgress(`${tower.name} took damage.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(damage)}.`);
   }
 
-  function healTower(tower, amount, message) {
-    if (isStatueTower(tower)) return;
+  function healTower(tower, amount, message, options = null) {
+    const allowStatue = !!(options && options.allowStatue);
+    if (isStatueTower(tower) && !allowStatue) return;
     tower.hp = Math.min(tower.maxHp, tower.hp + amount);
     markProgress(`${tower.name} was healed.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(amount)}.`);
@@ -6023,10 +6670,25 @@ function renderDamageReport() {
     if (sourceTower) {
       unit.killedBy = sourceTower.type;
       recordTowerDamage(sourceTower, appliedDamage, methodKey, methodLabel);
+      updateQuestMetric('damageTotal', appliedDamage);
       const towerCanPullAggro = sourceTower.type === 'warrior' || isStatueTower(sourceTower);
       const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
       unit.threat[sourceTower.id] = (unit.threat[sourceTower.id] || 0) + aggroGain;
       createHitFlash(unit.x, unit.y, heroColorKey(sourceTower.type), Math.round(appliedDamage).toString());
+    }
+  }
+
+  function tickGroundBurnEffects(current) {
+    game.groundBurnEffects = (game.groundBurnEffects || []).filter(effect => effect.until > current);
+    for (const effect of game.groundBurnEffects) {
+      if (!effect.nextTickAt || current < effect.nextTickAt) continue;
+      const tileSet = new Set((effect.tiles || []).map(tile => `${tile.x},${tile.y}`));
+      for (const enemy of game.enemies) {
+        if (enemy.hp <= 0) continue;
+        if (!tileSet.has(`${enemy.x},${enemy.y}`)) continue;
+        applyDebuffTickDamage(enemy, { sourceTowerId: effect.sourceTowerId }, effect.tickDamage, 'torn_soul_burn', 'Torn Soul Burn');
+      }
+      effect.nextTickAt = current + 1000;
     }
   }
 
@@ -6125,6 +6787,14 @@ function renderDamageReport() {
         applyBuff(tower, 'rapid_onslaught', 4, { strength: 1 * powerMult });
         return true;
       },
+      shield_bash() {
+        const target = nearestEnemyForWarrior(tower);
+        if (!target || chebyshevDist(tower, target) > 1) return false;
+        damageEnemy(tower, target, tower.damage * 1.5, `${tower.name} used Shield Bash`, { key: 'shield_bash', label: 'Shield Bash' });
+        const sameTileTargets = game.enemies.filter(e => e.x === target.x && e.y === target.y);
+        sameTileTargets.forEach(enemy => pushEnemyAwayFromTile(enemy, tower.x, tower.y, 5));
+        return true;
+      },
       taunt() {
         const targets = game.enemies.filter(e => dist(e, tower) <= 2 * powerMult);
         if (!targets.length) return false;
@@ -6187,16 +6857,20 @@ function renderDamageReport() {
       frost_lance() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
-        let dmg = 90 * powerMult * game.modifiers.wizardSpellDamage;
+        let dmg = 99 * powerMult * game.modifiers.wizardSpellDamage;
         if (getEnemySlowPercent(target) > 0) dmg *= 2;
         damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`, { key: 'frost_lance', label: 'Frost Lance' });
         return true;
       },
       prayer_of_healing() {
-        const allies = game.towers.filter(t => dist(t, tower) <= 5 && t.hp < t.maxHp);
-        if (!allies.length) return false;
+        const allies = game.towers.filter(t => dist(t, tower) <= 5 && !isStatueTower(t) && t.hp < t.maxHp);
+        const statues = game.modifiers.sacredSculpting
+          ? game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 5 && t.hp < t.maxHp)
+          : [];
+        if (!allies.length && !statues.length) return false;
         const healAmount = getPrayerOfHealingAmount(tower);
         allies.forEach(a => { healTower(a, healAmount, null); createTowerLine(tower, a, 'priest'); });
+        statues.forEach(a => { healTower(a, healAmount * 0.2, null, { allowStatue: true }); createTowerLine(tower, a, 'priest'); });
         return true;
       },
       slow_totem() {
@@ -6298,6 +6972,9 @@ function renderDamageReport() {
   els.startWaveBtn.addEventListener('click', () => {
     if (buyableWaveStart()) startWave();
   });
+  els.autoStartBtn?.addEventListener('click', () => {
+    toggleAutoStart();
+  });
 
   window.addEventListener('pagehide', () => {
     captureTrackedRunNow('closed');
@@ -6338,6 +7015,9 @@ function renderDamageReport() {
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
   });
+  els.questsBtn?.addEventListener('click', () => {
+    openQuestsModal();
+  });
   els.trackedRunsBtn?.addEventListener('click', () => {
     openTrackedRunsModal();
   });
@@ -6358,12 +7038,15 @@ function renderDamageReport() {
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
   els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
   els.mobileFuncBountyBtn?.addEventListener('click', () => els.bountyBtn?.click());
+  els.mobileFuncQuestsBtn?.addEventListener('click', () => els.questsBtn?.click());
   els.mobileFuncKnownRelicsBtn?.addEventListener('click', () => els.knownRelicsBtn?.click());
   els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
   els.mobileFuncRestartBtn?.addEventListener('click', () => els.restartBtn?.click());
   els.mobileQuickStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileQuickUpgradeBtn?.addEventListener('click', () => els.upgradeBtn?.click());
+  bindMobileUpgradeHold(els.upgradeBtn);
+  bindMobileUpgradeHold(els.mobileQuickUpgradeBtn);
   els.mobileQuickMoveBtn?.addEventListener('click', () => els.moveBtn?.click());
   els.mobileQuickSatelliteBtn?.addEventListener('click', () => {
     const tower = getSelectedTower();
@@ -6377,6 +7060,7 @@ function renderDamageReport() {
   });
   els.closeIntroBtn?.addEventListener('click', closeIntroModal);
   els.closeBountyBtn?.addEventListener('click', closeBountyModal);
+  els.closeQuestsBtn?.addEventListener('click', closeQuestsModal);
   els.closeTrackedRunsBtn?.addEventListener('click', closeTrackedRunsModal);
   els.trackedRunsBody?.addEventListener('input', (event) => {
     const searchInput = event.target instanceof HTMLInputElement && event.target.id === 'trackedRunsSearchInput'
@@ -6390,6 +7074,11 @@ function renderDamageReport() {
     const claimBtn = event.target instanceof Element ? event.target.closest('.bounty-claim-btn') : null;
     if (!claimBtn) return;
     claimActiveBounty().catch(() => {});
+  });
+  els.questsBody?.addEventListener('click', (event) => {
+    const claimBtn = event.target instanceof Element ? event.target.closest('[data-quest-id]') : null;
+    if (!claimBtn) return;
+    claimDailyQuest(claimBtn.getAttribute('data-quest-id') || '');
   });
   els.closeKnownRelicsBtn?.addEventListener('click', closeKnownRelicsModal);
   els.eliteWaveOkBtn?.addEventListener('click', () => {
@@ -6436,8 +7125,18 @@ function renderDamageReport() {
   });
   els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
   els.upgradeBtn.addEventListener('click', () => {
+    if (suppressNextUpgradeClick) {
+      suppressNextUpgradeClick = false;
+      return;
+    }
     const tower = getSelectedTower();
     if (tower) upgradeTower(tower);
+  });
+  els.maxLevelBtn?.addEventListener('click', () => {
+    const tower = getSelectedTower();
+    if (!tower || !canUpgradeTower(tower)) return;
+    const upgrades = upgradeTowerToCurrentCap(tower);
+    if (upgrades <= 0) showBanner('Cannot level further right now.', 1200);
   });
   els.moveBtn.addEventListener('click', () => {
     const tower = getSelectedTower();
@@ -6590,6 +7289,7 @@ function renderDamageReport() {
     restartForTracking: () => resetGame({ skipTrackedResetConfirm: true }),
   };
 
+  ensureDailyQuestBoard(true);
   resetGame();
   game.lastTick = now();
   setPlayMode('easy', false);
