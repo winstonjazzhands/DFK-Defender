@@ -180,7 +180,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       range: 3,
       autoAttack: true,
       abilities: [
-        { key: 'warning_shot', name: 'Warning Shot', cooldown: 7 },
+        { key: 'warning_shot', name: 'Warning Shot', cooldown: 4 },
         { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 10 },
         { key: 'kraken', name: 'Kraken', cooldown: 0 },
       ],
@@ -305,13 +305,21 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 150 Gold to reinforce the portal and restore 11% of its health.', cost: 150, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
     { id: 'fire_fiend', name: 'Fire Fiend', desc: 'Spend 200 Gold to feed the Wizard hotter fuel and make Fireball cooldown 1 second shorter.', cost: 200, rarity: 'rare', apply: game => game.modifiers.fireballCooldownAdjust += 1 },
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase his health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
+    { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve himself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
     { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => buffTowerType(game, 'pirate', { rangeAdd: 1 }) },
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and reduce attack speed by 2%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.98 },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
     { id: 'dark_arts', name: 'Dark Arts', desc: 'Spend 350 Gold to flirt with dark magic so all Wizard cooldowns drop by 2 seconds, but Wizard damage falls by 10%.', cost: 350, rarity: 'legendary', apply: game => { game.modifiers.wizardCooldownFlatReduction += 2; game.modifiers.wizardSpellDamage *= 0.90; } },
     { id: 'dagger_training', name: 'Dagger Training', desc: 'Spend 350 Gold to drill dirty fighting so Archers, Pirate, and Satellite Archers cut enemies for 10% base damage once per hero.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.daggerTraining = true },
-    { id: 'sacred_sculpting', name: 'Sacred Sculpting', desc: 'Spend 500 Gold to teach the Priest to sculpt, allowing Priest healing to restore Statues for 20% of normal healing.', cost: 500, rarity: 'mythic', apply: game => game.modifiers.sacredSculpting = true },
+    { id: 'sacred_sculpting', name: 'Sacred Sculpting', desc: 'A mythic stroke of luck teaches the Priest to sculpt, allowing Priest healing to restore Statues for 20% of normal healing.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.sacredSculpting = true },
+    { id: 'enchanted_stones', name: 'Enchanted Stones', desc: 'Mythic. The preplaced stones wake up and slow nearby enemies by 5%.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.enchantedStones = true },
+    { id: 'paladin', name: 'Paladin', desc: 'Mythic. The Warrior loses 10% damage but heals for 3% of max health every second.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.paladin = true; buffTowerType(game, 'warrior', { damageMult: 0.90 }); } },
+    { id: 'jack_sparrow', name: 'Jack Sparrow', desc: 'Mythic. Pirate gains 25% damage, but every attack or skill has a 10% chance to miss completely.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.jackSparrow = true; buffTowerType(game, 'pirate', { damageMult: 1.25 }); } },
+    { id: 'ring_of_fire', name: 'Ring of Fire', desc: 'Spend 300 Gold and the Wizard gains a ring of fire that burns nearby enemies for 10% of Wizard damage each second while they pass through it.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.ringOfFire = true },
+    { id: 'wind_at_your_back', name: 'Wind at Your Back', desc: 'Spend 200 Gold and the wind favors your Archer, increasing damage by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10 }) },
+    { id: 'kraken_trainer', name: 'Kraken Trainer', desc: "Spend 200 Gold to teach the Pirate to master the Kraken and reduce Kraken cooldown by 2 seconds.", cost: 200, rarity: 'rare', apply: game => game.modifiers.krakenCooldownAdjust += 2 },
+    { id: 'recurve_bow', name: 'Recurve Bow', desc: 'Spend 200 Gold to increase Archer damage by 10% and reduce attack speed by 5%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10, speedMult: 0.95 }) },
   ];
 
   const MUTATIONS = [
@@ -482,6 +490,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     autoStartEnabled: false,
     autoStartDelayMs: 15000,
     autoStartReadyAt: 0,
+    autoStartToken: 0,
     bonusHeroHireCharges: 0,
     placingHeroUsesBonus: false,
     rebuildingBarriers: false,
@@ -517,6 +526,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       whirlwindCooldownAdjust: 0,
       prayerCooldownAdjust: 0,
       sacredSculpting: false,
+      enchantedStones: false,
+      paladin: false,
+      jackSparrow: false,
+      ringOfFire: false,
+      krakenCooldownAdjust: 0,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -580,14 +594,19 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   function weightedRelicRarity() {
     const roll = Math.random();
-    if (roll < 0.58) return 'common';
-    if (roll < 0.92) return 'rare';
-    if (roll < 0.97) return 'legendary';
+    if (roll < 0.59) return 'common';
+    if (roll < 0.93) return 'rare';
+    if (roll < 0.98) return 'legendary';
     return 'mythic';
   }
 
+  function isRelicFree(relic, isFreeStartingRelic = false) {
+    return !!isFreeStartingRelic || (relic?.rarity === 'mythic');
+  }
 
-  const DAILY_QUEST_POOL = [
+
+  const DAILY_QUEST_GOAL_MULTIPLIER = 3;
+  const BASE_DAILY_QUEST_POOL = [
     { id: 'kill_50', name: 'Cull the Weak', description: 'Kill 50 enemies.', metric: 'killsTotal', goal: 50 },
     { id: 'kill_100', name: 'Field Clearer', description: 'Kill 100 enemies.', metric: 'killsTotal', goal: 100 },
     { id: 'kill_200', name: 'Relentless Sweep', description: 'Kill 200 enemies.', metric: 'killsTotal', goal: 200 },
@@ -629,6 +648,42 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     { id: 'runs_4', name: 'Long Shift', description: 'Complete 4 runs.', metric: 'runsCompleted', goal: 4 },
     { id: 'boss_waves_2', name: 'Brace for Impact', description: 'Clear 2 boss waves.', metric: 'bossWavesCleared', goal: 2 },
   ];
+
+  function formatQuestGoal(value) {
+    return Number(value || 0).toLocaleString('en-US');
+  }
+
+  function buildDailyQuestDescription(quest, goal) {
+    switch (quest.metric) {
+      case 'killsTotal': return `Kill ${formatQuestGoal(goal)} enemies.`;
+      case 'killsSmall': return `Kill ${formatQuestGoal(goal)} small enemies.`;
+      case 'killsMedium': return `Kill ${formatQuestGoal(goal)} medium enemies.`;
+      case 'killsLarge': return `Kill ${formatQuestGoal(goal)} large enemies.`;
+      case 'killsSkitter': return `Kill ${formatQuestGoal(goal)} skitters.`;
+      case 'killsBoss': return `Kill ${formatQuestGoal(goal)} ${goal === 1 ? 'boss' : 'bosses'}.`;
+      case 'damageTotal': return `Deal ${formatQuestGoal(goal)} total damage.`;
+      case 'goldEarned': return `Earn ${formatQuestGoal(goal)} gold.`;
+      case 'goldSpent': return `Spend ${formatQuestGoal(goal)} gold.`;
+      case 'relicsBought': return `Buy ${formatQuestGoal(goal)} relic${goal === 1 ? '' : 's'}.`;
+      case 'heroesPlaced': return `Place ${formatQuestGoal(goal)} heroes.`;
+      case 'upgrades': return `Buy ${formatQuestGoal(goal)} upgrades.`;
+      case 'satellitesPlaced': return `Place ${formatQuestGoal(goal)} satellite${goal === 1 ? '' : 's'}, statue${goal === 1 ? '' : 's'}, or Torn Soul${goal === 1 ? '' : 's'}.`;
+      case 'wavesClearedTotal': return `Clear ${formatQuestGoal(goal)} waves total.`;
+      case 'maxWave': return `Reach wave ${formatQuestGoal(goal)} in a run.`;
+      case 'runsCompleted': return `Complete ${formatQuestGoal(goal)} runs.`;
+      case 'bossWavesCleared': return `Clear ${formatQuestGoal(goal)} boss waves.`;
+      default: return quest.description;
+    }
+  }
+
+  const DAILY_QUEST_POOL = BASE_DAILY_QUEST_POOL.map((quest) => {
+    const scaledGoal = Math.max(1, Math.ceil(Number(quest.goal || 0) * DAILY_QUEST_GOAL_MULTIPLIER));
+    return {
+      ...quest,
+      goal: scaledGoal,
+      description: buildDailyQuestDescription(quest, scaledGoal),
+    };
+  });
 
   function getQuestDefinitionById(id) {
     return DAILY_QUEST_POOL.find((quest) => quest.id === id) || null;
@@ -1148,10 +1203,26 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   
+  function isTornSoulArchon(tower) {
+    return !!tower && !!tower.isSoulSplit && Number(tower.level || 0) >= 40;
+  }
+
+  function getTornSoulDamageMultiplier(tower) {
+    return isTornSoulArchon(tower) ? 0.375 : 0.5;
+  }
+
+  function getTornSoulExplosionMultiplier(tower) {
+    return isTornSoulArchon(tower) ? (SOUL_SPLIT_EXPLOSION_MULTIPLIER * (4 / 3)) : SOUL_SPLIT_EXPLOSION_MULTIPLIER;
+  }
+
+  function getTornSoulDisplayName(tower) {
+    return isTornSoulArchon(tower) ? 'ARCHON' : 'TORN SOUL';
+  }
+
   function normalizeTornSoulDamage(tower) {
     if (!tower || (tower.type !== 'wizard_satellite' && tower.type !== 'torn_soul') || !tower.parent) return;
     const parent = tower.parent;
-    const expectedDamage = Number((parent.baseDamage || parent.damage || 0) * 0.5);
+    const expectedDamage = Number((parent.baseDamage || parent.damage || 0) * getTornSoulDamageMultiplier(tower));
     if (Number.isFinite(expectedDamage) && expectedDamage > 0) {
       tower.damage = expectedDamage;
       if ('baseDamage' in tower) tower.baseDamage = expectedDamage;
@@ -1468,6 +1539,11 @@ function renderDamageReport() {
       whirlwindCooldownAdjust: 0,
       prayerCooldownAdjust: 0,
       sacredSculpting: false,
+      enchantedStones: false,
+      paladin: false,
+      jackSparrow: false,
+      ringOfFire: false,
+      krakenCooldownAdjust: 0,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -2141,11 +2217,21 @@ function renderDamageReport() {
 
   const INTRO_PAGES = [
     {
-      title: 'Objective, Wallet, and Leaderboard',
+      title: 'DFK Defender at a Glance',
       body: `
         <div class="intro-section-card">
+          <p><span class="intro-highlight">DFK Defender</span> is a tower defense game built around <span class="intro-highlight">active play</span>, not passive setups.</p>
+          <p>Instead of placing units and waiting, you are constantly repositioning heroes, timing abilities, and reacting to each wave in real time.</p>
           <p><span class="intro-highlight">Objective</span> — Defend the portal for as many waves as possible. Your main score is your <span class="intro-highlight">best wave reached</span>.</p>
-          <p><span class="intro-highlight">Core loop</span> — Place heroes, kill enemies for Gold, strengthen your defense, and survive as long as you can.</p>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">What Makes It Different</p>
+          <ul class="intro-compact-list">
+            <li>The <span class="intro-highlight">Warrior</span> is the only hero that can stop enemy movement.</li>
+            <li>All other heroes must let enemies pass through them, so your run depends on frontline control instead of walling off the map.</li>
+            <li><span class="intro-highlight">Statues</span>, <span class="intro-highlight">Torn Souls</span>, and <span class="intro-highlight">Satellite Archers</span> add extra layers of tactical planning instead of simple stat scaling.</li>
+            <li><span class="intro-highlight">Relics</span> can shift your whole plan by changing sustain, damage, range, and long-run scaling.</li>
+          </ul>
         </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Wallet Connection and Run Tracking</p>
@@ -2206,7 +2292,7 @@ function renderDamageReport() {
       title: 'Archer and Satellite Archer',
       body: `
         <div class="intro-section-card">
-          <p><span class="intro-highlight">Archer</span> is your main sustained ranged damage hero. Archers reward survival and positioning, not reckless trading.</p>
+          <p><span class="intro-highlight">Archer</span> is your long-range damage specialist. The Archer gives you safe, steady pressure from behind the line and helps thin waves before they reach the Warrior.</p>
           <ul class="intro-compact-list">
             <li><span class="intro-highlight">Multi-Shot</span> — 3 arrows for split burst damage.</li>
             <li><span class="intro-highlight">Rapid Shot</span> — Short burst of faster attacks.</li>
@@ -2226,9 +2312,7 @@ function renderDamageReport() {
             <li>After 9 cleared waves it dissipates completely and triggers <span class="intro-highlight">green fire</span>.</li>
             <li>Once it is gone, that Archer must survive 12 more cleared waves before earning the next one.</li>
           </ul>
-        </div>
-        <div class="intro-section-card">
-          <p>Do not judge Archers only by current damage. If they die early, they never reach their satellite timing, and you lose a large part of their long-run value.</p>
+          <p>Satellite Archers reward planning. Keep your main Archer alive, place the satellite where it can shoot safely for several waves, and treat it like extra backline value rather than disposable damage.</p>
         </div>
       `,
     },
@@ -2237,6 +2321,7 @@ function renderDamageReport() {
       body: `
         <div class="intro-section-card">
           <p class="intro-page-subheading">Wizard</p>
+          <p>The Wizard deals damage and <span class="intro-highlight">slows enemies</span>, making her one of your best control heroes.</p>
           <ul class="intro-compact-list">
             <li><span class="intro-highlight">Firebolt</span> — Reliable direct spell damage that scales with Wizard level.</li>
             <li><span class="intro-highlight">Ice Aura</span> — Passive slow around the Wizard that grows stronger with level.</li>
@@ -2244,10 +2329,11 @@ function renderDamageReport() {
             <li><span class="intro-highlight">Fireball</span> — Area damage for clustered enemies that scales harder with Wizard level.</li>
             <li><span class="intro-highlight">Frost Lance</span> — Heavy hit that is stronger against slowed targets.</li>
           </ul>
-          <p>The Wizard is strongest when enemies are stacked together by terrain, pathing, or Warrior control.</p>
+          <p>Torn Souls work best when placed where enemies are guaranteed to pass through them. They are strongest as planned pressure points, not random drops.</p>
         </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Priest</p>
+          <p>The Priest exists to <span class="intro-highlight">heal and support the Warrior</span>. She keeps your frontline standing long enough for the rest of your team to matter.</p>
           <ul class="intro-compact-list">
             <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies with a stronger base heal.</li>
             <li><span class="intro-highlight">Slow Totem</span> — Manual totem that slows enemies within 2 tiles for 45 seconds.</li>
@@ -2258,8 +2344,9 @@ function renderDamageReport() {
         </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Pirate</p>
+          <p>The Pirate deals damage and <span class="intro-highlight">slows enemies</span>, giving you another strong answer to packed waves.</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Warning Shot</span> — Marks a target so it takes more damage.</li>
+            <li><span class="intro-highlight">Warning Shot</span> — Blasts enemies in a 2-tile area for 50% Pirate damage and makes them take more damage from attacks.</li>
             <li><span class="intro-highlight">Starboard Cannons</span> — Splash damage into a small cluster that scales harder with Pirate level.</li>
             <li><span class="intro-highlight">Kraken</span> — Wide damaging zone with a stronger slow, lower damage, and a shorter cooldown.</li>
             <li><span class="intro-highlight">Bloody Bastard</span> — Passive bleed, slow, and extra Gold value on Pirate kills.</li>
@@ -2308,7 +2395,7 @@ function renderDamageReport() {
       `,
     },
     {
-      title: 'Scaling and Strategy Basics',
+      title: 'Scaling, Relics, and Strategy Basics',
       body: `
         <div class="intro-section-card">
           <p class="intro-page-subheading">Economy and Scaling</p>
@@ -2320,17 +2407,27 @@ function renderDamageReport() {
           </ul>
         </div>
         <div class="intro-section-card">
+          <p class="intro-page-subheading">Relics Change the Run</p>
+          <ul class="intro-compact-list">
+            <li>Relics do more than add stats — they can change how you position, scale, and survive.</li>
+            <li>Some relics improve <span class="intro-highlight">frontline sustain</span>, making the Warrior and Priest harder to break.</li>
+            <li>Some improve <span class="intro-highlight">damage or range</span>, making Archers, Wizards, or Pirates safer and stronger.</li>
+            <li>Others reward long-run planning by making your control tools and helper units more valuable.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
           <p class="intro-page-subheading">Practical Strategy</p>
           <ul class="intro-compact-list">
             <li>Keep Archers alive long enough to earn satellites.</li>
             <li>Use Warrior and Statue to buy time, not just to soak damage.</li>
+            <li>Place Torn Souls where enemy traffic is predictable.</li>
             <li>Do not let Skitter deaths happen carelessly inside your whole formation.</li>
             <li>Protect Wizards, Priests, Pirates, and Archers from direct collapse.</li>
-            <li>Positioning matters more than raw damage once late waves start stacking threats together.</li>
+            <li>Adapt to the relics you find instead of forcing the same build every run.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p>The run usually ends when the defense loses structure, not when one number was slightly too low. Good runs come from stable lanes, protected damage, and smart use of your control tools.</p>
+          <p>The run usually ends when the defense loses structure, not when one number was slightly too low. Good runs come from stable lanes, protected damage, smart control, and recognizing what your relics enable.</p>
         </div>
       `,
     },
@@ -2705,7 +2802,10 @@ function renderDamageReport() {
       updateAutoStartButton();
       return;
     }
-    if (reset || !game.autoStartReadyAt) game.autoStartReadyAt = now();
+    if (reset || !game.autoStartReadyAt) {
+      game.autoStartReadyAt = now();
+      game.autoStartToken = (game.autoStartToken || 0) + 1;
+    }
     updateAutoStartButton();
   }
 
@@ -2717,6 +2817,7 @@ function renderDamageReport() {
       showBanner('Auto Start enabled', 1200);
     } else {
       game.autoStartReadyAt = 0;
+      game.autoStartToken = (game.autoStartToken || 0) + 1;
       updateAutoStartButton();
       showBanner('Auto Start disabled', 1200);
     }
@@ -2936,7 +3037,12 @@ function renderDamageReport() {
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
-          portrait.style.filter = 'grayscale(0.55) saturate(0.7) brightness(0.95) contrast(1.05)';
+          portrait.style.filter = isTornSoulArchon(tower)
+            ? 'grayscale(0.1) saturate(1.25) brightness(1.08) contrast(1.1)'
+            : 'grayscale(0.55) saturate(0.7) brightness(0.95) contrast(1.05)';
+        }
+        if (isTornSoulArchon(tower)) {
+          tile.el.classList.add('tile-archon-sparkle');
         }
         if (isStatueTower(tower)) {
           portrait.classList.add('tile-statue-hero');
@@ -2948,11 +3054,16 @@ function renderDamageReport() {
 
         const heroLabel = document.createElement('div');
         heroLabel.className = 'tile-hero-label';
-        heroLabel.textContent = tower.isSoulSplit ? 'TORN SOUL' : (isStatueTower(tower) ? 'STATUE' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase()));
+        heroLabel.textContent = tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase()));
         heroLabel.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
-          heroLabel.style.color = '#d3d3d3';
-          heroLabel.style.textShadow = '0 0 8px rgba(190,190,190,0.9), 0 0 14px rgba(118,118,118,0.6)';
+          if (isTornSoulArchon(tower)) {
+            heroLabel.style.color = '#f2e5ff';
+            heroLabel.style.textShadow = '0 0 10px rgba(218,184,255,1), 0 0 18px rgba(168,124,255,0.85), 0 0 28px rgba(240,225,255,0.75)';
+          } else {
+            heroLabel.style.color = '#d3d3d3';
+            heroLabel.style.textShadow = '0 0 8px rgba(190,190,190,0.9), 0 0 14px rgba(118,118,118,0.6)';
+          }
         }
         if (isStatueTower(tower)) {
           heroLabel.classList.add('tile-statue-label');
@@ -3003,7 +3114,7 @@ function renderDamageReport() {
         } else if (tower.isSoulSplit) {
           const soulSplitNote = document.createElement('div');
           soulSplitNote.className = 'tile-hover-meta';
-          soulSplitNote.textContent = 'Torn Soul • Shadow satellite • Explodes when an enemy passes through';
+          soulSplitNote.textContent = 'Torn Soul • Shadow satellite • Becomes an Archon at level 40';
           hover.appendChild(soulSplitNote);
         }
 
@@ -3553,8 +3664,38 @@ function renderDamageReport() {
     }
   }
 
+  function renderHeroQuickSelect() {
+    const host = document.getElementById('heroQuickSelect');
+    if (!host) return;
+    const selectableTowers = game.towers.filter(t => !t.isSatellite && !t.isSoulSplit && !isStatueTower(t));
+    if (!selectableTowers.length) {
+      host.innerHTML = '<div class="hero-quick-empty">No heroes placed.</div>';
+      return;
+    }
+    const counts = new Map();
+    host.innerHTML = '';
+    selectableTowers.forEach((tower) => {
+      const count = (counts.get(tower.type) || 0) + 1;
+      counts.set(tower.type, count);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'hero-quick-btn';
+      if (game.selectedId === tower.id) btn.classList.add('is-selected');
+      const baseName = tower.name || tower.type;
+      btn.textContent = `${baseName}${count > 1 ? ` ${count}` : ''}`;
+      btn.title = `Select ${baseName}${count > 1 ? ` ${count}` : ''}`;
+      btn.addEventListener('click', () => {
+        game.selectedId = tower.id;
+        game.movingTowerId = null;
+        render();
+      });
+      host.appendChild(btn);
+    });
+  }
+
   function renderSelection() {
     const tower = getSelectedTower();
+    renderHeroQuickSelect();
     game.renderedSelectionTowerId = tower ? tower.id : null;
     if (!tower) {
       game.infoPopupPinned = false;
@@ -4127,6 +4268,7 @@ function renderDamageReport() {
     if (tower?.type === 'wizard' && abilityKey === 'fireball') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.fireballCooldownAdjust || 0));
     if (tower?.type === 'wizard') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'warrior' && abilityKey === 'whirlwind') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.whirlwindCooldownAdjust || 0));
+    if (tower?.type === 'pirate' && abilityKey === 'kraken') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.krakenCooldownAdjust || 0));
     if (abilityKey === 'shield_bash') return scaledBase;
     return getAbilityIndex(tower, abilityKey) >= 2 ? scaledBase * 1.5 : scaledBase;
   }
@@ -4227,7 +4369,7 @@ function renderDamageReport() {
       eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
-      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when one enemy passes through its tile it detonates for ${Math.round(tower.damage * 0.5 * SOUL_SPLIT_EXPLOSION_MULTIPLIER)} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
+      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 20% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
@@ -4235,7 +4377,7 @@ function renderDamageReport() {
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 20% of the aura amount.' : ''}${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
-      warning_shot: `Marks one enemy to take 20% more damage for 6s.${common}${scale}`,
+      warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: 4.0s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%.${stronger}${common}${scale}`,
     };
@@ -4298,6 +4440,10 @@ function renderDamageReport() {
       tower.basicCooldown /= 1.05;
     }
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
+    if (tower.isSoulSplit && tower.level === 40) {
+      showBanner('Archon awakened.', 2200);
+      log(`${tower.name} ascended into an Archon.`);
+    }
     updateQuestMetric('upgrades', 1);
     render();
   }
@@ -4754,7 +4900,7 @@ function renderDamageReport() {
       startedAt: current,
       until,
       nextTickAt: current + 1000,
-      tickDamage: Math.max(1, (Number(sourceTower?.damage || 0) || 0) * SOUL_SPLIT_EXPLOSION_MULTIPLIER / TORN_SOUL_BURN_DURATION_SECONDS),
+      tickDamage: Math.max(1, (Number(sourceTower?.damage || 0) || 0) * getTornSoulExplosionMultiplier(sourceTower) / TORN_SOUL_BURN_DURATION_SECONDS),
       sourceTowerId: sourceTower?.id || null,
       imagePath: PURPLE_FIRE_GIF_PATH,
     });
@@ -4781,7 +4927,7 @@ function renderDamageReport() {
     if (occupantTower && occupantTower.isSoulSplit) {
       createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.75, 1800, PURPLE_FIRE_GIF_PATH);
       createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, TORN_SOUL_BURN_RADIUS), 'wizard');
-      damageEnemy(occupantTower, enemy, occupantTower.damage * SOUL_SPLIT_EXPLOSION_MULTIPLIER, `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: 'Torn Soul Burst' });
+      damageEnemy(occupantTower, enemy, occupantTower.damage * getTornSoulExplosionMultiplier(occupantTower), `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: isTornSoulArchon(occupantTower) ? 'Archon Burst' : 'Torn Soul Burst' });
       igniteTornSoulBurn(occupantTower, occupantTower.x, occupantTower.y);
       removeTower(occupantTower, `${occupantTower.name} collapsed into shadow.`);
     }
@@ -4796,6 +4942,10 @@ function renderDamageReport() {
     if (enemy.cssClass === 'brute') return 'large';
     if (enemy.cssClass === 'runner') return 'small';
     return 'medium';
+  }
+
+  function getEnemySizeKey(enemy) {
+    return getEnemyOccupancyClass(enemy);
   }
 
   function getEnemyTileCapacity(enemy, x, y) {
@@ -4952,17 +5102,17 @@ function renderDamageReport() {
   }
 
   const BASE_ELITE_WAVE_CONFIG = {
-    13: { enemyMult: 1.2, skitters: 30, skitterBursts: 3 },
+    13: { hpMult: 1.2, skitters: 30, skitterBursts: 3 },
     22: { skitters: 30, skitterBursts: 3, extraBosses: 2 },
-    28: { enemyMult: 1.4, extraBosses: 2 },
+    28: { hpMult: 1.2, extraBosses: 2 },
     36: { enemyMult: 1.4, extraBosses: 3, skitters: 20, skitterBursts: 1 },
-    39: { skitters: 60, skitterBursts: 3 },
-    48: { enemyMult: 1.25, skitters: 60, skitterBursts: 3 },
-    50: { extraBosses: 5, skitters: 60, skitterBursts: 3 },
-    63: { enemyMult: 1.25, skitters: 60, skitterBursts: 3 },
-    74: { enemyMult: 1.25, skitters: 60, skitterBursts: 3 },
-    85: { enemyMult: 1.2, extraBosses: 1 },
-    90: { enemyMult: 1.1, extraBosses: 1 },
+    39: { hpMult: 1.2, skitters: 60, skitterBursts: 3 },
+    48: { hpMult: 1.2, skitters: 60, skitterBursts: 3 },
+    50: { hpMult: 1.1, extraBosses: 5, skitters: 60, skitterBursts: 3 },
+    63: { hpMult: 1.2, skitters: 60, skitterBursts: 3 },
+    74: { extraBosses: 2, skitters: 60, skitterBursts: 3 },
+    85: { hpMult: 1.2, extraBosses: 2 },
+    90: { hpMult: 1.2, extraBosses: 1 },
     91: { enemyMult: 1.1, extraBosses: 2 },
     92: { enemyMult: 1.1, extraBosses: 3 },
     93: { enemyMult: 1.1, extraBosses: 4 },
@@ -5279,12 +5429,13 @@ function renderDamageReport() {
   }
 
   function getEnemyBaselineHpMultiplier(type) {
-    return type === 'grunt' || type === 'runner' ? 0.95 : 1;
+    if (type === 'skitter') return 1;
+    return 0.95;
   }
 
   function getEnemyBaselineDamageMultiplier(type, isBoss = false) {
     if (isBoss || type === 'skitter') return 1;
-    return 0.81225;
+    return 0.731025;
   }
 
   function spawnEnemyFromPlan(plan) {
@@ -5302,6 +5453,11 @@ function renderDamageReport() {
     const waveHpMultiplier = getWaveHpMultiplier(game.waveNumber || 0);
     enemy.hp *= waveHpMultiplier * 1.25;
     enemy.maxHp *= waveHpMultiplier * 1.25;
+    const eliteWaveHpMult = getEliteWaveConfig(game.waveNumber || 0)?.hpMult || 1;
+    if (eliteWaveHpMult !== 1) {
+      enemy.hp *= eliteWaveHpMult;
+      enemy.maxHp *= eliteWaveHpMult;
+    }
     enemy.spawnMaxHp = enemy.maxHp;
     enemy.damage *= getWaveDamageMultiplier(game.waveNumber || 0);
     enemy.moveInterval *= 1.05;
@@ -5354,7 +5510,7 @@ function renderDamageReport() {
     const baseHpMultiplier = getEnemyBaselineHpMultiplier(type);
     const baseDamageMultiplier = getEnemyBaselineDamageMultiplier(type, false);
     const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
-    const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
     return {
       id: `e${game.nextEnemyId++}`,
       type,
@@ -5513,8 +5669,9 @@ function renderDamageReport() {
     }
 
     if (game.autoStartEnabled && buyableWaveStart() && game.autoStartReadyAt > 0 && !game.startingRelicPending) {
-      if ((current - game.autoStartReadyAt) >= game.autoStartDelayMs && buyableWaveStart()) {
-        if (buyableWaveStart()) startWave();
+      const armedToken = game.autoStartToken || 0;
+      if ((current - game.autoStartReadyAt) >= game.autoStartDelayMs && buyableWaveStart() && game.autoStartEnabled && armedToken === (game.autoStartToken || 0)) {
+        startWave();
       }
     }
 
@@ -5645,16 +5802,17 @@ function renderDamageReport() {
     const relic = game.relicChoices.find(r => r.id === id);
     if (!relic) return;
     const isFreeStartingRelic = game.startingRelicPending;
-    if (!isFreeStartingRelic && game.jewel < relic.cost) return;
-    if (!isFreeStartingRelic) game.jewel -= relic.cost;
+    const freeRelic = isRelicFree(relic, isFreeStartingRelic);
+    if (!freeRelic && game.jewel < relic.cost) return;
+    if (!freeRelic) game.jewel -= relic.cost;
     if (!game.ownedRelics.includes(relic.id)) game.ownedRelics.push(relic.id);
     markRelicsFound([relic]);
     updateQuestMetric('relicsBought', 1);
     relic.apply(game);
     game.relicChoices = [];
-    markProgress(`${isFreeStartingRelic ? 'Chose' : 'Bought'} relic: ${relic.name}.`);
-    log(`${isFreeStartingRelic ? 'Chose free starting relic' : 'Bought relic'}: ${relic.name}.`);
-    showBanner(`${isFreeStartingRelic ? 'Starting relic:' : 'Bought relic:'} ${relic.name}`);
+    markProgress(`${freeRelic ? 'Claimed' : 'Bought'} relic: ${relic.name}.`);
+    log(`${freeRelic ? (isFreeStartingRelic ? 'Chose free starting relic' : 'Claimed mythic relic') : 'Bought relic'}: ${relic.name}.`);
+    showBanner(`${freeRelic ? (isFreeStartingRelic ? 'Starting relic:' : 'Mythic relic:') : 'Bought relic:'} ${relic.name}`);
     if (isFreeStartingRelic) {
       game.startingRelicPending = false;
       prepareNextWave();
@@ -5696,6 +5854,14 @@ function renderDamageReport() {
     tickEffects(tower, current);
     tower.attackCooldownMs = Math.max(0, tower.attackCooldownMs - delta);
 
+    if (game.modifiers.paladin && tower.type === 'warrior' && !isStatueTower(tower) && tower.hp > 0) {
+      const nextPaladinHealAt = tower.paladinHealAt || 0;
+      if (current >= nextPaladinHealAt) {
+        healTower(tower, tower.maxHp * 0.03, null);
+        tower.paladinHealAt = current + 1000;
+      }
+    }
+
     if ((tower.type === 'wizard' || tower.type === 'wizard_satellite') && isAbilityUnlocked(tower, 'frost_bolt')) {
       const tickAt = tower.iceAuraTickAt || 0;
       if (current >= tickAt) {
@@ -5731,7 +5897,7 @@ function renderDamageReport() {
     if (!target) return;
     let damage = tower.damage;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
-    if (target.debuffs.warning_shot) damage *= 1.2;
+    if (target.debuffs.warning_shot) damage *= (1 + Number(target.debuffs.warning_shot.bonusDamageTaken || 0.3));
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
     tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
@@ -5836,9 +6002,9 @@ function renderDamageReport() {
     if (!tile || tile.portal || tile.obstacle) return false;
     const blockingTower = game.towers.find(t => t.x === x && t.y === y && (isStatueTower(t) || t.type === 'warrior'));
     if (blockingTower) return false;
-    const typeKey = getEnemySizeKey(enemy);
+    const occupancyClass = getEnemyOccupancyClass(enemy);
     const occupants = game.enemies.filter(e => e.id !== enemy.id && e.x === x && e.y === y).length;
-    return occupants < (ENEMY_TILE_LIMITS[typeKey] || ENEMY_TILE_LIMITS.medium);
+    return occupants < (ENEMY_TILE_LIMITS[occupancyClass] || ENEMY_TILE_LIMITS.medium);
   }
 
   function pushEnemyAwayFromTile(enemy, originX, originY, maxTiles = 5) {
@@ -5974,6 +6140,7 @@ function renderDamageReport() {
 
   function updateEnemy(enemy, current) {
     tickEffects(enemy, current);
+    applyRingOfFire(enemy, current);
 
     if (enemy.isFlyingSiege) {
       const portalTargets = getPortalTargets();
@@ -6154,6 +6321,34 @@ function renderDamageReport() {
       enemy.stuckAt = 0;
     }
   }
+
+  function getEnchantedStoneSlowPercent(enemy) {
+    if (!game.modifiers.enchantedStones || !enemy) return 0;
+    for (let yy = enemy.y - 1; yy <= enemy.y + 1; yy += 1) {
+      for (let xx = enemy.x - 1; xx <= enemy.x + 1; xx += 1) {
+        if (!inBounds(xx, yy)) continue;
+        const tile = tileAt(xx, yy);
+        if (tile?.obstacle === 'random') return 0.05;
+      }
+    }
+    return 0;
+  }
+
+  function applyRingOfFire(enemy, current) {
+    if (!game.modifiers.ringOfFire || !enemy || enemy.hp <= 0) return;
+    const wizards = game.towers.filter(t => (t.type === 'wizard' || t.type === 'wizard_satellite') && t.hp > 0);
+    if (!wizards.length) return;
+    enemy.ringOfFireTicks = enemy.ringOfFireTicks || {};
+    for (const wiz of wizards) {
+      if (dist(enemy, wiz) > 1) continue;
+      const tickAt = enemy.ringOfFireTicks[wiz.id] || 0;
+      if (current < tickAt) continue;
+      enemy.ringOfFireTicks[wiz.id] = current + 1000;
+      const burnDamage = Math.max(1, wiz.damage * 0.10 * game.modifiers.wizardSpellDamage);
+      damageEnemy(wiz, enemy, burnDamage, `${wiz.name} scorched ${enemy.name}`, { key: 'ring_of_fire', label: 'Ring of Fire', ignoreMiss: true });
+      createTileFlashArea([{ x: enemy.x, y: enemy.y }], 'wizard');
+    }
+  }
   function getEnemySlowPercent(enemy) {
     let total = 0;
     const slowPercent = enemy.debuffs.slow?.percent || 0;
@@ -6162,6 +6357,7 @@ function renderDamageReport() {
     if (enemy.debuffs.kraken) total += enemy.debuffs.kraken.percent || 0;
     if (enemy.debuffs.bleed) total += enemy.debuffs.bleed.percent || 0;
     total += getSlowTotemSlowPercent(enemy);
+    total += getEnchantedStoneSlowPercent(enemy);
     return total;
   }
 
@@ -6169,7 +6365,7 @@ function renderDamageReport() {
     let mult = 1;
     const slowPercent = getEnemySlowPercent(enemy);
     if (slowPercent > 0) mult *= (1 + (slowPercent * (1 - enemy.slowResistance)));
-    return enemy.moveInterval * 1000 * mult;
+    return enemy.moveInterval * 1000 * mult * (game.enemies.some(e => e.type === 'skitter') ? (1 / 1.1) : 1);
   }
 
   function canEnemyEnter(x, y, enemy) {
@@ -6505,8 +6701,8 @@ function renderDamageReport() {
       dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
-      dot.style.width = `${enemy.isBoss ? Math.round(enemySize * 1.12) : enemySize}px`;
-      dot.style.height = `${enemy.isBoss ? Math.round(enemySize * 1.12) : enemySize}px`;
+      dot.style.width = `${enemy.isBoss ? Math.round(enemySize * 1.55) : enemySize}px`;
+      dot.style.height = `${enemy.isBoss ? Math.round(enemySize * 1.55) : enemySize}px`;
       if (enemy.isBoss) {
         dot.src = 'assets/billy_corgan_sithloard2.png';
         dot.alt = '';
@@ -6516,6 +6712,9 @@ function renderDamageReport() {
         dot.style.border = '0';
         dot.style.background = 'transparent';
         dot.style.boxShadow = 'none';
+        if (getEnemySlowPercent(enemy) > 0) {
+          dot.style.filter = 'brightness(0.66) saturate(2.5) sepia(0.42) hue-rotate(196deg) drop-shadow(0 0 10px rgba(98, 184, 255, 0.98)) drop-shadow(0 0 22px rgba(53, 126, 255, 0.82))';
+        }
       }
       els.enemyLayer.appendChild(dot);
       if (enemy.hp < enemy.maxHp) {
@@ -6609,6 +6808,11 @@ function renderDamageReport() {
 
   function damageEnemy(sourceTower, enemy, amount, message, damageMethod = null) {
     let damage = amount;
+    if (sourceTower && sourceTower.type === 'pirate' && game.modifiers.jackSparrow && !damageMethod?.ignoreMiss && Math.random() < 0.10) {
+      createHitFlash(enemy.x, enemy.y, 'pirate', 'MISS');
+      if (message && chance(0.2)) log(`${sourceTower.name} missed ${enemy.name}.`);
+      return 0;
+    }
     if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
     const appliedDamage = Math.max(0, Math.min(Number(enemy.hp || 0), Number(damage || 0)));
     enemy.hp -= damage;
@@ -6890,7 +7094,15 @@ function renderDamageReport() {
       warning_shot() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
-        applyDebuff(target, 'warning_shot', 6, {});
+        const targets = game.enemies.filter(e => dist(e, target) <= 2);
+        if (!targets.length) return false;
+        const areaTiles = [];
+        targets.forEach(enemy => {
+          damageEnemy(tower, enemy, tower.damage * 0.5, `${tower.name} fired Warning Shot at ${enemy.name}`, { key: 'warning_shot', label: 'Warning Shot' });
+          applyDebuff(enemy, 'warning_shot', 20, { bonusDamageTaken: 0.3 });
+          areaTiles.push({ x: enemy.x, y: enemy.y });
+        });
+        createTileFlashArea(areaTiles, 'pirate');
         return true;
       },
       starboard_cannons() {

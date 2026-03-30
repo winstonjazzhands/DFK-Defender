@@ -146,6 +146,37 @@ body::before {
   position: relative;
 }
 
+.hero-quick-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.hero-quick-btn {
+  flex: 1 1 calc(50% - 6px);
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 142, 220, 0.42);
+  background: rgba(22, 31, 58, 0.88);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.hero-quick-btn.is-selected {
+  border-color: #f3d47d;
+  box-shadow: 0 0 0 1px rgba(243, 212, 125, 0.24) inset;
+}
+
+.hero-quick-empty {
+  width: 100%;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 .center-panel {
   padding: 8px;
   position: relative;
@@ -331,7 +362,11 @@ body::before {
 .enemy-runner { background: #ffad61; }
 .enemy-brute { background: #ca4c8a; }
 .enemy-boss { background: transparent; width: 12px; height: 16px; border: 0; }
-.enemy-slowed { background: #57a8ff !important; box-shadow: 0 0 8px rgba(87,168,255,0.65); }
+.enemy-slowed { box-shadow: 0 0 12px rgba(87,168,255,0.75), 0 0 22px rgba(87,168,255,0.45); }
+.enemy-boss.enemy-slowed {
+  box-shadow: none;
+  filter: drop-shadow(0 0 10px rgba(90, 175, 255, 0.95)) drop-shadow(0 0 22px rgba(56, 134, 255, 0.72));
+}
 
 .phase-label {
   font-weight: 700;
@@ -986,8 +1021,8 @@ button:disabled {
 
 /* latest fix: remove selected title spacing and stop page jump */
 .right-panel{
-  min-height: 720px;
-  height: 720px;
+  min-height: 900px;
+  height: 900px;
   overflow-y: auto;
   overflow-x: hidden;
   overflow-y: auto;
@@ -995,8 +1030,8 @@ button:disabled {
   flex-direction: column;
 }
 .selected-info{
-  min-height: 105px;
-  max-height: 82px;
+  min-height: 131px;
+  max-height: 103px;
   overflow-y: auto;
 }
 .abilities-panel{
@@ -2359,6 +2394,34 @@ body{
      1px -1px 0 #d7d7d7,
     -1px 1px 0 #d7d7d7,
      1px 1px 0 #d7d7d7;
+}
+
+.tile-archon-sparkle::before,
+.tile-archon-sparkle::after {
+  content: '✦';
+  position: absolute;
+  z-index: 3;
+  font-size: 13px;
+  color: rgba(245, 230, 255, 0.95);
+  text-shadow: 0 0 6px rgba(190, 140, 255, 0.95), 0 0 12px rgba(255,255,255,0.85);
+  animation: archonSparkle 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.tile-archon-sparkle::before {
+  top: 3px;
+  left: 4px;
+}
+
+.tile-archon-sparkle::after {
+  right: 5px;
+  bottom: 10px;
+  animation-delay: 0.8s;
+}
+
+@keyframes archonSparkle {
+  0%, 100% { transform: scale(0.7); opacity: 0.35; }
+  50% { transform: scale(1.2); opacity: 1; }
 }
 
 .tower-chip,
@@ -4539,7 +4602,7 @@ body.intro-open .mobile-right-rail {
 @media (min-width: 1025px) {
   :root {
     --desktop-left-panel: 220px;
-    --desktop-right-panel: 290px;
+    --desktop-right-panel: 145px;
     --tile-gap: 6px;
     --tile-size: clamp(50px, calc((100vw - 620px) / 14), 92px);
     --board-width: calc(14 * var(--tile-size) + 13 * var(--tile-gap));
@@ -5564,3 +5627,37 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 
 .desktop-only-inline { display: inline-flex; }
 @media (max-width: 900px) { .desktop-only-inline { display: none !important; } }
+
+@media (min-width: 1025px) {
+  #infoPanel { padding: 10px; }
+  #infoPanel .panel-toggle-btn,
+  #infoPanel .action-group button,
+  #infoPanel .abilities-panel button {
+    font-size: 0.74rem;
+    padding: 7px 8px;
+  }
+  #infoPanel .selected-info {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    padding: 8px;
+  }
+}
+
+
+/* v46.9.1.22: restore normal desktop width for the right panel and cut its height roughly in half */
+@media (min-width: 1025px) {
+  :root {
+    --desktop-right-panel: 270px;
+  }
+
+  .right-panel {
+    min-height: 360px;
+    height: 360px;
+    max-height: 360px;
+  }
+
+  .selected-info {
+    min-height: 74px;
+    max-height: 74px;
+  }
+}
