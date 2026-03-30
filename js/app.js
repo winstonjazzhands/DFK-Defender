@@ -1,4 +1,121 @@
 
+// Dark Summoner laugh sound
+let darkSummonerLaugh;
+function playDarkSummonerLaugh() {
+  try {
+    if (!darkSummonerLaugh) {
+      darkSummonerLaugh = new Audio('assets/dark_laugh_8bit.wav');
+      darkSummonerLaugh.volume = 0.6;
+    }
+    const s = darkSummonerLaugh.cloneNode(); // allow overlap
+    s.volume = 0.6;
+    s.play().catch(()=>{});
+  } catch(e) {}
+}
+
+
+// Dark Summoner board dim effect
+function setBoardDim(active) {
+  const board = document.getElementById('gameboard') || document.querySelector('.gameboard') || document.body;
+  if (!board) return;
+  if (active) {
+    board.classList.add('board-dim');
+  } else {
+    board.classList.remove('board-dim');
+  }
+}
+
+
+const STORY_SCREENS = [
+  { text: '"Defend the Portal" The Druid screamed as cultists charged from the forest, the Dark Summoner was never supposed to be trusted, and yet… we did.', duration: 7500 },
+  { text: 'At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we didn’t question. He spoke like an ally, like someone trying to save Crystalvale from something worse.', duration: 9000 },
+  { text: 'The sacrifices we thought we were stopping? We were completing them. Every hero we lost fed his ritual. Every victory we thought we earned was another step in his design.', duration: 7500 },
+  { text: 'We weren’t fighting the darkness. We were feeding it.', duration: 4500 },
+  { text: 'Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.', duration: 11250 },
+  { text: 'This was always the plan, and we walked straight into it. If the portal falls, the summoning completes... we won\'t have the strength to stop whatever he\'s bringing through.', duration: 7500 },
+  { text: 'You have one chance to hold the line. Use your team of five heroes. Fight smarter than we did. Make every wave cost him. Because this time… he\'s not pretending to help, he\'s finishing what we foolishly started.', duration: 9000 }
+];
+
+function playStorySequence() {
+  const overlay = document.getElementById('storyOverlay');
+  const textEl = document.getElementById('storyText');
+  const skipBtn = document.getElementById('storySkipBtn');
+  if (!overlay || !textEl) return;
+
+  let index = 0;
+  let cancelled = false;
+  let activeTimers = [];
+
+  function clearStoryTimers() {
+    for (const id of activeTimers) clearTimeout(id);
+    activeTimers = [];
+  }
+
+  function finishStory() {
+    if (cancelled) return;
+    cancelled = true;
+    clearStoryTimers();
+    textEl.classList.remove('visible');
+    overlay.classList.add('hidden');
+  }
+
+  function queue(fn, ms) {
+    const id = setTimeout(fn, ms);
+    activeTimers.push(id);
+    return id;
+  }
+
+  overlay.classList.remove('hidden');
+
+  if (skipBtn) {
+    skipBtn.onclick = finishStory;
+  }
+
+  function showNext() {
+    if (cancelled) return;
+    if (index >= STORY_SCREENS.length) {
+      finishStory();
+      return;
+    }
+
+    const screen = STORY_SCREENS[index];
+    textEl.classList.remove('visible');
+
+    queue(() => {
+      if (cancelled) return;
+      textEl.textContent = screen.text;
+      textEl.classList.add('visible');
+
+      queue(() => {
+        if (cancelled) return;
+        textEl.classList.remove('visible');
+        index += 1;
+        queue(showNext, 1200);
+      }, screen.duration);
+    }, 700);
+  }
+
+  document.addEventListener('keydown', function onStoryKey(event) {
+    if (!cancelled && event.key === 'Escape') {
+      finishStory();
+    }
+    if (cancelled) {
+      document.removeEventListener('keydown', onStoryKey);
+    }
+  });
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) finishStory();
+  });
+
+  showNext();
+}
+
+window.addEventListener('load', () => {
+  playStorySequence();
+});
+
+
 const treeVariants = ["tree1.png","tree2.png","tree3.png"];
 function getRandomTree(){
   return treeVariants[Math.floor(Math.random()*treeVariants.length)];
@@ -57,6 +174,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
+const APP_VERSION = 'v46.9.1.43';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -136,7 +254,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         { key: 'multi_shot', name: 'Multi-Shot', cooldown: 8 },
         { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 20 },
         { key: 'piercing_shot', name: 'Piercing Shot', cooldown: 7 },
-        { key: 'eagle_nest', name: 'Eagle Nest', cooldown: 0, passive: true },
+        { key: 'eagle_nest', name: "Assassin's Training", cooldown: 0, passive: true },
       ],
     },
     wizard: {
@@ -311,11 +429,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and reduce attack speed by 2%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.98 },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
     { id: 'dark_arts', name: 'Dark Arts', desc: 'Spend 350 Gold to flirt with dark magic so all Wizard cooldowns drop by 2 seconds, but Wizard damage falls by 10%.', cost: 350, rarity: 'legendary', apply: game => { game.modifiers.wizardCooldownFlatReduction += 2; game.modifiers.wizardSpellDamage *= 0.90; } },
-    { id: 'dagger_training', name: 'Dagger Training', desc: 'Spend 350 Gold to drill dirty fighting so Archers, Pirate, and Satellite Archers cut enemies for 10% base damage once per hero.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.daggerTraining = true },
-    { id: 'sacred_sculpting', name: 'Sacred Sculpting', desc: 'A mythic stroke of luck teaches the Priest to sculpt, allowing Priest healing to restore Statues for 20% of normal healing.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.sacredSculpting = true },
-    { id: 'enchanted_stones', name: 'Enchanted Stones', desc: 'Mythic. The preplaced stones wake up and slow nearby enemies by 5%.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.enchantedStones = true },
-    { id: 'paladin', name: 'Paladin', desc: 'Mythic. The Warrior loses 10% damage but heals for 3% of max health every second.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.paladin = true; buffTowerType(game, 'warrior', { damageMult: 0.90 }); } },
-    { id: 'jack_sparrow', name: 'Jack Sparrow', desc: 'Mythic. Pirate gains 25% damage, but every attack or skill has a 10% chance to miss completely.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.jackSparrow = true; buffTowerType(game, 'pirate', { damageMult: 1.25 }); } },
+    { id: 'dagger_training', name: 'Dagger Training', desc: 'Spend 350 Gold to drill dirty fighting so Archers, Pirate, and Archer Shadows cut enemies for 10% base damage once per hero.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.daggerTraining = true },
+    { id: 'sacred_sculpting', name: 'Sacred Sculpting', desc: 'A mythic stroke of luck teaches the Priest to sculpt, allowing Priest healing to restore Statues for 30% of normal healing.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.sacredSculpting = true },
+    { id: 'enchanted_stones', name: 'Enchanted Stones', desc: 'Mythic. The preplaced stones wake up and slow nearby enemies by 7.5%.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.enchantedStones = true },
+    { id: 'paladin', name: 'Paladin', desc: 'Mythic. The Warrior loses 10% damage but heals for 4.5% of max health every second.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.paladin = true; buffTowerType(game, 'warrior', { damageMult: 0.90 }); } },
+    { id: 'jack_sparrow', name: 'Jack Sparrow', desc: 'Mythic. Pirate gains 37.5% damage, but every attack or skill has a 10% chance to miss completely.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.jackSparrow = true; buffTowerType(game, 'pirate', { damageMult: 1.375 }); } },
     { id: 'ring_of_fire', name: 'Ring of Fire', desc: 'Spend 300 Gold and the Wizard gains a ring of fire that burns nearby enemies for 10% of Wizard damage each second while they pass through it.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.ringOfFire = true },
     { id: 'wind_at_your_back', name: 'Wind at Your Back', desc: 'Spend 200 Gold and the wind favors your Archer, increasing damage by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10 }) },
     { id: 'kraken_trainer', name: 'Kraken Trainer', desc: "Spend 200 Gold to teach the Pirate to master the Kraken and reduce Kraken cooldown by 2 seconds.", cost: 200, rarity: 'rare', apply: game => game.modifiers.krakenCooldownAdjust += 2 },
@@ -601,9 +719,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   function weightedRelicRarity() {
     const roll = Math.random();
-    if (roll < 0.59) return 'common';
-    if (roll < 0.93) return 'rare';
-    if (roll < 0.98) return 'legendary';
+    if (roll < 0.79) return 'common';
+    if (roll < 0.94) return 'rare';
+    if (roll < 0.99) return 'legendary';
     return 'mythic';
   }
 
@@ -909,6 +1027,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     closeBountyModal();
     closeTrackedRunsModal();
     closeKnownRelicsModal();
+    game.modalDismiss = null;
     ensureDailyQuestBoard(true);
     renderDailyQuestsBoard();
     game.introOpen = true;
@@ -1515,6 +1634,7 @@ function renderDamageReport() {
     game.barrierRefitCount = 0;
     game.jewel = 0;
     game.portalHp = 2500;
+    game.portalDamagePulseUntil = 0;
     game.milestoneJewelsGranted = {};
     game.relicChoices = [];
     game.ownedRelics = [];
@@ -1575,7 +1695,7 @@ function renderDamageReport() {
       updateMobileBoardFit();
     showStatusOverlay();
     render();
-    maybeShowIntroOnOpen();
+    // removed intro modal
     return true;
   }
 
@@ -1705,7 +1825,7 @@ function renderDamageReport() {
     if (reportType === 'softlock') {
       return 'The game state stopped changing during an active wave. This usually means pathing, aggro, or blocker placement created a deadlock.';
     }
-    if (game.portalHp <= 0) {
+    if (game.portalHp <= 0 && !game.continueOfferUsed) {
       return 'The portal was destroyed. If the screen looked frozen, this was likely a game-over state rather than a true crash.';
     }
     const msg = String(errorObj?.message || errorObj || '');
@@ -2239,7 +2359,7 @@ function renderDamageReport() {
           <ul class="intro-compact-list">
             <li>The <span class="intro-highlight">Warrior</span> is the only hero that can stop enemy movement.</li>
             <li>All other heroes must let enemies pass through them, so your run depends on frontline control instead of walling off the map.</li>
-            <li><span class="intro-highlight">Statues</span>, <span class="intro-highlight">Torn Souls</span>, and <span class="intro-highlight">Satellite Archers</span> add extra layers of tactical planning instead of simple stat scaling.</li>
+            <li><span class="intro-highlight">Statues</span>, <span class="intro-highlight">Torn Souls</span>, and <span class="intro-highlight">Archer Shadows</span> add extra layers of tactical planning instead of simple stat scaling.</li>
             <li><span class="intro-highlight">Relics</span> can shift your whole plan by changing sustain, damage, range, and long-run scaling.</li>
           </ul>
         </div>
@@ -2299,7 +2419,7 @@ function renderDamageReport() {
       `,
     },
     {
-      title: 'Archer and Satellite Archer',
+      title: 'Archer and Archer Shadow',
       body: `
         <div class="intro-section-card">
           <p><span class="intro-highlight">Archer</span> is your long-range damage specialist. The Archer gives you safe, steady pressure from behind the line and helps thin waves before they reach the Warrior.</p>
@@ -2310,10 +2430,10 @@ function renderDamageReport() {
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Satellite Archer Rules</p>
+          <p class="intro-page-subheading">Archer Shadow Rules</p>
           <ul class="intro-compact-list">
-            <li>An Archer must survive for <span class="intro-highlight">12 cleared waves</span> before earning a Satellite Archer charge.</li>
-            <li>The Satellite Archer is a temporary ethereal helper placed during prep.</li>
+            <li>An Archer must survive for <span class="intro-highlight">12 cleared waves</span> before earning an Archer Shadow charge.</li>
+            <li>The Archer Shadow is a temporary ethereal helper placed during prep.</li>
             <li>It starts at level 1 with half max HP.</li>
             <li>It deals <span class="intro-highlight">75% of the parent Archer's damage</span>.</li>
             <li>It lasts for <span class="intro-highlight">9 cleared waves total</span>.</li>
@@ -2322,7 +2442,7 @@ function renderDamageReport() {
             <li>After 9 cleared waves it dissipates completely and triggers <span class="intro-highlight">green fire</span>.</li>
             <li>Once it is gone, that Archer must survive 12 more cleared waves before earning the next one.</li>
           </ul>
-          <p>Satellite Archers reward planning. Keep your main Archer alive, place the satellite where it can shoot safely for several waves, and treat it like extra backline value rather than disposable damage.</p>
+          <p>Archer Shadows reward planning. Keep your main Archer alive, place the shadow where it can shoot safely for several waves, and treat it like extra backline value rather than disposable damage.</p>
         </div>
       `,
     },
@@ -2467,7 +2587,7 @@ function renderDamageReport() {
       body: `
         <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
         <ul>
-          <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 20 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
+          <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
           <li><span class="intro-highlight">Statue</span> — Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at 100% of that total.</li>
           <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
           <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
@@ -2495,7 +2615,7 @@ function renderDamageReport() {
           <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
           <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
           <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Eagle Nest</span> — Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.</li>
+          <li><span class="intro-highlight">Assassin's Training</span> — Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Archer Shadows are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.</li>
         </ul>
         <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
       `,
@@ -2587,6 +2707,8 @@ function renderDamageReport() {
 
   function closeIntroModal() {
     game.introOpen = false;
+    if (els.introPrevBtn) els.introPrevBtn.classList.remove('hidden');
+    if (els.introPageLabel) els.introPageLabel.classList.remove('hidden');
     document.body.classList.remove('intro-open');
     if (els.bountyModal) {
       els.bountyModal.classList.add('hidden');
@@ -2974,7 +3096,7 @@ function renderDamageReport() {
       removeTower(satellite, `${satellite.name} dissipated after 9 cleared waves.`);
     }
     if (expiredSatellites.length) {
-      showBanner(`Eagle Nest: ${expiredSatellites.length} Satellite Archer${expiredSatellites.length === 1 ? '' : 's'} dissipated.`, 2600);
+      showBanner(`Assassin's Training: ${expiredSatellites.length} Archer Shadow${expiredSatellites.length === 1 ? '' : 's'} dissipated.`, 2600);
     }
   }
 
@@ -3054,6 +3176,9 @@ function renderDamageReport() {
         if (isTornSoulArchon(tower)) {
           tile.el.classList.add('tile-archon-sparkle');
         }
+        if (tower.isSatellite && tower.type === 'archer') {
+          portrait.classList.add('tile-archer-shadow-hero');
+        }
         if (isStatueTower(tower)) {
           portrait.classList.add('tile-statue-hero');
         } else if (tower.isSatellite && !isStatueTower(tower)) {
@@ -3064,7 +3189,7 @@ function renderDamageReport() {
 
         const heroLabel = document.createElement('div');
         heroLabel.className = 'tile-hero-label';
-        heroLabel.textContent = tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase()));
+        heroLabel.textContent = tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (tower.isSatellite && tower.type === 'archer' ? 'SHADOW' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase())));
         heroLabel.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
           if (isTornSoulArchon(tower)) {
@@ -3074,6 +3199,9 @@ function renderDamageReport() {
             heroLabel.style.color = '#d3d3d3';
             heroLabel.style.textShadow = '0 0 8px rgba(190,190,190,0.9), 0 0 14px rgba(118,118,118,0.6)';
           }
+        }
+        if (tower.isSatellite && tower.type === 'archer') {
+          heroLabel.classList.add('tile-archer-shadow-label');
         }
         if (isStatueTower(tower)) {
           heroLabel.classList.add('tile-statue-label');
@@ -3222,6 +3350,7 @@ function renderDamageReport() {
     els.portalArt.style.top = `${top + insetTop}px`;
     els.portalArt.style.width = `${Math.max(8, width - insetX * 2.3)}px`;
     els.portalArt.style.height = `${Math.max(8, height - insetTop - insetBottom)}px`;
+    els.portalArt.classList.toggle('portal-art-damaged', now() < (game.portalDamagePulseUntil || 0));
     els.portalArt.classList.remove('hidden');
   }
 
@@ -3666,11 +3795,11 @@ function renderDamageReport() {
     }
     if (els.mobileQuickSatelliteBtn) {
       const charges = tower && !tower.isSatellite ? (tower.satelliteCharges || 0) : 0;
-      const satelliteLabel = tower?.type === 'archer' ? 'Sat Arc' : (tower?.type === 'wizard' ? 'Soul' : 'Statue');
+      const satelliteLabel = tower?.type === 'archer' ? 'Shadow' : (tower?.type === 'wizard' ? 'Soul' : 'Statue');
       els.mobileQuickSatelliteBtn.disabled = !satelliteTowerReady;
       els.mobileQuickSatelliteBtn.classList.toggle('is-live', satelliteTowerReady);
       els.mobileQuickSatelliteBtn.textContent = satelliteTowerReady ? `${satelliteLabel} ${charges}` : 'Sat';
-      els.mobileQuickSatelliteBtn.title = satelliteTowerReady ? `Place satellite (${charges} ready)` : 'Select a warrior or archer with a satellite charge';
+      els.mobileQuickSatelliteBtn.title = satelliteTowerReady ? `Place shadow (${charges} ready)` : 'Select a warrior or archer with a shadow charge';
     }
   }
 
@@ -3725,7 +3854,7 @@ function renderDamageReport() {
       ? Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))
       : null;
     const selectedHeader = tower.isSatellite && tower.type === 'archer'
-      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><span>${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="margin-left:auto;text-align:right;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><span>ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="margin-left:auto;text-align:right;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
       : `${tower.isSoulSplit ? 'TORN SOUL' : tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
     if (tower.isSoulSplit) {
       els.selectedInfo.style.background = 'linear-gradient(135deg, rgba(88,88,96,0.92), rgba(58,50,78,0.94))';
@@ -4344,8 +4473,8 @@ function renderDamageReport() {
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest' || passiveEntry.key === 'soul_split') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
-        const satLabel = passiveEntry.key === 'eagle_nest' ? 'Satellite Archer' : (passiveEntry.key === 'soul_split' ? 'Torn Soul' : 'Statue');
-        btn.textContent = charges > 0 ? `Place ${satLabel} (${charges})` : (passiveEntry.key === 'eagle_nest' ? 'No Satellite Charges' : (passiveEntry.key === 'soul_split' ? 'No Torn Soul Charges' : 'No Statue Charges'));
+        const satLabel = passiveEntry.key === 'eagle_nest' ? 'Archer Shadow' : (passiveEntry.key === 'soul_split' ? 'Torn Soul' : 'Statue');
+        btn.textContent = charges > 0 ? `Place ${satLabel} (${charges})` : (passiveEntry.key === 'eagle_nest' ? 'No Shadow Charges' : (passiveEntry.key === 'soul_split' ? 'No Torn Soul Charges' : 'No Statue Charges'));
         btn.disabled = charges <= 0 || game.phase === SETUP_PHASES.GAME_OVER;
         btn.addEventListener('click', () => beginSatellitePlacement(tower));
         passive.appendChild(btn);
@@ -4367,7 +4496,7 @@ function renderDamageReport() {
     const d = ((tower.type === 'wizard_satellite' || tower.type === 'torn_soul') ? tower.damage * 0.5 : tower.damage);
     const hp = tower.maxHp;
     const map = {
-      gladiator_strike: `Passive. Every 9 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2.3)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
+      gladiator_strike: `Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2.3)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
       new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals double the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 11% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${game.modifiers.whirlwindCooldownAdjust ? `<br><strong>Blade Dancer active:</strong> cooldown reduced by ${game.modifiers.whirlwindCooldownAdjust.toFixed(1)}s.` : ''}${scale}`,
       shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
@@ -4376,16 +4505,16 @@ function renderDamageReport() {
       multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, and ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.6 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 12 cleared waves, Eagle Nest grants 1 Satellite Archer charge. Use that charge during prep to place a level 1 Satellite Archer on any valid open tile. The Satellite Archer has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Satellite Archers are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Satellite Archer is gone you must clear 12 more waves before summoning the next one.`,
+      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place a level 1 Archer Shadow on any valid open tile. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Archer Shadows are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 20% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Manual only. Places an indestructible totem for 45s. All enemies within ${SLOW_TOTEM_RANGE} tiles are slowed by ${(SLOW_TOTEM_PERCENT * 100).toFixed(0)}%, and the slow ends immediately when they leave the area. Cooldown: 60.0s. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
-      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 20% of the aura amount.' : ''}${common}${scale}`,
+      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: 4.0s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level.${common}${scale}`,
@@ -4482,14 +4611,14 @@ function renderDamageReport() {
   function beginSatellitePlacement(tower) {
     if (!tower || !['warrior','archer','wizard'].includes(tower.type) || (tower.satelliteCharges || 0) <= 0) return;
     if (tower.type !== 'warrior' && getActiveSatelliteCountForOwner(tower.id) >= 1) {
-      showBanner(tower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.', 1700);
+      showBanner(tower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active Archer Shadow.', 1700);
       return;
     }
     game.placingHeroType = tower.type;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = tower.id;
-    const satLabel = tower.type === 'archer' ? 'Satellite Archer' : ((tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'Torn Soul' : 'Statue');
+    const satLabel = tower.type === 'archer' ? 'Archer Shadow' : ((tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'Torn Soul' : 'Statue');
     log(`Select an open tile to place a ${satLabel} from ${tower.name}.`);
     render();
   }
@@ -4571,7 +4700,7 @@ function renderDamageReport() {
     const isSatellitePlacement = !!sourceTower;
 
     if (!isOpenForTower(x, y)) {
-      showBanner(isSatellitePlacement ? (sourceTower?.type === 'warrior' ? 'Pick an open tile for the Statue' : (sourceTower?.type === 'wizard' ? 'Pick an open tile for the Torn Soul' : 'Pick an open tile for the satellite hero')) : 'Pick an open tile for the new hero', 1200);
+      showBanner(isSatellitePlacement ? (sourceTower?.type === 'warrior' ? 'Pick an open tile for the Statue' : (sourceTower?.type === 'wizard' ? 'Pick an open tile for the Torn Soul' : 'Pick an open tile for the Archer Shadow')) : 'Pick an open tile for the new hero', 1200);
       return;
     }
 
@@ -4581,7 +4710,7 @@ function renderDamageReport() {
 
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
-        showBanner(sourceTower?.type === 'warrior' ? 'No Statue charge is available for that Warrior.' : (sourceTower?.type === 'wizard' ? 'No Torn Soul charge is available for that Wizard.' : 'No satellite charge is available for that hero.'), 1500);
+        showBanner(sourceTower?.type === 'warrior' ? 'No Statue charge is available for that Warrior.' : (sourceTower?.type === 'wizard' ? 'No Torn Soul charge is available for that Wizard.' : 'No Archer Shadow charge is available for that hero.'), 1500);
         game.placingHeroType = null;
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
@@ -4590,7 +4719,7 @@ function renderDamageReport() {
         return;
       }
       if (sourceTower.type !== 'warrior' && getActiveSatelliteCountForOwner(sourceTower.id) >= 1) {
-        showBanner(sourceTower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active satellite.', 1700);
+        showBanner(sourceTower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active Archer Shadow.', 1700);
         game.placingHeroType = null;
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
@@ -4645,7 +4774,7 @@ function renderDamageReport() {
       tower.satelliteOwnerId = sourceTower.id;
       tower.isSatellite = true;
       tower.summonedAtWave = Number(game.waveNumber || 0);
-      tower.name = sourceTower.type === 'archer' ? 'Sat Archer' : (sourceTower.type === 'wizard' ? 'Torn Soul' : 'Statue');
+      tower.name = sourceTower.type === 'archer' ? 'Archer Shadow' : (sourceTower.type === 'wizard' ? 'Torn Soul' : 'Statue');
       if (sourceTower.type === 'wizard') tower.reportLabel = `${sourceTower.reportLabel} • Torn Soul`;
     }
 
@@ -4925,7 +5054,7 @@ function renderDamageReport() {
     enemy.y = step.y;
     enemy.moveStartedAt = current;
     enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-    enemy.nextMoveAt = enemy.moveEndAt;
+    enemy.nextMoveAt = current + Math.max(60, Math.round(getEnemyMoveMs(enemy) * 0.9));
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -5170,7 +5299,7 @@ function renderDamageReport() {
     const lane = BREACH_LANES[chooseLane()] || BREACH_LANES[LANE_NAMES[0]];
     const spawn = pickRandom(lane);
     const strongestBossHp = Math.max(...BOSSES.map(b => b.hp)) * BIG_ENEMY_HP_MULTIPLIER * getWaveHpMultiplier(waveNumber || 0);
-    const maxHp = strongestBossHp * 5;
+    const maxHp = strongestBossHp * 5 * 1.15;
     const enemy = {
       id: `e${game.nextEnemyId++}`,
       type: 'sky_terror',
@@ -5220,6 +5349,7 @@ function renderDamageReport() {
     enemy.spawnMaxHp = enemy.maxHp;
     enemy.moveInterval *= 1.05;
     game.enemies.push(enemy);
+    if (enemy && (enemy.isBoss || enemy.type === 'boss')) { setBoardDim(true); }
     game.eliteFinalSpawnReleasedWave = waveNumber;
     markProgress(`Released ${enemy.name}.`);
     log(`${enemy.name} descended onto the battlefield.`);
@@ -5254,7 +5384,7 @@ function renderDamageReport() {
     enemy.y = step.y;
     enemy.moveStartedAt = current;
     enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-    enemy.nextMoveAt = enemy.moveEndAt;
+    enemy.nextMoveAt = current + Math.max(60, Math.round(getEnemyMoveMs(enemy) * 0.9));
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -5389,8 +5519,9 @@ function renderDamageReport() {
     }
   }
 
-  function saveContinueSnapshot() {
-    if (game.continueOfferUsed || !game.nextWavePlan || game.phase !== SETUP_PHASES.BATTLE) return;
+  function saveContinueSnapshot(planOverride = null) {
+    const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
+    if (game.continueOfferUsed || !replayPlan) return;
     game.continueSnapshot = {
       phase: game.phase,
       portal: cloneContinueData(game.portal),
@@ -5407,7 +5538,7 @@ function renderDamageReport() {
       hoveredTowerId: null,
       nextEnemyId: game.nextEnemyId,
       nextTowerId: game.nextTowerId,
-      nextWavePlan: cloneContinueData(game.nextWavePlan),
+      nextWavePlan: replayPlan,
       activeMutation: null,
       recentMutations: cloneContinueData(game.recentMutations),
       recentLanes: cloneContinueData(game.recentLanes),
@@ -5460,12 +5591,85 @@ function renderDamageReport() {
     document.body.classList.add('intro-open');
   }
 
-  function finalizePortalLoss() {
+  function openAnnouncementModal({ kicker = '', title = '', bodyHtml = '', okText = 'OK', onClose = null } = {}) {
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    closeContinueOfferModal();
+    game.modalDismiss = typeof onClose === 'function' ? onClose : null;
+    game.introOpen = true;
+    document.body.classList.add('intro-open');
+    syncStatusOverlayVisibility(true);
+    if (els.introKicker) els.introKicker.textContent = kicker;
+    if (els.introTitle) els.introTitle.textContent = title;
+    if (els.introBody) els.introBody.innerHTML = bodyHtml;
+    if (els.introPrevBtn) els.introPrevBtn.classList.add('hidden');
+    if (els.introPageLabel) { els.introPageLabel.textContent = ''; els.introPageLabel.classList.add('hidden'); }
+    if (els.introNextBtn) { els.introNextBtn.textContent = okText; els.introNextBtn.disabled = false; }
+    if (els.introModal) {
+      els.introModal.classList.remove('hidden');
+      els.introModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function closeAnnouncementModal() {
+    const dismiss = game.modalDismiss;
+    game.modalDismiss = null;
+    closeIntroModal();
+    if (typeof dismiss === 'function') dismiss();
+  }
+
+  function showNewRunStoryModal() {
+    openAnnouncementModal({
+      kicker: 'Dark Summoning Cult',
+      title: 'Defend the Portal',
+      bodyHtml: '<p>The dark summoning cult is attacking the portal, use your team of 5 heroes to defend it for as long as possible.</p>',
+      okText: "Let's defend it"
+    });
+  }
+
+  function showFinalGameOverModal() {
+    return;
+  }
+
+  function finalizePortalLoss(forceGameOver = false) {
+    if (!forceGameOver && !game.continueOfferUsed && !game.continueOfferPending) {
+      if (!game.continueSnapshot && game.currentPattern && Array.isArray(game.pendingSpawns)) {
+        saveContinueSnapshot({
+          waveNumber: game.waveNumber,
+          pattern: game.currentPattern,
+          mutation: cloneContinueData(game.activeMutation),
+          elite: !!game.pendingSpawns.some(s => s?.eliteSkitter || s?.bossWaveSkitter || s?.finalSkyTerror),
+          enemies: cloneContinueData((game.pendingSpawns || []).map(s => {
+            const copy = { ...s };
+            delete copy.spawned;
+            return copy;
+          }))
+        });
+      }
+      if (game.continueSnapshot) {
+        game.runningWave = false;
+        game.enemies = [];
+        game.pendingSpawns = null;
+        game.activeMutation = null;
+        game.attackLines = [];
+        game.explosionEffects = [];
+        game.projectileEffects = [];
+        game.slowTotems = [];
+        game.continueOfferPending = true;
+        setInstruction('The portal fell. You can retry this round one time with 500 extra gold.');
+        log('The portal was destroyed. One continue is available.');
+        openContinueOfferModal();
+        render();
+        return;
+      }
+    }
     game.phase = SETUP_PHASES.GAME_OVER;
     game.runningWave = false;
     game.continueOfferPending = false;
-    setInstruction('The portal fell. Start a new run to try again.');
-    showBanner('Game Over', 3000);
+    showFinalGameOverModal();
     markProgress('The portal was destroyed.');
     log('The portal was destroyed.');
     submitCompletedRunOnce('loss');
@@ -5550,10 +5754,10 @@ function renderDamageReport() {
   function startWave() {
     if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending) return;
     game.autoStartReadyAt = 0;
-    game.waveNumber = game.nextWavePlan.waveNumber;
+    const currentPlan = cloneContinueData(game.nextWavePlan);
+    game.waveNumber = currentPlan.waveNumber;
     game.runningWave = true;
-    saveContinueSnapshot();
-    const currentPlan = game.nextWavePlan;
+    saveContinueSnapshot(currentPlan);
     game.currentPattern = currentPlan.pattern;
     game.activeMutation = currentPlan.mutation;
     game.pendingSpawns = currentPlan.enemies.map(item => ({ ...item, spawned: false }));
@@ -5688,6 +5892,7 @@ function renderDamageReport() {
     }
 
         game.enemies.push(enemy);
+    if (enemy && (enemy.isBoss || enemy.type === 'boss')) { setBoardDim(true); }
     markProgress(`Spawned ${enemy.name}.`);
   }
 
@@ -5713,14 +5918,15 @@ function renderDamageReport() {
     const baseDamageMultiplier = getEnemyBaselineDamageMultiplier(type, false);
     const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
     const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
+    const finalEnemyHp = type === 'skitter' ? enemyHp * 1.15 : enemyHp;
     return {
       id: `e${game.nextEnemyId++}`,
       type,
       name: template.name,
       x: spawn.x,
       y: spawn.y,
-      hp: enemyHp,
-      maxHp: enemyHp,
+      hp: finalEnemyHp,
+      maxHp: finalEnemyHp,
       damage: enemyDamage,
       moveInterval: template.moveInterval,
       attackInterval: template.attackInterval,
@@ -5757,8 +5963,8 @@ function renderDamageReport() {
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER,
+      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15,
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15,
       damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(game.waveNumber),
       moveInterval: boss.moveInterval,
       attackInterval: boss.attackInterval,
@@ -5865,6 +6071,12 @@ function renderDamageReport() {
     for (const enemy of [...game.enemies]) updateEnemy(enemy, current);
     cleanupEntities();
 
+  // Clear board dim if no boss enemies remain
+  if (Array.isArray(game.enemies) && !game.enemies.some(e => e && (e.isBoss || e.type === 'boss'))) {
+    setBoardDim(false);
+  }
+
+
     if (!game.runningWave && game.countdownMs > 0) {
       game.countdownMs = Math.max(0, game.countdownMs - delta);
       if (game.countdownMs <= 0) prepareNextWave();
@@ -5898,23 +6110,7 @@ function renderDamageReport() {
     }
 
     if (game.portalHp <= 0 && game.phase !== SETUP_PHASES.GAME_OVER) {
-      if (!game.continueOfferUsed && game.continueSnapshot && !game.continueOfferPending) {
-        game.runningWave = false;
-        game.enemies = [];
-        game.pendingSpawns = null;
-        game.activeMutation = null;
-        game.attackLines = [];
-        game.explosionEffects = [];
-        game.projectileEffects = [];
-        game.slowTotems = [];
-        game.continueOfferPending = true;
-        setInstruction('The portal fell. You can retry this round one time with 500 extra gold.');
-        log('The portal was destroyed. One continue is available.');
-        openContinueOfferModal();
-        render();
-      } else {
-        finalizePortalLoss();
-      }
+      finalizePortalLoss();
     }
   }
 
@@ -5959,8 +6155,8 @@ function renderDamageReport() {
         archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
       }
       if (unlockedArchers.length) {
-        showBanner(`Eagle Nest: +1 Satellite Archer charge ready${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`, 2500);
-        log(`Eagle Nest triggered after wave ${game.waveNumber}: +1 Satellite Archer charge${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`);
+        showBanner(`Assassin's Training: +1 Archer Shadow charge ready${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`, 2500);
+        log(`Assassin's Training triggered after wave ${game.waveNumber}: +1 Archer Shadow charge${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`);
       }
     }
     if (game.waveNumber > 0 && game.waveNumber % SOUL_SPLIT_CHARGE_WAVE_INTERVAL === 0) {
@@ -6069,7 +6265,7 @@ function renderDamageReport() {
     if (game.modifiers.paladin && tower.type === 'warrior' && !isStatueTower(tower) && tower.hp > 0) {
       const nextPaladinHealAt = tower.paladinHealAt || 0;
       if (current >= nextPaladinHealAt) {
-        healTower(tower, tower.maxHp * 0.03, null);
+        healTower(tower, tower.maxHp * 0.045, null);
         tower.paladinHealAt = current + 1000;
       }
     }
@@ -6113,7 +6309,7 @@ function renderDamageReport() {
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
     tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
-    if (tower.type === 'warrior' && isAbilityUnlocked(tower, 'gladiator_strike') && tower.basicAttackCount % 20 === 0) {
+    if (tower.type === 'warrior' && isAbilityUnlocked(tower, 'gladiator_strike') && tower.basicAttackCount % 18 === 0) {
       damageEnemy(tower, target, tower.damage * 2.3, `${tower.name} triggered Gladiator Strike`, { key: 'gladiator_strike', label: 'Gladiator Strike' });
       healTower(tower, tower.maxHp * 0.05, `${tower.name} healed from Gladiator Strike`);
       showBanner('Warrior passive: Gladiator Strike');
@@ -6195,7 +6391,7 @@ function renderDamageReport() {
       healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
       createTowerLine(tower, target, 'priest');
     } else if (statueTarget) {
-      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.2, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true });
+      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.3, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true });
       createTowerLine(tower, statueTarget, 'priest');
     }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
@@ -6381,6 +6577,7 @@ function renderDamageReport() {
         enemy.stuckAt = 0;
         if (current >= enemy.nextAttackAt) {
           game.portalHp -= enemy.damage;
+          game.portalDamagePulseUntil = current + 600;
           markProgress(`${enemy.name} hit the portal.`);
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
           enemy.nextAttackAt = current + enemy.attackInterval * 1000;
@@ -6510,10 +6707,12 @@ function renderDamageReport() {
       if (current >= enemy.nextAttackAt) {
         if (attackTarget.portal) {
           game.portalHp -= enemy.damage;
+          game.portalDamagePulseUntil = current + 600;
           markProgress(`${enemy.name} hit the portal.`);
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
         } else if (enemy.type === 'skitter') {
           const splashDamage = ENEMY_TEMPLATES.skitter.damage * SKITTER_EXPLOSION_DAMAGE_MULTIPLIER * getWaveDamageMultiplier(game.waveNumber || 0);
+          createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.42, 750, RED_FIRE_GIF_PATH);
           damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`);
           enemy.hp = 0;
           markProgress(`${enemy.name} exploded on ${attackTarget.name}.`);
@@ -6540,7 +6739,7 @@ function renderDamageReport() {
       for (let xx = enemy.x - 1; xx <= enemy.x + 1; xx += 1) {
         if (!inBounds(xx, yy)) continue;
         const tile = tileAt(xx, yy);
-        if (tile?.obstacle === 'random') return 0.05;
+        if (tile?.obstacle === 'random') return 0.075;
       }
     }
     return 0;
@@ -6901,7 +7100,8 @@ function renderDamageReport() {
       let px = pos.left + pos.width / 2;
       let py = pos.top + pos.height / 2;
       if (enemy.moveEndAt && enemy.moveEndAt > enemy.moveStartedAt) {
-        const prog = Math.max(0, Math.min(1, (current - enemy.moveStartedAt) / (enemy.moveEndAt - enemy.moveStartedAt)));
+        const rawProg = Math.max(0, Math.min(1, (current - enemy.moveStartedAt) / (enemy.moveEndAt - enemy.moveStartedAt)));
+        const prog = rawProg * rawProg * (3 - (2 * rawProg));
         const from = getTilePixelPosition(enemy.prevX ?? enemy.x, enemy.prevY ?? enemy.y);
         const fx = from.left + from.width / 2;
         const fy = from.top + from.height / 2;
@@ -6909,26 +7109,63 @@ function renderDamageReport() {
         py = fy + (py - fy) * prog;
       }
       const enemySize = getEnemyVisualSize(enemy);
-      const dot = enemy.isBoss ? document.createElement('img') : document.createElement('div');
-      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
+      const usePackbocSprite = !enemy.isBoss && (enemy.type === 'grunt' || enemy.type === 'runner' || enemy.type === 'skitter');
+      const useImageSprite = enemy.isBoss || usePackbocSprite || enemy.type === 'brute';
+      const dot = useImageSprite ? document.createElement('img') : document.createElement('div');
+      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${usePackbocSprite ? ' enemy-packboc' : ''}${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
-      dot.style.width = `${enemy.isBoss ? Math.round(enemySize * 1.55) : enemySize}px`;
-      dot.style.height = `${enemy.isBoss ? Math.round(enemySize * 1.55) : enemySize}px`;
+      const packbocSizeMult = (enemy.type === 'runner' ? 1.105 : (enemy.type === 'skitter' ? 1.44 : 1.3)) * 0.85;
+      const bruteSizeMult = 1.38;
+      const bossSizeMult = 1.40;
+      const visualWidthBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.425 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
+      const visualHeightBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.275 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
+      const visualScale = enemy.isBoss ? 1 : 1.1;
+      const visualWidth = Math.round(visualWidthBase * visualScale);
+      const visualHeight = Math.round(visualHeightBase * visualScale);
+      dot.style.width = `${visualWidth}px`;
+      dot.style.height = `${visualHeight}px`;
       if (enemy.isBoss) {
-        dot.src = 'assets/billy_corgan_sithloard2.png';
+        dot.src = 'assets/dark-summoner.gif';
         dot.alt = '';
         dot.setAttribute('aria-hidden', 'true');
         dot.style.objectFit = 'contain';
+        dot.style.objectPosition = 'center bottom';
+        dot.style.transform = 'translate(-50%, -78%)';
         dot.style.borderRadius = '0';
         dot.style.border = '0';
         dot.style.background = 'transparent';
         dot.style.boxShadow = 'none';
-        if (getEnemySlowPercent(enemy) > 0) {
-          dot.style.filter = 'brightness(0.66) saturate(2.5) sepia(0.42) hue-rotate(196deg) drop-shadow(0 0 10px rgba(98, 184, 255, 0.98)) drop-shadow(0 0 22px rgba(53, 126, 255, 0.82))';
-        }
+        dot.style.filter = getBossVisualFilter(enemy);
+      } else if (usePackbocSprite) {
+        dot.src = getPackbocSpritePath(enemy);
+        dot.alt = '';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.style.objectFit = 'contain';
+        dot.style.objectPosition = 'center bottom';
+        dot.style.display = 'block';
+        dot.style.borderRadius = '0';
+        dot.style.border = '0';
+        dot.style.background = 'transparent';
+        dot.style.boxShadow = 'none';
+        dot.style.zIndex = '7';
+      } else if (enemy.type === 'brute') {
+        dot.src = 'assets/paladin.gif';
+        dot.alt = '';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.style.objectFit = 'contain';
+        dot.style.objectPosition = 'center bottom';
+        dot.style.display = 'block';
+        dot.style.borderRadius = '0';
+        dot.style.border = '0';
+        dot.style.background = 'transparent';
+        dot.style.boxShadow = 'none';
+        dot.style.zIndex = '7';
       }
       els.enemyLayer.appendChild(dot);
+      if (getEnemySlowPercent(enemy) > 0) {
+        els.enemyLayer.appendChild(createEnemySlowSnowflake(px + offset.x, py + offset.y, visualWidth, visualHeight, enemy.isBoss));
+      }
       if (enemy.hp < enemy.maxHp) {
         const hp = document.createElement('div');
         hp.className = 'enemy-hp-bar';
@@ -6968,6 +7205,46 @@ function renderDamageReport() {
     const minHp = Math.min(...hpValues);
     const maxHp = Math.max(...hpValues);
     return { minHp, maxHp };
+  }
+
+
+  function getBossVisualPhaseIndex(waveNumber) {
+    const wave = Math.max(1, Number(waveNumber || 1));
+    return Math.floor((wave - 1) / 10) % 4;
+  }
+
+  function getBossVisualFilter(enemy) {
+    const phase = getBossVisualPhaseIndex(game.waveNumber);
+    const filters = [
+      'brightness(1) saturate(1) contrast(1)',
+      'brightness(0.95) saturate(7.5) sepia(0.95) hue-rotate(-18deg) contrast(1.02)',
+      'brightness(1.02) saturate(7.2) sepia(0.98) hue-rotate(12deg) contrast(1.04)',
+      'brightness(0.96) saturate(6.1) sepia(0.95) hue-rotate(238deg) contrast(1.03)'
+    ];
+    return filters[phase] || filters[0];
+  }
+
+  function getPackbocSpritePath(enemy) {
+    if (enemy && enemy.type === 'skitter') return 'assets/blub.gif';
+    return 'assets/summoner-assistant.gif';
+  }
+
+  function createEnemySlowSnowflake(px, py, visualWidth, visualHeight, isBoss) {
+    const badge = document.createElement('div');
+    const size = Math.max(11, Math.round((isBoss ? 0.16 : 0.18) * Math.min(visualWidth, visualHeight)));
+    badge.className = `enemy-slow-snowflake${isBoss ? ' boss-slow-snowflake' : ''}`;
+    badge.textContent = '❄';
+    badge.style.left = `${Math.round(px - (visualWidth / 2) + Math.max(2, visualWidth * 0.08))}px`;
+    badge.style.top = `${Math.round(py - (visualHeight / 2) + Math.max(1, visualHeight * 0.04))}px`;
+    badge.style.fontSize = `${size}px`;
+    return badge;
+  }
+
+  function applyVersionStamp() {
+    document.documentElement.setAttribute('data-app-version', APP_VERSION);
+    document.title = `DFK Defender ${APP_VERSION}`;
+    const versionEl = document.getElementById('versionBadge');
+    if (versionEl) versionEl.textContent = APP_VERSION;
   }
 
   function computeEnemyVisualSizeFromSpawnHp(spawnHp) {
@@ -7125,7 +7402,7 @@ function renderDamageReport() {
           continue;
         }
         if (name === 'eagle_nest' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
-          applyDebuffTickDamage(unit, debuff, debuff.damage, 'eagle_nest', 'Eagle Nest');
+          applyDebuffTickDamage(unit, debuff, debuff.damage, 'eagle_nest', "Assassin's Training");
           debuff.nextTickAt = current + 1000;
         }
         if (name === 'kraken' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
@@ -7286,7 +7563,7 @@ function renderDamageReport() {
         if (!allies.length && !statues.length) return false;
         const healAmount = getPrayerOfHealingAmount(tower);
         allies.forEach(a => { healTower(a, healAmount, null); createTowerLine(tower, a, 'priest'); });
-        statues.forEach(a => { healTower(a, healAmount * 0.2, null, { allowStatue: true }); createTowerLine(tower, a, 'priest'); });
+        statues.forEach(a => { healTower(a, healAmount * 0.3, null, { allowStatue: true }); createTowerLine(tower, a, 'priest'); });
         return true;
       },
       slow_totem() {
@@ -7482,7 +7759,8 @@ function renderDamageReport() {
     game.mobileInstallDismissed = true;
     updateMobileInstallPrompt();
   });
-  els.closeIntroBtn?.addEventListener('click', closeIntroModal);
+  els.closeIntroBtn?.addEventListener('click', () => { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); });
+  els.introModal?.addEventListener('click', (event) => { if (event.target === els.introModal) { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); } });
   els.closeBountyBtn?.addEventListener('click', closeBountyModal);
   els.closeQuestsBtn?.addEventListener('click', closeQuestsModal);
   els.closeTrackedRunsBtn?.addEventListener('click', closeTrackedRunsModal);
@@ -7514,7 +7792,7 @@ function renderDamageReport() {
   });
   els.continueNoThanksBtn?.addEventListener('click', () => {
     closeContinueOfferModal();
-    finalizePortalLoss();
+    finalizePortalLoss(true);
   });
   els.bankPanelToggle?.addEventListener('click', () => {
     const opening = els.bankPanel?.classList.contains('collapsed');
@@ -7547,6 +7825,10 @@ function renderDamageReport() {
     }
   });
   els.introNextBtn?.addEventListener('click', () => {
+    if (game.modalDismiss || (els.introTitle && els.introTitle.textContent === 'Defend the Portal')) {
+      closeAnnouncementModal();
+      return;
+    }
     if (game.introPageIndex < INTRO_PAGES.length - 1) {
       game.introPageIndex += 1;
       renderIntroPage();
@@ -7702,7 +7984,7 @@ function renderDamageReport() {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();
       if (els.trackedRunsModal && !els.trackedRunsModal.classList.contains('hidden')) closeTrackedRunsModal();
-      else closeIntroModal();
+      else if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal();
       return;
     }
     if (!game.introOpen) return;
@@ -7721,6 +8003,7 @@ function renderDamageReport() {
   };
 
   ensureDailyQuestBoard(true);
+  applyVersionStamp();
   resetGame();
   game.lastTick = now();
   setPlayMode('easy', false);

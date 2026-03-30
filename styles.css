@@ -362,10 +362,22 @@ body::before {
 .enemy-runner { background: #ffad61; }
 .enemy-brute { background: #ca4c8a; }
 .enemy-boss { background: transparent; width: 12px; height: 16px; border: 0; }
-.enemy-slowed { box-shadow: 0 0 12px rgba(87,168,255,0.75), 0 0 22px rgba(87,168,255,0.45); }
+.enemy-packboc { background: transparent; border: 0; border-radius: 0; image-rendering: pixelated; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+.enemy-slowed { box-shadow: none; }
 .enemy-boss.enemy-slowed {
   box-shadow: none;
-  filter: drop-shadow(0 0 10px rgba(90, 175, 255, 0.95)) drop-shadow(0 0 22px rgba(56, 134, 255, 0.72));
+}
+.enemy-slow-snowflake {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9;
+  line-height: 1;
+  color: #f5fbff;
+  text-shadow: 0 0 2px rgba(56, 100, 148, 0.9), 0 0 6px rgba(164, 205, 255, 0.7);
+  filter: drop-shadow(0 0 2px rgba(0,0,0,0.55));
+}
+.enemy-slow-snowflake.boss-slow-snowflake {
+  z-index: 10;
 }
 
 .phase-label {
@@ -881,6 +893,20 @@ button:disabled {
   filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
 }
 .portal-art.hidden { display: none; }
+
+.portal-art.portal-art-damaged {
+  filter:
+    drop-shadow(0 0 6px rgba(255, 85, 85, 0.95))
+    drop-shadow(0 0 18px rgba(255, 45, 45, 0.8))
+    drop-shadow(0 0 30px rgba(255, 0, 0, 0.55));
+  animation: portalDamagePulse 0.6s ease-in-out infinite;
+}
+@keyframes portalDamagePulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 
 .tile.random-obstacle .tile-label{display:none;}
 .tile.player-obstacle .tile-label{font-size:0.72rem; opacity:.92;}
@@ -2371,6 +2397,14 @@ body{
     drop-shadow(0 0 36px var(--ethereal-glow, rgba(255,255,255,0.48)));
 }
 
+.tile-archer-shadow-hero {
+  filter: brightness(0.42) saturate(0.3) contrast(1.18) drop-shadow(0 0 5px rgba(20, 20, 28, 0.92)) drop-shadow(0 0 12px rgba(65, 65, 88, 0.55));
+}
+.tile-archer-shadow-label {
+  color: #d8ddf0;
+  text-shadow: 0 0 6px rgba(18, 20, 34, 0.95), 0 0 12px rgba(62, 66, 96, 0.72);
+  letter-spacing: 0.08em;
+}
 .tile-ethereal-label {
   text-shadow:
     0 0 10px var(--ethereal-glow, rgba(255,255,255,0.9)),
@@ -3311,11 +3345,11 @@ body{
 @media (min-width: 1025px) {
   :root {
     --tile-gap: 6px;
-    --desktop-board-edge-room: 72px;
+    --desktop-board-edge-room: 28px;
     --tile-size: clamp(
       46px,
       calc((100vw - var(--desktop-left-panel) - var(--desktop-right-panel) - var(--desktop-board-edge-room)) / 14),
-      84px
+      92px
     );
   }
 
@@ -5660,4 +5694,99 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     min-height: 74px;
     max-height: 74px;
   }
+}
+
+.version-badge {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  z-index: 120;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(8, 16, 28, 0.78);
+  border: 1px solid rgba(183, 216, 255, 0.24);
+  color: rgba(232, 243, 255, 0.86);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 900px) {
+  .version-badge {
+    right: 8px;
+    bottom: 72px;
+    font-size: 10px;
+  }
+}
+
+
+/* v46.9.1.27 desktop width restore + announcement modal */
+@media (min-width: 1025px) {
+  :root {
+    --desktop-left-panel: 300px;
+    --desktop-right-panel: 270px;
+  }
+  .main-layout {
+    grid-template-columns: var(--desktop-left-panel) minmax(0, 1fr) var(--desktop-right-panel) !important;
+  }
+}
+
+.intro-body p:last-child { margin-bottom: 0; }
+
+.story-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.story-overlay.hidden { display: none; }
+
+.story-text {
+  max-width: 980px;
+  color: #f2ece1;
+  font-size: 1.9rem;
+  line-height: 1.72;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 2s ease;
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 2px 0 rgba(0,0,0,0.55),
+    0 0 18px rgba(0,0,0,0.32);
+  padding: 32px 44px;
+}
+.story-text.visible {
+  opacity: 1;
+}
+
+
+.story-skip-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2001;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(10,10,10,0.55);
+  color: #f2f2f2;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.story-skip-btn:hover {
+  background: rgba(20,20,20,0.78);
+  border-color: rgba(255,255,255,0.42);
+}
+
+/* Dark Summoner presence dim */
+.board-dim {
+  filter: brightness(0.9);
+  transition: filter 300ms ease;
 }
