@@ -369,6 +369,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     eliteWaveModal: document.getElementById('eliteWaveModal'),
     eliteWaveBody: document.getElementById('eliteWaveBody'),
     eliteWaveOkBtn: document.getElementById('eliteWaveOkBtn'),
+    continueOfferModal: document.getElementById('continueOfferModal'),
+    continueOfferBody: document.getElementById('continueOfferBody'),
+    continueHellYeahBtn: document.getElementById('continueHellYeahBtn'),
+    continueNoThanksBtn: document.getElementById('continueNoThanksBtn'),
     introBody: document.getElementById('introBody'),
     introPageLabel: document.getElementById('introPageLabel'),
     introPrevBtn: document.getElementById('introPrevBtn'),
@@ -550,6 +554,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     introSet: 'intro',
     introOpen: false,
     introAutoShown: false,
+    continueOfferUsed: false,
+    continueOfferPending: false,
+    continueSnapshot: null,
     eliteWarningAcknowledgedWave: 0,
     eliteFinalSpawnReleasedWave: 0,
     eliteFinalSpawnKilledWave: 0,
@@ -1512,6 +1519,9 @@ function renderDamageReport() {
     game.relicChoices = [];
     game.ownedRelics = [];
     game.foundRelics = [];
+    game.continueOfferUsed = false;
+    game.continueOfferPending = false;
+    game.continueSnapshot = null;
     game.attackLines = [];
     game.explosionEffects = [];
     game.projectileEffects = [];
@@ -5346,11 +5356,203 @@ function renderDamageReport() {
     return chance(runnerChance) ? 'runner' : 'grunt';
   }
 
+  function cloneContinueData(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function snapshotGridState() {
+    return game.grid.map(tile => ({
+      x: tile.x,
+      y: tile.y,
+      type: tile.type,
+      obstacle: tile.obstacle,
+      treeVariant: tile.treeVariant,
+      towerId: tile.towerId,
+      portal: tile.portal,
+      pathPreview: null,
+      hitFlash: null,
+    }));
+  }
+
+  function applyGridSnapshot(gridSnapshot) {
+    if (!Array.isArray(gridSnapshot)) return;
+    for (const tileState of gridSnapshot) {
+      const tile = tileAt(tileState.x, tileState.y);
+      if (!tile) continue;
+      tile.type = tileState.type;
+      tile.obstacle = tileState.obstacle;
+      tile.treeVariant = tileState.treeVariant;
+      tile.towerId = tileState.towerId;
+      tile.portal = tileState.portal;
+      tile.pathPreview = null;
+      tile.hitFlash = null;
+    }
+  }
+
+  function saveContinueSnapshot() {
+    if (game.continueOfferUsed || !game.nextWavePlan || game.phase !== SETUP_PHASES.BATTLE) return;
+    game.continueSnapshot = {
+      phase: game.phase,
+      portal: cloneContinueData(game.portal),
+      towers: cloneContinueData(game.towers),
+      waveNumber: game.waveNumber,
+      countdownMs: 0,
+      runningWave: false,
+      playerObstacleCount: game.playerObstacleCount,
+      selectedId: game.selectedId,
+      movingTowerId: null,
+      placingHeroType: null,
+      placingHeroCost: 0,
+      placingSatelliteSourceId: null,
+      hoveredTowerId: null,
+      nextEnemyId: game.nextEnemyId,
+      nextTowerId: game.nextTowerId,
+      nextWavePlan: cloneContinueData(game.nextWavePlan),
+      activeMutation: null,
+      recentMutations: cloneContinueData(game.recentMutations),
+      recentLanes: cloneContinueData(game.recentLanes),
+      hireCount: game.hireCount,
+      autoStartEnabled: game.autoStartEnabled,
+      autoStartDelayMs: game.autoStartDelayMs,
+      autoStartReadyAt: 0,
+      autoStartToken: game.autoStartToken,
+      bonusHeroHireCharges: game.bonusHeroHireCharges,
+      placingHeroUsesBonus: false,
+      rebuildingBarriers: false,
+      barrierRefitCount: game.barrierRefitCount,
+      jewel: game.jewel,
+      premiumJewels: game.premiumJewels,
+      runEntryCost: game.runEntryCost,
+      milestoneJewelsGranted: cloneContinueData(game.milestoneJewelsGranted),
+      portalHp: game.portalHp,
+      relicChoices: cloneContinueData(game.relicChoices),
+      ownedRelics: cloneContinueData(game.ownedRelics),
+      foundRelics: cloneContinueData(game.foundRelics),
+      modifiers: cloneContinueData(game.modifiers),
+      grid: snapshotGridState(),
+      eliteWarningAcknowledgedWave: game.eliteWarningAcknowledgedWave,
+      eliteFinalSpawnReleasedWave: game.eliteFinalSpawnReleasedWave,
+      eliteFinalSpawnKilledWave: game.eliteFinalSpawnKilledWave,
+    };
+  }
+
+  function closeContinueOfferModal() {
+    if (!els.continueOfferModal) return;
+    els.continueOfferModal.classList.add('hidden');
+    els.continueOfferModal.setAttribute('aria-hidden', 'true');
+    game.introOpen = false;
+    document.body.classList.remove('intro-open');
+    syncStatusOverlayVisibility(false);
+    showStatusOverlay();
+  }
+
+  function openContinueOfferModal() {
+    if (!els.continueOfferModal) return;
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    els.continueOfferModal.classList.remove('hidden');
+    els.continueOfferModal.setAttribute('aria-hidden', 'false');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+  }
+
+  function finalizePortalLoss() {
+    game.phase = SETUP_PHASES.GAME_OVER;
+    game.runningWave = false;
+    game.continueOfferPending = false;
+    setInstruction('The portal fell. Start a new run to try again.');
+    showBanner('Game Over', 3000);
+    markProgress('The portal was destroyed.');
+    log('The portal was destroyed.');
+    submitCompletedRunOnce('loss');
+    render();
+  }
+
+  function restoreContinueSnapshot(extraGold = 0) {
+    const snap = game.continueSnapshot;
+    if (!snap) return false;
+    applyGridSnapshot(snap.grid);
+    game.phase = snap.phase;
+    game.portal = cloneContinueData(snap.portal);
+    game.towers = (cloneContinueData(snap.towers) || []).map(savedTower => {
+      const tower = createTower(savedTower.type, savedTower.x, savedTower.y);
+      Object.assign(tower, savedTower);
+      tower.template = TOWER_TEMPLATES[tower.type] || tower.template;
+      tower.abilities = tower.template?.abilities || savedTower.abilities || [];
+      tower.abilityReadyAt = { ...(savedTower.abilityReadyAt || {}) };
+      for (const ability of tower.abilities) {
+        if (!(ability.key in tower.abilityReadyAt)) tower.abilityReadyAt[ability.key] = 0;
+      }
+      if (!tower.damageByMethod) tower.damageByMethod = {};
+      if (!tower.buffs) tower.buffs = {};
+      if (!tower.debuffs) tower.debuffs = {};
+      return tower;
+    });
+    game.enemies = [];
+    game.waveNumber = snap.waveNumber;
+    game.countdownMs = 0;
+    game.runningWave = false;
+    game.playerObstacleCount = snap.playerObstacleCount;
+    game.selectedId = snap.selectedId;
+    game.movingTowerId = null;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.placingSatelliteSourceId = null;
+    game.hoveredTowerId = null;
+    game.nextEnemyId = snap.nextEnemyId;
+    game.nextTowerId = snap.nextTowerId;
+    game.nextWavePlan = cloneContinueData(snap.nextWavePlan);
+    game.activeMutation = null;
+    game.recentMutations = cloneContinueData(snap.recentMutations) || [];
+    game.recentLanes = cloneContinueData(snap.recentLanes) || [];
+    game.hireCount = snap.hireCount;
+    game.autoStartEnabled = snap.autoStartEnabled;
+    game.autoStartDelayMs = snap.autoStartDelayMs;
+    game.autoStartReadyAt = 0;
+    game.autoStartToken = snap.autoStartToken;
+    game.bonusHeroHireCharges = snap.bonusHeroHireCharges;
+    game.placingHeroUsesBonus = false;
+    game.rebuildingBarriers = false;
+    game.barrierRefitCount = snap.barrierRefitCount;
+    game.jewel = Number(snap.jewel || 0) + Number(extraGold || 0);
+    game.premiumJewels = snap.premiumJewels;
+    game.runEntryCost = snap.runEntryCost;
+    game.milestoneJewelsGranted = cloneContinueData(snap.milestoneJewelsGranted) || {};
+    game.portalHp = snap.portalHp;
+    game.relicChoices = cloneContinueData(snap.relicChoices) || [];
+    game.ownedRelics = cloneContinueData(snap.ownedRelics) || [];
+    game.foundRelics = cloneContinueData(snap.foundRelics) || [];
+    game.modifiers = cloneContinueData(snap.modifiers) || game.modifiers;
+    game.attackLines = [];
+    game.explosionEffects = [];
+    game.projectileEffects = [];
+    game.slowTotems = [];
+    game.eliteWarningAcknowledgedWave = snap.eliteWarningAcknowledgedWave || 0;
+    game.eliteFinalSpawnReleasedWave = snap.eliteFinalSpawnReleasedWave || 0;
+    game.eliteFinalSpawnKilledWave = snap.eliteFinalSpawnKilledWave || 0;
+    game.diagnostics.lastProgressHash = '';
+    game.diagnostics.lastProgressAt = now();
+    game.diagnostics.softLockTriggered = false;
+    game.continueOfferPending = false;
+    game.continueOfferUsed = true;
+    closeContinueOfferModal();
+    setInstruction(`Wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} is getting a second shot. Bonus: +${extraGold} gold.`);
+    log(`Continue used: replaying wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} with +${extraGold} gold.`);
+    render();
+    startWave();
+    return true;
+  }
+
   function startWave() {
     if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending) return;
     game.autoStartReadyAt = 0;
     game.waveNumber = game.nextWavePlan.waveNumber;
     game.runningWave = true;
+    saveContinueSnapshot();
     const currentPlan = game.nextWavePlan;
     game.currentPattern = currentPlan.pattern;
     game.activeMutation = currentPlan.mutation;
@@ -5696,13 +5898,23 @@ function renderDamageReport() {
     }
 
     if (game.portalHp <= 0 && game.phase !== SETUP_PHASES.GAME_OVER) {
-      game.phase = SETUP_PHASES.GAME_OVER;
-      game.runningWave = false;
-      setInstruction('The portal fell. Start a new run to try again.');
-      showBanner('Game Over', 3000);
-      markProgress('The portal was destroyed.');
-      log('The portal was destroyed.');
-      submitCompletedRunOnce('loss');
+      if (!game.continueOfferUsed && game.continueSnapshot && !game.continueOfferPending) {
+        game.runningWave = false;
+        game.enemies = [];
+        game.pendingSpawns = null;
+        game.activeMutation = null;
+        game.attackLines = [];
+        game.explosionEffects = [];
+        game.projectileEffects = [];
+        game.slowTotems = [];
+        game.continueOfferPending = true;
+        setInstruction('The portal fell. You can retry this round one time with 500 extra gold.');
+        log('The portal was destroyed. One continue is available.');
+        openContinueOfferModal();
+        render();
+      } else {
+        finalizePortalLoss();
+      }
     }
   }
 
@@ -7296,6 +7508,13 @@ function renderDamageReport() {
   els.eliteWaveOkBtn?.addEventListener('click', () => {
     game.eliteWarningAcknowledgedWave = game.nextWavePlan?.waveNumber || game.eliteWarningAcknowledgedWave;
     closeEliteWaveModal();
+  });
+  els.continueHellYeahBtn?.addEventListener('click', () => {
+    restoreContinueSnapshot(500);
+  });
+  els.continueNoThanksBtn?.addEventListener('click', () => {
+    closeContinueOfferModal();
+    finalizePortalLoss();
   });
   els.bankPanelToggle?.addEventListener('click', () => {
     const opening = els.bankPanel?.classList.contains('collapsed');
