@@ -2381,10 +2381,17 @@ body{
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center bottom;
+  padding: 2px;
   image-rendering: pixelated;
   z-index: 1;
   pointer-events: none;
+}
+
+.tile-hero-portrait-underlay {
+  opacity: 0.42;
+  filter: saturate(0.9) brightness(0.98);
 }
 
 
@@ -2621,17 +2628,6 @@ body{
   pointer-events: none;
 }
 
-
-/* Disable Jewel Bank + Player Profile buttons */
-#mobileBankHost,
-#mobileProfileHost,
-#mobileBankBtn,
-#mobileProfileBtn {
-  opacity: 0.4 !important;
-  filter: grayscale(1);
-  pointer-events: none !important;
-  cursor: not-allowed !important;
-}
 
 
 /* Keep hero panel visible as viewport narrows */
@@ -5746,13 +5742,15 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 .story-overlay.hidden { display: none; }
 
 .story-text {
+  --story-frame-duration: 6500ms;
   max-width: 980px;
   color: #f2ece1;
   font-size: 1.9rem;
   line-height: 1.72;
   text-align: center;
   opacity: 0;
-  transition: opacity 2s ease;
+  transform: scale(1);
+  transform-origin: center center;
   font-family: 'Cinzel', Georgia, serif;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -5760,17 +5758,58 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     0 2px 0 rgba(0,0,0,0.55),
     0 0 18px rgba(0,0,0,0.32);
   padding: 32px 44px;
+  will-change: transform, opacity;
 }
 .story-text.visible {
-  opacity: 1;
+  animation: storyTextZoom var(--story-frame-duration) linear forwards;
+}
+
+.story-text.story-text-staggered {
+  max-width: 1400px;
+  white-space: nowrap;
+}
+
+.story-text.story-text-staggered .story-segment {
+  display: inline-block;
+  opacity: 0;
+}
+
+.story-text.story-text-staggered.visible .story-segment-a {
+  animation: storySegmentFadeIn 500ms ease forwards;
+}
+
+.story-text.story-text-staggered.visible .story-segment-b {
+  margin-left: 0.35em;
+  animation: storySegmentFadeIn 500ms ease forwards 2000ms;
+}
+
+@keyframes storySegmentFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+
+@keyframes storyTextZoom {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  82% {
+    opacity: 1;
+    transform: scale(1.085);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.14);
+  }
 }
 
 
 .story-skip-btn {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 2001;
   border: 1px solid rgba(255,255,255,0.28);
   background: rgba(10,10,10,0.55);
   color: #f2f2f2;
@@ -5785,8 +5824,258 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   border-color: rgba(255,255,255,0.42);
 }
 
+.story-controls {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.story-volume-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(10,10,10,0.55);
+  color: #f2f2f2;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  backdrop-filter: blur(4px);
+}
+
+.story-volume-label,
+.story-volume-value {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.story-volume-slider {
+  width: 130px;
+  accent-color: #8b7cff;
+}
+
+.story-mute-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .story-controls {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .story-volume-wrap {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .story-volume-slider {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+}
+
+
 /* Dark Summoner presence dim */
 .board-dim {
   filter: brightness(0.9);
   transition: filter 300ms ease;
+}
+
+
+.wallet-hero-bonus-section{
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.wallet-hero-bonus-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.wallet-hero-bonus-title{
+  font-size:0.95rem;
+  font-weight:800;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:#f4e6bd;
+}
+.wallet-hero-refresh-btn{
+  padding:6px 10px;
+  font-size:0.82rem;
+}
+.wallet-hero-bonus-body{
+  display:grid;
+  gap:8px;
+}
+.wallet-hero-slot-group{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:10px;
+  padding:8px;
+}
+.wallet-hero-slot-heading{
+  font-size:0.86rem;
+  font-weight:800;
+  margin-bottom:6px;
+  color:#f0ede0;
+}
+.wallet-hero-card-list{
+  display:grid;
+  gap:6px;
+}
+.wallet-hero-card{
+  display:grid;
+  grid-template-columns:44px 1fr auto;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  text-align:left;
+  padding:6px 8px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(18,18,22,0.72);
+  color:#ececec;
+  cursor:pointer;
+}
+.wallet-hero-card img{
+  width:44px;
+  height:44px;
+  object-fit:contain;
+  object-position:center center;
+  border-radius:8px;
+  background:rgba(255,255,255,0.05);
+}
+.wallet-hero-card.is-selected{
+  border-color:rgba(244,230,189,0.72);
+  box-shadow:0 0 0 1px rgba(244,230,189,0.22) inset;
+  background:rgba(56,46,18,0.45);
+}
+.wallet-hero-card-meta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.wallet-hero-card-title{
+  font-size:0.87rem;
+  font-weight:700;
+}
+.wallet-hero-card-sub{
+  font-size:0.76rem;
+  opacity:0.78;
+}
+.wallet-hero-card-badge{
+  font-size:0.74rem;
+  font-weight:800;
+  color:#f4e6bd;
+}
+.wallet-hero-empty{
+  font-size:0.78rem;
+  opacity:0.72;
+}
+
+
+.wallet-hero-slot-toggle{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:8px;
+  align-items:center;
+  padding:0;
+  background:transparent;
+  border:0;
+  color:inherit;
+  cursor:pointer;
+  text-align:left;
+}
+.wallet-hero-slot-summary{
+  font-size:0.72rem;
+  opacity:0.76;
+  font-weight:600;
+}
+.wallet-hero-slot-chevron{
+  font-size:1rem;
+  opacity:0.8;
+}
+.wallet-hero-slot-panel{
+  display:none;
+  margin-top:8px;
+}
+.wallet-hero-slot-panel.is-open{
+  display:block;
+}
+.wallet-hero-search-wrap{
+  margin-bottom:8px;
+}
+.wallet-hero-search-input{
+  width:100%;
+  padding:8px 10px;
+  border-radius:9px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(14,14,18,0.7);
+  color:#ececec;
+  font-size:0.8rem;
+}
+.wallet-hero-search-input::placeholder{
+  color:rgba(255,255,255,0.42);
+}
+
+
+.wallet-hero-image-fallback {
+  object-fit: contain;
+  background: rgba(19, 23, 37, 0.72);
+}
+.wallet-hero-selected-wrap{
+  margin-bottom:8px;
+}
+.wallet-hero-selected-label{
+  font-size:0.72rem;
+  font-weight:800;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:#f4e6bd;
+  margin-bottom:6px;
+}
+.wallet-hero-selected-card{
+  display:grid;
+  grid-template-columns:52px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(244,230,189,0.18);
+  background:rgba(56,46,18,0.28);
+}
+.wallet-hero-selected-card img{
+  width:52px;
+  height:52px;
+  object-fit:contain;
+  object-position:center center;
+  border-radius:8px;
+  background:rgba(255,255,255,0.05);
+}
+.wallet-hero-selected-meta{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.wallet-hero-selected-title{
+  font-size:0.88rem;
+  font-weight:800;
+  color:#f7f0d8;
+}
+.wallet-hero-selected-sub{
+  font-size:0.76rem;
+  opacity:0.82;
 }

@@ -53,11 +53,22 @@
           </div>
           <button id="enableTrackingBtn" class="wallet-btn secondary tracking-btn" type="button">Enable Run Tracking</button>
           <button id="addGoldBtn" class="wallet-btn secondary tracking-btn hidden" type="button" title="Authorized test button">Add 10000 Gold</button>
+
+          <div id="walletHeroBonusSection" class="wallet-hero-bonus-section hidden" aria-hidden="true">
+            <div class="wallet-hero-bonus-header">
+              <div class="wallet-hero-bonus-title">Wallet Heroes</div>
+              <button id="refreshWalletHeroesBtn" class="wallet-btn secondary wallet-hero-refresh-btn" type="button">Refresh NFTs</button>
+            </div>
+            <div id="walletHeroBonusStatus" class="wallet-tracking-summary">Connect a wallet on DFK Chain to load heroes.</div>
+            <div id="walletHeroBonusBody" class="wallet-hero-bonus-body"></div>
+          </div>
+
           </div>
         </div>
                 <button id="mobileModeBtn" class="mobile-toggle coming-soon-toggle" type="button" aria-pressed="false" aria-disabled="true" disabled title="Challenge Mode is coming soon">⚔️ Challenge Mode — Coming Soon</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Learn More / Instructions</button>
         <button id="leaderboardFlyoutBtn" class="leaderboard-flyout-btn intro-toggle secondary-guide" type="button" aria-expanded="false" aria-controls="leaderboardFlyout">📊 Leaderboard</button>
+          <button id="playIntroAgainBtn" class="menu-btn" type="button">Play Intro Again</button>
         <button id="bountyBtn" class="intro-toggle secondary-guide bounty-toggle" type="button">🏆 Bounty Board</button>
         <button id="questsBtn" class="intro-toggle secondary-guide quests-toggle" type="button">✅ Daily Quests</button>
         <button id="trackedRunsBtn" class="intro-toggle secondary-guide tracked-runs-toggle" type="button">📜 Tracked Runs</button>
@@ -410,6 +421,7 @@
       }, true);
     })();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
   <script src="js/app.js"></script>
   <script src="js/layout-fixes.js"></script>
   <script>
@@ -456,7 +468,15 @@
   <div id="versionBadge" class="version-badge" aria-label="Build version"></div>
 
 <div id="storyOverlay" class="story-overlay hidden">
-  <button id="storySkipBtn" type="button" class="story-skip-btn">Skip</button>
+  <div class="story-controls">
+    <button id="storyMuteBtn" type="button" class="story-skip-btn story-mute-btn">Silence Music</button>
+    <label class="story-volume-wrap" for="storyVolumeSlider">
+      <span class="story-volume-label">Volume</span>
+      <input id="storyVolumeSlider" class="story-volume-slider" type="range" min="0" max="100" step="1" value="20">
+      <span id="storyVolumeValue" class="story-volume-value">20%</span>
+    </label>
+    <button id="storySkipBtn" type="button" class="story-skip-btn">Skip</button>
+  </div>
   <div id="storyText" class="story-text"></div>
 </div>
 

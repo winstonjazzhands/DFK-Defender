@@ -393,6 +393,7 @@
     refreshBank,
     depositJewel,
     disconnectWallet,
+    getProvider: () => state.selectedProvider,
     getState: () => ({ ...state }),
   };
 

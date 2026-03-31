@@ -1,3 +1,9 @@
+let hasClearedIntroTutorialGate = true;
+
+function forceMuteButtonBelowText() {}
+
+let hasClaimedFreeRelic = false;
+let hasSeenFreeRelicChoice = false;
 
 // Dark Summoner laugh sound
 let darkSummonerLaugh;
@@ -27,19 +33,124 @@ function setBoardDim(active) {
 
 
 const STORY_SCREENS = [
-  { text: '"Defend the Portal" The Druid screamed as cultists charged from the forest, the Dark Summoner was never supposed to be trusted, and yet… we did.', duration: 7500 },
-  { text: 'At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we didn’t question. He spoke like an ally, like someone trying to save Crystalvale from something worse.', duration: 9000 },
-  { text: 'The sacrifices we thought we were stopping? We were completing them. Every hero we lost fed his ritual. Every victory we thought we earned was another step in his design.', duration: 7500 },
-  { text: 'We weren’t fighting the darkness. We were feeding it.', duration: 4500 },
-  { text: 'Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.', duration: 11250 },
-  { text: 'This was always the plan, and we walked straight into it. If the portal falls, the summoning completes... we won\'t have the strength to stop whatever he\'s bringing through.', duration: 7500 },
-  { text: 'You have one chance to hold the line. Use your team of five heroes. Fight smarter than we did. Make every wave cost him. Because this time… he\'s not pretending to help, he\'s finishing what we foolishly started.', duration: 9000 }
-];
+  { text: "\"Defend the portal, they're coming!\" the Druid screamed ...as the cultists charged from voids hidden in the forest, the Dark Summoner was never supposed to be trusted, and yet… we did.", duration: 7500 },
+  { text: "At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we didn’t question. He spoke like an ally, like someone trying to save Crystalvale from something worse.", duration: 9500 },
+  { text: "The Dark Summoner was never supposed to be trusted. By sacrificing heroes we delayed the void, but every hero we gave only made him stronger and our defenses weaker. Every loss fed his ritual—the Summoner had betrayed us from the start.", duration: 7500 },
+  { text: "We weren't fighting the darkness,|we were feeding it", duration: 4505.5 },
+  { text: "Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.", duration: 11250 },
+  { text: "This was always the plan, and we walked straight into it. If the portal falls, the summoning completes... we won't have the strength to stop whatever he's bringing through.", duration: 8000 },
+  { text: "You have one chance to hold the line. Use your team of five heroes. Fight smarter than we did. Make every wave cost him. Because this time… he's not pretending to help, he's finishing what we foolishly started.", duration: 9000 }];
+const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
+const STORY_MUSIC_START_SECONDS = 10;
+const STORY_MUSIC_VOLUME = 0.2;
+let storyMusic = null;
+let storyMusicVolume = STORY_MUSIC_VOLUME;
+let storyMusicMuted = false;
+let storyMusicStarted = false;
+
+
+function tryStartMusic() {
+  const audio = ensureStoryMusic();
+  if (!audio) return Promise.resolve(false);
+  try { if (audio.currentTime < 10) audio.currentTime = 10; } catch (error) {}
+  const attempt = () => {
+    try {
+      const playResult = audio.play();
+      if (playResult && typeof playResult.then === 'function') {
+        return playResult.then(() => true).catch(() => false);
+      }
+      return Promise.resolve(true);
+    } catch (error) {
+      return Promise.resolve(false);
+    }
+  };
+  return attempt().then((started) => {
+    if (started) return true;
+    const retryOnce = () => {
+      attempt().finally(() => {
+        window.removeEventListener('pointerdown', retryOnce, true);
+        window.removeEventListener('keydown', retryOnce, true);
+        window.removeEventListener('touchstart', retryOnce, true);
+        document.removeEventListener('visibilitychange', retryWhenVisible, true);
+      });
+    };
+    const retryWhenVisible = () => { if (!document.hidden) retryOnce(); };
+    window.addEventListener('pointerdown', retryOnce, true);
+    window.addEventListener('keydown', retryOnce, true);
+    window.addEventListener('touchstart', retryOnce, true);
+    document.addEventListener('visibilitychange', retryWhenVisible, true);
+    return false;
+  });
+}
+
+function ensureStoryMusic() {
+  if (storyMusic) return storyMusic;
+  try {
+    storyMusic = new Audio(STORY_MUSIC_SRC);
+    storyMusic.preload = 'auto';
+    storyMusic.volume = storyMusicMuted ? 0 : storyMusicVolume;
+  } catch (error) {
+    storyMusic = null;
+  }
+  return storyMusic;
+}
+
+function applyStoryMusicVolume() {
+  const audio = ensureStoryMusic();
+  if (!audio) return;
+  try {
+    audio.volume = storyMusicMuted ? 0 : storyMusicVolume;
+  } catch (error) {}
+}
+
+function stopStoryMusic() {
+  const audio = ensureStoryMusic();
+  if (!audio) return;
+  try {
+    audio.pause();
+    audio.currentTime = STORY_MUSIC_START_SECONDS;
+    storyMusicStarted = false;
+  } catch (error) {}
+}
+
+function startStoryMusic() {
+  const audio = ensureStoryMusic();
+  if (!audio) return Promise.resolve(false);
+  try {
+    audio.pause();
+    if (!Number.isFinite(audio.currentTime) || Math.abs(audio.currentTime - STORY_MUSIC_START_SECONDS) > 0.5) {
+      audio.currentTime = STORY_MUSIC_START_SECONDS;
+    }
+    applyStoryMusicVolume();
+    return audio.play().then(() => {
+      storyMusicStarted = true;
+      return true;
+    }).catch(() => false);
+  } catch (error) {
+    return Promise.resolve(false);
+  }
+}
+
+
+function renderStoryScreen(textEl, screen) {
+  if (!textEl) return;
+  const rawText = String(screen && screen.text ? screen.text : '');
+  if (rawText === "We weren't fighting the darkness,|we were feeding it") {
+    textEl.innerHTML = '<span class="story-segment story-segment-a">We weren\'t fighting the darkness,</span><span class="story-segment story-segment-b">we were feeding it</span>';
+    textEl.classList.add('story-text-staggered');
+  } else {
+    textEl.textContent = rawText.replace(/\|/g, ' ');
+    textEl.classList.remove('story-text-staggered');
+  }
+}
 
 function playStorySequence() {
   const overlay = document.getElementById('storyOverlay');
   const textEl = document.getElementById('storyText');
   const skipBtn = document.getElementById('storySkipBtn');
+  const muteBtn = document.getElementById('storyMuteBtn');
+  const volumeSlider = document.getElementById('storyVolumeSlider');
+  const volumeValue = document.getElementById('storyVolumeValue');
   if (!overlay || !textEl) return;
 
   let index = 0;
@@ -51,12 +162,58 @@ function playStorySequence() {
     activeTimers = [];
   }
 
+  function syncStoryMusicControls() {
+    if (volumeSlider) volumeSlider.value = String(Math.round(storyMusicVolume * 100));
+    if (volumeValue) volumeValue.textContent = `${Math.round(storyMusicMuted ? 0 : storyMusicVolume * 100)}%`;
+    if (muteBtn) muteBtn.textContent = storyMusicMuted ? 'Unmute Music' : 'Silence Music';
+  }
+
+  function tryStartMusic(forceRestart = false) {
+    const audio = ensureStoryMusic();
+    if (!audio) return;
+    if (!forceRestart && storyMusicStarted && !audio.paused) return;
+    startStoryMusic();
+  }
+
   function finishStory() {
     if (cancelled) return;
     cancelled = true;
     clearStoryTimers();
-    textEl.classList.remove('visible');
-    overlay.classList.add('hidden');
+
+    const audio = ensureStoryMusic();
+    const startingVolume = audio ? Number(audio.volume || 0) : 0;
+    let fadeStep = 0;
+    const fadeSteps = 18;
+    const fadeMs = 900;
+
+    try {
+      overlay.style.transition = 'opacity 900ms ease';
+      overlay.style.opacity = '0';
+    } catch (error) {}
+
+    try {
+      textEl.style.transition = 'opacity 900ms ease, transform 900ms ease';
+      textEl.style.opacity = '0';
+    } catch (error) {}
+
+    const fadeTimer = setInterval(() => {
+      fadeStep += 1;
+      if (audio) {
+        try {
+          audio.volume = Math.max(0, startingVolume * (1 - (fadeStep / fadeSteps)));
+        } catch (error) {}
+      }
+      if (fadeStep >= fadeSteps) {
+        clearInterval(fadeTimer);
+        stopStoryMusic();
+        textEl.classList.remove('visible');
+        overlay.classList.add('hidden');
+        try {
+          overlay.style.opacity = '';
+          textEl.style.opacity = '';
+        } catch (error) {}
+      }
+    }, Math.round(fadeMs / fadeSteps));
   }
 
   function queue(fn, ms) {
@@ -66,28 +223,58 @@ function playStorySequence() {
   }
 
   overlay.classList.remove('hidden');
+  syncStoryMusicControls();
+  Promise.resolve().then(() => tryStartMusic());
 
   if (skipBtn) {
     skipBtn.onclick = finishStory;
+  }
+  if (muteBtn) {
+    muteBtn.onclick = () => {
+      storyMusicMuted = !storyMusicMuted;
+      applyStoryMusicVolume();
+      syncStoryMusicControls();
+      if (!storyMusicMuted) tryStartMusic();
+    };
+  }
+  if (volumeSlider) {
+    const onVolumeInput = () => {
+      const nextValue = Number(volumeSlider.value);
+      if (Number.isFinite(nextValue)) {
+        storyMusicVolume = Math.min(1, Math.max(0, nextValue / 100));
+        if (storyMusicVolume > 0 && storyMusicMuted) storyMusicMuted = false;
+        applyStoryMusicVolume();
+        syncStoryMusicControls();
+        tryStartMusic();
+      }
+    };
+    volumeSlider.oninput = onVolumeInput;
+    volumeSlider.onchange = onVolumeInput;
   }
 
   function showNext() {
     if (cancelled) return;
     if (index >= STORY_SCREENS.length) {
-      finishStory();
       return;
     }
 
     const screen = STORY_SCREENS[index];
+    const isFinalScreen = index === STORY_SCREENS.length - 1;
     textEl.classList.remove('visible');
 
     queue(() => {
       if (cancelled) return;
-      textEl.textContent = screen.text;
+      renderStoryScreen(textEl, screen);
+      textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
+      textEl.classList.remove('visible');
+      void textEl.offsetWidth;
       textEl.classList.add('visible');
 
       queue(() => {
         if (cancelled) return;
+        if (isFinalScreen) {
+          return;
+        }
         textEl.classList.remove('visible');
         index += 1;
         queue(showNext, 1200);
@@ -105,7 +292,24 @@ function playStorySequence() {
   });
 
   overlay.addEventListener('click', (event) => {
+    if (!cancelled) tryStartMusic();
     if (event.target === overlay) finishStory();
+  });
+
+  document.addEventListener('pointerdown', function onInitialStoryPointer() {
+    if (!cancelled) tryStartMusic();
+    if (cancelled || storyMusicStarted) {
+      document.removeEventListener('pointerdown', onInitialStoryPointer, true);
+    }
+  }, true);
+
+  document.addEventListener('visibilitychange', function onStoryVisibilityChange() {
+    if (document.hidden && !cancelled) {
+      finishStory();
+    }
+    if (cancelled) {
+      document.removeEventListener('visibilitychange', onStoryVisibilityChange);
+    }
   });
 
   showNext();
@@ -174,7 +378,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v46.9.1.43';
+const APP_VERSION = 'v1.2.7';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -215,6 +419,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 9;
   const SATELLITE_FADE_STAGE_ONE_WAVES = 3;
   const SATELLITE_FADE_STAGE_TWO_WAVES = 7;
+  let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const WARRIOR_HP_GROWTH_PER_LEVEL = 1.053;
   const BARRIER_REBUILD_COST = 120;
@@ -403,24 +608,24 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   ];
 
   const RELICS = [
-    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 120 Gold to fletch a nastier volley and increase Archer damage by 6%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.06 }) },
-    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 120 Gold to tighten the Archer kit and increase Archer attack speed by 5%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.05 }) },
-    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 130 Gold to sharpen the Wizard's spellwork and increase spell damage by 6%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.06 },
-    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 130 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 5%.", cost: 130, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.95 },
-    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 130 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 11%.', cost: 130, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.11, healToMatchPercent: true }) },
-    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 120 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 120, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
+    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 100 Gold to fletch a nastier volley and increase Archer damage by 6%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.06 }) },
+    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 100 Gold to tighten the Archer kit and increase Archer attack speed by 5%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.05 }) },
+    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 100 Gold to sharpen the Wizard's spellwork and increase spell damage by 6%.", cost: 100, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.06 },
+    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 100 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 5%.", cost: 100, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.95 },
+    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 100 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 11%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.11, healToMatchPercent: true }) },
+    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 100 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 100, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
 { id: 'blade_dancer', name: 'Blade Dancer', desc: 'Spend 350 Gold to teach the Warrior blade dancing and reduce Whirlwind cooldown by 2 seconds.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.whirlwindCooldownAdjust += 2 },
-    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 125 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 125, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
+    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 100 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 100, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
 { id: 'devotion', name: 'Devotion', desc: "The Priest studies the old ways and Prayer of Healing cooldown is reduced by 0.5 seconds.", cost: 150, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 0.5 },
-    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 140 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 140, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
-    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 140 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 140, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
-    { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 150 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 150, rarity: 'common', apply: game => game.modifiers.extraCannons += 1 },
-    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 150 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 150, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
-    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 140 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 140, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
-    { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 135 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 135, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
-    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 145 Gold to pack the Statue with spite so it explodes on death for 11% of its max HP in 2 tiles.', cost: 145, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
-    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 150 Gold to patch the Statue back together and restore 13% of its health.', cost: 150, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
-    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 150 Gold to reinforce the portal and restore 11% of its health.', cost: 150, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
+    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 100, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
+    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 100, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
+    { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
+    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 100 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 100, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
+    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 100 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 100, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
+    { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 100 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 100, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
+    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 100 Gold to pack the Statue with spite so it explodes on death for 11% of its max HP in 2 tiles.', cost: 100, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
+    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 100 Gold to patch the Statue back together and restore 13% of its health.', cost: 100, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
+    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 100 Gold to reinforce the portal and restore 11% of its health.', cost: 100, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
     { id: 'fire_fiend', name: 'Fire Fiend', desc: 'Spend 200 Gold to feed the Wizard hotter fuel and make Fireball cooldown 1 second shorter.', cost: 200, rarity: 'rare', apply: game => game.modifiers.fireballCooldownAdjust += 1 },
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase his health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
     { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve himself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
@@ -577,6 +782,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     damageReportWrap: null,
     damageReportBody: null,
     damageReportTotal: null,
+    walletHeroBonusSection: document.getElementById('walletHeroBonusSection'),
+    walletHeroBonusStatus: document.getElementById('walletHeroBonusStatus'),
+    walletHeroBonusBody: document.getElementById('walletHeroBonusBody'),
+    refreshWalletHeroesBtn: document.getElementById('refreshWalletHeroesBtn'),
   };
 
   const game = {
@@ -596,6 +805,13 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     placingHeroType: null,
     placingHeroCost: 0,
     hoveredTowerId: null,
+    walletHeroRoster: [],
+    selectedWalletHeroes: {},
+    walletHeroExpandedTypes: {},
+    walletHeroSearch: {},
+    walletHeroLoadPending: false,
+    walletHeroLoadError: '',
+    placingWalletHeroId: null,
     lastTick: 0,
     realLastTick: 0,
     virtualNow: 0,
@@ -1023,7 +1239,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clearTimeout(game.statusOverlayTimeout);
       game.statusOverlayTimeout = null;
     }
-    closeIntroModal();
+    /* closeIntroModal suppressed at sequence end */
     closeBountyModal();
     closeTrackedRunsModal();
     closeKnownRelicsModal();
@@ -1618,6 +1834,7 @@ function renderDamageReport() {
     game.placingHeroCost = 0;
     game.placingSatelliteSourceId = null;
     game.hoveredTowerId = null;
+    game.placingWalletHeroId = null;
     game.nextEnemyId = 1;
     game.nextTowerId = 1;
     game.nextWavePlan = null;
@@ -2581,101 +2798,224 @@ function renderDamageReport() {
   };
 
 
-  const HERO_PAGES = [
-    {
-      title: 'Warrior – Path Control',
-      body: `
-        <p>The Warrior is the only hero that <span class="intro-highlight">blocks enemy pathing</span>. He decides where enemies fight, buys room for your backline, and keeps the portal from getting mobbed too early.</p>
-        <ul>
-          <li><span class="intro-highlight">Gladiator Strike</span> — Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for bonus damage and heals the Warrior.</li>
-          <li><span class="intro-highlight">Statue</span> — Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health is equal to double the Warrior's current health when it is summoned, and it begins at 100% of that total.</li>
-          <li><span class="intro-highlight">Whirlwind</span> — Hits adjacent enemies for heavy area damage.</li>
-          <li><span class="intro-highlight">Rapid Onslaught</span> — Boosts Warrior attack speed for a short burst, which is ideal when a choke point is getting overloaded.</li>
-        </ul>
-        <p>The Warrior belongs at the front. He holds lanes, forces reroutes, and protects your damage dealers by making enemies crash into him first instead of slipping through to softer targets.</p>
-      `,
-    },
-    {
-      title: 'Aggro – Protect Your DPS',
-      body: `
-        <p>Enemies are drawn toward heroes that damage them instead of the portal. That means your ranged heroes can pull heat the moment they start contributing.</p>
-        <ul>
-          <li>Archers, Wizards, and Pirates will often take aggro once they start hitting.</li>
-          <li>If they are exposed, they get focused and can fall fast.</li>
-          <li>The Warrior's path block is what keeps those heroes alive long enough to matter.</li>
-        </ul>
-        <p>Your DPS wins fights, but only if you place it behind cover, behind the Warrior, or far enough away that enemies cannot instantly collapse on it.</p>
-      `,
-    },
-    {
-      title: 'Archer – Sustained Damage',
-      body: `
-        <p>The Archer keeps up steady pressure from range and helps thin waves before they ever reach your choke point.</p>
-        <ul>
-          <li><span class="intro-highlight">Multi-Shot</span> — Fires 3 arrows for split burst damage. Good for trimming packs.</li>
-          <li><span class="intro-highlight">Rapid Shot</span> — Boosts attack speed for a short burst, letting the Archer dump damage quickly into a dangerous lane.</li>
-          <li><span class="intro-highlight">Piercing Shot</span> — Hits up to 3 enemies in a line with falling damage through the targets, making it strong in tight traffic.</li>
-          <li><span class="intro-highlight">Assassin's Training</span> — Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. During prep, you can place a level 1 helper Archer with half max HP, 75% of the parent hero's damage, and a higher upgrade cost. Archer Shadows are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.</li>
-        </ul>
-        <p>The Archer works best behind the Warrior, where she can fire safely into crowds instead of becoming the crowd's next target.</p>
-      `,
-    },
-    {
-      title: 'Wizard – Crowd Control',
-      body: `
-        <p>The Wizard is how you stop a wave from snowballing. He softens groups, slows pressure, and punishes enemies that bunch up in choke points.</p>
-        <ul>
-          <li><span class="intro-highlight">Firebolt</span> — Deals direct spell damage on a short cooldown.</li>
-          <li><span class="intro-highlight">Ice Aura</span> — Passive. Every second, it slows nearby enemies. The slow grows stronger with Wizard level, and the aura range expands again later at higher level.</li>
-          <li><span class="intro-highlight">Torn Soul</span> — Passive. Every 20 cleared waves, the wizard can place a shadow of herself that attacks for 50% damage and detonates when a single enemy passes through it.</li>
-          <li><span class="intro-highlight">Fireball</span> — Explodes in an area, making it one of the best answers to clustered enemies.</li>
-          <li><span class="intro-highlight">Frost Lance</span> — Deals heavy damage, and it hits even harder against enemies that are already slowed.</li>
-        </ul>
-        <p>The Wizard is strongest when enemies are forced to stack up by Warrior positioning or terrain, because that turns every area spell into real control.</p>
-      `,
-    },
-    {
-      title: 'Priest – Sustain',
-      body: `
-        <p>The Priest does not win by burst. She wins by keeping the rest of your team alive long enough to finish the fight.</p>
-        <ul>
-          <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies in a solid chunk.</li>
-          <li><span class="intro-highlight">Slow Totem</span> — Manual. Places an indestructible totem for 45 seconds. Enemies within 2 tiles of the totem are slowed, and the slow ends the moment they leave the area.</li>
-          <li><span class="intro-highlight">Swiftness</span> — Boosts nearby allies' attack speed for a longer 8 second window, helping your whole line push harder during key moments.</li>
-          <li><span class="intro-highlight">Healing Aura</span> — Passive. At higher level, the Priest gains a healing aura that restores nearby allies every second, and it scales directly with her level.</li>
-        </ul>
-        <p>Use the Priest to support the Warrior, stabilize damaged heroes, and turn fights that should have collapsed into fights you still win.</p>
-      `,
-    },
-    {
-      title: 'Pirate – Bleed & Spread',
-      body: `
-        <p>The Pirate spreads pressure across the field. He rewards longer fights, packed lanes, and enemies that stay alive just long enough to suffer for it.</p>
-        <ul>
-          <li><span class="intro-highlight">Warning Shot</span> — Marks one enemy so it takes more damage from the rest of your team.</li>
-          <li><span class="intro-highlight">Starboard Cannons</span> — Fires multiple cannonballs into a small splash zone, which is great for clustered lanes.</li>
-          <li><span class="intro-highlight">Kraken</span> — Creates a larger damaging area with a stronger slow, lower damage, and a shorter cooldown.</li>
-          <li><span class="intro-highlight">Bloody Bastard</span> — Pirate kills steal extra Gold. Also, every 10th basic attack makes the target bleed, dealing percent max HP damage over time and adding a slow. The Pirate prefers targets that are not already bleeding so the effect spreads.</li>
-        </ul>
-        <p>The Pirate is at his best in longer waves where bleed, slows, and splash all have time to stack pressure across the board.</p>
-      `,
-    },
+  const DFK_HERO_CORE_ADDRESS = '0xEb9B61B145D6489Be575D3603F4a704810e143dF';
+  const DFK_BASE_CLASS_TO_SLOT = Object.freeze({
+    0: 'warrior',
+    3: 'archer',
+    4: 'priest',
+    5: 'wizard',
+    7: 'pirate',
+  });
+  const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
+  const DFK_HERO_CORE_ABI = [
+    'function balanceOf(address owner) view returns (uint256)',
+    'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+    'function ownerOf(uint256 tokenId) view returns (address)',
+    'function tokenURI(uint256 tokenId) view returns (string)',
+    'function getHeroV3(uint256 _id) view returns (tuple(uint256 id, tuple(uint256 summonedTime, uint256 nextSummonTime, uint256 summonerId, uint256 assistantId, uint32 summons, uint32 maxSummons) summoningInfo, tuple(uint256 statGenes, uint256 visualGenes, uint8 rarity, bool shiny, uint16 generation, uint32 firstName, uint32 lastName, uint8 shinyStyle, uint8 class, uint8 subClass) info, tuple(uint256 staminaFullAt, uint256 hpFullAt, uint256 mpFullAt, uint16 level, uint64 xp, address currentQuest, uint8 sp, uint8 status) state, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hp, uint16 mp, uint16 stamina) stats, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) primaryStatGrowth, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) secondaryStatGrowth, tuple(uint16 mining, uint16 gardening, uint16 foraging, uint16 fishing, uint16 craft1, uint16 craft2) professions, tuple(uint256 equippedSlots, uint256 petId, uint128 weapon1Id, uint128 weapon1VisageId, uint128 weapon2Id, uint128 weapon2VisageId, uint128 offhand1Id, uint128 offhand1VisageId, uint128 offhand2Id, uint128 offhand2VisageId, uint128 armorId, uint128 armorVisageId, uint128 accessoryId, uint128 accessoryVisageId) equipment))'
   ];
 
+  function getWalletRpcProvider() {
+    return window.DFKDefenseWallet && typeof window.DFKDefenseWallet.getProvider === 'function'
+      ? window.DFKDefenseWallet.getProvider()
+      : null;
+  }
+
+  function normalizeHeroMediaUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('ipfs://')) {
+      const path = raw.slice('ipfs://'.length).replace(/^ipfs\//i, '');
+      return `https://cloudflare-ipfs.com/ipfs/${path}`;
+    }
+    return raw;
+  }
+
+  function getWalletHeroFallbackSources(heroLike) {
+    const heroType = heroLike && heroLike.type ? heroLike.type : '';
+    return [
+      getDefaultHeroImageForType(heroType),
+    ].filter(Boolean);
+  }
+
+  async function readHeroMetadataImage(tokenUri) {
+    const raw = String(tokenUri || '').trim();
+    if (!raw) return '';
+    try {
+      if (raw.startsWith('data:application/json;base64,')) {
+        const decoded = JSON.parse(atob(raw.split(',')[1] || ''));
+        return normalizeHeroMediaUrl(decoded.image || decoded.image_url || decoded.imageUrl || '');
+      }
+      if (raw.startsWith('data:application/json,')) {
+        const decoded = JSON.parse(decodeURIComponent(raw.split(',').slice(1).join(',')));
+        return normalizeHeroMediaUrl(decoded.image || decoded.image_url || decoded.imageUrl || '');
+      }
+      const response = await fetch(raw, { cache: 'force-cache' });
+      if (!response.ok) return '';
+      const json = await response.json();
+      return normalizeHeroMediaUrl(json.image || json.image_url || json.imageUrl || '');
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function getDefaultHeroImageForType(type) {
+    return HERO_TILE_IMAGES[type] || '';
+  }
+
+  function getWalletHeroImage(hero) {
+    return getDefaultHeroImageForType(hero && hero.type ? hero.type : '') || '';
+  }
+
+  function handleWalletHeroImageError(imgEl, heroLike) {
+    if (!imgEl) return;
+    const fallback = getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
+    if (fallback && imgEl.getAttribute('src') !== fallback) {
+      imgEl.src = fallback;
+      return;
+    }
+    imgEl.classList.add('wallet-hero-image-fallback');
+  }
+
+  function toggleWalletHeroType(type) {
+    if (!type) return;
+    if (!game.walletHeroExpandedTypes || typeof game.walletHeroExpandedTypes !== 'object') game.walletHeroExpandedTypes = {};
+    game.walletHeroExpandedTypes[type] = !game.walletHeroExpandedTypes[type];
+    renderWalletHeroBonusPanel();
+  }
+
+  function setWalletHeroSearch(type, value) {
+    if (!type) return;
+    if (!game.walletHeroSearch || typeof game.walletHeroSearch !== 'object') game.walletHeroSearch = {};
+    game.walletHeroSearch[type] = String(value || '').trim();
+    renderWalletHeroBonusPanel();
+  }
+
+  function getSelectedWalletHero(type) {
+    const selectedId = game.selectedWalletHeroes ? game.selectedWalletHeroes[type] : null;
+    if (!selectedId) return null;
+    return (game.walletHeroRoster || []).find(hero => hero.type === type && String(hero.id) === String(selectedId)) || null;
+  }
+
+  function clearWalletHeroData() {
+    game.walletHeroRoster = [];
+    game.selectedWalletHeroes = {};
+    game.walletHeroExpandedTypes = {};
+    game.walletHeroSearch = {};
+    game.walletHeroLoadPending = false;
+    game.walletHeroLoadError = '';
+    game.placingWalletHeroId = null;
+    renderWalletHeroBonusPanel();
+    renderHirePanel();
+  }
+
+  function selectWalletHero(type, heroId) {
+    if (!type || !heroId) return;
+    if (!game.selectedWalletHeroes || typeof game.selectedWalletHeroes !== 'object') game.selectedWalletHeroes = {};
+    game.selectedWalletHeroes[type] = String(heroId);
+    renderWalletHeroBonusPanel();
+    renderHirePanel();
+  }
+
+  function getWalletHeroPlacementCost(type, baseCost, usesBonus) {
+    if (usesBonus) return baseCost;
+    return getSelectedWalletHero(type) ? 0 : baseCost;
+  }
+
+  function getBaseTowerStatsForLevel(type, level) {
+    const template = TOWER_TEMPLATES[type];
+    if (!template) return { hp: 0, damage: 0, range: 0 };
+    const safeLevel = Math.max(1, Number(level || 1));
+    const multiplier = Math.pow(1.15, safeLevel - 1);
+    return {
+      hp: template.hp * multiplier,
+      damage: template.damage * multiplier,
+      range: template.range,
+    };
+  }
+
+  function normalizeArcherStats(tower) {
+    if (!tower || tower.type !== 'archer') return;
+    const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
+    tower.damage = base.damage;
+    tower.range = base.range;
+    tower.maxHp = tower.isSatellite ? (base.hp * 0.5) : base.hp;
+    if (!Number.isFinite(tower.hp)) tower.hp = tower.maxHp;
+    tower.hp = Math.min(tower.hp, tower.maxHp);
+  }
+
+
+  function formatJewel(value) {
+    if (Math.abs(value - Math.round(value)) < 0.001) return `${Math.round(value)}`;
+    return `${Number(value || 0).toFixed(1)}`;
+  }
+
+  function updateModeButtons() {
+    const easyActive = game.timeScale > 1 && !!game.mobileMode;
+    const challengeActive = !easyActive;
+    if (els.speedToggleBtn) {
+      els.speedToggleBtn.classList.toggle('active', easyActive);
+      els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
+      els.speedToggleBtn.textContent = '✨ Easy Mode' + (easyActive ? ' ON' : '');
+      if (els.mobileFuncEasyBtn) els.mobileFuncEasyBtn.textContent = 'Easy Mode' + (easyActive ? ' ON' : '');
+      els.speedToggleBtn.title = 'Easy Mode: 2× speed and auto-casting mobile play enabled.';
+    }
+    if (els.mobileModeBtn) {
+      els.mobileModeBtn.classList.toggle('active', challengeActive);
+      els.mobileModeBtn.setAttribute('aria-pressed', challengeActive ? 'true' : 'false');
+      els.mobileModeBtn.textContent = '⚔️ Challenge Mode' + (challengeActive ? ' ON' : '');
+      if (els.mobileFuncChallengeBtn) els.mobileFuncChallengeBtn.textContent = 'Challenge Mode' + (challengeActive ? ' ON' : '');
+      els.mobileModeBtn.title = 'Challenge Mode: normal speed with manual active skills.';
+    }
+  }
+
+  function setPlayMode(mode, showNotice = true) {
+    const easy = mode === 'easy';
+    game.timeScale = easy ? 2 : 1;
+    game.mobileMode = easy;
+    updateModeButtons();
+    if (showNotice) showBanner(easy ? 'Easy Mode enabled' : 'Challenge Mode enabled', 1400);
+  }
+
+  function setTimeScale(scale) {
+    game.timeScale = Number(scale) || 1;
+    updateModeButtons();
+  }
+
+  function setMobileMode(enabled) {
+    game.mobileMode = !!enabled;
+    updateModeButtons();
+  }
+
+
+  function updatePauseButton() {
+    if (!els.pauseBtn) return;
+    const active = !!game.paused;
+    els.pauseBtn.classList.toggle('active', active);
+    els.pauseBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    els.pauseBtn.textContent = active ? '⏸ Paused' : '⏸ Pause';
+    if (els.mobileFuncPauseBtn) els.mobileFuncPauseBtn.textContent = active ? 'Resume' : 'Pause';
+    els.pauseBtn.title = active ? 'Resume all activity' : 'Freeze all activity';
+  }
+
+
   function getActiveGuidePages() {
-    return INTRO_PAGES;
+    return game.introSet === 'heroes' ? HERO_PAGES : INTRO_PAGES;
   }
 
   function renderIntroPage() {
     if (!els.introBody) return;
     const pages = getActiveGuidePages();
-    const safeIndex = Math.max(0, Math.min(pages.length - 1, game.introPageIndex));
+    const safeIndex = Math.max(0, Math.min(pages.length - 1, Number(game.introPageIndex || 0)));
     game.introPageIndex = safeIndex;
     const page = pages[safeIndex];
-    if (els.introKicker) els.introKicker.textContent = 'DFK Defender Field Guide';
-    if (els.introTitle) els.introTitle.textContent = 'Intro / Instructions';
+    if (els.introKicker) els.introKicker.textContent = game.introSet === 'heroes' ? 'DFK Defense Hero Guide' : 'DFK Defense Briefing';
+    if (els.introTitle) els.introTitle.textContent = game.introSet === 'heroes' ? 'Meet the Heroes' : 'DFK Defender – Stand Against the Void';
     els.introBody.innerHTML = `<h3 class="intro-page-heading">${page.title}</h3>${page.body}`;
-    if (els.introPageLabel) els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
+    if (els.introPageLabel) {
+      els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
+      els.introPageLabel.classList.remove('hidden');
+    }
     if (els.introPrevBtn) els.introPrevBtn.disabled = game.introPageIndex <= 0;
     if (els.introNextBtn) {
       els.introNextBtn.disabled = false;
@@ -2683,21 +3023,16 @@ function renderDamageReport() {
     }
   }
 
-  function openIntroModal(pageIndex = game.introPageIndex || 0, setName = 'intro') {
-    const pages = INTRO_PAGES;
-    game.introSet = 'intro';
-    game.introPageIndex = Math.max(0, Math.min(pages.length - 1, pageIndex));
+  function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
+    const pages = setName === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+    game.modalDismiss = null;
+    game.introSet = setName;
+    game.introPageIndex = Math.max(0, Math.min(pages.length - 1, Number(pageIndex || 0)));
     game.introOpen = true;
-    if (game.statusOverlayTimeout) {
-      clearTimeout(game.statusOverlayTimeout);
-      game.statusOverlayTimeout = null;
-    }
-    syncStatusOverlayVisibility(true);
-    if (els.bountyModal) {
-      els.bountyModal.classList.add('hidden');
-      els.bountyModal.setAttribute('aria-hidden', 'true');
-    }
     document.body.classList.add('intro-open');
+    syncStatusOverlayVisibility(true);
+    if (els.introPrevBtn) els.introPrevBtn.classList.remove('hidden');
+    if (els.introPageLabel) els.introPageLabel.classList.remove('hidden');
     if (els.introModal) {
       els.introModal.classList.remove('hidden');
       els.introModal.setAttribute('aria-hidden', 'false');
@@ -2707,40 +3042,30 @@ function renderDamageReport() {
 
   function closeIntroModal() {
     game.introOpen = false;
-    if (els.introPrevBtn) els.introPrevBtn.classList.remove('hidden');
-    if (els.introPageLabel) els.introPageLabel.classList.remove('hidden');
-    document.body.classList.remove('intro-open');
-    if (els.bountyModal) {
-      els.bountyModal.classList.add('hidden');
-      els.bountyModal.setAttribute('aria-hidden', 'true');
-    }
+    game.modalDismiss = null;
     if (els.introModal) {
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
     }
+    document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
     showStatusOverlay();
   }
 
-  function maybeShowIntroOnOpen() {
-    if (game.introAutoShown) return;
-    game.introAutoShown = true;
-    openIntroModal(0);
-  }
 
   function updateTopbar() {
-    const portalText = `${Math.max(0, Math.round(game.portalHp))}`;
-    const goldText = formatJewel(game.jewel);
-    els.portalHp.textContent = portalText;
-    els.jewelCount.textContent = goldText;
-    if (els.mobilePortalHp) els.mobilePortalHp.textContent = portalText;
-    if (els.mobileGoldCount) els.mobileGoldCount.textContent = goldText;
-    els.waveCount.textContent = `${game.waveNumber}`;
-    els.patternLabel.textContent = game.nextWavePlan ? prettyPattern(game.nextWavePlan.pattern) : (game.runningWave ? prettyPattern(game.currentPattern || 'boss') : '--');
-    els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
-    els.countdownLabel.textContent = game.runningWave ? 'Live' : (game.countdownMs > 0 ? `${Math.ceil(game.countdownMs / 1000)}s` : 'Ready');
-    updatePremiumJewelInfo();
-    syncMobileQuickActions();
+    if (els.portalHp) els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))}/2500`;
+    if (els.jewelCount) els.jewelCount.textContent = formatJewel(game.jewel);
+    if (els.waveCount) els.waveCount.textContent = `${game.waveNumber}`;
+    if (els.patternLabel) {
+      els.patternLabel.textContent = game.nextWavePlan
+        ? prettyPattern(game.nextWavePlan.pattern)
+        : (game.runningWave ? prettyPattern(game.currentPattern || 'boss') : '--');
+    }
+    if (els.mutationLabel) els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
+    if (els.countdownLabel) els.countdownLabel.textContent = game.runningWave ? 'Live' : (game.countdownMs > 0 ? `${Math.ceil(game.countdownMs / 1000)}s` : 'Ready');
+    if (typeof updatePremiumJewelInfo === 'function') updatePremiumJewelInfo();
+    if (typeof updateAutoStartButton === 'function') updateAutoStartButton();
   }
 
   function prettyPattern(pattern) {
@@ -2753,366 +3078,280 @@ function renderDamageReport() {
     }[pattern] || pattern;
   }
 
-
-  function getArcherDamageStepMultiplier(nextLevel) {
-    if (nextLevel <= 1) return 1;
-    const reductionSteps = Math.floor((nextLevel - 2) / 3);
-    const baseIncrease = Math.max(0.05, 0.15 - (reductionSteps * 0.02));
-    return 1 + (baseIncrease * REDUCED_DAMAGE_GROWTH_FACTOR);
-  }
-
-  function getArcherDamageMultiplierForLevel(level) {
-    const safeLevel = Math.max(1, Number(level || 1));
-    let multiplier = 1;
-    for (let nextLevel = 2; nextLevel <= safeLevel; nextLevel += 1) {
-      multiplier *= getArcherDamageStepMultiplier(nextLevel);
-    }
-    return multiplier;
-  }
-
-  function getArcherCooldownMultiplierForLevel(level) {
-    const safeLevel = Math.max(1, Number(level || 1));
-    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2.3);
-    const speedSteps = Math.floor((tierLevel - 1) / 2);
-    return Math.pow(1 + ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
-  }
-
-  function getPirateCooldownMultiplierForLevel(level) {
-    const safeLevel = Math.max(1, Number(level || 1));
-    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2.3);
-    const speedSteps = Math.floor((tierLevel - 1) / 2);
-    return Math.pow(1 + PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
-  }
-
-  function getWizardCooldownMultiplierForLevel(level) {
-    const safeLevel = Math.max(1, Number(level || 1));
-    const tierLevel = 1 + (Math.floor((safeLevel - 1) / 2) * 2.3);
-    const speedSteps = Math.floor((tierLevel - 1) / 2);
-    return Math.pow(1 + WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL, speedSteps);
-  }
-
-  function getBaseTowerStatsForLevel(type, level) {
-    const template = TOWER_TEMPLATES[type];
-    const safeLevel = Math.max(1, Number(level || 1));
-    const hpMultiplier = type === 'archer'
-      ? Math.pow(ARCHER_HP_LEVEL_MULTIPLIER, safeLevel - 1)
-      : Math.pow(1.15, safeLevel - 1);
-    const damageMultiplier = type === 'archer'
-      ? getArcherDamageMultiplierForLevel(safeLevel)
-      : ((type === 'pirate' || type === 'wizard') ? Math.pow(PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL, safeLevel - 1) : hpMultiplier);
-    return {
-      hp: template.hp * hpMultiplier,
-      damage: template.damage * damageMultiplier,
-      range: template.range,
-    };
-  }
-
-  function normalizeArcherStats(tower, preserveHpRatio = false) {
-    if (!tower || tower.type !== 'archer') return;
-    const previousMaxHp = Number.isFinite(tower.maxHp) && tower.maxHp > 0 ? tower.maxHp : null;
-    const previousHp = Number.isFinite(tower.hp) ? tower.hp : null;
-    const hpRatio = preserveHpRatio && previousMaxHp ? Math.max(0, Math.min(1, previousHp / previousMaxHp)) : null;
-    const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
-    tower.damage = tower.isSatellite ? base.damage * SATELLITE_DAMAGE_MULTIPLIER : base.damage;
-    tower.range = base.range;
-    const normalizedLevel = Math.max(1, Number(tower.level || 1));
-    const speedTierLevel = 1 + (Math.floor((normalizedLevel - 1) / 2) * 2.3);
-    tower.basicCooldown = (ARCHER_BASE_ATTACK_INTERVAL * 1000) / getArcherCooldownMultiplierForLevel(speedTierLevel);
-    if (tower.isSatellite) {
-      tower.maxHp = base.hp * 0.5;
-    } else {
-      tower.maxHp = base.hp;
-    }
-    if (!Number.isFinite(previousHp)) {
-      tower.hp = tower.maxHp;
-    } else if (hpRatio !== null) {
-      tower.hp = tower.maxHp * hpRatio;
-    } else {
-      tower.hp = Math.min(previousHp, tower.maxHp);
-    }
-  }
-
-  function formatJewel(value) {
-    if (Math.abs(value - Math.round(value)) < 0.001) return `${Math.round(value)}`;
-    return `${value.toFixed(1)}`;
-  }
-
-  function updateModeButtons() {
-    const easyActive = game.timeScale > 1 && !!game.mobileMode;
-    if (els.speedToggleBtn) {
-      els.speedToggleBtn.classList.toggle('active', easyActive);
-      els.speedToggleBtn.setAttribute('aria-pressed', easyActive ? 'true' : 'false');
-      els.speedToggleBtn.textContent = '✨ Normal Mode' + (easyActive ? ' ON' : '');
-      if (els.mobileFuncEasyBtn) els.mobileFuncEasyBtn.textContent = 'Easy Mode' + (easyActive ? ' ON' : '');
-      els.speedToggleBtn.title = 'Normal Mode: 2× speed and auto-casting mobile play enabled.';
-    }
-    if (els.mobileModeBtn) {
-      els.mobileModeBtn.classList.remove('active');
-      els.mobileModeBtn.setAttribute('aria-pressed', 'false');
-      els.mobileModeBtn.setAttribute('aria-disabled', 'true');
-      els.mobileModeBtn.disabled = true;
-      els.mobileModeBtn.textContent = '⚔️ Challenge Mode — Coming Soon';
-      els.mobileModeBtn.title = 'Challenge Mode is coming soon.';
-    }
-    if (els.mobileFuncChallengeBtn) {
-      els.mobileFuncChallengeBtn.disabled = true;
-      els.mobileFuncChallengeBtn.setAttribute('aria-disabled', 'true');
-      els.mobileFuncChallengeBtn.textContent = 'Challenge Mode — Coming Soon';
-      els.mobileFuncChallengeBtn.title = 'Challenge Mode is coming soon.';
-    }
-  }
-
-  function setPlayMode(mode, showNotice = true) {
-    const easy = mode === 'easy';
-    game.timeScale = easy ? 2 : 1;
-    game.mobileMode = easy;
-    updateModeButtons();
-    if (showNotice) showBanner(easy ? 'Normal Mode enabled' : 'Challenge Mode enabled', 1400);
-  }
-
-  function setTimeScale(scale) {
-    game.timeScale = scale;
-    updateModeButtons();
-  }
-
-  function setMobileMode(enabled) {
-    game.mobileMode = !!enabled;
-    updateModeButtons();
-  }
-  function setRunLogCollapsed(collapsed) {
-    const active = !!collapsed;
-    document.body.classList.toggle('runlog-collapsed', active);
-    if (els.runLogToggleBtn) {
-      els.runLogToggleBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      els.runLogToggleBtn.setAttribute('aria-label', active ? 'Open run log' : 'Collapse run log');
-      els.runLogToggleBtn.setAttribute('title', active ? 'Open run log' : 'Collapse run log');
-      els.runLogToggleBtn.textContent = active ? '◂' : '▸';
-    }
-    try { localStorage.setItem('dfkRunLogCollapsed', active ? '1' : '0'); } catch (e) {}
-  }
-
-  function initRunLogCollapse() {
-    if (!els.runLogToggleBtn) return;
-    let saved = false;
-    try { saved = localStorage.getItem('dfkRunLogCollapsed') === '1'; } catch (e) {}
-    setRunLogCollapsed(saved);
-    window.DFKToggleRunLog = function(event) {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      setRunLogCollapsed(!document.body.classList.contains('runlog-collapsed'));
-      return false;
-    };
-    els.runLogToggleBtn.onclick = window.DFKToggleRunLog;
-  }
-
-
-  function isMobilePointerUi() {
-    return window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : ((navigator.maxTouchPoints || 0) > 0);
-  }
-
-  function updateAutoStartButton() {
-    if (!els.autoStartBtn) return;
-    const active = !!game.autoStartEnabled;
-    let label = active ? 'Auto Start: On' : 'Auto Start: Off';
-    if (active && buyableWaveStart() && game.autoStartReadyAt > 0) {
-      const remainingMs = Math.max(0, game.autoStartDelayMs - (now() - game.autoStartReadyAt));
-      label = `Auto Start: ${Math.max(0, Math.ceil(remainingMs / 1000))}s`;
-    }
-    els.autoStartBtn.textContent = label;
-    els.autoStartBtn.classList.toggle('active', active);
-    els.autoStartBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    els.autoStartBtn.title = active
-      ? 'Auto Start is on. The next ready wave will begin after 15 seconds.'
-      : 'Auto Start is off.';
-  }
-
-  function armAutoStartCountdown(reset = false) {
-    if (!game.autoStartEnabled || !buyableWaveStart() || game.startingRelicPending) {
-      game.autoStartReadyAt = 0;
-      updateAutoStartButton();
-      return;
-    }
-    if (reset || !game.autoStartReadyAt) {
-      game.autoStartReadyAt = now();
-      game.autoStartToken = (game.autoStartToken || 0) + 1;
-    }
-    updateAutoStartButton();
-  }
-
-  function toggleAutoStart(forceValue = null) {
-    const nextValue = typeof forceValue === 'boolean' ? forceValue : !game.autoStartEnabled;
-    game.autoStartEnabled = !!nextValue;
-    if (game.autoStartEnabled) {
-      armAutoStartCountdown(true);
-      showBanner('Auto Start enabled', 1200);
-    } else {
-      game.autoStartReadyAt = 0;
-      game.autoStartToken = (game.autoStartToken || 0) + 1;
-      updateAutoStartButton();
-      showBanner('Auto Start disabled', 1200);
-    }
-    render();
-  }
-
-  function getMaxAffordableUpgradeCount(tower) {
-    if (!tower || isStatueTower(tower)) return 0;
-    const levelCap = getUpgradeLevelCap();
-    let simulatedGold = Number(game.jewel || 0);
-    let simulatedLevel = Number(tower.level || 1);
-    let count = 0;
-    while (simulatedLevel < levelCap) {
-      const nextLevel = simulatedLevel + 1;
-      const cost = getUpgradeCost(nextLevel, tower);
-      if (simulatedGold < cost) break;
-      simulatedGold -= cost;
-      simulatedLevel = nextLevel;
-      count += 1;
-      if (count > 200) break;
-    }
-    return count;
-  }
-
-  function upgradeTowerToCurrentCap(tower) {
-    if (!tower || !canUpgradeTower(tower)) return 0;
-    let upgrades = 0;
-    while (canUpgradeTower(tower)) {
-      const previousLevel = tower.level;
-      upgradeTower(tower);
-      if (tower.level === previousLevel) break;
-      upgrades += 1;
-      if (upgrades > 200) break;
-    }
-    if (upgrades > 1) {
-      showBanner(`${tower.name} leveled up ${upgrades} times.`, 1400);
-    }
-    return upgrades;
-  }
-
-  let mobileUpgradeHoldTimer = null;
-  let mobileUpgradeHoldTriggered = false;
-  let suppressNextUpgradeClick = false;
-
-  function clearMobileUpgradeHold() {
-    if (mobileUpgradeHoldTimer) {
-      clearTimeout(mobileUpgradeHoldTimer);
-      mobileUpgradeHoldTimer = null;
-    }
-  }
-
-  function bindMobileUpgradeHold(button) {
-    if (!button) return;
-    const startHold = (event) => {
-      if (!isMobilePointerUi()) return;
-      if (button.disabled) return;
-      if (event.pointerType && event.pointerType !== 'touch') return;
-      clearMobileUpgradeHold();
-      mobileUpgradeHoldTriggered = false;
-      mobileUpgradeHoldTimer = setTimeout(() => {
-        const tower = getSelectedTower();
-        if (!tower || !canUpgradeTower(tower)) return;
-        const possible = getMaxAffordableUpgradeCount(tower);
-        if (possible <= 1) return;
-        mobileUpgradeHoldTriggered = true;
-        suppressNextUpgradeClick = true;
-        upgradeTowerToCurrentCap(tower);
-      }, 450);
-    };
-    const endHold = () => {
-      clearMobileUpgradeHold();
-      if (mobileUpgradeHoldTriggered) {
-        setTimeout(() => { suppressNextUpgradeClick = false; }, 0);
-      }
-    };
-    button.addEventListener('pointerdown', startHold);
-    button.addEventListener('pointerup', endHold);
-    button.addEventListener('pointercancel', endHold);
-    button.addEventListener('pointerleave', endHold);
-  }
-
-  function updatePauseButton() {
-
-    if (!els.pauseBtn) return;
-    const active = !!game.paused;
-    els.pauseBtn.classList.toggle('active', active);
-    els.pauseBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    els.pauseBtn.textContent = active ? '⏸ Paused' : '⏸ Pause';
-    if (els.mobileFuncPauseBtn) els.mobileFuncPauseBtn.textContent = active ? 'Resume' : 'Pause';
-    els.pauseBtn.title = active ? 'Resume all activity' : 'Freeze all activity';
-  }
-
   function setPaused(enabled) {
     game.paused = !!enabled;
     updatePauseButton();
     if (game.paused) {
       showBanner('Game paused', 1200);
-      markProgress('Game paused.');
+      if (typeof markProgress === 'function') markProgress('Game paused.');
     } else {
       game.lastTick = now();
-      game.diagnostics.lastProgressAt = now();
+      if (game.diagnostics) game.diagnostics.lastProgressAt = now();
       showBanner('Game resumed', 1200);
-      markProgress('Game resumed.');
-    }
-  }
-
-  function getSatelliteWavesSurvived(tower) {
-    if (!tower || !tower.isSatellite || tower.type !== 'archer') return 0;
-    const summonedAtWave = Number.isFinite(tower.summonedAtWave) ? tower.summonedAtWave : Number(game.waveNumber || 0);
-    return Math.max(0, Number(game.waveNumber || 0) - summonedAtWave);
-  }
-
-  function getSatelliteVisualOpacity(tower) {
-    if (!tower || !tower.isSatellite || tower.type !== 'archer') return 1;
-    const wavesSurvived = getSatelliteWavesSurvived(tower);
-    if (wavesSurvived >= SATELLITE_FADE_STAGE_TWO_WAVES) return 0.5;
-    if (wavesSurvived >= SATELLITE_FADE_STAGE_ONE_WAVES) return 0.75;
-    return 1;
-  }
-
-  function removeTower(tower, reason = '') {
-    if (!tower) return;
-    if (tower.isSatellite && tower.type === 'archer') {
-      createExplosionEffect(tower.x, tower.y, 'archer', 0.75, 3000, GREEN_FIRE_GIF_PATH);
-      createTileFlashArea([{ x: tower.x, y: tower.y }], 'archer');
-    }
-    if (tower.isSoulSplit) {
-      createExplosionEffect(tower.x, tower.y, 'wizard', 0.68, 1800, PURPLE_FIRE_GIF_PATH);
-      createTileFlashArea([{ x: tower.x, y: tower.y }], 'wizard');
-    }
-    const tile = tileAt(tower.x, tower.y);
-    if (tile) tile.towerId = null;
-    game.towers = game.towers.filter(t => t.id !== tower.id);
-    if (game.selectedId === tower.id) game.selectedId = null;
-    if (reason) {
-      markProgress(reason);
-      log(reason);
-    }
-  }
-
-  function dissipateExpiredSatelliteArchers() {
-    const expiredSatellites = game.towers.filter(t => t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
-    for (const satellite of expiredSatellites) {
-      removeTower(satellite, `${satellite.name} dissipated after 9 cleared waves.`);
-    }
-    if (expiredSatellites.length) {
-      showBanner(`Assassin's Training: ${expiredSatellites.length} Archer Shadow${expiredSatellites.length === 1 ? '' : 's'} dissipated.`, 2600);
+      if (typeof markProgress === 'function') markProgress('Game resumed.');
     }
   }
 
   function render() {
-    updateTestGoldButtonState();
-    for (const tower of game.towers) { normalizeArcherStats(tower); normalizeTornSoulDamage(tower); }
+    for (const tower of game.towers || []) normalizeArcherStats(tower);
     renderGrid();
     renderSelection();
     renderHirePanel();
     renderRelics();
     updateTopbar();
-      updateMobileBoardFit();
-    updateMobileBarToggle();
-    updateMobileInstallPrompt();
-    renderMobileAbilityDock();
-    renderDamageReport();
+    if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
+    if (typeof updateMobileInstallPrompt === 'function') updateMobileInstallPrompt();
+    if (typeof renderMobileAbilityDock === 'function') renderMobileAbilityDock();
+  }
+
+
+  function applyTowerLevelStep(tower, nextLevel) {
+    tower.level = nextLevel;
+    if (tower.type === 'archer') {
+      normalizeArcherStats(tower, true);
+    } else if (tower.type === 'pirate') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
+      tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
+    } else if ((tower.type === 'wizard' || tower.type === 'wizard_satellite')) {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
+      tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
+    } else if (tower.type === 'warrior') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= WARRIOR_HP_GROWTH_PER_LEVEL;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= 1.05;
+      tower.basicCooldown /= 1.05;
+    } else {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= 1.05;
+      tower.basicCooldown /= 1.05;
+    }
+  }
+
+  function applyWalletHeroToTower(tower, heroData) {
+    if (!tower || !heroData) return;
+    tower.walletHeroId = String(heroData.id);
+    tower.walletHeroLevel = Math.max(1, Number(heroData.level || 1));
+    tower.customPortraitUrl = '';
+    tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Hero ${tower.walletHeroId}`;
+    const targetLevel = Math.max(1, Number(heroData.level || 1));
+    for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
+      applyTowerLevelStep(tower, nextLevel);
+    }
+  }
+
+  async function loadWalletHeroes(force = false) {
+    const address = getConnectedWalletAddress();
+    const rawProvider = getWalletRpcProvider();
+    if (!address || !rawProvider || !window.ethers) {
+      clearWalletHeroData();
+      return;
+    }
+    if (game.walletHeroLoadPending && !force) return;
+    game.walletHeroLoadPending = true;
+    game.walletHeroLoadError = '';
+    renderWalletHeroBonusPanel();
+    try {
+      const provider = new window.ethers.BrowserProvider(rawProvider);
+      const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
+      const balance = Number(await contract.balanceOf(address));
+      const limit = Math.min(balance, 60);
+      const ids = await Promise.all(Array.from({ length: limit }, (_, i) => contract.tokenOfOwnerByIndex(address, i)));
+      const heroes = await Promise.all(ids.map(async (heroId) => {
+        const core = await contract.getHeroV3(heroId);
+        const classId = Number(core.info.class);
+        const type = DFK_BASE_CLASS_TO_SLOT[classId];
+        if (!type) return null;
+        const level = Math.max(1, Number(core.state.level || 1));
+        const heroIdText = heroId.toString();
+        let imageUrl = '';
+        try {
+          const tokenUri = await contract.tokenURI(heroId);
+          imageUrl = await readHeroMetadataImage(tokenUri);
+        } catch (error) {}
+        imageUrl = normalizeHeroMediaUrl(imageUrl) || `https://heroes.defikingdoms.com/image/${heroIdText}`;
+        return {
+          id: heroIdText,
+          type,
+          classId,
+          level,
+          imageUrl,
+        };
+      }));
+      game.walletHeroRoster = heroes.filter(Boolean).sort((a, b) => {
+        if (a.type !== b.type) return DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
+        return b.level - a.level || Number(a.id) - Number(b.id);
+      });
+      const nextSelection = {};
+      for (const type of DFK_SLOT_ORDER) {
+        const available = game.walletHeroRoster.filter(hero => hero.type === type);
+        if (!available.length) continue;
+        const existingId = game.selectedWalletHeroes && game.selectedWalletHeroes[type];
+        nextSelection[type] = available.some(hero => String(hero.id) === String(existingId))
+          ? String(existingId)
+          : String(available[0].id);
+      }
+      game.selectedWalletHeroes = nextSelection;
+      if (balance > limit) {
+        game.walletHeroLoadError = `Loaded ${limit} of ${balance} heroes to keep the game responsive.`;
+      }
+    } catch (error) {
+      console.error('DFK hero load failed', error);
+      game.walletHeroRoster = [];
+      game.selectedWalletHeroes = {};
+      game.walletHeroLoadError = error && error.message ? `Hero chain read failed: ${error.message}` : 'Hero chain read failed.';
+    } finally {
+      game.walletHeroLoadPending = false;
+      renderWalletHeroBonusPanel();
+      renderHirePanel();
+    }
+  }
+
+  function renderWalletHeroBonusPanel() {
+    if (!els.walletHeroBonusSection || !els.walletHeroBonusStatus || !els.walletHeroBonusBody) return;
+    const address = getConnectedWalletAddress();
+    const hasWallet = !!address;
+    const hasEthers = !!window.ethers;
+    els.walletHeroBonusSection.classList.toggle('hidden', !hasWallet);
+    els.walletHeroBonusSection.setAttribute('aria-hidden', hasWallet ? 'false' : 'true');
+    if (!hasWallet) {
+      els.walletHeroBonusStatus.textContent = 'Connect a wallet on DFK Chain to load heroes.';
+      els.walletHeroBonusBody.innerHTML = '';
+      return;
+    }
+    if (!hasEthers) {
+      els.walletHeroBonusStatus.textContent = 'Hero loader unavailable.';
+      els.walletHeroBonusBody.innerHTML = '';
+      return;
+    }
+    if (game.walletHeroLoadPending) {
+      els.walletHeroBonusStatus.textContent = 'Loading wallet heroes from chain…';
+    } else if (game.walletHeroLoadError) {
+      els.walletHeroBonusStatus.textContent = game.walletHeroLoadError;
+    } else if (!(game.walletHeroRoster || []).length) {
+      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, or Pirate heroes found in this wallet.';
+    } else {
+      const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
+      els.walletHeroBonusStatus.textContent = `${selectedCount} wallet hero bonus${selectedCount === 1 ? '' : 'es'} armed. Selected heroes place for free and start at their onchain level.`;
+    }
+    els.walletHeroBonusBody.innerHTML = '';
+    for (const type of DFK_SLOT_ORDER) {
+      const items = (game.walletHeroRoster || []).filter(hero => hero.type === type);
+      const wrap = document.createElement('div');
+      wrap.className = 'wallet-hero-slot-group';
+
+      const headerBtn = document.createElement('button');
+      headerBtn.type = 'button';
+      headerBtn.className = 'wallet-hero-slot-toggle';
+      const expanded = !!(game.walletHeroExpandedTypes && game.walletHeroExpandedTypes[type]);
+      const selectedHero = getSelectedWalletHero(type);
+      const heroCount = items.length;
+      headerBtn.innerHTML = `
+        <span class="wallet-hero-slot-heading">${escapeHtml(TOWER_TEMPLATES[type].name)} NFTs</span>
+        <span class="wallet-hero-slot-summary">${heroCount ? `${heroCount} found${selectedHero ? ` • selected #${escapeHtml(String(selectedHero.id))} L${escapeHtml(String(selectedHero.level))}` : ''}` : 'None found'}</span>
+        <span class="wallet-hero-slot-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
+      `;
+      headerBtn.addEventListener('click', () => toggleWalletHeroType(type));
+      wrap.appendChild(headerBtn);
+
+      const panel = document.createElement('div');
+      panel.className = `wallet-hero-slot-panel${expanded ? ' is-open' : ''}`;
+
+      const searchWrap = document.createElement('div');
+      searchWrap.className = 'wallet-hero-search-wrap';
+      const search = document.createElement('input');
+      search.type = 'search';
+      search.className = 'wallet-hero-search-input';
+      search.placeholder = 'Enter Hero ID to find another';
+      search.value = (game.walletHeroSearch && game.walletHeroSearch[type]) ? String(game.walletHeroSearch[type]) : '';
+      search.addEventListener('click', (event) => event.stopPropagation());
+      search.addEventListener('input', (event) => setWalletHeroSearch(type, event.target.value));
+      searchWrap.appendChild(search);
+      panel.appendChild(searchWrap);
+
+      if (selectedHero) {
+        const selectedWrap = document.createElement('div');
+        selectedWrap.className = 'wallet-hero-selected-wrap';
+        selectedWrap.innerHTML = `
+          <div class="wallet-hero-selected-label">Selected ${escapeHtml(TOWER_TEMPLATES[type].name)} NFT</div>
+          <div class="wallet-hero-selected-card">
+            <img src="${escapeHtml(getWalletHeroImage(selectedHero))}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} selected hero" loading="lazy" />
+            <div class="wallet-hero-selected-meta">
+              <div class="wallet-hero-selected-title">Hero #${escapeHtml(String(selectedHero.id))}</div>
+              <div class="wallet-hero-selected-sub">Starts free at level ${escapeHtml(String(selectedHero.level))}</div>
+            </div>
+          </div>
+        `;
+        const selectedImg = selectedWrap.querySelector('img');
+        if (selectedImg) selectedImg.addEventListener('error', () => handleWalletHeroImageError(selectedImg, selectedHero), { once: false });
+        panel.appendChild(selectedWrap);
+      }
+
+      const list = document.createElement('div');
+      list.className = 'wallet-hero-card-list';
+
+      const searchTerm = ((game.walletHeroSearch && game.walletHeroSearch[type]) ? String(game.walletHeroSearch[type]) : '').trim();
+      let visibleItems = items.slice();
+      if (searchTerm) {
+        visibleItems = visibleItems
+          .filter(hero => String(hero.id).includes(searchTerm))
+          .sort((a, b) => {
+            const aId = String(a.id);
+            const bId = String(b.id);
+            const aExact = aId === searchTerm ? 1 : 0;
+            const bExact = bId === searchTerm ? 1 : 0;
+            if (aExact !== bExact) return bExact - aExact;
+            const aStarts = aId.startsWith(searchTerm) ? 1 : 0;
+            const bStarts = bId.startsWith(searchTerm) ? 1 : 0;
+            if (aStarts !== bStarts) return bStarts - aStarts;
+            return b.level - a.level || Number(a.id) - Number(b.id);
+          });
+      } else {
+        visibleItems = visibleItems.slice().sort((a, b) => b.level - a.level || Number(a.id) - Number(b.id)).slice(0, 5);
+      }
+
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'wallet-hero-empty';
+        empty.textContent = `No ${TOWER_TEMPLATES[type].name.toLowerCase()} NFT bonus available.`;
+        list.appendChild(empty);
+      } else if (!visibleItems.length) {
+        const empty = document.createElement('div');
+        empty.className = 'wallet-hero-empty';
+        empty.textContent = 'No heroes match that ID.';
+        list.appendChild(empty);
+      } else {
+        for (const hero of visibleItems) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `wallet-hero-card${String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id) ? ' is-selected' : ''}`;
+          const imageSrc = getWalletHeroImage(hero);
+          button.innerHTML = `
+            <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} hero ${escapeHtml(String(hero.id))}" loading="lazy" />
+            <span class="wallet-hero-card-meta">
+              <span class="wallet-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
+              <span class="wallet-hero-card-sub">Starts at level ${escapeHtml(String(hero.level))} for free</span>
+            </span>
+            <span class="wallet-hero-card-badge">${String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id) ? 'Selected' : 'Use'}</span>
+          `;
+          const img = button.querySelector('img');
+          if (img) img.addEventListener('error', () => handleWalletHeroImageError(img, hero), { once: false });
+          button.addEventListener('click', () => selectWalletHero(type, hero.id));
+          list.appendChild(button);
+        }
+      }
+      panel.appendChild(list);
+      wrap.appendChild(panel);
+      els.walletHeroBonusBody.appendChild(wrap);
+    }
   }
 
   function renderGrid() {
@@ -3161,11 +3400,24 @@ function renderDamageReport() {
           tile.el.appendChild(wavesLeftBadge);
         }
 
+        const defaultPortraitSrc = getDefaultHeroImageForType(tower.type);
+        if (defaultPortraitSrc) {
+          const portraitUnderlay = document.createElement('img');
+          portraitUnderlay.className = 'tile-hero-portrait tile-hero-portrait-underlay';
+          portraitUnderlay.alt = '';
+          portraitUnderlay.draggable = false;
+          portraitUnderlay.src = defaultPortraitSrc;
+          tile.el.appendChild(portraitUnderlay);
+        }
+
         const portrait = document.createElement('img');
         portrait.className = 'tile-hero-portrait';
         portrait.alt = tower.name;
         portrait.draggable = false;
-        portrait.src = HERO_TILE_IMAGES[tower.type] || '';
+        portrait.decoding = 'async';
+        portrait.loading = 'eager';
+        portrait.src = getWalletHeroFallbackSources(tower)[0] || defaultPortraitSrc || '';
+        portrait.addEventListener('error', () => handleWalletHeroImageError(portrait, tower), { once: false });
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
@@ -3644,6 +3896,33 @@ function renderDamageReport() {
     game.mobileOpenMenu = name;
   }
 
+  function bindMobileUpgradeHold(buttonEl) {
+    if (!buttonEl || buttonEl.dataset.holdBound === '1') return;
+    buttonEl.dataset.holdBound = '1';
+    let holdTimer = null;
+    let repeatTimer = null;
+    const clearTimers = () => {
+      if (holdTimer) clearTimeout(holdTimer);
+      if (repeatTimer) clearInterval(repeatTimer);
+      holdTimer = null;
+      repeatTimer = null;
+    };
+    const startHold = () => {
+      clearTimers();
+      holdTimer = setTimeout(() => {
+        repeatTimer = setInterval(() => {
+          if (!buttonEl.disabled) buttonEl.click();
+        }, 120);
+      }, 350);
+    };
+    buttonEl.addEventListener('pointerdown', startHold);
+    buttonEl.addEventListener('pointerup', clearTimers);
+    buttonEl.addEventListener('pointerleave', clearTimers);
+    buttonEl.addEventListener('pointercancel', clearTimers);
+    buttonEl.addEventListener('blur', clearTimers);
+  }
+
+
   function setPanelCollapsed(panelEl, toggleEl, collapsed) {
     if (!panelEl || !toggleEl) return;
     panelEl.classList.toggle('collapsed', !!collapsed);
@@ -4001,18 +4280,20 @@ function renderDamageReport() {
       card.className = 'card hire-button-card';
       const btn = document.createElement('button');
       const pendingThisType = game.placingHeroType === type;
-      const labelPrefix = usesBonus ? 'Hire Extra' : 'Hire';
+      const selectedWalletHero = !usesBonus ? getSelectedWalletHero(type) : null;
+      const effectiveCost = getWalletHeroPlacementCost(type, cost, usesBonus);
+      const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
       btn.textContent = forceDisabled
         ? `${t.name} Hired`
         : pendingThisType
           ? `Placing… ${formatJewel(game.placingHeroCost)} Gold`
-          : `${labelPrefix} ${t.name} (${formatJewel(cost)} Gold)`;
-      btn.disabled = forceDisabled || ((Number(game.jewel || 0) + 1e-9) < cost) || game.phase === SETUP_PHASES.GAME_OVER;
+          : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''} (${formatJewel(effectiveCost)} Gold)`;
+      btn.disabled = forceDisabled || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
       if (!forceDisabled) {
         btn.addEventListener('click', () => {
           if (game.phase === SETUP_PHASES.GAME_OVER) return;
-          if ((Number(game.jewel || 0) + 1e-9) < cost) {
-            showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
+          if ((Number(game.jewel || 0) + 1e-9) < effectiveCost) {
+            showBanner(`Not enough Gold. Need ${formatJewel(effectiveCost)}.`, 1400);
             return;
           }
           if (pendingThisType) {
@@ -4020,14 +4301,16 @@ function renderDamageReport() {
             game.placingHeroCost = 0;
             game.placingHeroUsesBonus = false;
             game.placingSatelliteSourceId = null;
+            game.placingWalletHeroId = null;
             showBanner(`Cancelled ${t.name} placement`, 1000);
             render();
             return;
           }
           game.placingHeroType = type;
-          game.placingHeroCost = cost;
+          game.placingHeroCost = effectiveCost;
           game.placingHeroUsesBonus = !!usesBonus;
           game.placingSatelliteSourceId = null;
+          game.placingWalletHeroId = selectedWalletHero ? String(selectedWalletHero.id) : null;
           log(`Select a tile to place ${usesBonus ? 'an extra ' : ''}${t.name}. You can place hires during active rounds too.`);
           showBanner(game.runningWave ? `Place ${t.name} during the wave on any open tile` : `Place ${t.name} on any open tile`, 1400);
           render();
@@ -4274,6 +4557,8 @@ function renderDamageReport() {
   function placeStartingWarrior(x, y) {
     if (!isOpenForTower(x, y)) return false;
     const warrior = createTower('warrior', x, y);
+    const selectedWarriorHero = getSelectedWalletHero('warrior');
+    if (selectedWarriorHero) applyWalletHeroToTower(warrior, selectedWarriorHero);
     game.towers.push(warrior);
     tileAt(x, y).towerId = warrior.id;
     if (!placementKeepsEnemiesReachable(warrior)) {
@@ -4550,34 +4835,7 @@ function renderDamageReport() {
     }
     if (game.jewel < cost) return;
     game.jewel -= cost;
-    tower.level = nextLevel;
-    if (tower.type === 'archer') {
-      normalizeArcherStats(tower, true);
-    } else if (tower.type === 'pirate') {
-      const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
-      tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
-      tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
-    } else if ((tower.type === 'wizard' || tower.type === 'wizard_satellite')) {
-      const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
-      tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
-      tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
-    } else if (tower.type === 'warrior') {
-      const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= WARRIOR_HP_GROWTH_PER_LEVEL;
-      tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= 1.05;
-      tower.basicCooldown /= 1.05;
-    } else {
-      const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
-      tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= 1.05;
-      tower.basicCooldown /= 1.05;
-    }
+    applyTowerLevelStep(tower, nextLevel);
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
     if (tower.isSoulSplit && tower.level === 40) {
       showBanner('Archon awakened.', 2200);
@@ -4586,6 +4844,82 @@ function renderDamageReport() {
     updateQuestMetric('upgrades', 1);
     render();
   }
+
+  function getPirateCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    return Math.max(1, 1 + ((safeLevel - 1) * ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL));
+  }
+
+  function getWizardCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    return Math.max(1, 1 + ((safeLevel - 1) * ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL));
+  }
+
+  function getSatelliteWavesSurvived(tower) {
+    if (!tower || !tower.isSatellite) return 0;
+    const summonedAtWave = Math.max(0, Number(tower.summonedAtWave || 0));
+    return Math.max(0, Number(game.waveNumber || 0) - summonedAtWave);
+  }
+
+  function getSatelliteVisualOpacity(tower) {
+    if (!tower || !tower.isSatellite || tower.type !== 'archer') return 1;
+    const survived = getSatelliteWavesSurvived(tower);
+    if (survived >= SATELLITE_DISSIPATE_AFTER_WAVES) return 0;
+    if (survived >= 7) return 0.5;
+    if (survived >= 3) return 0.75;
+    return 1;
+  }
+
+  function getMaxAffordableUpgradeCount(tower) {
+    if (!tower) return 0;
+    let gold = Number(game.jewel || 0);
+    let level = Number(tower.level || 1);
+    let count = 0;
+    const cap = getUpgradeLevelCap();
+    while (level < cap) {
+      const probe = { ...tower, level };
+      const cost = Number(getUpgradeCost(level + 1, probe) || 0);
+      if (!Number.isFinite(cost) || cost <= 0 || gold < cost) break;
+      gold -= cost;
+      level += 1;
+      count += 1;
+    }
+    return count;
+  }
+
+  function upgradeTowerToCurrentCap(tower) {
+    if (!tower) return 0;
+    let upgrades = 0;
+    while ((tower.level || 1) < getUpgradeLevelCap()) {
+      const cost = getUpgradeCost((tower.level || 1) + 1, tower);
+      if (game.jewel < cost) break;
+      upgradeTower(tower);
+      upgrades += 1;
+    }
+    return upgrades;
+  }
+
+  function removeTower(tower, message = '') {
+    if (!tower) return false;
+    const tile = tileAt(tower.x, tower.y);
+    if (tile && tile.towerId === tower.id) tile.towerId = null;
+    game.towers = (game.towers || []).filter(t => t.id !== tower.id);
+    if (game.selectedId === tower.id) game.selectedId = null;
+    if (message) log(message);
+    return true;
+  }
+
+  function dissipateExpiredSatelliteArchers() {
+    const expired = (game.towers || []).filter(t => t && t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
+    for (const tower of expired) {
+      const { x, y } = tower;
+      removeTower(tower, `${tower.name} dissipated.`);
+      if (typeof spawnFloatingText === 'function') spawnFloatingText(x, y, 'DISSIPATED', '#9bf6a0');
+      if (typeof spawnAbilityEffect === 'function') spawnAbilityEffect('greenFire', x, y);
+    }
+    return expired.length;
+  }
+
 
   function getSelectedTower() {
     return game.towers.find(t => t.id === game.selectedId) || null;
@@ -4706,7 +5040,11 @@ function renderDamageReport() {
 
     const typeToPlace = game.placingHeroType;
     const usesBonusHire = !!game.placingHeroUsesBonus;
-    const cost = isSatellitePlacement ? 0 : (Number.isFinite(game.placingHeroCost) && game.placingHeroCost > 0 ? game.placingHeroCost : getNextHireCost(false));
+    const cost = isSatellitePlacement
+      ? 0
+      : (game.placingHeroCost === 0
+        ? 0
+        : (Number.isFinite(game.placingHeroCost) ? Number(game.placingHeroCost) : getNextHireCost(false)));
 
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
@@ -4715,6 +5053,7 @@ function renderDamageReport() {
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
         game.placingSatelliteSourceId = null;
+        game.placingWalletHeroId = null;
         render();
         return;
       }
@@ -4724,6 +5063,7 @@ function renderDamageReport() {
         game.placingHeroCost = 0;
         game.placingHeroUsesBonus = false;
         game.placingSatelliteSourceId = null;
+        game.placingWalletHeroId = null;
         render();
         return;
       }
@@ -4733,6 +5073,7 @@ function renderDamageReport() {
       game.placingHeroCost = 0;
       game.placingHeroUsesBonus = false;
       game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
       render();
       return;
     }
@@ -4743,6 +5084,10 @@ function renderDamageReport() {
     }
 
     const tower = createTower(typeToPlace, x, y);
+    if (!isSatellitePlacement && game.placingWalletHeroId) {
+      const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
+      if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
+    }
     if (isSatellitePlacement) {
       tower.level = 1;
       tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
@@ -4798,7 +5143,9 @@ function renderDamageReport() {
       updateQuestMetric('goldSpent', cost);
       updateQuestMetric('heroesPlaced', 1);
       if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
-      log(`Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
+      game.placingWalletHeroId = null;
+      const placementVerb = (!usesBonusHire && tower.walletHeroId && cost <= 0) ? 'Placed NFT' : `Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name}`;
+      log(`${placementVerb} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
     }
@@ -7637,6 +7984,55 @@ function renderDamageReport() {
     return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length;
   }
 
+  function updateAutoStartButton() {
+    if (!els.autoStartBtn) return;
+    const enabled = !!game.autoStartEnabled;
+    const armed = enabled && !game.runningWave && game.autoStartReadyAt > 0 && buyableWaveStart() && !game.startingRelicPending;
+    let label = `Auto Start: ${enabled ? 'On' : 'Off'}`;
+    if (armed) {
+      const remainingMs = Math.max(0, game.autoStartDelayMs - (now() - game.autoStartReadyAt));
+      label += ` (${Math.ceil(remainingMs / 1000)}s)`;
+    }
+    els.autoStartBtn.textContent = label;
+    els.autoStartBtn.classList.toggle('active', enabled);
+    els.autoStartBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    els.autoStartBtn.disabled = !!game.startingRelicPending;
+    els.autoStartBtn.title = enabled
+      ? 'Automatically starts the next ready wave after the delay.'
+      : 'Enable automatic wave starts during preparation phases.';
+  }
+
+  function armAutoStartCountdown(force = false) {
+    if (!game.autoStartEnabled) {
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      return false;
+    }
+    if (!buyableWaveStart() || game.startingRelicPending) {
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      return false;
+    }
+    if (force || game.autoStartReadyAt <= 0) {
+      game.autoStartReadyAt = now();
+      game.autoStartToken = (game.autoStartToken || 0) + 1;
+    }
+    updateAutoStartButton();
+    return true;
+  }
+
+  function toggleAutoStart() {
+    game.autoStartEnabled = !game.autoStartEnabled;
+    if (!game.autoStartEnabled) {
+      game.autoStartReadyAt = 0;
+      game.autoStartToken = (game.autoStartToken || 0) + 1;
+    } else {
+      armAutoStartCountdown(true);
+    }
+    updateAutoStartButton();
+    render();
+  }
+
   const damageReportStyle = document.createElement('style');
   damageReportStyle.textContent = `
     .live-damage-report { margin: 10px 0 0; padding: 10px 12px; border: 1px solid rgba(235, 220, 180, 0.18); border-radius: 12px; background: rgba(12, 18, 30, 0.94); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
@@ -7688,16 +8084,21 @@ function renderDamageReport() {
     updateTestGoldButtonState();
     renderDamageReport();
     if (!detail || !detail.address) {
+      clearWalletHeroData();
       if (hasTrackableRunInProgress() && isRunTrackingEnabled()) {
         submitCompletedRunOnce('disconnected');
       } else {
         captureTrackedRunNow('disconnected');
       }
+    } else {
+      loadWalletHeroes(true).catch((error) => { console.error(error); });
     }
   });
 
   els.restartBtn.addEventListener('click', resetGame);
   els.addGoldBtn?.addEventListener('click', grantTestGold);
+  els.refreshWalletHeroesBtn?.addEventListener('click', () => { loadWalletHeroes(true).catch((error) => { console.error(error); }); });
+  renderWalletHeroBonusPanel();
   window.addEventListener('dfk-defense:bank-balance', (event) => {
     syncPremiumJewelsFromSettledBank(event.detail || null);
   });
@@ -8013,28 +8414,6 @@ function renderDamageReport() {
 })();
 
 
-// === Disable Jewel Bank & Player Profile (coming soon) ===
-function disableFutureMenus() {
-  const ids = ['mobileBankHost','mobileProfileHost','mobileBankBtn','mobileProfileBtn'];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        return false;
-      });
-    }
-  });
-}
-disableFutureMenus();
-
-
-
-
-
-
-
 (function rebindRunLogChevron() {
   function bind() {
     const btn = document.getElementById('runLogToggleBtn');
@@ -8045,4 +8424,42 @@ disableFutureMenus();
   } else {
     bind();
   }
+})();
+
+setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {} }, 500);
+
+
+
+
+(function wirePlayIntroAgainButton() {
+  function hook() {
+    const btn = document.getElementById('playIntroAgainBtn');
+    if (!btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => {
+      try {
+        if (typeof playStorySequence === 'function') {
+          playStorySequence();
+          return;
+        }
+      } catch (error) {}
+      try {
+        if (typeof openIntroModal === 'function') {
+          openIntroModal();
+          return;
+        }
+      } catch (error) {}
+      try {
+        if (typeof renderIntroPage === 'function') {
+          renderIntroPage();
+        }
+      } catch (error) {}
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hook);
+  } else {
+    hook();
+  }
+  setTimeout(hook, 250);
 })();
