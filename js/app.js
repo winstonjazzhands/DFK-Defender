@@ -1,5 +1,5 @@
-// build: v46.9.1.53
-// build: v46.9.1.53
+// build: v46.9.1.57
+// build: v46.9.1.57
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -49,14 +49,10 @@ function setBoardDim(active) {
 
 
 const STORY_SCREENS = [
-  { text: "\"Defend the portal, they’re coming!\" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months.", duration: 10000 },
-  { text: "We never should have trusted the Dark Summoner. At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we should have questioned. He spoke like an ally, like someone trying to save Crystalvale from something worse.", duration: 10000 },
-  { text: "He said \"Your sacrifice could stop the void forever\" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss fed his ritual—the Dark Summoner had betrayed us from the start.", duration: 10000 },
-  { text: "We weren’t delaying the darkness, we were feeding it", duration: 10000 },
-  { text: "Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.", duration: 10000 },
-  { text: "This was always the plan, and we walked straight into it. If the portal falls and his ritual is complete, we won’t have the strength to stop whatever he brings through from the void.", duration: 10000 },
-  { text: "You have one chance to hold the line. Choose your team of five heroes. Fight smarter than we did. Make every wave cost him and you might survive long enough for help to arrive.", duration: 10000 },
-  { text: "DFK DEFENDER", duration: 999999, noAnim: true }
+  { text: '"Defend the portal, they’re coming!" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months. We never should have trusted the Dark Summoner. He said "Your sacrifice could stop the void forever" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss strengthened his ritual—the Dark Summoner had betrayed us from the start.', duration: 15000 },
+  { text: 'We weren’t fighting the darkness, we were feeding it', duration: 5000 },
+  { text: 'Now the truth is clear. He’s bending dark magic directly against Crystalvale—warping creatures and sending wave after wave to break the portal. If he completes his ritual we won’t have the strength to stop whatever he brings through from the void. You have a chance to hold the line. Choose your best five heroes. Make every wave cost him and you might survive long enough for help to arrive.', duration: 15000 },
+  { text: 'DFK DEFENDER', duration: 999999, noAnim: true }
 ];
 
 
@@ -878,6 +874,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     walletHeroBonusStatus: document.getElementById('walletHeroBonusStatus'),
     walletHeroBonusBody: document.getElementById('walletHeroBonusBody'),
     refreshWalletHeroesBtn: document.getElementById('refreshWalletHeroesBtn'),
+    walletHeroBonusToggle: document.getElementById('walletHeroBonusToggle'),
+    walletHeroBonusPanelBody: document.getElementById('walletHeroBonusPanelBody'),
+    walletHeroBonusSummary: document.getElementById('walletHeroBonusSummary'),
   };
 
   const game = {
@@ -903,6 +902,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     walletHeroSearch: {},
     walletHeroLoadPending: false,
     walletHeroLoadError: '',
+    walletHeroPanelCollapsed: true,
     placingWalletHeroId: null,
     lastTick: 0,
     realLastTick: 0,
@@ -1443,11 +1443,12 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const buckets = new Map();
     for (const tower of game.towers) {
       const key = tower.type || 'unknown';
-      if (!buckets.has(key)) buckets.set(key, { type: key, count: 0, highestLevel: 0, satellites: 0 });
+      if (!buckets.has(key)) buckets.set(key, { type: key, count: 0, highestLevel: 0, satellites: 0, walletHeroCount: 0, usedWalletHero: false });
       const row = buckets.get(key);
       row.count += 1;
       row.highestLevel = Math.max(row.highestLevel, Number(tower.level || 1));
       if (tower.isSatellite) row.satellites += 1;
+      if (tower.walletHeroId) { row.walletHeroCount += 1; row.usedWalletHero = true; }
     }
     return Array.from(buckets.values()).sort((a, b) => a.type.localeCompare(b.type));
   }
@@ -1457,7 +1458,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.56',
+      gameVersion: 'V46.9.1.60',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1474,6 +1475,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         barrierRefits: Number(game.barrierRefitCount || 0),
         hireCount: Number(game.hireCount || 0),
         crashed: Boolean(game.crashed),
+        usedWalletHeroes: game.towers.some(t => !!t.walletHeroId),
+        usedWalletHeroCount: game.towers.filter(t => !!t.walletHeroId).length,
       },
     };
   }
@@ -1734,13 +1737,24 @@ function renderDamageReport() {
     showBanner(`+${TEST_GOLD_GRANT_AMOUNT.toLocaleString()} gold added for testing`, 2000);
   }
 
+  function runTrackerCallSafely(fn, fallback = null) {
+    try {
+      return fn();
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Unknown run-tracker error';
+      log(`Run tracking warning: ${message}.`);
+      showBanner('Run saved locally and will retry upload later.', 2200);
+      return fallback;
+    }
+  }
+
   function captureTrackedRunNow(result = 'abandoned') {
     if (!hasTrackableRunInProgress() || !isRunTrackingEnabled()) return false;
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     const payload = buildCompletedRunPayload(result);
     if (window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRunKeepalive === 'function') {
-      const queued = window.DFKRunTracker.submitCompletedRunKeepalive(payload);
+      const queued = runTrackerCallSafely(() => window.DFKRunTracker.submitCompletedRunKeepalive(payload), false);
       if (!queued) game.runTracking.submitted = false;
       return queued;
     }
@@ -1762,8 +1776,18 @@ function renderDamageReport() {
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     try {
-      await window.DFKRunTracker.submitCompletedRun(buildCompletedRunPayload(result));
-      log(`Run tracked at wave ${game.waveNumber}.`);
+      const response = await runTrackerCallSafely(
+        () => window.DFKRunTracker.submitCompletedRun(buildCompletedRunPayload(result)),
+        { ok: false, queued: true, error: 'Run tracker call failed.' }
+      );
+      if (response && response.ok) {
+        log(`Run tracked at wave ${game.waveNumber}.`);
+      } else if (response && response.queued) {
+        log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
+      } else {
+        game.runTracking.submitted = false;
+        log(`Run tracking failed: ${response && response.error ? response.error : 'Unknown error'}.`);
+      }
     } catch (error) {
       game.runTracking.submitted = false;
       log(`Run tracking failed: ${error && error.message ? error.message : 'Unknown error'}.`);
@@ -2989,6 +3013,19 @@ function renderDamageReport() {
     renderWalletHeroBonusPanel();
   }
 
+  function setWalletHeroPanelCollapsed(collapsed) {
+    game.walletHeroPanelCollapsed = !!collapsed;
+    if (els.walletHeroBonusSection) els.walletHeroBonusSection.classList.toggle('collapsed', !!collapsed);
+    if (els.walletHeroBonusToggle) els.walletHeroBonusToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    if (els.walletHeroBonusSummary) {
+      const rosterCount = Array.isArray(game.walletHeroRoster) ? game.walletHeroRoster.length : 0;
+      const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
+      els.walletHeroBonusSummary.textContent = collapsed
+        ? (selectedCount ? `${selectedCount} selected • ${rosterCount} loaded` : (rosterCount ? `${rosterCount} loaded` : 'Closed'))
+        : (selectedCount ? `${selectedCount} selected` : 'Open');
+    }
+  }
+
   function getSelectedWalletHero(type) {
     const selectedId = game.selectedWalletHeroes ? game.selectedWalletHeroes[type] : null;
     if (!selectedId) return null;
@@ -3002,6 +3039,7 @@ function renderDamageReport() {
     game.walletHeroSearch = {};
     game.walletHeroLoadPending = false;
     game.walletHeroLoadError = '';
+    game.walletHeroPanelCollapsed = true;
     game.placingWalletHeroId = null;
     renderWalletHeroBonusPanel();
     renderHirePanel();
@@ -3197,6 +3235,7 @@ function renderDamageReport() {
     renderHirePanel();
     renderRelics();
     updateTopbar();
+    renderDamageReport();
     if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
     if (typeof updateMobileInstallPrompt === 'function') updateMobileInstallPrompt();
     if (typeof renderMobileAbilityDock === 'function') renderMobileAbilityDock();
@@ -3315,6 +3354,7 @@ function renderDamageReport() {
 
   function renderWalletHeroBonusPanel() {
     if (!els.walletHeroBonusSection || !els.walletHeroBonusStatus || !els.walletHeroBonusBody) return;
+    setWalletHeroPanelCollapsed(game.walletHeroPanelCollapsed !== false);
     const address = getConnectedWalletAddress();
     const hasWallet = !!address;
     const hasEthers = !!window.ethers;
@@ -6188,10 +6228,13 @@ function renderDamageReport() {
     game.diagnostics.softLockTriggered = false;
     game.continueOfferPending = false;
     game.continueOfferUsed = true;
+    game.autoStartReadyAt = 0;
+    game.autoStartToken = (game.autoStartToken || 0) + 1;
     closeContinueOfferModal();
     setInstruction(`Wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} is getting a second shot. Bonus: +${extraGold} gold.`);
     log(`Continue used: replaying wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} with +${extraGold} gold.`);
     render();
+    updateAutoStartButton();
     startWave();
     return true;
   }
@@ -8195,7 +8238,15 @@ function renderDamageReport() {
 
   els.restartBtn.addEventListener('click', resetGame);
   els.addGoldBtn?.addEventListener('click', grantTestGold);
+
+  window.addEventListener('dfk:tracked-runs-refresh-requested', () => {
+    refreshBountyBoard().catch(() => {});
+  });
+
   els.refreshWalletHeroesBtn?.addEventListener('click', () => { loadWalletHeroes(true).catch((error) => { console.error(error); }); });
+  els.walletHeroBonusToggle?.addEventListener('click', () => {
+    setWalletHeroPanelCollapsed(!(game.walletHeroPanelCollapsed !== false));
+  });
   renderWalletHeroBonusPanel();
   window.addEventListener('dfk-defense:bank-balance', (event) => {
     syncPremiumJewelsFromSettledBank(event.detail || null);

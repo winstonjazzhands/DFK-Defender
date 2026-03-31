@@ -5674,16 +5674,16 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 }
 
 
-/* v46.9.1.22: restore normal desktop width for the right panel and cut its height roughly in half */
+/* v46.9.1.60: keep the selected info box height fixed, but give the desktop info panel 50% more vertical room so all action buttons stay visible */
 @media (min-width: 1025px) {
   :root {
     --desktop-right-panel: 270px;
   }
 
   .right-panel {
-    min-height: 360px;
-    height: 360px;
-    max-height: 360px;
+    min-height: 540px;
+    height: 540px;
+    max-height: 540px;
   }
 
   .selected-info {
@@ -6108,4 +6108,21 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     0 0 22px rgba(255, 245, 214, 0.16),
     0 2px 0 rgba(0, 0, 0, 0.65),
     0 0 30px rgba(0, 0, 0, 0.28);
+}
+
+
+.wallet-hero-panel .wallet-hero-panel-body{display:block;}
+.wallet-hero-panel.collapsed .wallet-hero-panel-body{display:none;}
+.wallet-hero-panel-toggle{width:100%;}
+.wallet-hero-panel-summary{font-size:0.72rem; opacity:0.82; margin-left:auto; margin-right:10px;}
+.wallet-hero-panel-body{padding-top:8px;}
+.wallet-hero-bonus-header{justify-content:flex-end;}
+.leaderboard-nft-cell{font-weight:700; text-align:center;}
+.leaderboard-nft-cell.is-yes{color:#8fe0a2;}
+.leaderboard-nft-cell.is-no{color:#d9c4a1; opacity:0.92;}
+.leaderboard-table th:nth-child(6),
+.leaderboard-table td:nth-child(6){
+  width: 86px;
+  text-align:center;
+  white-space:nowrap;
 }

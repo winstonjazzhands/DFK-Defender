@@ -2,7 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token, cache-control',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const auth = req.headers.get('Authorization') || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    const sessionHeader = req.headers.get('x-session-token') || '';
+    const token = String(sessionHeader).trim() || (auth.startsWith('Bearer ') ? auth.slice(7).trim() : '');
     if (!token) return json({ error: 'Missing authorization header.' }, 401);
 
     const admin = createAdmin();

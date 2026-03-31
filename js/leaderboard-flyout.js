@@ -61,7 +61,7 @@
 
   function normalizeRow(row) {
     var playerName = row.vanity_name || row.player_name || row.display_name || row.name || row.username || 'Unknown Player';
-    var wallet = row.wallet || row.wallet_address || row.address || row.player_wallet || '';
+    var wallet = row.wallet || row.wallet_address || row.wallet_addr || row.address || row.player_wallet || '';
     var score = row.score;
     if (score == null && row.total_waves_cleared != null) score = row.total_waves_cleared;
     if (score == null && row.points != null) score = row.points;
@@ -71,7 +71,8 @@
       wallet: wallet,
       score: score == null ? '—' : score,
       best_wave: row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0),
-      runs: row.runs != null ? row.runs : (row.total_runs != null ? row.total_runs : 0)
+      runs: row.runs != null ? row.runs : (row.total_runs != null ? row.total_runs : 0),
+      used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts)
     };
   }
 
@@ -82,8 +83,12 @@
     }
 
     var attempts = [
-      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared' },
       { endpoint: 'public_run_leaderboard', select: '*' },
+      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared,used_wallet_heroes,last_run_at' },
+      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
+      { endpoint: 'players', select: 'wallet_address,display_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
+      { endpoint: 'players', select: 'wallet_address,vanity_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
+      { endpoint: 'players', select: 'wallet_address,best_wave,total_runs,total_waves_cleared,last_run_at' },
       { endpoint: 'leaderboard', select: 'player_name,wallet,score,best_wave,runs' }
     ];
 
@@ -124,18 +129,20 @@
     var items = rows.slice().sort(SORTS[sortKey] || SORTS.best_wave);
     syncFlyoutSizing(items);
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (row, index) {
       var fullName = escapeHtml(row.player_name);
       var shownName = escapeHtml(truncateName(row.player_name));
+      var nftUsed = !!row.used_wallet_heroes;
       return '<tr>' +
         '<td class="leaderboard-rank">' + (index + 1) + '</td>' +
         '<td class="leaderboard-name-cell" title="' + fullName + '">' + shownName + '</td>' +
         '<td class="leaderboard-wallet-cell" title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
         '<td class="leaderboard-wave-cell">' + escapeHtml(String(row.best_wave)) + '</td>' +
         '<td class="leaderboard-runs-cell">' + escapeHtml(String(row.runs)) + '</td>' +
+        '<td class="leaderboard-nft-cell ' + (nftUsed ? 'is-yes' : 'is-no') + '">' + (nftUsed ? 'Yes' : 'No') + '</td>' +
       '</tr>';
     }).join('');
   }

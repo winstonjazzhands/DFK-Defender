@@ -54,13 +54,21 @@
           <button id="enableTrackingBtn" class="wallet-btn secondary tracking-btn" type="button">Enable Run Tracking</button>
           <button id="addGoldBtn" class="wallet-btn secondary tracking-btn hidden" type="button" title="Authorized test button">Add 10000 Gold</button>
 
-          <div id="walletHeroBonusSection" class="wallet-hero-bonus-section hidden" aria-hidden="true">
-            <div class="wallet-hero-bonus-header">
-              <div class="wallet-hero-bonus-title">Wallet Heroes</div>
-              <button id="refreshWalletHeroesBtn" class="wallet-btn secondary wallet-hero-refresh-btn" type="button">Refresh NFTs</button>
+          <div id="walletHeroBonusSection" class="wallet-hero-bonus-section wallet-hero-panel collapsed hidden" aria-hidden="true">
+            <button id="walletHeroBonusToggle" class="wallet-panel-toggle wallet-hero-panel-toggle" type="button" aria-expanded="false" aria-controls="walletHeroBonusPanelBody">
+              <span class="wallet-panel-title-row">
+                <span class="wallet-hero-bonus-title">Wallet Heroes</span>
+                <span id="walletHeroBonusSummary" class="wallet-hero-panel-summary">Closed</span>
+              </span>
+              <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div id="walletHeroBonusPanelBody" class="wallet-panel-body wallet-hero-panel-body">
+              <div class="wallet-hero-bonus-header">
+                <button id="refreshWalletHeroesBtn" class="wallet-btn secondary wallet-hero-refresh-btn" type="button">Refresh NFTs</button>
+              </div>
+              <div id="walletHeroBonusStatus" class="wallet-tracking-summary">Connect a wallet on DFK Chain to load heroes.</div>
+              <div id="walletHeroBonusBody" class="wallet-hero-bonus-body"></div>
             </div>
-            <div id="walletHeroBonusStatus" class="wallet-tracking-summary">Connect a wallet on DFK Chain to load heroes.</div>
-            <div id="walletHeroBonusBody" class="wallet-hero-bonus-body"></div>
           </div>
 
           </div>
@@ -367,10 +375,11 @@
               <th>Wallet</th>
               <th>Best Wave</th>
               <th>Runs</th>
+              <th>Own NFTs</th>
             </tr>
           </thead>
           <tbody id="leaderboardTableBody">
-            <tr><td colspan="5" class="leaderboard-empty">Loading…</td></tr>
+            <tr><td colspan="6" class="leaderboard-empty">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -380,7 +389,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
-  <script src="js/security-wallet.js?v=46.9.1.53"></script>
+  <script src="js/security-wallet.js?v=46.9.1.57"></script>
   <script src="js/run-tracker.js"></script>
   <script src="js/leaderboard-flyout.js"></script>
   <script>
@@ -422,8 +431,8 @@
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-  <script src="js/app.js?v=46.9.1.53"></script>
-  <script src="js/layout-fixes.js?v=46.9.1.53"></script>
+  <script src="js/app.js?v=46.9.1.57"></script>
+  <script src="js/layout-fixes.js?v=46.9.1.57"></script>
   <script>
     (function () {
       function applyInfoPanelState(collapsed) {

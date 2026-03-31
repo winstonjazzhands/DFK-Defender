@@ -55,6 +55,8 @@ create table if not exists public.runs (
   constraint runs_wallet_lowercase check (wallet_address = lower(wallet_address))
 );
 
+alter table public.players add column if not exists used_wallet_heroes boolean not null default false;
+
 create index if not exists idx_runs_wallet_completed_at on public.runs (wallet_address, completed_at desc);
 create index if not exists idx_runs_best_wave on public.runs (wave_reached desc, completed_at desc);
 create index if not exists idx_wallet_sessions_wallet on public.wallet_sessions (wallet_address, expires_at desc);
@@ -132,6 +134,7 @@ select
   wallet_address,
   vanity_name,
   coalesce(vanity_name, display_name, wallet_address) as display_name,
+  used_wallet_heroes,
   best_wave,
   total_runs,
   total_waves_cleared,

@@ -97,6 +97,7 @@
         headers: {
           'Content-Type': 'application/json',
           apikey: CONFIG.supabaseAnonKey,
+          Authorization: `Bearer ${CONFIG.supabaseAnonKey}`,
         },
         body: JSON.stringify({ address }),
       });
@@ -161,7 +162,7 @@
   async function fetchProfileNameFromChain(address) {
     const rpcName = await resolveProfileNameViaRpc(address);
     if (rpcName) return rpcName;
-    return resolveProfileNameViaFunction(address);
+    return null;
   }
 
   async function fetchProfileName(address) {

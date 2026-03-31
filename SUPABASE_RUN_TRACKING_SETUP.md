@@ -36,3 +36,8 @@ A helper script is included in this zip:
 - Added `revoke-run-session` so disabling run tracking revokes the active server-side session, not just the local browser token.
 - Redeploy this function too:
   - `npx supabase functions deploy revoke-run-session --no-verify-jwt`
+
+
+## Important after queue/backend fixes
+
+After changing `supabase/functions/submit-run/index.ts`, redeploy the `submit-run` Edge Function or the live endpoint will keep using the old code.
