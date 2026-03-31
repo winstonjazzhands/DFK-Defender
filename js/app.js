@@ -1,3 +1,18 @@
+// build: v46.9.1.53
+// build: v46.9.1.53
+
+function injectPlayButton(textEl) {
+  if (document.getElementById('introPlayBtn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'introPlayBtn';
+  btn.textContent = 'Defend the Portal';
+  btn.style.marginTop = '20px';
+  btn.onclick = () => {
+    if (typeof finishStory === 'function') finishStory();
+  };
+  textEl.appendChild(btn);
+}
+
 let hasClearedIntroTutorialGate = true;
 
 function forceMuteButtonBelowText() {}
@@ -32,14 +47,41 @@ function setBoardDim(active) {
 }
 
 
+
 const STORY_SCREENS = [
-  { text: "\"Defend the portal, they're coming!\" the Druid screamed ...as the cultists charged from voids hidden in the forest, the Dark Summoner was never supposed to be trusted, and yet… we did.", duration: 7500 },
-  { text: "At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we didn’t question. He spoke like an ally, like someone trying to save Crystalvale from something worse.", duration: 9500 },
-  { text: "The Dark Summoner was never supposed to be trusted. By sacrificing heroes we delayed the void, but every hero we gave only made him stronger and our defenses weaker. Every loss fed his ritual—the Summoner had betrayed us from the start.", duration: 7500 },
-  { text: "We weren't fighting the darkness,|we were feeding it", duration: 4505.5 },
-  { text: "Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.", duration: 11250 },
-  { text: "This was always the plan, and we walked straight into it. If the portal falls, the summoning completes... we won't have the strength to stop whatever he's bringing through.", duration: 8000 },
-  { text: "You have one chance to hold the line. Use your team of five heroes. Fight smarter than we did. Make every wave cost him. Because this time… he's not pretending to help, he's finishing what we foolishly started.", duration: 9000 }];
+  { text: "\"Defend the portal, they’re coming!\" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months.", duration: 10000 },
+  { text: "We never should have trusted the Dark Summoner. At first, it was small things. A warning here. A “gift” there. Knowledge we shouldn’t have had—power we should have questioned. He spoke like an ally, like someone trying to save Crystalvale from something worse.", duration: 10000 },
+  { text: "He said \"Your sacrifice could stop the void forever\" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss fed his ritual—the Dark Summoner had betrayed us from the start.", duration: 10000 },
+  { text: "We weren’t delaying the darkness, we were feeding it", duration: 10000 },
+  { text: "Now the truth is clear. The Dark Summoner is no longer hiding behind whispers and half-truths. He’s bending dark magic directly against Crystalvale—warping creatures, corrupting the land, and sending wave after wave to break the portal.", duration: 10000 },
+  { text: "This was always the plan, and we walked straight into it. If the portal falls and his ritual is complete, we won’t have the strength to stop whatever he brings through from the void.", duration: 10000 },
+  { text: "You have one chance to hold the line. Choose your team of five heroes. Fight smarter than we did. Make every wave cost him and you might survive long enough for help to arrive.", duration: 10000 },
+  { text: "DFK DEFENDER", duration: 999999, noAnim: true }
+];
+
+
+function injectPlayButtonIntoStory(textEl) {
+  try {
+    let btn = document.getElementById('introPlayBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'introPlayBtn';
+      btn.type = 'button';
+      btn.textContent = 'Defend the Portal';
+      btn.style.marginTop = '18px';
+      btn.style.padding = '10px 20px';
+      btn.style.fontSize = '18px';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', () => {
+        try { finishStory(); } catch (error) {}
+      });
+    }
+    if (textEl && btn.parentNode !== textEl) {
+      textEl.appendChild(btn);
+    }
+  } catch (error) {}
+}
+
 const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
 const STORY_MUSIC_START_SECONDS = 10;
 const STORY_MUSIC_VOLUME = 0.2;
@@ -175,12 +217,18 @@ function playStorySequence() {
     startStoryMusic();
   }
 
+  let endedHandler = null;
+
   function finishStory() {
     if (cancelled) return;
     cancelled = true;
     clearStoryTimers();
 
     const audio = ensureStoryMusic();
+    if (audio && endedHandler) {
+      try { audio.removeEventListener('ended', endedHandler); } catch (error) {}
+      endedHandler = null;
+    }
     const startingVolume = audio ? Number(audio.volume || 0) : 0;
     let fadeStep = 0;
     const fadeSteps = 18;
@@ -206,7 +254,7 @@ function playStorySequence() {
       if (fadeStep >= fadeSteps) {
         clearInterval(fadeTimer);
         stopStoryMusic();
-        textEl.classList.remove('visible');
+textEl.classList.remove('visible');
         overlay.classList.add('hidden');
         try {
           overlay.style.opacity = '';
@@ -223,7 +271,13 @@ function playStorySequence() {
   }
 
   overlay.classList.remove('hidden');
-  syncStoryMusicControls();
+syncStoryMusicControls();
+  const storyAudio = ensureStoryMusic();
+  if (storyAudio) {
+    endedHandler = () => { finishStory(); };
+    try { storyAudio.removeEventListener('ended', endedHandler); } catch (error) {}
+    storyAudio.addEventListener('ended', endedHandler, { once: true });
+  }
   Promise.resolve().then(() => tryStartMusic());
 
   if (skipBtn) {
@@ -264,15 +318,53 @@ function playStorySequence() {
 
     queue(() => {
       if (cancelled) return;
+      try { const oldBtn = document.getElementById('introPlayBtn'); if (oldBtn) oldBtn.remove(); } catch (error) {}
+      try { const oldBtn = document.getElementById('introPlayBtn'); if (oldBtn) oldBtn.remove(); } catch (error) {}
       renderStoryScreen(textEl, screen);
-      textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
+      
+      
+      
+      try {
+        if (screen && screen.text === "DFK DEFENDER") {
+          textEl.classList.add('big-final');
+        } else {
+          textEl.classList.remove('big-final');
+        }
+      } catch (error) {}
+try {
+        if (screen && screen.noAnim) {
+          textEl.style.animation = 'none';
+          textEl.style.transition = 'none';
+          textEl.style.opacity = '1';
+          textEl.style.transform = 'scale(1)';
+        } else {
+          textEl.style.animation = '';
+          textEl.style.transition = '';
+          textEl.style.opacity = '';
+          textEl.style.transform = '';
+        }
+      } catch (error) {}
+try {
+        if (screen && screen.text === "We weren’t delaying the darkness, we were feeding it") {
+          textEl.classList.add('story-one-line');
+        } else {
+          textEl.classList.remove('story-one-line');
+        }
+      } catch (error) {}
+textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
       textEl.classList.remove('visible');
       void textEl.offsetWidth;
-      textEl.classList.add('visible');
+      if (screen && screen.noAnim) {
+        textEl.style.animation = 'none';
+        textEl.style.opacity = '1';
+        textEl.style.transform = 'scale(1)';
+      } else {
+        textEl.classList.add('visible');
+      }
 
       queue(() => {
         if (cancelled) return;
-        if (isFinalScreen) {
+        if (isFinalScreen) { injectPlayButton(textEl);
           return;
         }
         textEl.classList.remove('visible');
@@ -1365,7 +1457,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V39',
+      gameVersion: 'V46.9.1.56',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -2849,6 +2941,12 @@ function renderDamageReport() {
       if (raw.startsWith('data:application/json,')) {
         const decoded = JSON.parse(decodeURIComponent(raw.split(',').slice(1).join(',')));
         return normalizeHeroMediaUrl(decoded.image || decoded.image_url || decoded.imageUrl || '');
+      }
+      if (/^https?:\/\/heroes\.defikingdoms\.com\/token\//i.test(raw)) {
+        return '';
+      }
+      if (/^https?:\/\//i.test(raw) && !/^https?:\/\/cloudflare-ipfs\.com\//i.test(raw)) {
+        return '';
       }
       const response = await fetch(raw, { cache: 'force-cache' });
       if (!response.ok) return '';

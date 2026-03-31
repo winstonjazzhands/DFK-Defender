@@ -17,6 +17,13 @@
     dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
   });
 
+
+  const PROFILES_ABI = Object.freeze([
+    'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
+    'function getProfile(address) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
+    'function getProfileByAddress(address) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
+  ]);
+
   const state = {
     providers: [],
     selectedProvider: null,
@@ -102,7 +109,58 @@
     }
   }
 
+  function cleanName(value) {
+    const name = typeof value === 'string' ? value.trim() : '';
+    return name || null;
+  }
+
+  async function resolveProfileNameViaRpc(address) {
+    if (!address || !window.ethers) return null;
+    let provider = null;
+    try {
+      const walletProvider = state.selectedProvider;
+      provider = walletProvider
+        ? new window.ethers.BrowserProvider(walletProvider)
+        : new window.ethers.JsonRpcProvider(CONFIG.rpcUrls[0], CONFIG.chainId, { staticNetwork: true });
+      const contract = new window.ethers.Contract(CONTRACTS.dfkProfiles, PROFILES_ABI, provider);
+      const normalized = normalizeAddress(address);
+      const attempts = [
+        async () => {
+          const result = await contract.addressToProfile(normalized);
+          const owner = normalizeAddress(result && result.owner);
+          const name = cleanName(result && result.name);
+          return owner === normalized ? name : null;
+        },
+        async () => {
+          const result = await contract.getProfile(normalized);
+          const owner = normalizeAddress(result && result.owner);
+          const name = cleanName(result && result.name);
+          return owner === normalized ? name : null;
+        },
+        async () => {
+          const result = await contract.getProfileByAddress(normalized);
+          const owner = normalizeAddress(result && result._owner);
+          const name = cleanName(result && result._name);
+          return owner === normalized ? name : null;
+        },
+      ];
+      for (const attempt of attempts) {
+        try {
+          const name = await attempt();
+          if (name) return name;
+        } catch (_error) {
+          // try next call shape
+        }
+      }
+      return null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   async function fetchProfileNameFromChain(address) {
+    const rpcName = await resolveProfileNameViaRpc(address);
+    if (rpcName) return rpcName;
     return resolveProfileNameViaFunction(address);
   }
 

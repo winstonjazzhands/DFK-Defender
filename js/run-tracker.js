@@ -392,10 +392,21 @@
       displayName: wallet && wallet.profileName ? wallet.profileName : (state.profileName || null),
       walletAddress,
     };
-    const result = await callFunction(CONFIG.submitFunction, payload, state.session.sessionToken);
-    applyStatus('Run Tracking: Ready', 'good');
-    await refreshSummary();
-    return result;
+    try {
+      const result = await callFunction(CONFIG.submitFunction, payload, state.session.sessionToken);
+      applyStatus('Run Tracking: Ready', 'good');
+      await refreshSummary();
+      return result;
+    } catch (error) {
+      if (!isAuthErrorMessage(error && error.message ? error.message : error)) {
+        throw error;
+      }
+      await ensureAuthenticatedSession({ forceRefresh: true });
+      const result = await callFunction(CONFIG.submitFunction, payload, state.session.sessionToken);
+      applyStatus('Run Tracking: Ready', 'good');
+      await refreshSummary();
+      return result;
+    }
   }
 
   function submitCompletedRunKeepalive(runPayload) {
