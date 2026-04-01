@@ -760,6 +760,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     questsBtn: document.getElementById('questsBtn'),
     trackedRunsBtn: document.getElementById('trackedRunsBtn'),
     knownRelicsBtn: document.getElementById('knownRelicsBtn'),
+    transferHeroesBtn: document.getElementById('transferHeroesBtn'),
     heroesBtn: document.getElementById('heroesBtn'),
     introModal: document.getElementById('introModal'),
     bountyModal: document.getElementById('bountyModal'),
@@ -774,6 +775,19 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     knownRelicsModal: document.getElementById('knownRelicsModal'),
     knownRelicsBody: document.getElementById('knownRelicsBody'),
     closeKnownRelicsBtn: document.getElementById('closeKnownRelicsBtn'),
+    transferHeroesModal: document.getElementById('transferHeroesModal'),
+    transferHeroesBody: document.getElementById('transferHeroesBody'),
+    transferHeroesRecipient: document.getElementById('transferHeroesRecipient'),
+    transferHeroesSearch: document.getElementById('transferHeroesSearch'),
+    transferHeroesStatus: document.getElementById('transferHeroesStatus'),
+    transferHeroesSummary: document.getElementById('transferHeroesSummary'),
+    transferHeroesPageLabel: document.getElementById('transferHeroesPageLabel'),
+    transferHeroesPrevBtn: document.getElementById('transferHeroesPrevBtn'),
+    transferHeroesNextBtn: document.getElementById('transferHeroesNextBtn'),
+    closeTransferHeroesBtn: document.getElementById('closeTransferHeroesBtn'),
+    transferHeroesSelectAllBtn: document.getElementById('transferHeroesSelectAllBtn'),
+    transferHeroesClearBtn: document.getElementById('transferHeroesClearBtn'),
+    confirmTransferHeroesBtn: document.getElementById('confirmTransferHeroesBtn'),
     eliteWaveModal: document.getElementById('eliteWaveModal'),
     eliteWaveBody: document.getElementById('eliteWaveBody'),
     eliteWaveOkBtn: document.getElementById('eliteWaveOkBtn'),
@@ -894,7 +908,14 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     placingHeroCost: 0,
     hoveredTowerId: null,
     walletHeroRoster: [],
+    allWalletHeroRoster: [],
     selectedWalletHeroes: {},
+    transferHeroSelection: {},
+    transferHeroSearch: '',
+    transferHeroRecipient: '',
+    transferHeroesBusy: false,
+    transferHeroesPage: 1,
+    transferHeroesPageSize: 24,
     walletHeroExpandedTypes: {},
     walletHeroSearch: {},
     walletHeroLoadPending: false,
@@ -929,6 +950,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     portalHp: 2500,
     portalMaxHp: 2500,
     relicChoices: [],
+    dfkGoldSwapOfferOpen: false,
+    dfkGoldSwapOfferReason: '',
+    dfkGoldSwapPending: false,
     ownedRelics: [],
     foundRelics: [],
     attackLines: [],
@@ -1516,6 +1540,121 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return normalizeAddress(walletState.address || '');
   }
 
+  function getWalletStateSnapshot() {
+    if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.getState !== 'function') return {};
+    return window.DFKDefenseWallet.getState() || {};
+  }
+
+  function getWalletDfkgoldBalance() {
+    const walletState = getWalletStateSnapshot();
+    return Math.max(0, Number(walletState?.dfkGoldBalance?.balance || 0));
+  }
+
+  function hasDfkgoldForSwap() {
+    return getWalletDfkgoldBalance() >= DFK_GOLD_SWAP_COST;
+  }
+
+  function refreshWalletEconomyDetails() {
+    if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.refreshWalletDetails === 'function') {
+      return window.DFKDefenseWallet.refreshWalletDetails().catch(() => null);
+    }
+    return Promise.resolve(null);
+  }
+
+  function shouldOfferDfkgoldSwap() {
+    return Boolean(getConnectedWalletAddress() && hasDfkgoldForSwap());
+  }
+
+  function getAvailableRelicPool() {
+    return RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
+  }
+
+  function shouldAttachRelicsToOffer(reason = 'swap') {
+    const offerReason = String(reason || 'swap');
+    return offerReason === 'start' || offerReason === 'relic' || offerReason === 'wave10';
+  }
+
+  function ensureRelicChoicesForOffer(reason = 'swap') {
+    if (!shouldAttachRelicsToOffer(reason)) return false;
+    if (Array.isArray(game.relicChoices) && game.relicChoices.length) return true;
+    const pool = getAvailableRelicPool();
+    if (!pool.length) return false;
+    game.relicChoices = pickRelicChoices(pool, 3);
+    return Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
+  }
+
+  function openDfkgoldSwapOffer(reason = 'swap') {
+    if (!shouldOfferDfkgoldSwap()) return false;
+    ensureRelicChoicesForOffer(reason);
+    game.dfkGoldSwapOfferOpen = true;
+    game.dfkGoldSwapOfferReason = String(reason || 'swap');
+    return true;
+  }
+
+  function closeDfkgoldSwapOffer() {
+    game.dfkGoldSwapOfferOpen = false;
+    game.dfkGoldSwapOfferReason = '';
+    game.dfkGoldSwapPending = false;
+  }
+
+  async function ensureWalletOnDfKChain(provider) {
+    if (!provider || typeof provider.request !== 'function') throw new Error('Wallet provider unavailable.');
+    const chainIdHex = await provider.request({ method: 'eth_chainId', params: [] });
+    if (String(chainIdHex).toLowerCase() === '0xd2af') return true;
+    try {
+      await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xd2af' }] });
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async function performDfkgoldSwap() {
+    if (game.dfkGoldSwapPending) return;
+    if (!window.ethers) {
+      showBanner('Ethers is not available for DFK Gold swap.', 2200);
+      return;
+    }
+    const provider = getWalletRpcProvider();
+    if (!provider) {
+      showBanner('Connect your wallet first.', 1800);
+      return;
+    }
+    const walletAddress = getConnectedWalletAddress();
+    if (!walletAddress) {
+      showBanner('Connect your wallet first.', 1800);
+      return;
+    }
+    game.dfkGoldSwapPending = true;
+    render();
+    try {
+      await ensureWalletOnDfKChain(provider);
+      const browserProvider = new window.ethers.BrowserProvider(provider);
+      const signer = await browserProvider.getSigner();
+      const contract = new window.ethers.Contract(DFK_GOLD_CONTRACT_ADDRESS, DFK_GOLD_ERC20_ABI, signer);
+      const decimals = Number(await contract.decimals().catch(() => DFK_GOLD_DECIMALS)) || DFK_GOLD_DECIMALS;
+      const burnAmount = window.ethers.parseUnits(String(DFK_GOLD_SWAP_COST), decimals);
+      const balance = await contract.balanceOf(walletAddress);
+      if (balance < burnAmount) throw new Error(`Need ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold.`);
+      const tx = await contract.transfer(DFK_GOLD_BURN_ADDRESS, burnAmount);
+      showBanner(`Burning ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold…`, 2200);
+      await tx.wait();
+      game.jewel = Math.max(0, Number(game.jewel || 0)) + DEFENDER_GOLD_SWAP_REWARD;
+      markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
+      closeDfkgoldSwapOffer();
+      await refreshWalletEconomyDetails();
+      render();
+    } catch (error) {
+      const message = error && error.message ? error.message : 'DFK Gold swap failed.';
+      showBanner(message, 2600);
+      game.dfkGoldSwapPending = false;
+      await refreshWalletEconomyDetails();
+      render();
+    }
+  }
+
   function canUseTestGoldGrant() {
     const address = getConnectedWalletAddress();
     return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address) && isRunTrackingEnabled());
@@ -1976,6 +2115,9 @@ function renderDamageReport() {
     game.portalDamagePulseUntil = 0;
     game.milestoneJewelsGranted = {};
     game.relicChoices = [];
+    game.dfkGoldSwapOfferOpen = false;
+    game.dfkGoldSwapOfferReason = '';
+    game.dfkGoldSwapPending = false;
     game.ownedRelics = [];
     game.foundRelics = [];
     game.continueOfferUsed = false;
@@ -2928,7 +3070,23 @@ function renderDamageReport() {
     5: 'wizard',
     7: 'pirate',
   });
+  const DFK_CLASS_NAMES = Object.freeze({
+    0: 'Warrior', 1: 'Knight', 2: 'Thief', 3: 'Archer', 4: 'Priest', 5: 'Wizard', 6: 'Monk', 7: 'Pirate',
+    16: 'Paladin', 17: 'DarkKnight', 18: 'Summoner', 19: 'Ninja', 20: 'Shapeshifter', 21: 'Bard', 24: 'Dragoon', 25: 'Sage', 28: 'DreadKnight'
+  });
+  const DFK_RARITY_NAMES = Object.freeze({ 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Legendary', 4: 'Mythic' });
   const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
+  const DFK_GOLD_CONTRACT_ADDRESS = '0x576C260513204392F0eC0bc865450872025CB1cA';
+  const DFK_GOLD_DECIMALS = 3;
+  const DFK_GOLD_SWAP_COST = 10000;
+  const DEFENDER_GOLD_SWAP_REWARD = 1000;
+  const DFK_GOLD_BURN_ADDRESS = String(window.DFK_GOLD_BURN_ADDRESS || '0x000000000000000000000000000000000000dEaD');
+  const DFK_GOLD_ERC20_ABI = [
+    'function balanceOf(address owner) view returns (uint256)',
+    'function decimals() view returns (uint8)',
+    'function transfer(address to, uint256 value) returns (bool)',
+  ];
+
   const DFK_HERO_CORE_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
     'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
@@ -2995,6 +3153,204 @@ function renderDamageReport() {
     return getDefaultHeroImageForType(hero && hero.type ? hero.type : '') || '';
   }
 
+  function getDfKClassName(classId) {
+    const id = Number(classId);
+    return DFK_CLASS_NAMES[id] || `Class ${Number.isFinite(id) ? id : '--'}`;
+  }
+
+  function getDfKRarityName(rarity) {
+    const id = Number(rarity);
+    return DFK_RARITY_NAMES[id] || 'Unknown';
+  }
+
+  function getTransferHeroSearchValue() {
+    return String(game.transferHeroSearch || '').trim().toLowerCase();
+  }
+
+  function getFilteredTransferHeroes() {
+    const list = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster : [];
+    const query = getTransferHeroSearchValue();
+    if (!query) return list;
+    return list.filter((hero) => {
+      const haystack = [hero.id, hero.className, hero.subClassName, hero.rarityName, `level ${hero.level}`, `lvl ${hero.level}`].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  function getTransferHeroPageCount(filteredHeroes = null) {
+    const heroes = Array.isArray(filteredHeroes) ? filteredHeroes : getFilteredTransferHeroes();
+    const pageSize = Math.max(1, Number(game.transferHeroesPageSize || 24));
+    return Math.max(1, Math.ceil(heroes.length / pageSize));
+  }
+
+  function clampTransferHeroPage(filteredHeroes = null) {
+    const pageCount = getTransferHeroPageCount(filteredHeroes);
+    game.transferHeroesPage = Math.min(pageCount, Math.max(1, Number(game.transferHeroesPage || 1)));
+    return game.transferHeroesPage;
+  }
+
+  function getPaginatedTransferHeroes(filteredHeroes = null) {
+    const heroes = Array.isArray(filteredHeroes) ? filteredHeroes : getFilteredTransferHeroes();
+    const pageSize = Math.max(1, Number(game.transferHeroesPageSize || 24));
+    const page = clampTransferHeroPage(heroes);
+    const start = (page - 1) * pageSize;
+    return heroes.slice(start, start + pageSize);
+  }
+
+  function getSelectedTransferHeroIds() {
+    const selected = game.transferHeroSelection || {};
+    return Object.keys(selected).filter((id) => selected[id]);
+  }
+
+  function syncTransferHeroSummary() {
+    if (!els.transferHeroesSummary) return;
+    const count = getSelectedTransferHeroIds().length;
+    els.transferHeroesSummary.textContent = count ? `${count} hero${count === 1 ? '' : 'es'} selected.` : 'No heroes selected.';
+  }
+
+  function setTransferHeroesStatus(message) {
+    if (els.transferHeroesStatus) els.transferHeroesStatus.textContent = message;
+  }
+
+  function clearTransferHeroSelection() {
+    game.transferHeroSelection = {};
+    syncTransferHeroSummary();
+  }
+
+  function toggleTransferHeroSelection(heroId) {
+    const id = String(heroId || '').trim();
+    if (!id || game.transferHeroesBusy) return;
+    if (!game.transferHeroSelection || typeof game.transferHeroSelection !== 'object') game.transferHeroSelection = {};
+    game.transferHeroSelection[id] = !game.transferHeroSelection[id];
+    if (!game.transferHeroSelection[id]) delete game.transferHeroSelection[id];
+    renderTransferHeroesModal();
+  }
+
+  function renderTransferHeroesModal() {
+    if (!els.transferHeroesBody) return;
+    const address = getConnectedWalletAddress();
+    const allHeroes = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster : [];
+    const filteredHeroes = getFilteredTransferHeroes();
+    const heroes = getPaginatedTransferHeroes(filteredHeroes);
+    const pageCount = getTransferHeroPageCount(filteredHeroes);
+    const currentPage = clampTransferHeroPage(filteredHeroes);
+    if (els.transferHeroesRecipient && els.transferHeroesRecipient.value !== String(game.transferHeroRecipient || '')) els.transferHeroesRecipient.value = String(game.transferHeroRecipient || '');
+    if (els.transferHeroesSearch && els.transferHeroesSearch.value !== String(game.transferHeroSearch || '')) els.transferHeroesSearch.value = String(game.transferHeroSearch || '');
+    syncTransferHeroSummary();
+    if (!address) {
+      setTransferHeroesStatus('Connect a wallet on DFK Chain to transfer heroes.');
+      els.transferHeroesBody.innerHTML = '<div class="transfer-heroes-empty">Wallet not connected.</div>';
+      if (els.confirmTransferHeroesBtn) els.confirmTransferHeroesBtn.disabled = true;
+      if (els.transferHeroesPageLabel) els.transferHeroesPageLabel.textContent = 'Page 1 / 1';
+      if (els.transferHeroesPrevBtn) els.transferHeroesPrevBtn.disabled = true;
+      if (els.transferHeroesNextBtn) els.transferHeroesNextBtn.disabled = true;
+      return;
+    }
+    if (game.walletHeroLoadPending) setTransferHeroesStatus('Loading all heroes from chain…');
+    else if (!allHeroes.length) setTransferHeroesStatus('No detected heroes are currently loaded for this wallet.');
+    else if (!game.transferHeroesBusy) setTransferHeroesStatus(`Loaded ${allHeroes.length} detected hero${allHeroes.length === 1 ? '' : 'es'} from your wallet.`);
+    if (!filteredHeroes.length) {
+      els.transferHeroesBody.innerHTML = '<div class="transfer-heroes-empty">No heroes match this search.</div>';
+    } else {
+      els.transferHeroesBody.innerHTML = heroes.map((hero) => {
+        const selected = !!(game.transferHeroSelection && game.transferHeroSelection[String(hero.id)]);
+        const imageSrc = getWalletHeroImage(hero);
+        return `<button class="transfer-hero-card${selected ? ' is-selected' : ''}" type="button" data-transfer-hero-id="${escapeHtml(String(hero.id))}">
+          <img src="${escapeHtml(imageSrc)}" alt="Hero ${escapeHtml(String(hero.id))}" loading="lazy" />
+          <span class="transfer-hero-card-meta">
+            <span class="transfer-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
+            <span class="transfer-hero-card-sub">${escapeHtml(hero.className)} • ${escapeHtml(hero.rarityName)} • L${escapeHtml(String(hero.level))}</span>
+          </span>
+          <span class="transfer-hero-card-badge">${selected ? 'Selected' : 'Select'}</span>
+        </button>`;
+      }).join('');
+      Array.from(els.transferHeroesBody.querySelectorAll('[data-transfer-hero-id]')).forEach((button) => {
+        const heroId = button.getAttribute('data-transfer-hero-id') || '';
+        const hero = allHeroes.find((entry) => String(entry.id) === String(heroId));
+        const img = button.querySelector('img');
+        if (img && hero) img.addEventListener('error', () => handleWalletHeroImageError(img, hero), { once: false });
+        button.addEventListener('click', () => toggleTransferHeroSelection(heroId));
+      });
+    }
+    const selectedIds = getSelectedTransferHeroIds();
+    const hasSelection = selectedIds.length > 0;
+    const recipient = String(game.transferHeroRecipient || '').trim();
+    if (els.confirmTransferHeroesBtn) {
+      els.confirmTransferHeroesBtn.disabled = !hasSelection || !recipient || game.transferHeroesBusy;
+      els.confirmTransferHeroesBtn.textContent = game.transferHeroesBusy ? 'Sending…' : `Send selected hero${selectedIds.length === 1 ? '' : 'es'}`;
+    }
+    if (els.transferHeroesSelectAllBtn) els.transferHeroesSelectAllBtn.disabled = !heroes.length || game.transferHeroesBusy;
+    if (els.transferHeroesClearBtn) els.transferHeroesClearBtn.disabled = !hasSelection || game.transferHeroesBusy;
+    if (els.transferHeroesPageLabel) els.transferHeroesPageLabel.textContent = `Page ${currentPage} / ${pageCount}`;
+    if (els.transferHeroesPrevBtn) els.transferHeroesPrevBtn.disabled = currentPage <= 1 || game.transferHeroesBusy || !filteredHeroes.length;
+    if (els.transferHeroesNextBtn) els.transferHeroesNextBtn.disabled = currentPage >= pageCount || game.transferHeroesBusy || !filteredHeroes.length;
+  }
+
+  function closeTransferHeroesModal() {
+    if (!els.transferHeroesModal) return;
+    els.transferHeroesModal.classList.add('hidden');
+    els.transferHeroesModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function openTransferHeroesModal() {
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    closeContinueOfferModal();
+    if (els.transferHeroesModal) {
+      els.transferHeroesModal.classList.remove('hidden');
+      els.transferHeroesModal.setAttribute('aria-hidden', 'false');
+    }
+    if (getConnectedWalletAddress() && (!Array.isArray(game.allWalletHeroRoster) || !game.allWalletHeroRoster.length) && !game.walletHeroLoadPending) {
+      loadWalletHeroes(true).catch((error) => console.error(error));
+    }
+    clampTransferHeroPage();
+    renderTransferHeroesModal();
+  }
+
+  function selectAllVisibleTransferHeroes() {
+    const visible = getPaginatedTransferHeroes();
+    if (!visible.length || game.transferHeroesBusy) return;
+    if (!game.transferHeroSelection || typeof game.transferHeroSelection !== 'object') game.transferHeroSelection = {};
+    visible.forEach((hero) => { game.transferHeroSelection[String(hero.id)] = true; });
+    renderTransferHeroesModal();
+  }
+
+  async function confirmTransferHeroes() {
+    if (game.transferHeroesBusy) return;
+    const heroIds = getSelectedTransferHeroIds();
+    const recipient = String(game.transferHeroRecipient || '').trim();
+    if (!heroIds.length) { showBanner('Select at least one hero first.', 1700); return; }
+    if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.transferHeroes !== 'function') { showBanner('Wallet transfer tool unavailable.', 1700); return; }
+    game.transferHeroesBusy = true;
+    renderTransferHeroesModal();
+    try {
+      setTransferHeroesStatus(`Preparing ${heroIds.length} hero transfer${heroIds.length === 1 ? '' : 's'}…`);
+      await window.DFKDefenseWallet.transferHeroes(heroIds, recipient, {
+        onProgress: ({ stage, tokenId, index, total }) => {
+          if (stage === 'confirm') setTransferHeroesStatus(`Confirm hero ${tokenId} (${index + 1}/${total}) in your wallet…`);
+          else if (stage === 'pending') setTransferHeroesStatus(`Waiting for hero ${tokenId} on chain (${index + 1}/${total})…`);
+          else if (stage === 'confirmed') setTransferHeroesStatus(`Transferred hero ${tokenId} (${index + 1}/${total}).`);
+        }
+      });
+      showBanner(`Transferred ${heroIds.length} hero${heroIds.length === 1 ? '' : 'es'}.`, 2200);
+      clearTransferHeroSelection();
+      await loadWalletHeroes(true).catch(() => null);
+      renderWalletHeroBonusPanel();
+      renderHirePanel();
+      renderTransferHeroesModal();
+    } catch (error) {
+      console.error('Hero transfer failed', error);
+      setTransferHeroesStatus(error && error.message ? error.message : 'Hero transfer failed.');
+      showBanner(error && error.message ? error.message : 'Hero transfer failed.', 2200);
+    } finally {
+      game.transferHeroesBusy = false;
+      renderTransferHeroesModal();
+    }
+  }
+
   function handleWalletHeroImageError(imgEl, heroLike) {
     if (!imgEl) return;
     const fallback = getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
@@ -3040,7 +3396,11 @@ function renderDamageReport() {
 
   function clearWalletHeroData() {
     game.walletHeroRoster = [];
+    game.allWalletHeroRoster = [];
     game.selectedWalletHeroes = {};
+    game.transferHeroSelection = {};
+    game.transferHeroSearch = '';
+    game.transferHeroesBusy = false;
     game.walletHeroExpandedTypes = {};
     game.walletHeroSearch = {};
     game.walletHeroLoadPending = false;
@@ -3049,6 +3409,7 @@ function renderDamageReport() {
     game.placingWalletHeroId = null;
     renderWalletHeroBonusPanel();
     renderHirePanel();
+    renderTransferHeroesModal();
   }
 
   function selectWalletHero(type, heroId) {
@@ -3329,30 +3690,48 @@ function renderDamageReport() {
       const provider = new window.ethers.BrowserProvider(rawProvider);
       const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
       const balance = Number(await contract.balanceOf(address));
-      const limit = Math.min(balance, 60);
-      const ids = await Promise.all(Array.from({ length: limit }, (_, i) => contract.tokenOfOwnerByIndex(address, i)));
-      const heroes = await Promise.all(ids.map(async (heroId) => {
-        const core = await contract.getHeroV3(heroId);
-        const classId = Number(core.info.class);
-        const type = DFK_BASE_CLASS_TO_SLOT[classId];
-        if (!type) return null;
-        const level = Math.max(1, Number(core.state.level || 1));
-        const heroIdText = heroId.toString();
-        let imageUrl = '';
-        try {
-          const tokenUri = await contract.tokenURI(heroId);
-          imageUrl = await readHeroMetadataImage(tokenUri);
-        } catch (error) {}
-        imageUrl = normalizeHeroMediaUrl(imageUrl) || `https://heroes.defikingdoms.com/image/${heroIdText}`;
-        return {
-          id: heroIdText,
-          type,
-          classId,
-          level,
-          imageUrl,
-        };
-      }));
-      game.walletHeroRoster = heroes.filter(Boolean).sort((a, b) => {
+      const ids = [];
+      const indexBatchSize = 80;
+      for (let start = 0; start < balance; start += indexBatchSize) {
+        const count = Math.min(indexBatchSize, balance - start);
+        const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
+        ids.push(...batchIds);
+      }
+      const heroes = [];
+      const heroBatchSize = 20;
+      for (let start = 0; start < ids.length; start += heroBatchSize) {
+        const batch = ids.slice(start, start + heroBatchSize);
+        const batchHeroes = await Promise.all(batch.map(async (heroId) => {
+          const core = await contract.getHeroV3(heroId);
+          const classId = Number(core.info.class);
+          const subClassId = Number(core.info.subClass);
+          const type = DFK_BASE_CLASS_TO_SLOT[classId] || '';
+          const level = Math.max(1, Number(core.state.level || 1));
+          const rarity = Number(core.info.rarity || 0);
+          const heroIdText = heroId.toString();
+          let imageUrl = '';
+          try {
+            const tokenUri = await contract.tokenURI(heroId);
+            imageUrl = await readHeroMetadataImage(tokenUri);
+          } catch (error) {}
+          imageUrl = normalizeHeroMediaUrl(imageUrl) || `https://heroes.defikingdoms.com/image/${heroIdText}`;
+          return {
+            id: heroIdText,
+            type,
+            classId,
+            className: getDfKClassName(classId),
+            subClassId,
+            subClassName: getDfKClassName(subClassId),
+            rarity,
+            rarityName: getDfKRarityName(rarity),
+            level,
+            imageUrl,
+          };
+        }));
+        heroes.push(...batchHeroes);
+      }
+      game.allWalletHeroRoster = heroes.filter(Boolean).sort((a, b) => b.level - a.level || Number(a.id) - Number(b.id));
+      game.walletHeroRoster = game.allWalletHeroRoster.filter((hero) => hero.type).sort((a, b) => {
         if (a.type !== b.type) return DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
         return b.level - a.level || Number(a.id) - Number(b.id);
       });
@@ -3378,6 +3757,7 @@ function renderDamageReport() {
       game.walletHeroLoadPending = false;
       renderWalletHeroBonusPanel();
       renderHirePanel();
+      renderTransferHeroesModal();
     }
   }
 
@@ -4510,12 +4890,17 @@ function renderDamageReport() {
     }
     if (!els.relicModalBody || !els.relicModal) return;
     els.relicModalBody.innerHTML = '';
-    if (!game.relicChoices.length) {
+    const swapOfferActive = !!game.dfkGoldSwapOfferOpen;
+    if (!game.relicChoices.length && !swapOfferActive) {
       els.relicModal.classList.add('hidden');
       return;
     }
+    if (!game.relicChoices.length && swapOfferActive && shouldAttachRelicsToOffer(game.dfkGoldSwapOfferReason || 'swap')) {
+      ensureRelicChoicesForOffer(game.dfkGoldSwapOfferReason || 'swap');
+    }
     const isFreeStartingRelic = !!game.startingRelicPending;
-    for (const relic of game.relicChoices) {
+    const relicChoices = Array.isArray(game.relicChoices) ? game.relicChoices : [];
+    for (const relic of relicChoices) {
       const card = document.createElement('div');
       card.className = 'card';
       const rarity = getRelicRarity(relic);
@@ -4529,12 +4914,39 @@ function renderDamageReport() {
       card.appendChild(btn);
       els.relicModalBody.appendChild(card);
     }
-    if (!isFreeStartingRelic) {
+    if (swapOfferActive) {
+      const swapCard = document.createElement('div');
+      swapCard.className = 'card relic-choice-card dfkgold-swap-card';
+      const walletDfkgold = getWalletDfkgoldBalance();
+      const canSwapNow = walletDfkgold >= DFK_GOLD_SWAP_COST && !game.dfkGoldSwapPending;
+      swapCard.innerHTML = `
+        <div class="relic-choice-rarity relic-rarity-legendary">DFK Gold Swap</div>
+        <h4>Swap DFK Gold for defender gold?</h4>
+        <p>${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.</p>
+        <p class="gold">Wallet DFK Gold: ${walletDfkgold.toLocaleString(undefined, { maximumFractionDigits: 3 })}</p>
+      `;
+      const swapBtn = document.createElement('button');
+      swapBtn.className = 'buy-btn';
+      swapBtn.textContent = game.dfkGoldSwapPending ? 'Swapping…' : `Swap ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold`;
+      swapBtn.disabled = !canSwapNow;
+      swapBtn.addEventListener('click', () => { performDfkgoldSwap().catch((error) => console.error(error)); });
+      swapCard.appendChild(swapBtn);
+      if (!canSwapNow) {
+        const note = document.createElement('p');
+        note.className = 'dfkgold-swap-note';
+        note.textContent = game.dfkGoldSwapPending ? 'Waiting for wallet confirmation…' : `Need ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold in the connected wallet.`;
+        swapCard.appendChild(note);
+      }
+      els.relicModalBody.appendChild(swapCard);
+    }
+
+    if (!isFreeStartingRelic || swapOfferActive) {
       const skip = document.createElement('button');
-      skip.className = 'secondary';
+      skip.className = 'secondary relic-skip-btn';
       skip.textContent = 'Skip relic shop';
       skip.addEventListener('click', () => {
         game.relicChoices = [];
+        closeDfkgoldSwapOffer();
         log('Skipped relic shop.');
         setCountdown(WAVE_BREAK_SECONDS);
         render();
@@ -6088,6 +6500,8 @@ function renderDamageReport() {
       milestoneJewelsGranted: cloneContinueData(game.milestoneJewelsGranted),
       portalHp: game.portalHp,
       relicChoices: cloneContinueData(game.relicChoices),
+      dfkGoldSwapOfferOpen: !!game.dfkGoldSwapOfferOpen,
+      dfkGoldSwapOfferReason: game.dfkGoldSwapOfferReason || '',
       ownedRelics: cloneContinueData(game.ownedRelics),
       foundRelics: cloneContinueData(game.foundRelics),
       modifiers: cloneContinueData(game.modifiers),
@@ -6259,6 +6673,9 @@ function renderDamageReport() {
     game.milestoneJewelsGranted = cloneContinueData(snap.milestoneJewelsGranted) || {};
     game.portalHp = snap.portalHp;
     game.relicChoices = cloneContinueData(snap.relicChoices) || [];
+    game.dfkGoldSwapOfferOpen = !!snap.dfkGoldSwapOfferOpen;
+    game.dfkGoldSwapOfferReason = String(snap.dfkGoldSwapOfferReason || '');
+    game.dfkGoldSwapPending = false;
     game.ownedRelics = cloneContinueData(snap.ownedRelics) || [];
     game.foundRelics = cloneContinueData(snap.foundRelics) || [];
     game.modifiers = cloneContinueData(snap.modifiers) || game.modifiers;
@@ -6712,10 +7129,23 @@ function renderDamageReport() {
       log(`Milestone reward unlocked after wave ${game.waveNumber}: +1 extra hero hire (now ${game.bonusHeroHireCharges} available).`);
     }
     dissipateExpiredSatelliteArchers();
+    const tenWaveSwapReady = game.waveNumber > 0 && game.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap();
+    const bonusHireText = game.bonusHeroHireCharges > 0 ? ` You can also use ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? '' : 's'}.` : '';
+    let shopOpened = false;
     if (game.waveNumber % 7 === 0) {
-      offerRelics();
-      setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${game.bonusHeroHireCharges > 0 ? ` You can also use ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? '' : 's'}.` : ''}`);
-    } else {
+      shopOpened = offerRelics(tenWaveSwapReady ? 'wave10' : 'relic');
+      if (shopOpened) {
+        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${tenWaveSwapReady ? ' DFK Gold swap is also available.' : ''}${bonusHireText}`);
+      }
+    } else if (tenWaveSwapReady) {
+      game.relicChoices = [];
+      shopOpened = offerRelics('wave10');
+      if (shopOpened) {
+        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip. DFK Gold swap is also available.${bonusHireText}`);
+      }
+    }
+    if (!shopOpened) {
+      closeDfkgoldSwapOffer();
       setCountdown(WAVE_BREAK_SECONDS);
     }
     render();
@@ -6728,19 +7158,32 @@ function renderDamageReport() {
   }
 
   function offerStartingRelic() {
-    const pool = RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
+    const pool = getAvailableRelicPool();
     const choices = pickRelicChoices(pool, 3);
     game.startingRelicPending = true;
     game.relicChoices = choices;
+    const swapOpened = openDfkgoldSwapOffer('start');
+    const hasChoices = Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
+    if (!hasChoices && !swapOpened) {
+      game.startingRelicPending = false;
+      els.startWaveBtn.disabled = false;
+      prepareNextWave();
+      return false;
+    }
     els.startWaveBtn.disabled = true;
-    showBanner('Choose 1 free starting relic', 2500);
+    showBanner(hasChoices ? 'Choose 1 free starting relic' : 'DFK Gold swap available', 2500);
+    return true;
   }
 
-  function offerRelics() {
-    const pool = RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
+  function offerRelics(reason = 'relic') {
+    const pool = getAvailableRelicPool();
     const choices = pickRelicChoices(pool, 3);
     game.relicChoices = choices;
-    showBanner('Relic Shop Open', 2500);
+    const swapOpened = openDfkgoldSwapOffer(reason);
+    const hasChoices = Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
+    if (!hasChoices && !swapOpened) return false;
+    showBanner(hasChoices ? 'Relic Shop Open' : 'DFK Gold swap available', 2500);
+    return true;
   }
 
   function buyRelic(id) {
@@ -6755,6 +7198,7 @@ function renderDamageReport() {
     updateQuestMetric('relicsBought', 1);
     relic.apply(game);
     game.relicChoices = [];
+    closeDfkgoldSwapOffer();
     markProgress(`${freeRelic ? 'Claimed' : 'Bought'} relic: ${relic.name}.`);
     log(`${freeRelic ? (isFreeStartingRelic ? 'Chose free starting relic' : 'Claimed mythic relic') : 'Bought relic'}: ${relic.name}.`);
     showBanner(`${freeRelic ? (isFreeStartingRelic ? 'Starting relic:' : 'Mythic relic:') : 'Bought relic:'} ${relic.name}`);
@@ -8321,8 +8765,10 @@ function renderDamageReport() {
     const detail = event && event.detail ? event.detail : null;
     updateTestGoldButtonState();
     renderDamageReport();
+    render();
     if (!detail || !detail.address) {
       clearWalletHeroData();
+      closeDfkgoldSwapOffer();
       if (hasTrackableRunInProgress() && isRunTrackingEnabled()) {
         submitCompletedRunOnce('disconnected');
       } else {
@@ -8345,6 +8791,7 @@ function renderDamageReport() {
     setWalletHeroPanelCollapsed(!(game.walletHeroPanelCollapsed !== false));
   });
   renderWalletHeroBonusPanel();
+  renderTransferHeroesModal();
   window.addEventListener('dfk-defense:bank-balance', (event) => {
     syncPremiumJewelsFromSettledBank(event.detail || null);
   });
@@ -8371,6 +8818,9 @@ function renderDamageReport() {
   });
   els.knownRelicsBtn?.addEventListener('click', () => {
     openKnownRelicsModal();
+  });
+  els.transferHeroesBtn?.addEventListener('click', () => {
+    openTransferHeroesModal();
   });
   els.mobileMenuOverlay?.addEventListener('click', closeMobileMenus);
   els.mobileBarToggleBtn?.addEventListener('click', toggleMobileBarCollapsed);
@@ -8430,6 +8880,15 @@ function renderDamageReport() {
     claimDailyQuest(claimBtn.getAttribute('data-quest-id') || '');
   });
   els.closeKnownRelicsBtn?.addEventListener('click', closeKnownRelicsModal);
+  els.closeTransferHeroesBtn?.addEventListener('click', closeTransferHeroesModal);
+  els.transferHeroesModal?.addEventListener('click', (event) => { if (event.target === els.transferHeroesModal) closeTransferHeroesModal(); });
+  els.transferHeroesSearch?.addEventListener('input', (event) => { game.transferHeroSearch = String((event.target && event.target.value) || ''); game.transferHeroesPage = 1; renderTransferHeroesModal(); });
+  els.transferHeroesRecipient?.addEventListener('input', (event) => { game.transferHeroRecipient = String((event.target && event.target.value) || '').trim(); renderTransferHeroesModal(); });
+  els.transferHeroesPrevBtn?.addEventListener('click', () => { game.transferHeroesPage = Math.max(1, Number(game.transferHeroesPage || 1) - 1); renderTransferHeroesModal(); });
+  els.transferHeroesNextBtn?.addEventListener('click', () => { game.transferHeroesPage = Number(game.transferHeroesPage || 1) + 1; renderTransferHeroesModal(); });
+  els.transferHeroesSelectAllBtn?.addEventListener('click', selectAllVisibleTransferHeroes);
+  els.transferHeroesClearBtn?.addEventListener('click', () => { clearTransferHeroSelection(); renderTransferHeroesModal(); });
+  els.confirmTransferHeroesBtn?.addEventListener('click', () => { confirmTransferHeroes().catch((error) => console.error(error)); });
   els.eliteWaveOkBtn?.addEventListener('click', () => {
     game.eliteWarningAcknowledgedWave = game.nextWavePlan?.waveNumber || game.eliteWarningAcknowledgedWave;
     closeEliteWaveModal();
@@ -8624,9 +9083,7 @@ function renderDamageReport() {
     updateMobileInstallPrompt();
   });
 
-  if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.refreshBank === 'function') {
-    window.DFKDefenseWallet.refreshBank().catch(() => {});
-  }
+  refreshWalletEconomyDetails().catch(() => {});
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();

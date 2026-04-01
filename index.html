@@ -37,6 +37,7 @@
           <div id="walletPanelBody" class="wallet-panel-body">
           <div id="walletProfileName" class="wallet-profile-name">In-game Name: --</div>
           <div id="walletJewelBalance" class="wallet-profile-balance">Wallet JEWEL: --</div>
+          <div id="walletDfkgoldBalance" class="wallet-profile-balance">Wallet DFK Gold: --</div>
           <div id="walletAddress" class="wallet-address">No wallet connected.</div>
           <div id="walletTrackingStatus" class="wallet-tracking-status">Run Tracking: Not connected</div>
           <div id="walletTrackingSummary" class="wallet-tracking-summary">Tracked Runs: -- · Best Wave: --</div>
@@ -81,6 +82,7 @@
         <button id="questsBtn" class="intro-toggle secondary-guide quests-toggle" type="button">✅ Daily Quests</button>
         <button id="trackedRunsBtn" class="intro-toggle secondary-guide tracked-runs-toggle" type="button">📜 Tracked Runs</button>
         <button id="knownRelicsBtn" class="intro-toggle secondary-guide known-relics-toggle" type="button">🧿 Known Relics</button>
+        <button id="transferHeroesBtn" class="intro-toggle secondary-guide transfer-heroes-toggle" type="button">📦 Transfer Heroes</button>
         <div id="log" class="log"></div>
         <div class="meta-currency panel-lite collapsed" id="bankPanel">
           <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
@@ -154,6 +156,42 @@
       <div class="relic-modal-card panel">
         <div class="relic-modal-title">Choose a Relic</div>
         <div id="relicModalBody" class="card-list relic-list"></div>
+      </div>
+    </div>
+    <div id="transferHeroesModal" class="transfer-heroes-modal hidden" aria-hidden="true">
+      <div class="transfer-heroes-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="transferHeroesTitle">
+        <div class="transfer-heroes-header">
+          <div>
+            <div class="intro-kicker">DFK Chain</div>
+            <h2 id="transferHeroesTitle">Transfer Heroes</h2>
+          </div>
+          <button id="closeTransferHeroesBtn" type="button" class="intro-close" aria-label="Close hero transfer">×</button>
+        </div>
+        <div class="transfer-heroes-controls">
+          <label class="transfer-heroes-field">
+            <span>Recipient wallet</span>
+            <input id="transferHeroesRecipient" class="transfer-heroes-input" type="text" placeholder="0x..." autocomplete="off" spellcheck="false" />
+          </label>
+          <label class="transfer-heroes-field">
+            <span>Search heroes</span>
+            <input id="transferHeroesSearch" class="transfer-heroes-input" type="text" placeholder="Search by hero id, class, rarity, or level" autocomplete="off" spellcheck="false" />
+          </label>
+        </div>
+        <div class="transfer-heroes-toolbar">
+          <button id="transferHeroesSelectAllBtn" class="wallet-btn secondary" type="button">Select visible</button>
+          <button id="transferHeroesClearBtn" class="wallet-btn secondary" type="button">Clear</button>
+          <div id="transferHeroesSummary" class="transfer-heroes-summary">No heroes selected.</div>
+        </div>
+        <div id="transferHeroesStatus" class="wallet-tracking-summary transfer-heroes-status">Connect a wallet on DFK Chain to load heroes.</div>
+        <div class="transfer-heroes-pagination" id="transferHeroesPaginationTop">
+          <button id="transferHeroesPrevBtn" class="wallet-btn secondary" type="button">← Prev</button>
+          <div id="transferHeroesPageLabel" class="transfer-heroes-page-label">Page 1 / 1</div>
+          <button id="transferHeroesNextBtn" class="wallet-btn secondary" type="button">Next →</button>
+        </div>
+        <div id="transferHeroesBody" class="transfer-heroes-body"></div>
+        <div class="transfer-heroes-footer">
+          <button id="confirmTransferHeroesBtn" class="small-action" type="button">Send selected heroes</button>
+        </div>
       </div>
     </div>
     <div id="introModal" class="intro-modal hidden" aria-hidden="true">

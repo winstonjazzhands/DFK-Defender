@@ -15,6 +15,8 @@
 
   const CONTRACTS = Object.freeze({
     dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
+    dfkGold: '0x576C260513204392F0eC0bc865450872025CB1cA',
+    heroCore: '0xEb9B61B145D6489Be575D3603F4a704810e143dF',
   });
 
 
@@ -24,12 +26,23 @@
     'function getProfileByAddress(address) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
   ]);
 
+  const ERC20_ABI = Object.freeze([
+    'function balanceOf(address owner) view returns (uint256)',
+    'function decimals() view returns (uint8)',
+  ]);
+
+  const HERO_CORE_TRANSFER_ABI = Object.freeze([
+    'function transferFrom(address from, address to, uint256 tokenId)',
+    'function ownerOf(uint256 tokenId) view returns (address)',
+  ]);
+
   const state = {
     providers: [],
     selectedProvider: null,
     providerInfo: null,
     address: null,
     balance: null,
+    dfkGoldBalance: null,
     profileName: null,
     vanityName: null,
     user: null,
@@ -55,6 +68,7 @@
         profileName: state.vanityName || state.profileName,
         vanityName: state.vanityName,
         balance: state.balance,
+        dfkGoldBalance: state.dfkGoldBalance,
         providerName: providerLabel(state.providerInfo),
       },
     }));
@@ -82,11 +96,44 @@
     }
   }
 
+  function formatTokenBalance(rawBalance, decimals = 3) {
+    const value = Number(rawBalance || 0);
+    if (!Number.isFinite(value)) return '--';
+    if (value >= 100000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    if (value >= 10) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return value.toLocaleString(undefined, { maximumFractionDigits: Math.min(3, Math.max(0, Number(decimals) || 0)) });
+  }
+
   async function fetchNativeBalance(address) {
     if (!state.selectedProvider || !address) return null;
     const hexBalance = await request(state.selectedProvider, 'eth_getBalance', [address, 'latest']);
     const parsed = formatEtherFromHex(hexBalance);
     return parsed == null ? null : { balance: parsed };
+  }
+
+  async function fetchDfkgoldBalance(address) {
+    if (!address || !window.ethers) return null;
+    try {
+      const walletProvider = state.selectedProvider;
+      const provider = walletProvider
+        ? new window.ethers.BrowserProvider(walletProvider)
+        : new window.ethers.JsonRpcProvider(CONFIG.rpcUrls[0], CONFIG.chainId, { staticNetwork: true });
+      const contract = new window.ethers.Contract(CONTRACTS.dfkGold, ERC20_ABI, provider);
+      const [rawBalance, decimals] = await Promise.all([
+        contract.balanceOf(address),
+        contract.decimals().catch(() => 3),
+      ]);
+      const normalizedDecimals = Number.isFinite(Number(decimals)) ? Number(decimals) : 3;
+      const formatted = Number(window.ethers.formatUnits(rawBalance, normalizedDecimals));
+      return {
+        balance: formatted,
+        decimals: normalizedDecimals,
+        raw: String(rawBalance),
+      };
+    } catch (error) {
+      return null;
+    }
   }
 
   async function resolveProfileNameViaFunction(address) {
@@ -170,20 +217,56 @@
     return await fetchProfileNameFromChain(address);
   }
 
+  async function transferHeroes(tokenIds, recipient, options = {}) {
+    const ids = Array.isArray(tokenIds) ? tokenIds.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    if (!ids.length) throw new Error('Select at least one hero to transfer.');
+    if (!state.address) throw new Error('Connect your wallet first.');
+    if (!state.selectedProvider || !window.ethers) throw new Error('Wallet provider unavailable.');
+    const target = String(recipient || '').trim();
+    if (!window.ethers.isAddress(target)) throw new Error('Enter a valid recipient wallet address.');
+    const from = normalizeAddress(state.address);
+    const to = normalizeAddress(target);
+    if (from === to) throw new Error('Recipient wallet must be different from your connected wallet.');
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    await ensureChain(state.selectedProvider);
+    const provider = new window.ethers.BrowserProvider(state.selectedProvider);
+    const signer = await provider.getSigner();
+    const signerAddress = normalizeAddress(await signer.getAddress());
+    if (signerAddress !== from) throw new Error('Connected signer does not match the active wallet.');
+    const contract = new window.ethers.Contract(CONTRACTS.heroCore, HERO_CORE_TRANSFER_ABI, signer);
+    const results = [];
+    for (let index = 0; index < ids.length; index += 1) {
+      const tokenId = ids[index];
+      if (onProgress) onProgress({ stage: 'confirm', index, total: ids.length, tokenId });
+      const owner = normalizeAddress(await contract.ownerOf(tokenId));
+      if (owner !== from) throw new Error(`Hero ${tokenId} is no longer owned by the connected wallet.`);
+      const tx = await contract.transferFrom(state.address, target, tokenId);
+      if (onProgress) onProgress({ stage: 'pending', index, total: ids.length, tokenId, hash: tx && tx.hash ? tx.hash : '' });
+      const receipt = await tx.wait();
+      results.push({ tokenId, hash: tx && tx.hash ? tx.hash : '', receipt });
+      if (onProgress) onProgress({ stage: 'confirmed', index, total: ids.length, tokenId, hash: tx && tx.hash ? tx.hash : '' });
+    }
+    await refreshWalletDetails().catch(() => null);
+    return results;
+  }
+
   async function refreshWalletDetails() {
     if (!state.address) {
       state.balance = null;
+      state.dfkGoldBalance = null;
       state.profileName = null;
       render();
       emitWalletState();
       return null;
     }
     try {
-      const [balance, profileName] = await Promise.all([
+      const [balance, dfkGoldBalance, profileName] = await Promise.all([
         fetchNativeBalance(state.address),
+        fetchDfkgoldBalance(state.address),
         fetchProfileName(state.address),
       ]);
       state.balance = balance;
+      state.dfkGoldBalance = dfkGoldBalance;
       state.profileName = profileName;
       render();
       emitWalletState();
@@ -331,6 +414,7 @@
           state.user = null;
           state.mode = 'local';
           state.balance = null;
+          state.dfkGoldBalance = null;
           state.profileName = null;
           render();
           emitWalletState();
@@ -346,6 +430,7 @@
         state.user = null;
         state.mode = 'local';
         state.balance = null;
+        state.dfkGoldBalance = null;
         state.profileName = null;
         render();
         emitWalletState();
@@ -404,6 +489,7 @@
     setText(ui.walletAddress, state.address ? `${providerName}: ${shortAddress(state.address)}` : 'No wallet connected.');
     setText(ui.walletProfileName, `${state.vanityName ? 'Vanity Name' : 'In-game Name'}: ${(state.vanityName || state.profileName || '--')}`);
     setText(ui.walletJewelBalance, `Wallet JEWEL: ${state.balance && state.balance.balance != null ? formatJewelBalance(state.balance.balance) : '--'}`);
+    setText(ui.walletDfkgoldBalance, `Wallet DFK Gold: ${state.dfkGoldBalance && state.dfkGoldBalance.balance != null ? formatTokenBalance(state.dfkGoldBalance.balance, state.dfkGoldBalance.decimals) : '--'}`);
     setText(ui.walletPanelTitle, 'Player Profile');
     if (state.address) {
       setText(ui.walletStatus, `${providerName} Connected`);
@@ -426,6 +512,7 @@
       walletPanelTitle: qs('walletPanelTitle'),
       walletProfileName: qs('walletProfileName'),
       walletJewelBalance: qs('walletJewelBalance'),
+      walletDfkgoldBalance: qs('walletDfkgoldBalance'),
       walletAddress: qs('walletAddress'),
       connectWalletBtn: qs('connectWalletBtn'),
       disconnectWalletBtn: qs('disconnectWalletBtn'),
@@ -450,8 +537,10 @@
     connectWallet,
     signIn,
     refreshBank,
+    refreshWalletDetails,
     depositJewel,
     disconnectWallet,
+    transferHeroes,
     getProvider: () => state.selectedProvider,
     getState: () => ({ ...state }),
   };
