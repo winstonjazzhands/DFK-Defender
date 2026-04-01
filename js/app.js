@@ -1,5 +1,5 @@
-// build: v46.9.1.57
-// build: v46.9.1.57
+// build: v46.9.1.61
+// build: v46.9.1.61
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -49,6 +49,9 @@ function setBoardDim(active) {
 
 
 const STORY_SCREENS = [
+  { text: '"I know you put love in mini games but tbh it seems a joke" - Dragonflytales', duration: 5000 },
+  { text: `"I like you and all, but that game as I saw in the AMA is a mockery of DFK's greatness" - Maxgerin`, duration: 5000 },
+  { text: '"Still not playing it." - Cryptomeme420', duration: 5000 },
   { text: '"Defend the portal, they’re coming!" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months. We never should have trusted the Dark Summoner. He said "Your sacrifice could stop the void forever" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss strengthened his ritual—the Dark Summoner had betrayed us from the start.', duration: 15000 },
   { text: 'We weren’t fighting the darkness, we were feeding it', duration: 5000 },
   { text: 'Now the truth is clear. He’s bending dark magic directly against Crystalvale—warping creatures and sending wave after wave to break the portal. If he completes his ritual we won’t have the strength to stop whatever he brings through from the void. You have a chance to hold the line. Choose your best five heroes. Make every wave cost him and you might survive long enough for help to arrive.', duration: 15000 },
@@ -779,6 +782,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     transferHeroesBody: document.getElementById('transferHeroesBody'),
     transferHeroesRecipient: document.getElementById('transferHeroesRecipient'),
     transferHeroesSearch: document.getElementById('transferHeroesSearch'),
+    transferHeroesSort: document.getElementById('transferHeroesSort'),
     transferHeroesStatus: document.getElementById('transferHeroesStatus'),
     transferHeroesSummary: document.getElementById('transferHeroesSummary'),
     transferHeroesPageLabel: document.getElementById('transferHeroesPageLabel'),
@@ -916,6 +920,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     transferHeroesBusy: false,
     transferHeroesPage: 1,
     transferHeroesPageSize: 24,
+    transferHeroSort: 'level_desc',
     walletHeroExpandedTypes: {},
     walletHeroSearch: {},
     walletHeroLoadPending: false,
@@ -3150,6 +3155,8 @@ function renderDamageReport() {
   }
 
   function getWalletHeroImage(hero) {
+    const primary = normalizeHeroMediaUrl(hero && hero.imageUrl ? hero.imageUrl : '');
+    if (primary) return primary;
     return getDefaultHeroImageForType(hero && hero.type ? hero.type : '') || '';
   }
 
@@ -3167,14 +3174,38 @@ function renderDamageReport() {
     return String(game.transferHeroSearch || '').trim().toLowerCase();
   }
 
+  function getTransferHeroSortValue() {
+    return String(game.transferHeroSort || 'level_desc').trim().toLowerCase();
+  }
+
+  function compareTransferHeroes(a, b) {
+    const aClass = String((a && a.className) || '').toLowerCase();
+    const bClass = String((b && b.className) || '').toLowerCase();
+    const aLevel = Number((a && a.level) || 0);
+    const bLevel = Number((b && b.level) || 0);
+    const aId = Number((a && a.id) || 0);
+    const bId = Number((b && b.id) || 0);
+    switch (getTransferHeroSortValue()) {
+      case 'class_asc':
+        return aClass.localeCompare(bClass) || bLevel - aLevel || aId - bId;
+      case 'class_level':
+        return aClass.localeCompare(bClass) || bLevel - aLevel || aId - bId;
+      case 'level_asc':
+        return aLevel - bLevel || aClass.localeCompare(bClass) || aId - bId;
+      case 'level_desc':
+      default:
+        return bLevel - aLevel || aClass.localeCompare(bClass) || aId - bId;
+    }
+  }
+
   function getFilteredTransferHeroes() {
-    const list = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster : [];
+    const list = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster.slice() : [];
     const query = getTransferHeroSearchValue();
-    if (!query) return list;
-    return list.filter((hero) => {
+    const filtered = !query ? list : list.filter((hero) => {
       const haystack = [hero.id, hero.className, hero.subClassName, hero.rarityName, `level ${hero.level}`, `lvl ${hero.level}`].join(' ').toLowerCase();
       return haystack.includes(query);
     });
+    return filtered.sort(compareTransferHeroes);
   }
 
   function getTransferHeroPageCount(filteredHeroes = null) {
@@ -3236,6 +3267,7 @@ function renderDamageReport() {
     const currentPage = clampTransferHeroPage(filteredHeroes);
     if (els.transferHeroesRecipient && els.transferHeroesRecipient.value !== String(game.transferHeroRecipient || '')) els.transferHeroesRecipient.value = String(game.transferHeroRecipient || '');
     if (els.transferHeroesSearch && els.transferHeroesSearch.value !== String(game.transferHeroSearch || '')) els.transferHeroesSearch.value = String(game.transferHeroSearch || '');
+    if (els.transferHeroesSort && els.transferHeroesSort.value !== String(game.transferHeroSort || 'level_desc')) els.transferHeroesSort.value = String(game.transferHeroSort || 'level_desc');
     syncTransferHeroSummary();
     if (!address) {
       setTransferHeroesStatus('Connect a wallet on DFK Chain to transfer heroes.');
@@ -3256,12 +3288,17 @@ function renderDamageReport() {
         const selected = !!(game.transferHeroSelection && game.transferHeroSelection[String(hero.id)]);
         const imageSrc = getWalletHeroImage(hero);
         return `<button class="transfer-hero-card${selected ? ' is-selected' : ''}" type="button" data-transfer-hero-id="${escapeHtml(String(hero.id))}">
-          <img src="${escapeHtml(imageSrc)}" alt="Hero ${escapeHtml(String(hero.id))}" loading="lazy" />
-          <span class="transfer-hero-card-meta">
-            <span class="transfer-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
-            <span class="transfer-hero-card-sub">${escapeHtml(hero.className)} • ${escapeHtml(hero.rarityName)} • L${escapeHtml(String(hero.level))}</span>
+          <span class="transfer-hero-card-art-wrap">
+            <img src="${escapeHtml(imageSrc)}" alt="Hero ${escapeHtml(String(hero.id))}" loading="lazy" />
           </span>
-          <span class="transfer-hero-card-badge">${selected ? 'Selected' : 'Select'}</span>
+          <span class="transfer-hero-card-meta">
+            <span class="transfer-hero-card-topline">
+              <span class="transfer-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
+              <span class="transfer-hero-card-badge">${selected ? 'Selected' : 'Select'}</span>
+            </span>
+            <span class="transfer-hero-card-sub">${escapeHtml(hero.className)} • ${escapeHtml(hero.subClassName || '—')}</span>
+            <span class="transfer-hero-card-sub">${escapeHtml(hero.rarityName)} • Level ${escapeHtml(String(hero.level))}</span>
+          </span>
         </button>`;
       }).join('');
       Array.from(els.transferHeroesBody.querySelectorAll('[data-transfer-hero-id]')).forEach((button) => {
@@ -3745,9 +3782,6 @@ function renderDamageReport() {
           : String(available[0].id);
       }
       game.selectedWalletHeroes = nextSelection;
-      if (balance > limit) {
-        game.walletHeroLoadError = `Loaded ${limit} of ${balance} heroes to keep the game responsive.`;
-      }
     } catch (error) {
       console.error('DFK hero load failed', error);
       game.walletHeroRoster = [];
@@ -8883,6 +8917,7 @@ function renderDamageReport() {
   els.closeTransferHeroesBtn?.addEventListener('click', closeTransferHeroesModal);
   els.transferHeroesModal?.addEventListener('click', (event) => { if (event.target === els.transferHeroesModal) closeTransferHeroesModal(); });
   els.transferHeroesSearch?.addEventListener('input', (event) => { game.transferHeroSearch = String((event.target && event.target.value) || ''); game.transferHeroesPage = 1; renderTransferHeroesModal(); });
+  els.transferHeroesSort?.addEventListener('change', (event) => { game.transferHeroSort = String((event.target && event.target.value) || 'level_desc'); game.transferHeroesPage = 1; renderTransferHeroesModal(); });
   els.transferHeroesRecipient?.addEventListener('input', (event) => { game.transferHeroRecipient = String((event.target && event.target.value) || '').trim(); renderTransferHeroesModal(); });
   els.transferHeroesPrevBtn?.addEventListener('click', () => { game.transferHeroesPage = Math.max(1, Number(game.transferHeroesPage || 1) - 1); renderTransferHeroesModal(); });
   els.transferHeroesNextBtn?.addEventListener('click', () => { game.transferHeroesPage = Number(game.transferHeroesPage || 1) + 1; renderTransferHeroesModal(); });

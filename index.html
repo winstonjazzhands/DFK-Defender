@@ -168,13 +168,22 @@
           <button id="closeTransferHeroesBtn" type="button" class="intro-close" aria-label="Close hero transfer">×</button>
         </div>
         <div class="transfer-heroes-controls">
-          <label class="transfer-heroes-field">
+          <label class="transfer-heroes-field transfer-heroes-field-recipient">
             <span>Recipient wallet</span>
             <input id="transferHeroesRecipient" class="transfer-heroes-input" type="text" placeholder="0x..." autocomplete="off" spellcheck="false" />
           </label>
-          <label class="transfer-heroes-field">
+          <label class="transfer-heroes-field transfer-heroes-field-search">
             <span>Search heroes</span>
             <input id="transferHeroesSearch" class="transfer-heroes-input" type="text" placeholder="Search by hero id, class, rarity, or level" autocomplete="off" spellcheck="false" />
+          </label>
+          <label class="transfer-heroes-field transfer-heroes-field-sort">
+            <span>Sort by</span>
+            <select id="transferHeroesSort" class="transfer-heroes-input transfer-heroes-select">
+              <option value="level_desc">Level (highest first)</option>
+              <option value="class_level">Class then level</option>
+              <option value="class_asc">Class (A–Z)</option>
+              <option value="level_asc">Level (lowest first)</option>
+            </select>
           </label>
         </div>
         <div class="transfer-heroes-toolbar">
