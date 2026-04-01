@@ -6088,7 +6088,11 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 .story-text.story-one-line {
   white-space: nowrap !important;
   max-width: none !important;
-  width: auto !important;
+  width: max-content !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 #storyText,
@@ -6099,7 +6103,14 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* Frame 8 big title */
 #storyText.big-final,
 .story-text.big-final {
-  font-size: clamp(108px, 11vw, 144px) !important;
+  white-space: nowrap !important;
+  max-width: none !important;
+  width: max-content !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  font-size: clamp(96px, 9vw, 144px) !important;
   font-weight: 900 !important;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -6125,4 +6136,40 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   width: 86px;
   text-align:center;
   white-space:nowrap;
+}
+
+
+/* v46.9.1.60 user fix: taller desktop info panel, dark summoner foot-cloud, smaller boss, smaller skitter explosion */
+.boss-storm-cloud {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  overflow: visible;
+  filter: blur(2px);
+}
+.boss-storm-cloud-blob {
+  position: absolute;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(34, 30, 52, 0.9) 0%, rgba(23, 20, 36, 0.82) 48%, rgba(8, 8, 14, 0.18) 74%, rgba(8, 8, 14, 0) 100%);
+  opacity: 0.82;
+  transform: translate(-50%, -50%);
+  animation: bossStormCloudDrift ease-in-out infinite;
+}
+@keyframes bossStormCloudDrift {
+  0% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.74; }
+  25% { transform: translate(-46%, -58%) scale(1.02); opacity: 0.88; }
+  50% { transform: translate(-54%, -47%) scale(1.08); opacity: 0.8; }
+  75% { transform: translate(-48%, -54%) scale(0.98); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.74; }
+}
+@media (min-width: 1025px) {
+  :root {
+    --desktop-right-panel: 270px;
+  }
+  .right-panel {
+    min-height: 810px !important;
+    height: 810px !important;
+    max-height: 810px !important;
+  }
 }

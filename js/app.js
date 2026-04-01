@@ -173,14 +173,10 @@ function startStoryMusic() {
 function renderStoryScreen(textEl, screen) {
   if (!textEl) return;
   const rawText = String(screen && screen.text ? screen.text : '');
-  if (rawText === "We weren't fighting the darkness,|we were feeding it") {
-    textEl.innerHTML = '<span class="story-segment story-segment-a">We weren\'t fighting the darkness,</span><span class="story-segment story-segment-b">we were feeding it</span>';
-    textEl.classList.add('story-text-staggered');
-  } else {
-    textEl.textContent = rawText.replace(/\|/g, ' ');
-    textEl.classList.remove('story-text-staggered');
-  }
+  textEl.textContent = rawText.replace(/\|/g, ' ');
+  textEl.classList.remove('story-text-staggered');
 }
+
 
 function playStorySequence() {
   const overlay = document.getElementById('storyOverlay');
@@ -341,7 +337,7 @@ try {
         }
       } catch (error) {}
 try {
-        if (screen && screen.text === "We weren’t delaying the darkness, we were feeding it") {
+        if (screen && screen.text === "We weren’t fighting the darkness, we were feeding it") {
           textEl.classList.add('story-one-line');
         } else {
           textEl.classList.remove('story-one-line');
@@ -460,6 +456,7 @@ function getRandomTree(){
   const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const REDUCED_DAMAGE_GROWTH_FACTOR = 0.85;
+  const ARCHER_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
   const PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
   const ICE_AURA_BASE_SLOW = 0.12;
   const ICE_AURA_SLOW_PER_LEVEL = 0.004;
@@ -930,6 +927,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     runEntryCost: 3,
     milestoneJewelsGranted: {},
     portalHp: 2500,
+    portalMaxHp: 2500,
     relicChoices: [],
     ownedRelics: [],
     foundRelics: [],
@@ -1400,9 +1398,17 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     showBanner(repairedAny ? 'Statue repaired' : 'Statue is already at full health.', 1800);
   }
 
+  function getPortalMaxHp(game) {
+    const maxHp = Number(game?.portalMaxHp);
+    return Number.isFinite(maxHp) && maxHp > 0 ? maxHp : 2500;
+  }
+
   function repairPortalPercent(game, percent) {
-    const before = game.portalHp || 0;
-    game.portalHp = Math.min(game.portalMaxHp, Math.round((game.portalHp || 0) + (game.portalMaxHp * percent)));
+    const portalMaxHp = getPortalMaxHp(game);
+    game.portalMaxHp = portalMaxHp;
+    const before = Number(game.portalHp || 0);
+    const repairAmount = Math.max(0, Math.round(portalMaxHp * Number(percent || 0)));
+    game.portalHp = Math.min(portalMaxHp, before + repairAmount);
     if (game.portalHp > before) showBanner('Portal repaired', 1800);
     updateTopbar();
   }
@@ -3058,10 +3064,22 @@ function renderDamageReport() {
     return getSelectedWalletHero(type) ? 0 : baseCost;
   }
 
+  function getArcherCooldownMultiplierForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    return Math.max(1, 1 + ((safeLevel - 1) * ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL));
+  }
+
   function getBaseTowerStatsForLevel(type, level) {
     const template = TOWER_TEMPLATES[type];
     if (!template) return { hp: 0, damage: 0, range: 0 };
     const safeLevel = Math.max(1, Number(level || 1));
+    if (type === 'archer') {
+      return {
+        hp: template.hp * Math.pow(ARCHER_HP_LEVEL_MULTIPLIER, safeLevel - 1),
+        damage: template.damage * Math.pow(ARCHER_DAMAGE_GROWTH_PER_LEVEL, safeLevel - 1),
+        range: template.range,
+      };
+    }
     const multiplier = Math.pow(1.15, safeLevel - 1);
     return {
       hp: template.hp * multiplier,
@@ -3070,14 +3088,25 @@ function renderDamageReport() {
     };
   }
 
-  function normalizeArcherStats(tower) {
+  function normalizeArcherStats(tower, healToFull = false) {
     if (!tower || tower.type !== 'archer') return;
     const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
+    const previousMaxHp = Number(tower.maxHp || 0);
+    const previousHp = Number(tower.hp || 0);
     tower.damage = base.damage;
     tower.range = base.range;
+    tower.basicCooldown = (TOWER_TEMPLATES.archer.attackInterval * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1);
     tower.maxHp = tower.isSatellite ? (base.hp * 0.5) : base.hp;
-    if (!Number.isFinite(tower.hp)) tower.hp = tower.maxHp;
-    tower.hp = Math.min(tower.hp, tower.maxHp);
+    if (healToFull && tower.isSatellite) {
+      tower.hp = tower.maxHp;
+      return;
+    }
+    if (!Number.isFinite(previousHp) || previousHp <= 0 || !Number.isFinite(previousMaxHp) || previousMaxHp <= 0) {
+      tower.hp = tower.maxHp;
+      return;
+    }
+    const hpRatio = Math.max(0, Math.min(1, previousHp / previousMaxHp));
+    tower.hp = Math.max(1, Math.min(tower.maxHp, tower.maxHp * hpRatio));
   }
 
 
@@ -5530,9 +5559,24 @@ function renderDamageReport() {
     });
   }
 
+  function updateEnemyFacingX(enemy, nextX) {
+    if (!enemy || !Number.isFinite(Number(nextX))) return;
+    const currentX = Number(enemy.x);
+    const targetX = Number(nextX);
+    if (targetX > currentX) enemy.facingX = 1;
+    else if (targetX < currentX) enemy.facingX = -1;
+    else if (!Number.isFinite(Number(enemy.facingX)) || Number(enemy.facingX) === 0) enemy.facingX = 1;
+  }
+
+  function getEnemyFacingScaleX(enemy) {
+    const facingX = Number(enemy?.facingX);
+    return facingX < 0 ? -1 : 1;
+  }
+
   function moveEnemyToStep(enemy, step, current) {
     if (!step) return false;
     if (!canEnemyEnter(step.x, step.y, enemy)) return false;
+    updateEnemyFacingX(enemy, step.x);
     enemy.prevX = enemy.x;
     enemy.prevY = enemy.y;
     enemy.x = step.x;
@@ -5805,6 +5849,7 @@ function renderDamageReport() {
       moveEndAt: now() + 250,
       prevX: spawn.x,
       prevY: spawn.y,
+      facingX: 1,
       nextAttackAt: 0,
       attacking: false,
       tauntedTo: null,
@@ -5863,6 +5908,7 @@ function renderDamageReport() {
     if (!step || !inBounds(step.x, step.y)) return false;
     const tile = tileAt(step.x, step.y);
     if (!tile || tile.portal) return false;
+    updateEnemyFacingX(enemy, step.x);
     enemy.prevX = enemy.x;
     enemy.prevY = enemy.y;
     enemy.x = step.x;
@@ -6426,6 +6472,7 @@ function renderDamageReport() {
       moveEndAt: now() + 200,
       prevX: spawn.x,
       prevY: spawn.y,
+      facingX: 1,
       nextAttackAt: 0,
       attacking: false,
       tauntedTo: null,
@@ -6464,6 +6511,7 @@ function renderDamageReport() {
       moveEndAt: now() + 300,
       prevX: spawn.x,
       prevY: spawn.y,
+      facingX: 1,
       nextAttackAt: 0,
       attacking: false,
       tauntedTo: null,
@@ -6556,6 +6604,7 @@ function renderDamageReport() {
     }
 
     for (const tower of game.towers) updateTower(tower, delta, current);
+    applyBossStormHasteAura(current);
     for (const enemy of [...game.enemies]) updateEnemy(enemy, current);
     cleanupEntities();
 
@@ -6917,6 +6966,7 @@ function renderDamageReport() {
       const nextX = enemy.x + dx;
       const nextY = enemy.y + dy;
       if (!isTileOpenForEnemyPush(nextX, nextY, enemy)) break;
+      updateEnemyFacingX(enemy, nextX);
       enemy.prevX = enemy.x;
       enemy.prevY = enemy.y;
       enemy.x = nextX;
@@ -7200,7 +7250,7 @@ function renderDamageReport() {
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
         } else if (enemy.type === 'skitter') {
           const splashDamage = ENEMY_TEMPLATES.skitter.damage * SKITTER_EXPLOSION_DAMAGE_MULTIPLIER * getWaveDamageMultiplier(game.waveNumber || 0);
-          createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.42, 750, RED_FIRE_GIF_PATH);
+          createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.21, 750, RED_FIRE_GIF_PATH, 'skitter-red-fire');
           damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`);
           enemy.hp = 0;
           markProgress(`${enemy.name} exploded on ${attackTarget.name}.`);
@@ -7264,6 +7314,8 @@ function renderDamageReport() {
     let mult = 1;
     const slowPercent = getEnemySlowPercent(enemy);
     if (slowPercent > 0) mult *= (1 + (slowPercent * (1 - enemy.slowResistance)));
+    const stormHastePercent = Math.max(0, Number(enemy?.debuffs?.storm_haste?.percent || 0));
+    if (stormHastePercent > 0) mult *= Math.max(0.1, 1 - stormHastePercent);
     return enemy.moveInterval * 1000 * mult * (game.enemies.some(e => e.type === 'skitter') ? (1 / 1.1) : 1);
   }
 
@@ -7375,7 +7427,7 @@ function renderDamageReport() {
     }
   }
 
-  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH) {
+  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH, kind = 'statue-red-fire') {
     if (!inBounds(x, y)) return;
     if (!game.explosionEffects) game.explosionEffects = [];
     game.explosionEffects.push({
@@ -7387,7 +7439,7 @@ function renderDamageReport() {
       startedAt: now(),
       until: now() + durationMs,
       durationMs,
-      kind: 'statue-red-fire',
+      kind,
       imagePath,
     });
   }
@@ -7425,6 +7477,25 @@ function renderDamageReport() {
       { x: 10, y: -8 },
     ];
     return laneOffsets[Math.min(stackIndex, laneOffsets.length - 1)] || { x: 0, y: 0 };
+  }
+
+
+  function applyBossStormHasteAura(current) {
+    const bosses = game.enemies.filter(enemy => enemy && enemy.isBoss && enemy.hp > 0);
+    if (!bosses.length) return;
+    for (const enemy of game.enemies) {
+      if (!enemy || enemy.hp <= 0 || enemy.isBoss) continue;
+      for (const boss of bosses) {
+        if (Math.abs(enemy.x - boss.x) <= 1 && Math.abs(enemy.y - boss.y) <= 1) {
+          enemy.debuffs = enemy.debuffs || {};
+          enemy.debuffs.storm_haste = {
+            percent: 0.20,
+            until: current + 3000,
+          };
+          break;
+        }
+      }
+    }
   }
 
   function getEnemyPixelCenter(enemy) {
@@ -7523,7 +7594,8 @@ function renderDamageReport() {
       const alpha = Math.max(0, 0.55 - (progress * 0.45));
 
       if (effect.kind === 'statue-red-fire') {
-        const spriteSize = Math.max(pos.width, pos.height) * STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER;
+        const spriteSizeMultiplier = effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER;
+        const spriteSize = Math.max(pos.width, pos.height) * spriteSizeMultiplier;
         const sprite = document.createElement('img');
         sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
         sprite.alt = '';
@@ -7608,9 +7680,29 @@ function renderDamageReport() {
       const bossSizeMult = 1.40;
       const visualWidthBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.425 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
       const visualHeightBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.275 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
-      const visualScale = enemy.isBoss ? 1 : 1.1;
+      const visualScale = enemy.isBoss ? 0.64 : 1.1;
       const visualWidth = Math.round(visualWidthBase * visualScale);
       const visualHeight = Math.round(visualHeightBase * visualScale);
+      if (enemy.isBoss) {
+        const storm = document.createElement('div');
+        storm.className = 'boss-storm-cloud';
+        storm.style.left = `${px + offset.x - (pos.width * 1.5) + 10}px`;
+        storm.style.top = `${py + offset.y - (pos.height * 0.2)}px`;
+        storm.style.width = `${pos.width * 3}px`;
+        storm.style.height = `${pos.height * 2.1}px`;
+        for (let i = 0; i < 5; i += 1) {
+          const blob = document.createElement('div');
+          blob.className = 'boss-storm-cloud-blob';
+          blob.style.left = `${8 + (i * 14)}%`;
+          blob.style.top = `${34 + ((i % 2) * 10)}%`;
+          blob.style.width = `${30 + ((i % 3) * 10)}%`;
+          blob.style.height = `${18 + ((i % 2) * 6)}%`;
+          blob.style.animationDelay = `${i * 0.6}s`;
+          blob.style.animationDuration = `${4.2 + (i * 0.4)}s`;
+          storm.appendChild(blob);
+        }
+        els.enemyLayer.appendChild(storm);
+      }
       dot.style.width = `${visualWidth}px`;
       dot.style.height = `${visualHeight}px`;
       if (enemy.isBoss) {
@@ -7619,12 +7711,13 @@ function renderDamageReport() {
         dot.setAttribute('aria-hidden', 'true');
         dot.style.objectFit = 'contain';
         dot.style.objectPosition = 'center bottom';
-        dot.style.transform = 'translate(-50%, -78%)';
+        dot.style.transform = `translate(-50%, -64%) scaleX(${getEnemyFacingScaleX(enemy)})`;
         dot.style.borderRadius = '0';
         dot.style.border = '0';
         dot.style.background = 'transparent';
         dot.style.boxShadow = 'none';
         dot.style.filter = getBossVisualFilter(enemy);
+        dot.style.transformOrigin = 'center center';
       } else if (usePackbocSprite) {
         dot.src = getPackbocSpritePath(enemy);
         dot.alt = '';
@@ -7649,6 +7742,10 @@ function renderDamageReport() {
         dot.style.background = 'transparent';
         dot.style.boxShadow = 'none';
         dot.style.zIndex = '7';
+      }
+      if (useImageSprite && !enemy.isBoss) {
+        dot.style.transform = `translate(-50%, -56%) scaleX(${getEnemyFacingScaleX(enemy)})`;
+        dot.style.transformOrigin = 'center center';
       }
       els.enemyLayer.appendChild(dot);
       if (getEnemySlowPercent(enemy) > 0) {
