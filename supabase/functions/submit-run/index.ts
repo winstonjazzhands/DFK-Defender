@@ -305,6 +305,7 @@ async function syncPlayerSummaryFromRuns(
     return;
   }
 
+  const derivedUsedWalletHeroes = Boolean(options.usedWalletHeroes) || await computeUsedWalletHeroes(admin, walletAddress);
   const summaryPayload: Record<string, unknown> = {
     wallet_address: walletAddress,
     display_name: cleanName(options.displayName) || null,
@@ -312,7 +313,7 @@ async function syncPlayerSummaryFromRuns(
     total_runs: aggregates.totalRuns,
     total_waves_cleared: aggregates.totalWavesCleared,
     last_run_at: options.lastRunAt || new Date().toISOString(),
-    used_wallet_heroes: Boolean(options.usedWalletHeroes),
+    used_wallet_heroes: derivedUsedWalletHeroes,
   };
 
   try {
@@ -384,6 +385,58 @@ async function computePlayerAggregates(admin: SupabaseClient, walletAddress: str
 
   console.error('submit-run aggregate recompute exhausted variants', normalizeError(lastError));
   return { response: json({ error: 'Aggregate recompute failed.', code: 'aggregate_recompute_failed' }, 500) };
+}
+
+
+async function computeUsedWalletHeroes(admin: SupabaseClient, walletAddress: string) {
+  const selectVariants = [
+    'stats_json, heroes_json',
+    'stats_json',
+    'heroes_json',
+  ];
+
+  for (const columns of selectVariants) {
+    const { data, error } = await admin
+      .from('runs')
+      .select(columns)
+      .eq('wallet_address', walletAddress);
+
+    if (error) {
+      if (isMissingColumnError(error)) continue;
+      console.error('submit-run nft usage recompute failed', { columns, ...normalizeError(error) });
+      return false;
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    for (const row of rows) {
+      const run = row as Record<string, unknown>;
+      const stats = run.stats_json && typeof run.stats_json === 'object' ? run.stats_json as Record<string, unknown> : {};
+      if (
+        Boolean(stats.usedWalletHeroes)
+        || Boolean(stats.used_wallet_heroes)
+        || Number(stats.usedWalletHeroCount || 0) > 0
+        || Number(stats.used_wallet_hero_count || 0) > 0
+      ) {
+        return true;
+      }
+      const heroes = Array.isArray(run.heroes_json) ? run.heroes_json as Array<Record<string, unknown>> : [];
+      if (heroes.some((hero) => {
+        const entry = hero as Record<string, unknown>;
+        return Boolean(entry.usedWalletHero)
+          || Boolean(entry.used_wallet_hero)
+          || Number(entry.walletHeroCount || 0) > 0
+          || Number(entry.wallet_hero_count || 0) > 0
+          || Boolean(entry.walletHeroId)
+          || Boolean(entry.wallet_hero_id);
+      })) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  return false;
 }
 
 async function upsertPlayer(admin: SupabaseClient, payload: Record<string, unknown>) {

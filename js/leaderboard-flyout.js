@@ -59,6 +59,30 @@
     return response.json();
   }
 
+  async function fetchFunctionJson(baseUrl, anonKey, functionName) {
+    var url = baseUrl.replace(/\/$/, '') + '/functions/v1/' + functionName;
+    var response = await fetch(url, {
+      headers: {
+        apikey: anonKey,
+        Authorization: 'Bearer ' + anonKey,
+        Accept: 'application/json'
+      }
+    });
+    var responseText = '';
+    try { responseText = await response.text(); } catch (e) {}
+    var json = null;
+    if (responseText) {
+      try { json = JSON.parse(responseText); } catch (e) { json = null; }
+    }
+    if (!response.ok) {
+      var message = json && (json.error || json.message)
+        ? (json.error || json.message)
+        : (responseText || response.statusText || 'Request failed');
+      throw new Error(functionName + ': ' + response.status + ' ' + message);
+    }
+    return json;
+  }
+
   function normalizeRow(row) {
     var playerName = row.vanity_name || row.player_name || row.display_name || row.name || row.username || 'Unknown Player';
     var wallet = row.wallet || row.wallet_address || row.wallet_addr || row.address || row.player_wallet || '';
@@ -80,6 +104,18 @@
     var cfg = getSupabaseConfig();
     if (!cfg.url || !cfg.anonKey) {
       throw new Error('Missing Supabase URL or publishable key.');
+    }
+
+    try {
+      var functionRows = await fetchFunctionJson(cfg.url, cfg.anonKey, 'public-leaderboard');
+      if (Array.isArray(functionRows)) {
+        return functionRows.map(normalizeRow);
+      }
+      if (functionRows && Array.isArray(functionRows.rows)) {
+        return functionRows.rows.map(normalizeRow);
+      }
+    } catch (error) {
+      console.warn('[leaderboard-flyout] public-leaderboard fallback to rest', error);
     }
 
     var attempts = [

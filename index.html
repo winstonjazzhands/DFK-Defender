@@ -138,7 +138,7 @@
 
       <section class="right-panel panel" id="infoPanel">
         <div class="panel-toggle-row">
-          <button id="infoPanelToggleBtn" class="panel-toggle-btn secondary" type="button" aria-pressed="false">Hide Info</button>
+          <div id="burnedGoldDisplay" class="burned-gold-display">Burned: 0 DFK Gold</div>
         </div>
         <div id="heroQuickSelect" class="hero-quick-select"></div>
         <div id="selectedInfo" class="selected-info">Nothing selected.</div>
@@ -436,7 +436,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
-  <script src="js/security-wallet.js?v=46.9.1.57"></script>
+  <script src="js/security-wallet.js?v=46.9.1.69"></script>
   <script src="js/run-tracker.js"></script>
   <script src="js/leaderboard-flyout.js"></script>
   <script>
@@ -478,46 +478,8 @@
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-  <script src="js/app.js?v=46.9.1.57"></script>
-  <script src="js/layout-fixes.js?v=46.9.1.57"></script>
-  <script>
-    (function () {
-      function applyInfoPanelState(collapsed) {
-        document.body.classList.toggle('info-collapsed', !!collapsed);
-        var btn = document.getElementById('infoPanelToggleBtn');
-        if (btn) {
-          btn.textContent = collapsed ? 'Show Info' : 'Hide Info';
-          btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
-          btn.setAttribute('aria-label', collapsed ? 'Show hero info panel' : 'Hide hero info panel');
-        }
-        try { localStorage.setItem('dfkInfoCollapsed', collapsed ? '1' : '0'); } catch (e) {}
-      }
-      function initInfoPanelToggle() {
-        var btn = document.getElementById('infoPanelToggleBtn');
-        if (!btn) return;
-        var saved = false;
-        try { saved = localStorage.getItem('dfkInfoCollapsed') === '1'; } catch (e) {}
-        applyInfoPanelState(saved);
-        btn.addEventListener('click', function () {
-          applyInfoPanelState(!document.body.classList.contains('info-collapsed'));
-        });
-        window.addEventListener('resize', function () {
-          if (window.innerWidth <= 1024) {
-            document.body.classList.remove('info-collapsed');
-          } else {
-            var restore = false;
-            try { restore = localStorage.getItem('dfkInfoCollapsed') === '1'; } catch (e) {}
-            applyInfoPanelState(restore);
-          }
-        }, { passive: true });
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initInfoPanelToggle);
-      } else {
-        initInfoPanelToggle();
-      }
-    })();
-  </script>
+  <script src="js/app.js?v=46.9.1.69"></script>
+  <script src="js/layout-fixes.js?v=46.9.1.69"></script>
 
 
 

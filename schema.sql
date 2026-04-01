@@ -146,6 +146,32 @@ order by best_wave desc, total_waves_cleared desc, updated_at desc, wallet_addre
 create unique index if not exists players_vanity_name_unique on public.players (lower(vanity_name)) where vanity_name is not null;
 
 
+create table if not exists public.dfk_gold_burns (
+  tx_hash text primary key,
+  wallet_address text not null,
+  burn_amount numeric(20,3) not null default 0 check (burn_amount >= 0),
+  defender_gold_awarded integer not null default 0 check (defender_gold_awarded >= 0),
+  chain_id integer not null default 53935,
+  block_number bigint,
+  confirmed_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  constraint dfk_gold_burns_tx_hash_lowercase check (tx_hash = lower(tx_hash)),
+  constraint dfk_gold_burns_wallet_lowercase check (wallet_address = lower(wallet_address))
+);
+
+create index if not exists idx_dfk_gold_burns_wallet on public.dfk_gold_burns (wallet_address, confirmed_at desc);
+
+alter table public.dfk_gold_burns enable row level security;
+
+drop policy if exists "dfk_gold_burns_read_none" on public.dfk_gold_burns;
+create policy "dfk_gold_burns_read_none"
+  on public.dfk_gold_burns
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+
 create table if not exists public.bounties (
   id bigserial primary key,
   sort_order integer not null unique,

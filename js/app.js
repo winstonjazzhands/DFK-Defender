@@ -1,5 +1,5 @@
-// build: v46.9.1.61
-// build: v46.9.1.61
+// build: v46.9.1.69
+// build: v46.9.1.69
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -466,7 +466,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v1.2.7';
+const APP_VERSION = 'v1.2.8';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -892,6 +892,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     walletHeroBonusToggle: document.getElementById('walletHeroBonusToggle'),
     walletHeroBonusPanelBody: document.getElementById('walletHeroBonusPanelBody'),
     walletHeroBonusSummary: document.getElementById('walletHeroBonusSummary'),
+    burnedGoldDisplay: document.getElementById('burnedGoldDisplay'),
   };
 
   const game = {
@@ -958,6 +959,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     dfkGoldSwapOfferOpen: false,
     dfkGoldSwapOfferReason: '',
     dfkGoldSwapPending: false,
+    dfkGoldBurnedTotal: 0,
+    globalDfkGoldBurnedTotal: 0,
+    globalDfkGoldRefreshTimer: null,
     ownedRelics: [],
     foundRelics: [],
     attackLines: [],
@@ -1493,7 +1497,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.60',
+      gameVersion: 'V46.9.1.69',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1512,6 +1516,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         crashed: Boolean(game.crashed),
         usedWalletHeroes: game.towers.some(t => !!t.walletHeroId),
         usedWalletHeroCount: game.towers.filter(t => !!t.walletHeroId).length,
+        dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
       },
     };
   }
@@ -1566,6 +1571,39 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return Promise.resolve(null);
   }
 
+  function updateBurnedGoldDisplay() {
+    if (!els.burnedGoldDisplay) return;
+    const total = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
+    els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
+  }
+
+  async function fetchGlobalBurnedGoldTotal(force = false) {
+    const nowMs = Date.now();
+    if (!force && game.globalDfkGoldRefreshPending) return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
+    game.globalDfkGoldRefreshPending = true;
+    try {
+      const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
+      const total = Math.max(0, Number((response && (response.global_dfk_gold_burned ?? response.globalDfkGoldBurned ?? response.global_burned_total)) || 0));
+      game.globalDfkGoldBurnedTotal = total;
+      game.globalDfkGoldLastSyncedAt = nowMs;
+      updateBurnedGoldDisplay();
+      return total;
+    } catch (error) {
+      return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
+    } finally {
+      game.globalDfkGoldRefreshPending = false;
+    }
+  }
+
+  function startGlobalBurnedGoldRefreshLoop() {
+    if (game.globalDfkGoldRefreshTimer) return;
+    fetchGlobalBurnedGoldTotal(true).catch(() => {});
+    game.globalDfkGoldRefreshTimer = window.setInterval(() => {
+      fetchGlobalBurnedGoldTotal(true).catch(() => {});
+    }, 5 * 60 * 1000);
+  }
+
+
   function shouldOfferDfkgoldSwap() {
     return Boolean(getConnectedWalletAddress() && hasDfkgoldForSwap());
   }
@@ -1600,6 +1638,18 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     game.dfkGoldSwapOfferOpen = false;
     game.dfkGoldSwapOfferReason = '';
     game.dfkGoldSwapPending = false;
+  }
+
+  async function recordDfkgoldBurn(txHash, walletAddress, burnAmount, defenderGoldAwarded) {
+    const hash = String(txHash || '').trim();
+    const wallet = normalizeAddress(walletAddress);
+    if (!hash || !wallet || !Number.isFinite(Number(burnAmount || 0)) || Number(burnAmount || 0) <= 0) return null;
+    return fetchSupabaseFunctionJson('record-dfkgold-burn', {
+      txHash: hash,
+      walletAddress: wallet,
+      burnAmount: Number(burnAmount || 0),
+      defenderGoldAwarded: Math.max(0, Number(defenderGoldAwarded || 0)),
+    });
   }
 
   async function ensureWalletOnDfKChain(provider) {
@@ -1645,6 +1695,13 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       showBanner(`Burning ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold…`, 2200);
       await tx.wait();
       game.jewel = Math.max(0, Number(game.jewel || 0)) + DEFENDER_GOLD_SWAP_REWARD;
+      game.dfkGoldBurnedTotal = Math.max(0, Number(game.dfkGoldBurnedTotal || 0)) + DFK_GOLD_SWAP_COST;
+      game.globalDfkGoldBurnedTotal = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0)) + DFK_GOLD_SWAP_COST;
+      updateBurnedGoldDisplay();
+      try {
+        await recordDfkgoldBurn(tx.hash, walletAddress, DFK_GOLD_SWAP_COST, DEFENDER_GOLD_SWAP_REWARD);
+        await fetchGlobalBurnedGoldTotal(true);
+      } catch (recordError) {}
       markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
@@ -2123,6 +2180,7 @@ function renderDamageReport() {
     game.dfkGoldSwapOfferOpen = false;
     game.dfkGoldSwapOfferReason = '';
     game.dfkGoldSwapPending = false;
+    game.dfkGoldBurnedTotal = 0;
     game.ownedRelics = [];
     game.foundRelics = [];
     game.continueOfferUsed = false;
@@ -2186,18 +2244,46 @@ function renderDamageReport() {
   }
 
   function placeRandomObstacles() {
-    const placed = [];
-    let guard = 0;
-    while (placed.length < RANDOM_OBSTACLE_COUNT && guard < 3000) {
-      guard += 1;
-      const x = randInt(0, WIDTH - 1);
-      const y = randInt(0, HEIGHT - 1);
-      const tile = tileAt(x, y);
-      if (!tile || tile.obstacle || tile.portal || tile.type === 'spawn') continue;
-      if (placed.some(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1)) continue;
-      tile.obstacle = 'random';
-      placed.push({ x, y });
+    clearRandomObstacles();
+    let bestPlaced = [];
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      clearRandomObstacles();
+      const placed = [];
+      let guard = 0;
+      while (placed.length < RANDOM_OBSTACLE_COUNT && guard < 3000) {
+        guard += 1;
+        const x = randInt(0, WIDTH - 1);
+        const y = randInt(0, HEIGHT - 1);
+        const tile = tileAt(x, y);
+        if (!tile || tile.obstacle || tile.portal || tile.type === 'spawn') continue;
+        if (placed.some(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1)) continue;
+        tile.obstacle = 'random';
+        placed.push({ x, y });
+      }
+      if (placed.length > bestPlaced.length) bestPlaced = placed.map(pos => ({ ...pos }));
+      if (countValidPortalPlacements() > 0) return;
     }
+    clearRandomObstacles();
+    for (const pos of bestPlaced) {
+      const tile = tileAt(pos.x, pos.y);
+      if (tile && !tile.portal && tile.type !== 'spawn') tile.obstacle = 'random';
+    }
+  }
+
+  function clearRandomObstacles() {
+    for (const tile of game.grid) {
+      if (tile?.obstacle === 'random') tile.obstacle = null;
+    }
+  }
+
+  function countValidPortalPlacements() {
+    let count = 0;
+    for (let y = 0; y < HEIGHT - 1; y += 1) {
+      for (let x = 0; x < WIDTH - 1; x += 1) {
+        if (canPlacePortal(x, y)) count += 1;
+      }
+    }
+    return count;
   }
 
   function randInt(min, max) {
@@ -3067,7 +3153,42 @@ function renderDamageReport() {
   };
 
 
+  const DFK_CHAIN_ID = 53935;
+  const METIS_CHAIN_ID = 1088;
   const DFK_HERO_CORE_ADDRESS = '0xEb9B61B145D6489Be575D3603F4a704810e143dF';
+  const METIS_HERO_CORE_ADDRESS = '0xc7681698B14a2381d9f1eD69FC3D27F33965b53B';
+  const DFK_CHAIN_RPC_URL = 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
+  const METIS_CHAIN_RPC_URL = 'https://andromeda.metis.io/?owner=1088';
+  const DFK_COMMUNITY_GRAPHQL_URL = 'https://api.defikingdoms.com/graphql';
+  const WALLET_HEROES_FUNCTION = window.DFK_SUPABASE_WALLET_HEROES_FUNCTION || 'wallet-heroes';
+
+  function getSupabaseFunctionConfig() {
+    const url = window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
+    const key = window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '';
+    return { url, key };
+  }
+
+  async function fetchSupabaseFunctionJson(functionName, payload = null, method = 'POST') {
+    const cfg = getSupabaseFunctionConfig();
+    if (!cfg.url || !cfg.key) throw new Error('Supabase functions are not configured.');
+    const normalizedMethod = String(method || 'POST').toUpperCase();
+    const headers = {
+      apikey: cfg.key,
+      Authorization: `Bearer ${cfg.key}`,
+      Accept: 'application/json',
+    };
+    const options = { method: normalizedMethod, headers };
+    if (normalizedMethod !== 'GET') {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(payload && typeof payload === 'object' ? payload : {});
+    }
+    const response = await fetch(`${cfg.url.replace(/\/$/, '')}/functions/v1/${functionName}`, options);
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
+    }
+    return json || {};
+  }
   const DFK_BASE_CLASS_TO_SLOT = Object.freeze({
     0: 'warrior',
     3: 'archer',
@@ -3100,10 +3221,90 @@ function renderDamageReport() {
     'function getHeroV3(uint256 _id) view returns (tuple(uint256 id, tuple(uint256 summonedTime, uint256 nextSummonTime, uint256 summonerId, uint256 assistantId, uint32 summons, uint32 maxSummons) summoningInfo, tuple(uint256 statGenes, uint256 visualGenes, uint8 rarity, bool shiny, uint16 generation, uint32 firstName, uint32 lastName, uint8 shinyStyle, uint8 class, uint8 subClass) info, tuple(uint256 staminaFullAt, uint256 hpFullAt, uint256 mpFullAt, uint16 level, uint64 xp, address currentQuest, uint8 sp, uint8 status) state, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hp, uint16 mp, uint16 stamina) stats, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) primaryStatGrowth, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) secondaryStatGrowth, tuple(uint16 mining, uint16 gardening, uint16 foraging, uint16 fishing, uint16 craft1, uint16 craft2) professions, tuple(uint256 equippedSlots, uint256 petId, uint128 weapon1Id, uint128 weapon1VisageId, uint128 weapon2Id, uint128 weapon2VisageId, uint128 offhand1Id, uint128 offhand1VisageId, uint128 offhand2Id, uint128 offhand2VisageId, uint128 armorId, uint128 armorVisageId, uint128 accessoryId, uint128 accessoryVisageId) equipment))'
   ];
 
+  const METIS_HERO_CORE_ABI = [
+    'function getHero(uint256 _heroId) view returns (tuple(uint256 id, uint256 realmId, uint256 xp, uint256 level, uint256 class, uint256 subclass, uint256 rarity, uint256 summonsRemaining, uint256 hpSmallGrowth, uint256 hpMediumGrowth, uint256 hpLargeGrowth, uint256 equippedSlots, uint256 petId, uint8 state, uint256 strength, uint256 dexterity, uint256 agility, uint256 vitality, uint256 endurance, uint256 intelligence, uint256 wisdom, uint256 luck, uint256 hp, uint256 mp, uint256 baseSTR, uint256 baseDEX, uint256 baseAGI, uint256 baseVIT, uint256 baseEND, uint256 baseINT, uint256 baseWIS, uint256 baseLCK, uint256 baseHP, uint256 baseMP, uint256 lesserCrystals, uint256 regularCrystals, uint256 greaterCrystals, uint256 stoneTier, uint256 levelResets, uint256 resetFrom, uint256 rerollCost, uint256 levelCarryover, bool perilousJourneySurvivor, uint256 strengthPGrowth, uint256 strengthSGrowth, uint256 dexterityPGrowth, uint256 dexteritySGrowth, uint256 agilityPGrowth, uint256 agilitySGrowth, uint256 vitalityPGrowth, uint256 vitalitySGrowth, uint256 endurancePGrowth, uint256 enduranceSGrowth, uint256 intelligencePGrowth, uint256 intelligenceSGrowth, uint256 wisdomPGrowth, uint256 wisdomSGrowth, uint256 luckPGrowth, uint256 luckSGrowth, uint256 mpSmallGrowth, uint256 mpMediumGrowth, uint256 mpLargeGrowth, uint256 weapon1Id, uint256 weapon1VisageId, uint256 weapon2Id, uint256 weapon2VisageId, uint256 offhand1Id, uint256 offhand1VisageId, uint256 offhand2Id, uint256 offhand2VisageId, uint256 armorId, uint256 armorVisageId, uint256 accessoryId, uint256 accessoryVisageId))'
+  ];
+
+  const WALLET_HERO_CHAIN_CONFIGS = Object.freeze([
+    { key: 'dfk', chainId: DFK_CHAIN_ID, name: 'DFK Chain', heroAddress: DFK_HERO_CORE_ADDRESS, rpcUrl: DFK_CHAIN_RPC_URL, transferSupported: true },
+    { key: 'metis', chainId: METIS_CHAIN_ID, name: 'Metis', heroAddress: METIS_HERO_CORE_ADDRESS, rpcUrl: METIS_CHAIN_RPC_URL, transferSupported: false },
+  ]);
+
   function getWalletRpcProvider() {
     return window.DFKDefenseWallet && typeof window.DFKDefenseWallet.getProvider === 'function'
       ? window.DFKDefenseWallet.getProvider()
       : null;
+  }
+
+  function getWalletHeroChainConfig(value) {
+    const key = String(value || '').trim().toLowerCase();
+    if (!key) return null;
+    return WALLET_HERO_CHAIN_CONFIGS.find((entry) => entry.key === key || String(entry.chainId) === key) || null;
+  }
+
+  function getWalletHeroImageId(heroLike) {
+    const normalized = heroLike && heroLike.normalizedId != null ? String(heroLike.normalizedId).trim() : '';
+    const raw = heroLike && heroLike.id != null ? String(heroLike.id).trim() : '';
+    return normalized || raw;
+  }
+
+  function getWalletHeroNumericId(heroLike) {
+    const raw = getWalletHeroImageId(heroLike);
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  }
+
+  function getWalletHeroChainName(heroLike) {
+    const config = getWalletHeroChainConfig(heroLike && (heroLike.chainKey || heroLike.chainId));
+    return config ? config.name : 'Wallet';
+  }
+
+  function getWalletHeroSourceBadge(heroLike) {
+    const config = getWalletHeroChainConfig(heroLike && (heroLike.chainKey || heroLike.chainId));
+    return config ? config.name : 'Wallet';
+  }
+
+  function normalizeWalletHeroRecord(heroLike, overrides = {}) {
+    const next = { ...heroLike, ...overrides };
+    const config = getWalletHeroChainConfig(next.chainKey || next.chainId || next.network);
+    const chainKey = config ? config.key : String(next.chainKey || '').trim().toLowerCase();
+    const normalizedId = next.normalizedId != null ? String(next.normalizedId).trim() : '';
+    const rawId = next.id != null ? String(next.id).trim() : '';
+    return {
+      ...next,
+      id: normalizedId || rawId,
+      rawId: rawId || normalizedId,
+      normalizedId: normalizedId || rawId,
+      chainKey,
+      chainId: config ? config.chainId : next.chainId,
+      chainName: config ? config.name : (next.chainName || 'Wallet'),
+      transferSupported: config ? !!config.transferSupported : !!next.transferSupported,
+      imageUrl: normalizeHeroMediaUrl(next.imageUrl) || `https://heroes.defikingdoms.com/image/${encodeURIComponent(normalizedId || rawId)}`,
+    };
+  }
+
+  function normalizeWalletHeroNetwork(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    if (raw === 'dfk' || raw.includes('crystal')) return 'dfk';
+    if (raw === 'met' || raw === 'metis' || raw.includes('isles') || raw.includes('colosseum')) return 'metis';
+    if (raw === 'kla' || raw === 'kaia' || raw.includes('ser2')) return 'kaia';
+    if (raw === 'hmy' || raw === 'harmony' || raw.includes('ser1') || raw === 'ser') return 'harmony';
+    return raw;
+  }
+
+  function compareWalletHeroes(a, b) {
+    const typeDelta = DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
+    if (typeDelta !== 0) return typeDelta;
+    const levelDelta = Number(b.level || 0) - Number(a.level || 0);
+    if (levelDelta !== 0) return levelDelta;
+    const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
+    if (chainDelta !== 0) return chainDelta;
+    return getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
+  }
+
+  function getWalletHeroKey(heroLike) {
+    return `${String(heroLike && (heroLike.chainKey || 'wallet'))}:${String(heroLike && (heroLike.id || heroLike.rawId || ''))}`;
   }
 
   function normalizeHeroMediaUrl(url) {
@@ -3199,7 +3400,7 @@ function renderDamageReport() {
   }
 
   function getFilteredTransferHeroes() {
-    const list = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster.slice() : [];
+    const list = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster.filter((hero) => hero && hero.transferSupported !== false).slice() : [];
     const query = getTransferHeroSearchValue();
     const filtered = !query ? list : list.filter((hero) => {
       const haystack = [hero.id, hero.className, hero.subClassName, hero.rarityName, `level ${hero.level}`, `lvl ${hero.level}`].join(' ').toLowerCase();
@@ -3270,7 +3471,7 @@ function renderDamageReport() {
     if (els.transferHeroesSort && els.transferHeroesSort.value !== String(game.transferHeroSort || 'level_desc')) els.transferHeroesSort.value = String(game.transferHeroSort || 'level_desc');
     syncTransferHeroSummary();
     if (!address) {
-      setTransferHeroesStatus('Connect a wallet on DFK Chain to transfer heroes.');
+      setTransferHeroesStatus('Connect a wallet to load heroes. Transfers still use DFK Chain only.');
       els.transferHeroesBody.innerHTML = '<div class="transfer-heroes-empty">Wallet not connected.</div>';
       if (els.confirmTransferHeroesBtn) els.confirmTransferHeroesBtn.disabled = true;
       if (els.transferHeroesPageLabel) els.transferHeroesPageLabel.textContent = 'Page 1 / 1';
@@ -3278,9 +3479,9 @@ function renderDamageReport() {
       if (els.transferHeroesNextBtn) els.transferHeroesNextBtn.disabled = true;
       return;
     }
-    if (game.walletHeroLoadPending) setTransferHeroesStatus('Loading all heroes from chain…');
-    else if (!allHeroes.length) setTransferHeroesStatus('No detected heroes are currently loaded for this wallet.');
-    else if (!game.transferHeroesBusy) setTransferHeroesStatus(`Loaded ${allHeroes.length} detected hero${allHeroes.length === 1 ? '' : 'es'} from your wallet.`);
+    if (game.walletHeroLoadPending) setTransferHeroesStatus('Loading heroes from DFK Chain and Metis…');
+    else if (!allHeroes.length) setTransferHeroesStatus('No transferable DFK Chain heroes are currently loaded for this wallet.');
+    else if (!game.transferHeroesBusy) setTransferHeroesStatus(`Loaded ${allHeroes.length} transferable DFK Chain hero${allHeroes.length === 1 ? '' : 'es'} from your wallet. Metis heroes are available in the NFT bonus picker.`);
     if (!filteredHeroes.length) {
       els.transferHeroesBody.innerHTML = '<div class="transfer-heroes-empty">No heroes match this search.</div>';
     } else {
@@ -3298,6 +3499,7 @@ function renderDamageReport() {
             </span>
             <span class="transfer-hero-card-sub">${escapeHtml(hero.className)} • ${escapeHtml(hero.subClassName || '—')}</span>
             <span class="transfer-hero-card-sub">${escapeHtml(hero.rarityName)} • Level ${escapeHtml(String(hero.level))}</span>
+            <span class="transfer-hero-card-sub">${escapeHtml(getWalletHeroSourceBadge(hero))}</span>
           </span>
         </button>`;
       }).join('');
@@ -3627,6 +3829,7 @@ function renderDamageReport() {
     }
     if (els.mutationLabel) els.mutationLabel.textContent = game.activeMutation ? game.activeMutation.name : (game.nextWavePlan?.mutation?.name || 'None');
     if (els.countdownLabel) els.countdownLabel.textContent = game.runningWave ? 'Live' : (game.countdownMs > 0 ? `${Math.ceil(game.countdownMs / 1000)}s` : 'Ready');
+    updateBurnedGoldDisplay();
     if (typeof updatePremiumJewelInfo === 'function') updatePremiumJewelInfo();
     if (typeof updateAutoStartButton === 'function') updateAutoStartButton();
   }
@@ -3715,7 +3918,7 @@ function renderDamageReport() {
   async function loadWalletHeroes(force = false) {
     const address = getConnectedWalletAddress();
     const rawProvider = getWalletRpcProvider();
-    if (!address || !rawProvider || !window.ethers) {
+    if (!address || !window.ethers) {
       clearWalletHeroData();
       return;
     }
@@ -3724,54 +3927,114 @@ function renderDamageReport() {
     game.walletHeroLoadError = '';
     renderWalletHeroBonusPanel();
     try {
-      const provider = new window.ethers.BrowserProvider(rawProvider);
-      const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
-      const balance = Number(await contract.balanceOf(address));
-      const ids = [];
-      const indexBatchSize = 80;
-      for (let start = 0; start < balance; start += indexBatchSize) {
-        const count = Math.min(indexBatchSize, balance - start);
-        const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
-        ids.push(...batchIds);
+      const heroesByKey = new Map();
+
+      const walletProvider = rawProvider ? new window.ethers.BrowserProvider(rawProvider) : null;
+      let walletChainId = 0;
+      if (walletProvider) {
+        try {
+          const network = await walletProvider.getNetwork();
+          walletChainId = Number(network && network.chainId ? network.chainId : 0);
+        } catch (_error) {}
       }
-      const heroes = [];
-      const heroBatchSize = 20;
-      for (let start = 0; start < ids.length; start += heroBatchSize) {
-        const batch = ids.slice(start, start + heroBatchSize);
-        const batchHeroes = await Promise.all(batch.map(async (heroId) => {
-          const core = await contract.getHeroV3(heroId);
-          const classId = Number(core.info.class);
-          const subClassId = Number(core.info.subClass);
-          const type = DFK_BASE_CLASS_TO_SLOT[classId] || '';
-          const level = Math.max(1, Number(core.state.level || 1));
-          const rarity = Number(core.info.rarity || 0);
-          const heroIdText = heroId.toString();
-          let imageUrl = '';
-          try {
-            const tokenUri = await contract.tokenURI(heroId);
-            imageUrl = await readHeroMetadataImage(tokenUri);
-          } catch (error) {}
-          imageUrl = normalizeHeroMediaUrl(imageUrl) || `https://heroes.defikingdoms.com/image/${heroIdText}`;
-          return {
-            id: heroIdText,
-            type,
+
+      async function loadDfkWalletHeroes() {
+        const provider = walletProvider && walletChainId === DFK_CHAIN_ID
+          ? walletProvider
+          : new window.ethers.JsonRpcProvider(DFK_CHAIN_RPC_URL, DFK_CHAIN_ID, { staticNetwork: true });
+        const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
+        const balance = Number(await contract.balanceOf(address));
+        const ids = [];
+        const indexBatchSize = 80;
+        for (let start = 0; start < balance; start += indexBatchSize) {
+          const count = Math.min(indexBatchSize, balance - start);
+          const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
+          ids.push(...batchIds);
+        }
+        const heroBatchSize = 20;
+        for (let start = 0; start < ids.length; start += heroBatchSize) {
+          const batch = ids.slice(start, start + heroBatchSize);
+          const batchHeroes = await Promise.all(batch.map(async (heroId) => {
+            const core = await contract.getHeroV3(heroId);
+            const classId = Number(core.info.class);
+            const subClassId = Number(core.info.subClass);
+            const heroIdText = heroId.toString();
+            let imageUrl = '';
+            try {
+              const tokenUri = await contract.tokenURI(heroId);
+              imageUrl = await readHeroMetadataImage(tokenUri);
+            } catch (_error) {}
+            return normalizeWalletHeroRecord({
+              id: heroIdText,
+              normalizedId: heroIdText,
+              chainKey: 'dfk',
+              type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
+              classId,
+              className: getDfKClassName(classId),
+              subClassId,
+              subClassName: getDfKClassName(subClassId),
+              rarity: Number(core.info.rarity || 0),
+              rarityName: getDfKRarityName(Number(core.info.rarity || 0)),
+              level: Math.max(1, Number(core.state.level || 1)),
+              imageUrl,
+            });
+          }));
+          for (const hero of batchHeroes.filter(Boolean)) heroesByKey.set(getWalletHeroKey(hero), hero);
+        }
+      }
+
+      async function loadMetisWalletHeroes() {
+        let rows = [];
+        try {
+          const payload = await fetchSupabaseFunctionJson(WALLET_HEROES_FUNCTION, { address, chain: 'metis' });
+          rows = Array.isArray(payload && payload.heroes) ? payload.heroes : [];
+        } catch (functionError) {
+          const response = await fetch(DFK_COMMUNITY_GRAPHQL_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: `query OwnedHeroes($owner: String!, $skip: Int!) { heroes(first: 250, skip: $skip, where: { owner: $owner }) { id normalizedId network level rarity mainClass subClass mainClassStr subClassStr } }`,
+              variables: { owner: address, skip: 0 },
+            }),
+          });
+          if (!response.ok) throw new Error(`Hero API returned ${response.status}`);
+          const payload = await response.json().catch(() => null);
+          if (!payload || payload.errors) throw new Error('Hero API query failed.');
+          rows = Array.isArray(payload.data && payload.data.heroes) ? payload.data.heroes : [];
+        }
+        for (const row of rows) {
+          const networkKey = normalizeWalletHeroNetwork(row && row.network);
+          if (networkKey !== 'metis') continue;
+          const classId = Number(row && row.mainClass);
+          const subClassId = Number(row && row.subClass);
+          const hero = normalizeWalletHeroRecord({
+            id: row && row.id != null ? row.id : '',
+            normalizedId: row && row.normalizedId != null ? row.normalizedId : '',
+            chainKey: 'metis',
+            type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
             classId,
-            className: getDfKClassName(classId),
+            className: row && row.mainClassStr ? String(row.mainClassStr) : getDfKClassName(classId),
             subClassId,
-            subClassName: getDfKClassName(subClassId),
-            rarity,
-            rarityName: getDfKRarityName(rarity),
-            level,
-            imageUrl,
-          };
-        }));
-        heroes.push(...batchHeroes);
+            subClassName: row && row.subClassStr ? String(row.subClassStr) : getDfKClassName(subClassId),
+            rarity: Number(row && row.rarity || 0),
+            rarityName: getDfKRarityName(Number(row && row.rarity || 0)),
+            level: Math.max(1, Number(row && row.level || 1)),
+          });
+          heroesByKey.set(getWalletHeroKey(hero), hero);
+        }
       }
-      game.allWalletHeroRoster = heroes.filter(Boolean).sort((a, b) => b.level - a.level || Number(a.id) - Number(b.id));
-      game.walletHeroRoster = game.allWalletHeroRoster.filter((hero) => hero.type).sort((a, b) => {
-        if (a.type !== b.type) return DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
-        return b.level - a.level || Number(a.id) - Number(b.id);
+
+      await Promise.allSettled([loadDfkWalletHeroes(), loadMetisWalletHeroes()]);
+
+      const combinedHeroes = Array.from(heroesByKey.values()).filter(Boolean);
+      game.allWalletHeroRoster = combinedHeroes.slice().sort((a, b) => {
+        const levelDelta = Number(b.level || 0) - Number(a.level || 0);
+        if (levelDelta !== 0) return levelDelta;
+        const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
+        if (chainDelta !== 0) return chainDelta;
+        return getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
       });
+      game.walletHeroRoster = game.allWalletHeroRoster.filter((hero) => hero.type).sort(compareWalletHeroes);
       const nextSelection = {};
       for (const type of DFK_SLOT_ORDER) {
         const available = game.walletHeroRoster.filter(hero => hero.type === type);
@@ -3785,6 +4048,7 @@ function renderDamageReport() {
     } catch (error) {
       console.error('DFK hero load failed', error);
       game.walletHeroRoster = [];
+      game.allWalletHeroRoster = [];
       game.selectedWalletHeroes = {};
       game.walletHeroLoadError = error && error.message ? `Hero chain read failed: ${error.message}` : 'Hero chain read failed.';
     } finally {
@@ -3795,6 +4059,7 @@ function renderDamageReport() {
     }
   }
 
+
   function renderWalletHeroBonusPanel() {
     if (!els.walletHeroBonusSection || !els.walletHeroBonusStatus || !els.walletHeroBonusBody) return;
     setWalletHeroPanelCollapsed(game.walletHeroPanelCollapsed !== false);
@@ -3804,7 +4069,7 @@ function renderDamageReport() {
     els.walletHeroBonusSection.classList.toggle('hidden', !hasWallet);
     els.walletHeroBonusSection.setAttribute('aria-hidden', hasWallet ? 'false' : 'true');
     if (!hasWallet) {
-      els.walletHeroBonusStatus.textContent = 'Connect a wallet on DFK Chain to load heroes.';
+      els.walletHeroBonusStatus.textContent = 'Connect a wallet to load heroes from DFK Chain and Metis.';
       els.walletHeroBonusBody.innerHTML = '';
       return;
     }
@@ -3814,11 +4079,11 @@ function renderDamageReport() {
       return;
     }
     if (game.walletHeroLoadPending) {
-      els.walletHeroBonusStatus.textContent = 'Loading wallet heroes from chain…';
+      els.walletHeroBonusStatus.textContent = 'Loading wallet heroes from DFK Chain and Metis…';
     } else if (game.walletHeroLoadError) {
       els.walletHeroBonusStatus.textContent = game.walletHeroLoadError;
     } else if (!(game.walletHeroRoster || []).length) {
-      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, or Pirate heroes found in this wallet.';
+      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, or Pirate heroes were found on DFK Chain or Metis for this wallet.';
     } else {
       const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
       els.walletHeroBonusStatus.textContent = `${selectedCount} wallet hero bonus${selectedCount === 1 ? '' : 'es'} armed. Selected heroes place for free and start at their onchain level.`;
@@ -3867,7 +4132,7 @@ function renderDamageReport() {
             <img src="${escapeHtml(getWalletHeroImage(selectedHero))}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} selected hero" loading="lazy" />
             <div class="wallet-hero-selected-meta">
               <div class="wallet-hero-selected-title">Hero #${escapeHtml(String(selectedHero.id))}</div>
-              <div class="wallet-hero-selected-sub">Starts free at level ${escapeHtml(String(selectedHero.level))}</div>
+              <div class="wallet-hero-selected-sub">${escapeHtml(getWalletHeroSourceBadge(selectedHero))} • Starts free at level ${escapeHtml(String(selectedHero.level))}</div>
             </div>
           </div>
         `;
@@ -3893,10 +4158,10 @@ function renderDamageReport() {
             const aStarts = aId.startsWith(searchTerm) ? 1 : 0;
             const bStarts = bId.startsWith(searchTerm) ? 1 : 0;
             if (aStarts !== bStarts) return bStarts - aStarts;
-            return b.level - a.level || Number(a.id) - Number(b.id);
+            return b.level - a.level || getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
           });
       } else {
-        visibleItems = visibleItems.slice().sort((a, b) => b.level - a.level || Number(a.id) - Number(b.id)).slice(0, 5);
+        visibleItems = visibleItems.slice().sort((a, b) => b.level - a.level || getWalletHeroNumericId(a) - getWalletHeroNumericId(b)).slice(0, 5);
       }
 
       if (!items.length) {
@@ -3919,7 +4184,7 @@ function renderDamageReport() {
             <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} hero ${escapeHtml(String(hero.id))}" loading="lazy" />
             <span class="wallet-hero-card-meta">
               <span class="wallet-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
-              <span class="wallet-hero-card-sub">Starts at level ${escapeHtml(String(hero.level))} for free</span>
+              <span class="wallet-hero-card-sub">${escapeHtml(getWalletHeroSourceBadge(hero))} • Starts at level ${escapeHtml(String(hero.level))} for free</span>
             </span>
             <span class="wallet-hero-card-badge">${String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id) ? 'Selected' : 'Use'}</span>
           `;
@@ -6536,6 +6801,7 @@ function renderDamageReport() {
       relicChoices: cloneContinueData(game.relicChoices),
       dfkGoldSwapOfferOpen: !!game.dfkGoldSwapOfferOpen,
       dfkGoldSwapOfferReason: game.dfkGoldSwapOfferReason || '',
+      dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
       ownedRelics: cloneContinueData(game.ownedRelics),
       foundRelics: cloneContinueData(game.foundRelics),
       modifiers: cloneContinueData(game.modifiers),
@@ -6710,6 +6976,7 @@ function renderDamageReport() {
     game.dfkGoldSwapOfferOpen = !!snap.dfkGoldSwapOfferOpen;
     game.dfkGoldSwapOfferReason = String(snap.dfkGoldSwapOfferReason || '');
     game.dfkGoldSwapPending = false;
+    game.dfkGoldBurnedTotal = Math.max(0, Number(snap.dfkGoldBurnedTotal || 0));
     game.ownedRelics = cloneContinueData(snap.ownedRelics) || [];
     game.foundRelics = cloneContinueData(snap.foundRelics) || [];
     game.modifiers = cloneContinueData(snap.modifiers) || game.modifiers;
@@ -9119,6 +9386,7 @@ function renderDamageReport() {
   });
 
   refreshWalletEconomyDetails().catch(() => {});
+  startGlobalBurnedGoldRefreshLoop();
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();

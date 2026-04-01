@@ -17,3 +17,14 @@ verify_jwt = false
 
 [functions.claim-bounty]
 verify_jwt = false
+
+
+[functions.public-leaderboard]
+verify_jwt = false
+
+[functions.wallet-heroes]
+verify_jwt = false
+
+
+[functions.record-dfkgold-burn]
+verify_jwt = false

@@ -1315,6 +1315,32 @@ body{
   display: grid;
   gap: 8px;
 }
+.wallet-vanity-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wallet-vanity-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 85%;
+  min-height: 30px;
+  border-radius: 8px;
+  border: 1px solid #4d5f87;
+  background: rgba(20, 28, 48, 0.92);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 0.74rem;
+}
+.wallet-vanity-input::placeholder {
+  color: #9fb2d8;
+}
+.vanity-btn {
+  flex: 0 0 auto;
+  min-width: 76px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
 
 .wallet-profile-name,
 .wallet-profile-balance {
@@ -1322,6 +1348,10 @@ body{
   font-size: 0.78rem;
   color: #dfe9ff;
   line-height: 1.3;
+}
+#walletProfileName,
+#walletAddress {
+  display: none !important;
 }
 .wallet-profile-balance {
   color: #d9b679;
@@ -1354,24 +1384,26 @@ body{
 }
 .wallet-tracking-summary {
   color: var(--muted);
+  font-size: 0.9rem;
 }
 .tracking-btn {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 .wallet-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
   margin-top: 8px;
 }
 .wallet-btn {
-  min-height: 32px;
-  border-radius: 9px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
   border: 1px solid #4d5f87;
   background: linear-gradient(180deg, #2e3f63, #24334f);
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -6273,3 +6305,27 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 @media (max-width: 1180px) { .transfer-heroes-body { grid-template-columns: repeat(3, minmax(0,1fr)); } .transfer-heroes-controls { grid-template-columns: 1fr 1fr; } .transfer-heroes-field-sort { grid-column: span 2; } }
 @media (max-width: 980px) { .transfer-heroes-body { grid-template-columns: repeat(2, minmax(0,1fr)); } .transfer-heroes-controls { grid-template-columns: 1fr; } .transfer-heroes-field-sort { grid-column: auto; } }
 @media (max-width: 640px) { .transfer-heroes-modal { padding: 10px; } .transfer-heroes-modal-card { width: calc(100vw - 20px); max-height: 92vh; } .transfer-heroes-body { grid-template-columns: 1fr; } .transfer-hero-card { grid-template-columns: 72px minmax(0,1fr); min-height: 94px; } .transfer-hero-card-art-wrap { width: 72px; height: 72px; } }
+
+
+.burned-gold-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 214, 102, 0.4);
+  background: rgba(36, 26, 10, 0.72);
+  color: #ffd666;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.panel-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
