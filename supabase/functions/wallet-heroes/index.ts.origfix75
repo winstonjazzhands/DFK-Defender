@@ -1,0 +1,126 @@
+import { ethers } from 'npm:ethers@6.13.4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return json({ ok: true }, 200);
+  if (req.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+  try {
+    const body = await req.json().catch(() => ({}));
+    const address = String(body && body.address || '').trim().toLowerCase();
+    const chain = String(body && body.chain || 'metis').trim().toLowerCase();
+    if (!address) return json({ error: 'Address is required.' }, 400);
+
+    const rpcMap = {
+      dfk: { rpcUrl: 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc', chainId: 53935, heroAddress: '0xEb9B61B145D6489Be575D3603F4a704810e143dF', mode: 'dfk' },
+      metis: { rpcUrl: 'https://andromeda.metis.io/?owner=1088', chainId: 1088, heroAddress: '0xc7681698B14a2381d9f1eD69FC3D27F33965b53B', mode: 'metis' },
+    } as const;
+    const target = (rpcMap as Record<string, { rpcUrl: string; chainId: number; heroAddress: string; mode: 'dfk' | 'metis' }>)[chain];
+    if (!target) return json({ error: 'Unsupported hero chain.' }, 400);
+
+    const provider = new ethers.JsonRpcProvider(target.rpcUrl, target.chainId, { staticNetwork: true });
+    const abi = target.mode === 'metis'
+      ? [
+          'function balanceOf(address owner) view returns (uint256)',
+          'function ownerOf(uint256 _tokenId) view returns (address)',
+          'function tokenURI(uint256 tokenId) view returns (string)',
+          'function getHero(uint256 _heroId) view returns (tuple(uint256 id, uint256 realmId, uint256 xp, uint256 level, uint256 class, uint256 subclass, uint256 rarity, uint256 summonsRemaining, uint256 hpSmallGrowth, uint256 hpMediumGrowth, uint256 hpLargeGrowth, uint256 equippedSlots, uint256 petId, uint8 state, uint256 strength, uint256 dexterity, uint256 agility, uint256 vitality, uint256 endurance, uint256 intelligence, uint256 wisdom, uint256 luck, uint256 hp, uint256 mp, uint256 baseSTR, uint256 baseDEX, uint256 baseAGI, uint256 baseVIT, uint256 baseEND, uint256 baseINT, uint256 baseWIS, uint256 baseLCK, uint256 baseHP, uint256 baseMP, uint256 lesserCrystals, uint256 regularCrystals, uint256 greaterCrystals, uint256 stoneTier, uint256 levelResets, uint256 resetFrom, uint256 rerollCost, uint256 levelCarryover, bool perilousJourneySurvivor, uint256 strengthPGrowth, uint256 strengthSGrowth, uint256 dexterityPGrowth, uint256 dexteritySGrowth, uint256 agilityPGrowth, uint256 agilitySGrowth, uint256 vitalityPGrowth, uint256 vitalitySGrowth, uint256 endurancePGrowth, uint256 enduranceSGrowth, uint256 intelligencePGrowth, uint256 intelligenceSGrowth, uint256 wisdomPGrowth, uint256 wisdomSGrowth, uint256 luckPGrowth, uint256 luckSGrowth, uint256 mpSmallGrowth, uint256 mpMediumGrowth, uint256 mpLargeGrowth, uint256 weapon1Id, uint256 weapon1VisageId, uint256 weapon2Id, uint256 weapon2VisageId, uint256 offhand1Id, uint256 offhand1VisageId, uint256 offhand2Id, uint256 offhand2VisageId, uint256 armorId, uint256 armorVisageId, uint256 accessoryId, uint256 accessoryVisageId))',
+        ]
+      : [
+          'function balanceOf(address owner) view returns (uint256)',
+          'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+          'function tokenURI(uint256 tokenId) view returns (string)',
+          'function getHeroV3(uint256 _id) view returns (tuple(uint256 id, tuple(uint256 summonedTime, uint256 nextSummonTime, uint256 summonerId, uint256 assistantId, uint32 summons, uint32 maxSummons) summoningInfo, tuple(uint256 statGenes, uint256 visualGenes, uint8 rarity, bool shiny, uint16 generation, uint32 firstName, uint32 lastName, uint8 shinyStyle, uint8 class, uint8 subClass) info, tuple(uint256 staminaFullAt, uint256 hpFullAt, uint256 mpFullAt, uint16 level, uint64 xp, address currentQuest, uint8 sp, uint8 status) state, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hp, uint16 mp, uint16 stamina) stats, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) primaryStatGrowth, tuple(uint16 strength, uint16 intelligence, uint16 wisdom, uint16 luck, uint16 agility, uint16 vitality, uint16 endurance, uint16 dexterity, uint16 hpSm, uint16 hpRg, uint16 hpLg, uint16 mpSm, uint16 mpRg, uint16 mpLg) secondaryStatGrowth, tuple(uint16 mining, uint16 gardening, uint16 foraging, uint16 fishing, uint16 craft1, uint16 craft2) professions, tuple(uint256 equippedSlots, uint256 petId, uint128 weapon1Id, uint128 weapon1VisageId, uint128 weapon2Id, uint128 weapon2VisageId, uint128 offhand1Id, uint128 offhand1VisageId, uint128 offhand2Id, uint128 offhand2VisageId, uint128 armorId, uint128 armorVisageId, uint128 accessoryId, uint128 accessoryVisageId) equipment))',
+        ];
+    const contract = new ethers.Contract(target.heroAddress, abi, provider);
+    const balance = Number(await contract.balanceOf(address));
+    const ids: (bigint | string)[] = [];
+
+    if (target.mode === 'metis') {
+      if (balance > 0) {
+        const ownerTopic = ethers.zeroPadValue(address, 32).toLowerCase();
+        const transferTopic = ethers.id('Transfer(address,address,uint256)');
+        const latestBlock = Number(await provider.getBlockNumber());
+        const logChunkSize = 100000;
+        const candidateHeroIds = new Set<string>();
+        for (let fromBlock = 0; fromBlock <= latestBlock; fromBlock += logChunkSize) {
+          const toBlock = Math.min(latestBlock, fromBlock + logChunkSize - 1);
+          const logs = await provider.getLogs({
+            address: target.heroAddress,
+            fromBlock,
+            toBlock,
+            topics: [transferTopic, null, ownerTopic],
+          });
+          for (const log of logs) {
+            try {
+              candidateHeroIds.add(BigInt(log.topics[3]).toString());
+            } catch (_error) {}
+          }
+        }
+        const candidateList = Array.from(candidateHeroIds.values());
+        const ownerBatchSize = 40;
+        for (let start = 0; start < candidateList.length; start += ownerBatchSize) {
+          const batch = candidateList.slice(start, start + ownerBatchSize);
+          const ownershipChecks = await Promise.all(batch.map(async (heroIdText) => {
+            try {
+              const owner = await contract.ownerOf(heroIdText);
+              return String(owner || '').toLowerCase() === address ? heroIdText : '';
+            } catch (_error) {
+              return '';
+            }
+          }));
+          ids.push(...ownershipChecks.filter(Boolean));
+        }
+      }
+    } else {
+      const indexBatchSize = 80;
+      for (let start = 0; start < balance; start += indexBatchSize) {
+        const count = Math.min(indexBatchSize, balance - start);
+        const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
+        ids.push(...batchIds);
+      }
+    }
+
+    const heroes = [];
+    const heroBatchSize = 20;
+    for (let start = 0; start < ids.length; start += heroBatchSize) {
+      const batch = ids.slice(start, start + heroBatchSize);
+      const batchHeroes = await Promise.all(batch.map(async (heroId) => {
+        if (target.mode === 'metis') {
+          const core = await contract.getHero(heroId);
+          return {
+            id: heroId.toString(),
+            normalizedId: heroId.toString(),
+            network: chain,
+            level: Number(core.level || 1),
+            rarity: Number(core.rarity || 0),
+            mainClass: Number(core.class || 0),
+            subClass: Number(core.subclass || 0),
+          };
+        }
+        const core = await contract.getHeroV3(heroId);
+        return {
+          id: heroId.toString(),
+          normalizedId: heroId.toString(),
+          network: chain,
+          level: Number(core.state.level || 1),
+          rarity: Number(core.info.rarity || 0),
+          mainClass: Number(core.info.class || 0),
+          subClass: Number(core.info.subClass || 0),
+        };
+      }));
+      heroes.push(...batchHeroes);
+    }
+    return json({ heroes }, 200);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error || 'wallet-heroes failed.') }, 500);
+  }
+});
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}

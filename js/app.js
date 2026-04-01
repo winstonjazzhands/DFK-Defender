@@ -1,5 +1,5 @@
-// build: v46.9.1.69
-// build: v46.9.1.69
+// build: v46.9.1.77
+// build: v46.9.1.77
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -1497,7 +1497,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.69',
+      gameVersion: 'V46.9.1.77',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -3159,36 +3159,8 @@ function renderDamageReport() {
   const METIS_HERO_CORE_ADDRESS = '0xc7681698B14a2381d9f1eD69FC3D27F33965b53B';
   const DFK_CHAIN_RPC_URL = 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
   const METIS_CHAIN_RPC_URL = 'https://andromeda.metis.io/?owner=1088';
-  const DFK_COMMUNITY_GRAPHQL_URL = 'https://api.defikingdoms.com/graphql';
-  const WALLET_HEROES_FUNCTION = window.DFK_SUPABASE_WALLET_HEROES_FUNCTION || 'wallet-heroes';
 
-  function getSupabaseFunctionConfig() {
-    const url = window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
-    const key = window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '';
-    return { url, key };
-  }
 
-  async function fetchSupabaseFunctionJson(functionName, payload = null, method = 'POST') {
-    const cfg = getSupabaseFunctionConfig();
-    if (!cfg.url || !cfg.key) throw new Error('Supabase functions are not configured.');
-    const normalizedMethod = String(method || 'POST').toUpperCase();
-    const headers = {
-      apikey: cfg.key,
-      Authorization: `Bearer ${cfg.key}`,
-      Accept: 'application/json',
-    };
-    const options = { method: normalizedMethod, headers };
-    if (normalizedMethod !== 'GET') {
-      headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(payload && typeof payload === 'object' ? payload : {});
-    }
-    const response = await fetch(`${cfg.url.replace(/\/$/, '')}/functions/v1/${functionName}`, options);
-    const json = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
-    }
-    return json || {};
-  }
   const DFK_BASE_CLASS_TO_SLOT = Object.freeze({
     0: 'warrior',
     3: 'archer',
@@ -3222,7 +3194,16 @@ function renderDamageReport() {
   ];
 
   const METIS_HERO_CORE_ABI = [
+    'function balanceOf(address owner) view returns (uint256)',
+    'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+    'function tokenURI(uint256 tokenId) view returns (string)',
     'function getHero(uint256 _heroId) view returns (tuple(uint256 id, uint256 realmId, uint256 xp, uint256 level, uint256 class, uint256 subclass, uint256 rarity, uint256 summonsRemaining, uint256 hpSmallGrowth, uint256 hpMediumGrowth, uint256 hpLargeGrowth, uint256 equippedSlots, uint256 petId, uint8 state, uint256 strength, uint256 dexterity, uint256 agility, uint256 vitality, uint256 endurance, uint256 intelligence, uint256 wisdom, uint256 luck, uint256 hp, uint256 mp, uint256 baseSTR, uint256 baseDEX, uint256 baseAGI, uint256 baseVIT, uint256 baseEND, uint256 baseINT, uint256 baseWIS, uint256 baseLCK, uint256 baseHP, uint256 baseMP, uint256 lesserCrystals, uint256 regularCrystals, uint256 greaterCrystals, uint256 stoneTier, uint256 levelResets, uint256 resetFrom, uint256 rerollCost, uint256 levelCarryover, bool perilousJourneySurvivor, uint256 strengthPGrowth, uint256 strengthSGrowth, uint256 dexterityPGrowth, uint256 dexteritySGrowth, uint256 agilityPGrowth, uint256 agilitySGrowth, uint256 vitalityPGrowth, uint256 vitalitySGrowth, uint256 endurancePGrowth, uint256 enduranceSGrowth, uint256 intelligencePGrowth, uint256 intelligenceSGrowth, uint256 wisdomPGrowth, uint256 wisdomSGrowth, uint256 luckPGrowth, uint256 luckSGrowth, uint256 mpSmallGrowth, uint256 mpMediumGrowth, uint256 mpLargeGrowth, uint256 weapon1Id, uint256 weapon1VisageId, uint256 weapon2Id, uint256 weapon2VisageId, uint256 offhand1Id, uint256 offhand1VisageId, uint256 offhand2Id, uint256 offhand2VisageId, uint256 armorId, uint256 armorVisageId, uint256 accessoryId, uint256 accessoryVisageId))'
+  ];
+
+
+  const METIS_PVP_ABI = [
+    'function getPlayerPledgedHeroes(address _player) view returns (uint256[])',
+    'function getPlayerPledgedHeroesWithIndex(address _player, uint256 _index, uint256 _count) view returns (uint256[])'
   ];
 
   const WALLET_HERO_CHAIN_CONFIGS = Object.freeze([
@@ -3286,8 +3267,20 @@ function renderDamageReport() {
   function normalizeWalletHeroNetwork(value) {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return '';
-    if (raw === 'dfk' || raw.includes('crystal')) return 'dfk';
-    if (raw === 'met' || raw === 'metis' || raw.includes('isles') || raw.includes('colosseum')) return 'metis';
+    if (
+      raw === 'met' ||
+      raw === 'metis' ||
+      raw === 'cv' ||
+      raw.includes('crystal') ||
+      raw.includes('colosseum') ||
+      raw.includes('andromeda')
+    ) return 'metis';
+    if (
+      raw === 'dfk' ||
+      raw === 'dfk chain' ||
+      raw.includes('defi kingdoms chain') ||
+      raw.includes('subnet')
+    ) return 'dfk';
     if (raw === 'kla' || raw === 'kaia' || raw.includes('ser2')) return 'kaia';
     if (raw === 'hmy' || raw === 'harmony' || raw.includes('ser1') || raw === 'ser') return 'harmony';
     return raw;
@@ -3915,6 +3908,33 @@ function renderDamageReport() {
     }
   }
 
+  function commitWalletHeroRoster(heroesByKey) {
+    const combinedHeroes = Array.from(heroesByKey.values()).filter(Boolean);
+    game.allWalletHeroRoster = combinedHeroes.slice().sort((a, b) => {
+      const levelDelta = Number(b.level || 0) - Number(a.level || 0);
+      if (levelDelta !== 0) return levelDelta;
+      const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
+      if (chainDelta !== 0) return chainDelta;
+      return getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
+    });
+    game.walletHeroRoster = game.allWalletHeroRoster.filter((hero) => hero.type).sort(compareWalletHeroes);
+    const nextSelection = {};
+    for (const type of DFK_SLOT_ORDER) {
+      const available = game.walletHeroRoster.filter(hero => hero.type === type);
+      if (!available.length) continue;
+      const bestAvailable = available[0];
+      const existingId = game.selectedWalletHeroes && game.selectedWalletHeroes[type];
+      const existingHero = available.find(hero => String(hero.id) === String(existingId)) || null;
+      nextSelection[type] = (existingHero && compareWalletHeroes(existingHero, bestAvailable) <= 0)
+        ? String(existingHero.id)
+        : String(bestAvailable.id);
+    }
+    game.selectedWalletHeroes = nextSelection;
+    renderWalletHeroBonusPanel();
+    renderHirePanel();
+    renderTransferHeroesModal();
+  }
+
   async function loadWalletHeroes(force = false) {
     const address = getConnectedWalletAddress();
     const rawProvider = getWalletRpcProvider();
@@ -3928,6 +3948,7 @@ function renderDamageReport() {
     renderWalletHeroBonusPanel();
     try {
       const heroesByKey = new Map();
+      const chainErrors = [];
 
       const walletProvider = rawProvider ? new window.ethers.BrowserProvider(rawProvider) : null;
       let walletChainId = 0;
@@ -3981,70 +4002,98 @@ function renderDamageReport() {
           }));
           for (const hero of batchHeroes.filter(Boolean)) heroesByKey.set(getWalletHeroKey(hero), hero);
         }
+        commitWalletHeroRoster(heroesByKey);
       }
 
       async function loadMetisWalletHeroes() {
-        let rows = [];
+        const provider = walletProvider && walletChainId === METIS_CHAIN_ID
+          ? walletProvider
+          : new window.ethers.JsonRpcProvider(METIS_CHAIN_RPC_URL, METIS_CHAIN_ID, { staticNetwork: true });
+        const contract = new window.ethers.Contract(METIS_HERO_CORE_ADDRESS, [...METIS_HERO_CORE_ABI, ...METIS_PVP_ABI], provider);
+
+        let pledgedHeroIds = [];
         try {
-          const payload = await fetchSupabaseFunctionJson(WALLET_HEROES_FUNCTION, { address, chain: 'metis' });
-          rows = Array.isArray(payload && payload.heroes) ? payload.heroes : [];
-        } catch (functionError) {
-          const response = await fetch(DFK_COMMUNITY_GRAPHQL_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: `query OwnedHeroes($owner: String!, $skip: Int!) { heroes(first: 250, skip: $skip, where: { owner: $owner }) { id normalizedId network level rarity mainClass subClass mainClassStr subClassStr } }`,
-              variables: { owner: address, skip: 0 },
-            }),
-          });
-          if (!response.ok) throw new Error(`Hero API returned ${response.status}`);
-          const payload = await response.json().catch(() => null);
-          if (!payload || payload.errors) throw new Error('Hero API query failed.');
-          rows = Array.isArray(payload.data && payload.data.heroes) ? payload.data.heroes : [];
+          const directIds = await contract.getPlayerPledgedHeroes(address);
+          pledgedHeroIds = Array.isArray(directIds) ? directIds.map((value) => value.toString()) : [];
+        } catch (_directError) {
+          pledgedHeroIds = [];
         }
-        for (const row of rows) {
-          const networkKey = normalizeWalletHeroNetwork(row && row.network);
-          if (networkKey !== 'metis') continue;
-          const classId = Number(row && row.mainClass);
-          const subClassId = Number(row && row.subClass);
-          const hero = normalizeWalletHeroRecord({
-            id: row && row.id != null ? row.id : '',
-            normalizedId: row && row.normalizedId != null ? row.normalizedId : '',
-            chainKey: 'metis',
-            type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
-            classId,
-            className: row && row.mainClassStr ? String(row.mainClassStr) : getDfKClassName(classId),
-            subClassId,
-            subClassName: row && row.subClassStr ? String(row.subClassStr) : getDfKClassName(subClassId),
-            rarity: Number(row && row.rarity || 0),
-            rarityName: getDfKRarityName(Number(row && row.rarity || 0)),
-            level: Math.max(1, Number(row && row.level || 1)),
-          });
-          heroesByKey.set(getWalletHeroKey(hero), hero);
+
+        if (!pledgedHeroIds.length) {
+          const pageSize = 100;
+          for (let index = 0; index < 5000; index += pageSize) {
+            let page = [];
+            try {
+              page = await contract.getPlayerPledgedHeroesWithIndex(address, index, pageSize);
+            } catch (_pageError) {
+              break;
+            }
+            const pageIds = Array.isArray(page) ? page.map((value) => value.toString()).filter(Boolean) : [];
+            if (!pageIds.length) break;
+            pledgedHeroIds.push(...pageIds);
+            if (pageIds.length < pageSize) break;
+          }
         }
+
+        const dedupedHeroIds = Array.from(new Set(pledgedHeroIds.map((value) => String(value)).filter(Boolean)));
+        if (!dedupedHeroIds.length) {
+          commitWalletHeroRoster(heroesByKey);
+          return;
+        }
+
+        const heroBatchSize = 20;
+        for (let start = 0; start < dedupedHeroIds.length; start += heroBatchSize) {
+          const batch = dedupedHeroIds.slice(start, start + heroBatchSize);
+          const batchHeroes = await Promise.all(batch.map(async (heroIdText) => {
+            try {
+              const core = await contract.getHero(heroIdText);
+              const classId = Number(core.class);
+              const subClassId = Number(core.subclass);
+              let imageUrl = '';
+              try {
+                const tokenUri = await contract.tokenURI(heroIdText);
+                imageUrl = await readHeroMetadataImage(tokenUri);
+              } catch (_error) {}
+              return normalizeWalletHeroRecord({
+                id: heroIdText,
+                normalizedId: heroIdText,
+                chainKey: 'metis',
+                type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
+                classId,
+                className: getDfKClassName(classId),
+                subClassId,
+                subClassName: getDfKClassName(subClassId),
+                rarity: Number(core.rarity || 0),
+                rarityName: getDfKRarityName(Number(core.rarity || 0)),
+                level: Math.max(1, Number(core.level || 1)),
+                imageUrl,
+              });
+            } catch (_heroError) {
+              return null;
+            }
+          }));
+          for (const hero of batchHeroes.filter(Boolean)) heroesByKey.set(getWalletHeroKey(hero), hero);
+        }
+        commitWalletHeroRoster(heroesByKey);
       }
 
-      await Promise.allSettled([loadDfkWalletHeroes(), loadMetisWalletHeroes()]);
-
-      const combinedHeroes = Array.from(heroesByKey.values()).filter(Boolean);
-      game.allWalletHeroRoster = combinedHeroes.slice().sort((a, b) => {
-        const levelDelta = Number(b.level || 0) - Number(a.level || 0);
-        if (levelDelta !== 0) return levelDelta;
-        const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
-        if (chainDelta !== 0) return chainDelta;
-        return getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
-      });
-      game.walletHeroRoster = game.allWalletHeroRoster.filter((hero) => hero.type).sort(compareWalletHeroes);
-      const nextSelection = {};
-      for (const type of DFK_SLOT_ORDER) {
-        const available = game.walletHeroRoster.filter(hero => hero.type === type);
-        if (!available.length) continue;
-        const existingId = game.selectedWalletHeroes && game.selectedWalletHeroes[type];
-        nextSelection[type] = available.some(hero => String(hero.id) === String(existingId))
-          ? String(existingId)
-          : String(available[0].id);
+      try {
+        await loadDfkWalletHeroes();
+      } catch (error) {
+        console.error('DFK hero load failed', error);
+        chainErrors.push('DFK Chain');
       }
-      game.selectedWalletHeroes = nextSelection;
+      try {
+        await loadMetisWalletHeroes();
+      } catch (error) {
+        console.error('Metis hero load failed', error);
+        chainErrors.push('Metis');
+      }
+
+      commitWalletHeroRoster(heroesByKey);
+      if (!game.walletHeroRoster.length && chainErrors.length) {
+        game.walletHeroLoadError = `Hero chain read failed: ${chainErrors.join(' and ')}`;
+      }
     } catch (error) {
       console.error('DFK hero load failed', error);
       game.walletHeroRoster = [];
