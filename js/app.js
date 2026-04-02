@@ -1644,11 +1644,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       : {
           connected: false,
           guestMode: true,
-          healthMult: 0.8,
+          healthMult: 0.72,
           speedMult: 0.9,
           damageMult: 0.85,
           goldDropMult: 1.15,
-          startingGold: 100,
+          startingGold: 150,
         };
   }
 
@@ -4715,9 +4715,9 @@ function renderDamageReport() {
 
         if (tower.isSatellite && tower.type === 'archer') {
           const wavesLeftBadge = document.createElement('div');
-          wavesLeftBadge.className = 'tile-small tile-small-right';
+          wavesLeftBadge.className = 'tile-small tile-small-right tile-shadow-waves-badge';
           const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
-          wavesLeftBadge.textContent = `${wavesLeft}`;
+          wavesLeftBadge.innerHTML = `<span class="tile-shadow-waves-label">LEFT</span><span class="tile-shadow-waves-count">${wavesLeft}</span>`;
           wavesLeftBadge.title = `${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
           tile.el.appendChild(wavesLeftBadge);
         }
@@ -4766,6 +4766,7 @@ function renderDamageReport() {
         heroLabel.textContent = tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (tower.isSatellite && tower.type === 'archer' ? 'SHADOW' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase())));
         heroLabel.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
+          heroLabel.classList.add('tile-torn-soul-label');
           if (isTornSoulArchon(tower)) {
             heroLabel.style.color = '#f2e5ff';
             heroLabel.style.textShadow = '0 0 10px rgba(218,184,255,1), 0 0 18px rgba(168,124,255,0.85), 0 0 28px rgba(240,225,255,0.75)';
@@ -5349,18 +5350,53 @@ function renderDamageReport() {
     scope.dataset.mobileAutocloseBound = 'true';
   }
 
+  function applyMobileAbilityTileArtwork(btn, imageUrl) {
+    if (!btn) return;
+    btn.style.removeProperty('--mobile-btn-art');
+    btn.style.removeProperty('backgroundImage');
+    btn.style.removeProperty('backgroundRepeat');
+    btn.style.removeProperty('backgroundPosition');
+    btn.style.removeProperty('backgroundSize');
+    btn.style.removeProperty('backgroundColor');
+    if (imageUrl) {
+      btn.dataset.mobileArt = String(imageUrl);
+      btn.classList.add('has-art');
+    } else {
+      delete btn.dataset.mobileArt;
+      btn.classList.remove('has-art');
+    }
+  }
+
+  function setMobileAbilityButtonMarkup(btn, title, meta = '', imageUrl = '') {
+    if (!btn) return;
+    applyMobileAbilityTileArtwork(btn, imageUrl);
+    const safeImageUrl = imageUrl ? String(imageUrl).replace(/"/g, '&quot;') : '';
+    const art = imageUrl
+      ? `<span class="mobile-btn-art-slot" aria-hidden="true"><img class="mobile-btn-art-img" src="${safeImageUrl}" alt="" aria-hidden="true" draggable="false"></span>`
+      : '<span class="mobile-btn-art-slot mobile-btn-art-slot--empty" aria-hidden="true"></span>';
+    btn.innerHTML = `${art}<span class="mobile-btn-copy"><span class="ability-name">${title}</span><span class="ability-meta">${meta || '&nbsp;'}</span></span>`;
+  }
+
   function renderMobileAbilityDock() {
     const abilityButtons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3].filter(Boolean);
     const maxLevelBtn = els.mobileAbilityBtn4;
     const tower = getSelectedTower();
+    const fallbackMobileArt = [
+      getDefaultHeroImageForType('warrior'),
+      getDefaultHeroImageForType('wizard'),
+      getDefaultHeroImageForType('archer'),
+      getDefaultHeroImageForType('pirate'),
+    ];
     normalizeArcherStats(tower);
+    const towerArt = tower ? getDefaultHeroImageForType(tower.type) : '';
     const abilities = tower ? tower.abilities.filter(ability => !ability.passive && !ability.manualOnly).slice(0, 3) : [];
     abilityButtons.forEach((btn, index) => {
       if (!btn) return;
       const ability = abilities[index];
+      const buttonArt = towerArt || fallbackMobileArt[index] || '';
       if (!ability || !tower) {
-        btn.innerHTML = `<span class="ability-name">A${index + 1}</span><span class="ability-meta">Select hero</span>`;
-        btn.title = 'Select a hero first';
+        setMobileAbilityButtonMarkup(btn, `A${index + 1}`, '&nbsp;', buttonArt);
+        btn.title = 'Hire and place a hero to enable this ability.';
         btn.disabled = true;
         btn.onclick = null;
         return;
@@ -5370,15 +5406,16 @@ function renderDamageReport() {
       const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
       const disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
       const meta = locked ? `Unlocks L${unlockLevel}` : (remain > 0 ? `${remain.toFixed(1)}s` : 'Ready');
-      btn.innerHTML = `<span class="ability-name">${ability.name}</span><span class="ability-meta">${meta}</span>`;
+      setMobileAbilityButtonMarkup(btn, ability.name, meta, buttonArt);
       btn.title = locked ? `${ability.name} unlocks at level ${unlockLevel}` : (remain > 0 ? `${ability.name} (${remain.toFixed(1)}s)` : ability.name);
       btn.disabled = disabled;
       btn.onclick = disabled ? null : () => castAbility(tower, ability.key);
     });
     if (maxLevelBtn) {
+      const maxButtonArt = towerArt || fallbackMobileArt[3] || '';
       if (!tower) {
-        maxLevelBtn.innerHTML = `<span class="ability-name">Max Lvl</span><span class="ability-meta">Select hero</span>`;
-        maxLevelBtn.title = 'Select a hero first';
+        setMobileAbilityButtonMarkup(maxLevelBtn, 'Max Lvl', '&nbsp;', maxButtonArt);
+        maxLevelBtn.title = 'Hire and place a hero to enable max level.';
         maxLevelBtn.disabled = true;
         maxLevelBtn.onclick = null;
       } else {
@@ -5391,7 +5428,7 @@ function renderDamageReport() {
         const meta = canUse
           ? `L${targetLevel} • ${formatJewel(affordableSpend, tower)}g`
           : `L${Math.min(getUpgradeLevelCap(), Number(tower.level || 1))} • 0g`;
-        maxLevelBtn.innerHTML = `<span class="ability-name">Max Lvl</span><span class="ability-meta">${meta}</span>`;
+        setMobileAbilityButtonMarkup(maxLevelBtn, 'Max Lvl', meta, maxButtonArt);
         maxLevelBtn.title = canUse
           ? `Spend ${formatJewel(affordableSpend, tower)} gold to reach level ${targetLevel}`
           : (canUpgradeTower(tower) ? 'Not enough gold to level further.' : `Level cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`);
@@ -5407,7 +5444,9 @@ function renderDamageReport() {
 
   function syncMobileQuickActions() {
     const tower = getSelectedTower();
-    const satelliteTowerReady = !!tower && !tower.isSatellite && (tower.type === 'warrior' || tower.type === 'archer' || (tower.type === 'wizard' || tower.type === 'wizard_satellite')) && !!getPassiveEntries(tower).find(entry => !entry.locked && (entry.key === 'new_blood' || entry.key === 'eagle_nest' || entry.key === 'soul_split')) && (tower.satelliteCharges || 0) > 0 && game.phase !== SETUP_PHASES.GAME_OVER;
+    const preferredSatelliteTower = getPreferredSatelliteTower();
+    const satellitePlacementActive = !!game.placingSatelliteSourceId;
+    const satelliteTowerReady = !!preferredSatelliteTower;
     if (els.mobileQuickUpgradeBtn) {
       els.mobileQuickUpgradeBtn.disabled = !tower || els.upgradeBtn.disabled;
       els.mobileQuickUpgradeBtn.classList.toggle('is-live', !!tower && !els.upgradeBtn.disabled);
@@ -5423,12 +5462,22 @@ function renderDamageReport() {
       els.mobileQuickStartBtn.textContent = game.runningWave ? 'Live' : 'Start';
     }
     if (els.mobileQuickSatelliteBtn) {
-      const charges = tower && !tower.isSatellite ? (tower.satelliteCharges || 0) : 0;
-      const satelliteLabel = tower?.type === 'archer' ? 'Shadow' : (tower?.type === 'wizard' ? 'Soul' : 'Statue');
-      els.mobileQuickSatelliteBtn.disabled = !satelliteTowerReady;
-      els.mobileQuickSatelliteBtn.classList.toggle('is-live', satelliteTowerReady);
-      els.mobileQuickSatelliteBtn.textContent = satelliteTowerReady ? `${satelliteLabel} ${charges}` : 'Sat';
-      els.mobileQuickSatelliteBtn.title = satelliteTowerReady ? `Place shadow (${charges} ready)` : 'Select a warrior or archer with a shadow charge';
+      const activeSourceTower = satellitePlacementActive ? getTowerById(game.placingSatelliteSourceId) : null;
+      const displayTower = satellitePlacementActive ? activeSourceTower : preferredSatelliteTower;
+      const charges = displayTower && !displayTower.isSatellite ? (displayTower.satelliteCharges || 0) : 0;
+      const satelliteLabel = displayTower?.type === 'archer' ? 'Shadow' : (displayTower?.type === 'wizard' ? 'Soul' : 'Statue');
+      els.mobileQuickSatelliteBtn.disabled = !satellitePlacementActive && !satelliteTowerReady;
+      els.mobileQuickSatelliteBtn.classList.toggle('is-live', satellitePlacementActive || satelliteTowerReady);
+      els.mobileQuickSatelliteBtn.classList.toggle('has-ready-dot', satelliteTowerReady);
+      if (satellitePlacementActive && activeSourceTower) {
+        els.mobileQuickSatelliteBtn.textContent = 'Cancel';
+        els.mobileQuickSatelliteBtn.title = `Cancel ${satelliteLabel} placement`;
+      } else {
+        els.mobileQuickSatelliteBtn.textContent = satelliteTowerReady ? `${satelliteLabel} ${charges}` : 'Sat';
+        els.mobileQuickSatelliteBtn.title = satelliteTowerReady
+          ? `Place ${satelliteLabel.toLowerCase()} from ${preferredSatelliteTower?.name || preferredSatelliteTower?.type}`
+          : 'No hero has a satellite charge ready';
+      }
     }
   }
 
@@ -6356,12 +6405,53 @@ function renderDamageReport() {
     return true;
   }
 
+  function canTowerPlaceSatelliteNow(tower) {
+    if (!tower || tower.isSatellite || !['warrior', 'archer', 'wizard'].includes(tower.type)) return false;
+    if ((tower.satelliteCharges || 0) <= 0) return false;
+    if (game.phase === SETUP_PHASES.GAME_OVER) return false;
+    const hasUnlockedSatellitePassive = !!getPassiveEntries(tower).find(entry => !entry.locked && (entry.key === 'new_blood' || entry.key === 'eagle_nest' || entry.key === 'soul_split'));
+    if (!hasUnlockedSatellitePassive) return false;
+    if (tower.type !== 'warrior' && getActiveSatelliteCountForOwner(tower.id) >= 1) return false;
+    return true;
+  }
+
+  function getSatellitePlacementCandidates() {
+    const priority = { archer: 0, warrior: 1, wizard: 2 };
+    return game.towers
+      .filter(tower => canTowerPlaceSatelliteNow(tower))
+      .sort((a, b) => {
+        const byType = (priority[a.type] ?? 99) - (priority[b.type] ?? 99);
+        if (byType !== 0) return byType;
+        return (a.id || 0) - (b.id || 0);
+      });
+  }
+
+  function getPreferredSatelliteTower() {
+    return getSatellitePlacementCandidates()[0] || null;
+  }
+
+  function cancelSatellitePlacement({ silent = false } = {}) {
+    const sourceTower = game.placingSatelliteSourceId ? getTowerById(game.placingSatelliteSourceId) : null;
+    const satLabel = sourceTower?.type === 'archer' ? 'Archer Shadow' : (sourceTower?.type === 'wizard' ? 'Torn Soul' : 'Statue');
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
+    game.placingWalletHeroId = null;
+    if (!silent && sourceTower) {
+      showBanner(`${satLabel} placement cancelled.`, 1200);
+    }
+    render();
+  }
+
   function beginSatellitePlacement(tower) {
     if (!tower || !['warrior','archer','wizard'].includes(tower.type) || (tower.satelliteCharges || 0) <= 0) return;
     if (tower.type !== 'warrior' && getActiveSatelliteCountForOwner(tower.id) >= 1) {
       showBanner(tower?.type === 'wizard' ? 'That Wizard already has its maximum of 1 active Torn Soul.' : 'That hero already has its maximum of 1 active Archer Shadow.', 1700);
       return;
     }
+    game.selectedId = tower.id;
+    game.movingTowerId = null;
     game.placingHeroType = tower.type;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
@@ -9716,7 +9806,11 @@ function renderDamageReport() {
   bindMobileUpgradeHold(els.mobileQuickUpgradeBtn);
   els.mobileQuickMoveBtn?.addEventListener('click', () => els.moveBtn?.click());
   els.mobileQuickSatelliteBtn?.addEventListener('click', () => {
-    const tower = getSelectedTower();
+    if (game.placingSatelliteSourceId) {
+      cancelSatellitePlacement();
+      return;
+    }
+    const tower = getPreferredSatelliteTower();
     if (!tower) return;
     beginSatellitePlacement(tower);
   });
