@@ -4385,6 +4385,7 @@ function renderDamageReport() {
 
   function render() {
     for (const tower of game.towers || []) normalizeArcherStats(tower);
+    syncStartWaveButtonState();
     renderGrid();
     renderSelection();
     renderHirePanel();
@@ -6764,10 +6765,12 @@ function renderDamageReport() {
     normalizeArcherStats(tower);
     game.towers.push(tower);
     tileAt(x, y).towerId = tower.id;
-    if (tower.type === 'warrior' && !tower.isStatue && !placementKeepsEnemiesReachable(tower)) {
+    if ((tower.type === 'warrior' || isStatueTower(tower)) && !placementKeepsEnemiesReachable(tower)) {
       tileAt(x, y).towerId = null;
       game.towers = game.towers.filter(t => t.id !== tower.id);
-      showBanner('Warrior must leave enemies a route to the portal or to a tile next to him.', 1800);
+      showBanner(isStatueTower(tower)
+        ? 'Statue must leave enemies a route to the portal or to a tile next to it.'
+        : 'Warrior must leave enemies a route to the portal or to a tile next to him.', 1800);
       return;
     }
 
@@ -9746,7 +9749,14 @@ function renderDamageReport() {
   }
 
   function buyableWaveStart() {
-    return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length;
+    return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length && !!game.nextWavePlan && !game.crashed;
+  }
+
+  function syncStartWaveButtonState() {
+    if (!els.startWaveBtn) return false;
+    const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending;
+    els.startWaveBtn.disabled = !canStart;
+    return canStart;
   }
 
   function updateAutoStartButton() {
