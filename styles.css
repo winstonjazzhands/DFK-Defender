@@ -7525,3 +7525,65 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     max-width: calc(100% - 4px) !important;
   }
 }
+
+
+/* v29 revert ability dock width, lock dock to board edges, and let board expand to available right-side space */
+@media (max-width: 1024px) and (orientation: landscape) {
+  :root {
+    --mobile-board-left: calc(var(--mobile-safe-left) + var(--mobile-rail-w) + 10px) !important;
+    --mobile-board-right: max(2px, var(--mobile-safe-right)) !important;
+    --tile-gap: 2px !important;
+    --tile-size: clamp(40px, min(
+      calc((100vw - var(--mobile-board-left) - var(--mobile-board-right) - (13 * var(--tile-gap))) / 14),
+      calc((100dvh - var(--mobile-safe-top) - var(--mobile-safe-bottom) - var(--mobile-bottom-reserve) - 16px - (5 * var(--tile-gap))) / 6)
+    ), 60px) !important;
+    --board-width: calc(14 * var(--tile-size) + 13 * var(--tile-gap)) !important;
+    --board-height: calc(6 * var(--tile-size) + 5 * var(--tile-gap)) !important;
+  }
+
+  .center-panel {
+    padding-left: var(--mobile-board-left) !important;
+    padding-right: var(--mobile-board-right) !important;
+  }
+
+  #grid.grid,
+  .grid {
+    width: var(--board-width) !important;
+    min-width: var(--board-width) !important;
+    max-width: var(--board-width) !important;
+    height: var(--board-height) !important;
+    min-height: var(--board-height) !important;
+    max-height: var(--board-height) !important;
+    grid-template-columns: repeat(14, var(--tile-size)) !important;
+    grid-template-rows: repeat(6, var(--tile-size)) !important;
+    gap: var(--tile-gap) !important;
+  }
+
+  .tile,
+  .grid > .tile {
+    width: var(--tile-size) !important;
+    height: var(--tile-size) !important;
+  }
+
+  #mobileBottomBar.mobile-bottom-bar,
+  #mobileBottomBar {
+    left: var(--mobile-board-left) !important;
+    right: var(--mobile-board-right) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    justify-items: stretch !important;
+  }
+
+  #mobileBottomBar .mobile-bottom-btn,
+  #mobileBottomBar .mobile-ability-btn {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+
+  .status-overlay {
+    left: var(--mobile-board-left) !important;
+    right: var(--mobile-board-right) !important;
+    max-width: calc(100vw - var(--mobile-board-left) - var(--mobile-board-right) - 12px) !important;
+  }
+}
