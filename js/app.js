@@ -1,4 +1,15 @@
 // build: v46.9.1.86
+
+let lastTouchEnd = 0;
+
+document.addEventListener('touchend', (event) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
+
 // build: v46.9.1.86
 
 function injectPlayButton(textEl) {
@@ -82,7 +93,7 @@ function injectPlayButtonIntoStory(textEl) {
 }
 
 const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
-const STORY_MUSIC_START_SECONDS = 10;
+const STORY_MUSIC_START_SECONDS = 40;
 const STORY_MUSIC_VOLUME = 0.2;
 let storyMusic = null;
 let storyMusicVolume = STORY_MUSIC_VOLUME;
@@ -93,7 +104,7 @@ let storyMusicStarted = false;
 function tryStartMusic() {
   const audio = ensureStoryMusic();
   if (!audio) return Promise.resolve(false);
-  try { if (audio.currentTime < 10) audio.currentTime = 10; } catch (error) {}
+  try { if (audio.currentTime < STORY_MUSIC_START_SECONDS) audio.currentTime = STORY_MUSIC_START_SECONDS; } catch (error) {}
   const attempt = () => {
     try {
       const playResult = audio.play();
@@ -162,9 +173,24 @@ function startStoryMusic() {
     if (!Number.isFinite(audio.currentTime) || Math.abs(audio.currentTime - STORY_MUSIC_START_SECONDS) > 0.5) {
       audio.currentTime = STORY_MUSIC_START_SECONDS;
     }
-    applyStoryMusicVolume();
+    const targetVolume = storyMusicMuted ? 0 : storyMusicVolume;
+    try { audio.volume = 0; } catch (error) {}
     return audio.play().then(() => {
       storyMusicStarted = true;
+      const fadeSteps = 16;
+      const fadeMs = 800;
+      let fadeStep = 0;
+      const fadeTimer = setInterval(() => {
+        fadeStep += 1;
+        try {
+          const liveTargetVolume = storyMusicMuted ? 0 : storyMusicVolume;
+          audio.volume = Math.max(0, Math.min(1, liveTargetVolume * (fadeStep / fadeSteps)));
+        } catch (error) {}
+        if (fadeStep >= fadeSteps) {
+          clearInterval(fadeTimer);
+          applyStoryMusicVolume();
+        }
+      }, Math.round(fadeMs / fadeSteps));
       return true;
     }).catch(() => false);
   } catch (error) {
@@ -188,7 +214,19 @@ function playStorySequence() {
   const muteBtn = document.getElementById('storyMuteBtn');
   const volumeSlider = document.getElementById('storyVolumeSlider');
   const volumeValue = document.getElementById('storyVolumeValue');
+  const controlsEl = overlay ? overlay.querySelector('.story-controls') : null;
   if (!overlay || !textEl) return;
+
+  let storyControlsActiveTimer = null;
+  function pulseStoryControls() {
+    if (!controlsEl) return;
+    controlsEl.classList.add('story-controls-active');
+    if (storyControlsActiveTimer) clearTimeout(storyControlsActiveTimer);
+    storyControlsActiveTimer = setTimeout(() => {
+      controlsEl.classList.remove('story-controls-active');
+      storyControlsActiveTimer = null;
+    }, 2200);
+  }
 
   let index = 0;
   let cancelled = false;
@@ -252,6 +290,10 @@ function playStorySequence() {
 textEl.classList.remove('visible');
         overlay.classList.add('hidden');
         try {
+          document.body.classList.remove('intro-open');
+          if (typeof syncStatusOverlayVisibility === 'function') syncStatusOverlayVisibility(true);
+        } catch (error) {}
+        try {
           overlay.style.opacity = '';
           textEl.style.opacity = '';
         } catch (error) {}
@@ -276,10 +318,11 @@ syncStoryMusicControls();
   Promise.resolve().then(() => tryStartMusic());
 
   if (skipBtn) {
-    skipBtn.onclick = finishStory;
+    skipBtn.onclick = () => { pulseStoryControls(); finishStory(); };
   }
   if (muteBtn) {
     muteBtn.onclick = () => {
+      pulseStoryControls();
       storyMusicMuted = !storyMusicMuted;
       applyStoryMusicVolume();
       syncStoryMusicControls();
@@ -290,6 +333,7 @@ syncStoryMusicControls();
     const onVolumeInput = () => {
       const nextValue = Number(volumeSlider.value);
       if (Number.isFinite(nextValue)) {
+        pulseStoryControls();
         storyMusicVolume = Math.min(1, Math.max(0, nextValue / 100));
         if (storyMusicVolume > 0 && storyMusicMuted) storyMusicMuted = false;
         applyStoryMusicVolume();
@@ -299,6 +343,19 @@ syncStoryMusicControls();
     };
     volumeSlider.oninput = onVolumeInput;
     volumeSlider.onchange = onVolumeInput;
+    volumeSlider.addEventListener('pointerdown', pulseStoryControls, { passive: true });
+    volumeSlider.addEventListener('touchstart', pulseStoryControls, { passive: true });
+    volumeSlider.addEventListener('focus', pulseStoryControls);
+  }
+  if (muteBtn) {
+    muteBtn.addEventListener('pointerdown', pulseStoryControls, { passive: true });
+    muteBtn.addEventListener('touchstart', pulseStoryControls, { passive: true });
+    muteBtn.addEventListener('focus', pulseStoryControls);
+  }
+  if (skipBtn) {
+    skipBtn.addEventListener('pointerdown', pulseStoryControls, { passive: true });
+    skipBtn.addEventListener('touchstart', pulseStoryControls, { passive: true });
+    skipBtn.addEventListener('focus', pulseStoryControls);
   }
 
   function showNext() {
@@ -403,6 +460,7 @@ textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
 }
 
 window.addEventListener('load', () => {
+  try { document.body.classList.add('intro-open'); } catch (error) {}
   playStorySequence();
 });
 
@@ -466,7 +524,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v1.3.4';
+const APP_VERSION = 'v1.3.6';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -957,6 +1015,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     barrierRefitCount: 0,
     jewel: 0,
     premiumJewels: 0,
+    runWalletConnected: false,
+    difficultyProfile: createDifficultyProfileForRun({ connected: false }),
     runEntryCost: 3,
     milestoneJewelsGranted: {},
     portalHp: 2500,
@@ -1568,6 +1628,30 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const walletState = window.DFKDefenseWallet.getState() || {};
     return normalizeAddress(walletState.address || '');
   }
+
+  function createDifficultyProfileForRun(options = {}) {
+    const connected = !!options.connected;
+    return connected
+      ? {
+          connected: true,
+          guestMode: false,
+          healthMult: 1,
+          speedMult: 1,
+          damageMult: 1,
+          goldDropMult: 1,
+          startingGold: 0,
+        }
+      : {
+          connected: false,
+          guestMode: true,
+          healthMult: 0.8,
+          speedMult: 0.9,
+          damageMult: 0.85,
+          goldDropMult: 1.15,
+          startingGold: 100,
+        };
+  }
+
 
   function getWalletStateSnapshot() {
     if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.getState !== 'function') return {};
@@ -2466,6 +2550,8 @@ function renderDamageReport() {
       startedAt: new Date().toISOString(),
       submitted: false,
     };
+    game.runWalletConnected = !!getConnectedWalletAddress();
+    game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
     game.damageReportVisible = canViewLiveDamageReport();
     game.damageReportExpandedTowerIds = {};
     game.portal = null;
@@ -2496,7 +2582,7 @@ function renderDamageReport() {
     game.eliteFinalSpawnKilledWave = 0;
     game.rebuildingBarriers = false;
     game.barrierRefitCount = 0;
-    game.jewel = 0;
+    game.jewel = Math.max(0, Number(game.difficultyProfile?.startingGold || 0));
     game.portalHp = 2500;
     game.portalDamagePulseUntil = 0;
     game.milestoneJewelsGranted = {};
@@ -2560,6 +2646,10 @@ function renderDamageReport() {
     game.mobileMode = true;
     updateModeButtons();
     updatePauseButton();
+    if (game.difficultyProfile?.guestMode) {
+      showBanner('You are playing guest mode, have fun! Connect your wallet for tracked runs and greater challenges', 3600);
+      log('Guest mode active for this run. Connect your wallet before starting a new run for tracked runs and greater challenges.');
+    }
     setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${PLAYER_OBSTACLE_COUNT} choke-point obstacles, then place your Warrior. Before wave 1 starts, you can click one of your barriers to move it.`);
     log('New run started. Random obstacles are already on the field.');
     updateTopbar();
@@ -4144,8 +4234,12 @@ function renderDamageReport() {
 
 
   function updateTopbar() {
-    if (els.portalHp) els.portalHp.textContent = `${Math.max(0, Math.round(game.portalHp))}/2500`;
-    if (els.jewelCount) els.jewelCount.textContent = formatJewel(game.jewel);
+    const portalText = `${Math.max(0, Math.round(game.portalHp))}/2500`;
+    const goldText = formatJewel(game.jewel);
+    if (els.portalHp) els.portalHp.textContent = portalText;
+    if (els.mobilePortalHp) els.mobilePortalHp.textContent = portalText;
+    if (els.jewelCount) els.jewelCount.textContent = goldText;
+    if (els.mobileGoldCount) els.mobileGoldCount.textContent = goldText;
     if (els.waveCount) els.waveCount.textContent = `${game.waveNumber}`;
     if (els.patternLabel) {
       els.patternLabel.textContent = game.nextWavePlan
@@ -5256,11 +5350,12 @@ function renderDamageReport() {
   }
 
   function renderMobileAbilityDock() {
-    const buttons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3, els.mobileAbilityBtn4];
+    const abilityButtons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3].filter(Boolean);
+    const maxLevelBtn = els.mobileAbilityBtn4;
     const tower = getSelectedTower();
     normalizeArcherStats(tower);
-    const abilities = tower ? tower.abilities.filter(ability => !ability.passive && !ability.manualOnly).slice(0, 4) : [];
-    buttons.forEach((btn, index) => {
+    const abilities = tower ? tower.abilities.filter(ability => !ability.passive && !ability.manualOnly).slice(0, 3) : [];
+    abilityButtons.forEach((btn, index) => {
       if (!btn) return;
       const ability = abilities[index];
       if (!ability || !tower) {
@@ -5280,6 +5375,33 @@ function renderDamageReport() {
       btn.disabled = disabled;
       btn.onclick = disabled ? null : () => castAbility(tower, ability.key);
     });
+    if (maxLevelBtn) {
+      if (!tower) {
+        maxLevelBtn.innerHTML = `<span class="ability-name">Max Lvl</span><span class="ability-meta">Select hero</span>`;
+        maxLevelBtn.title = 'Select a hero first';
+        maxLevelBtn.disabled = true;
+        maxLevelBtn.onclick = null;
+      } else {
+        const affordableCount = getMaxAffordableUpgradeCount(tower);
+        const affordableSpend = getMaxAffordableUpgradeSpend(tower);
+        const canUse = canUpgradeTower(tower)
+          && affordableCount > 0
+          && (game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
+        const targetLevel = Math.min(getUpgradeLevelCap(), Number(tower.level || 1) + affordableCount);
+        const meta = canUse
+          ? `L${targetLevel} • ${formatJewel(affordableSpend, tower)}g`
+          : `L${Math.min(getUpgradeLevelCap(), Number(tower.level || 1))} • 0g`;
+        maxLevelBtn.innerHTML = `<span class="ability-name">Max Lvl</span><span class="ability-meta">${meta}</span>`;
+        maxLevelBtn.title = canUse
+          ? `Spend ${formatJewel(affordableSpend, tower)} gold to reach level ${targetLevel}`
+          : (canUpgradeTower(tower) ? 'Not enough gold to level further.' : `Level cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`);
+        maxLevelBtn.disabled = !canUse;
+        maxLevelBtn.onclick = !canUse ? null : () => {
+          const upgrades = upgradeTowerToCurrentCap(tower);
+          if (upgrades <= 0) showBanner('Cannot level further right now.', 1200);
+        };
+      }
+    }
     syncMobileQuickActions();
   }
 
@@ -5310,6 +5432,18 @@ function renderDamageReport() {
     }
   }
 
+
+  function towerHasReadyMobileAbility(tower) {
+    if (!tower || !Array.isArray(tower.abilities) || !game.runningWave || game.phase === SETUP_PHASES.GAME_OVER) return false;
+    return tower.abilities.some((ability) => {
+      if (!ability || ability.passive || ability.manualOnly) return false;
+      if (!isAbilityUnlocked(tower, ability.key)) return false;
+      if ((tower.abilityReadyAt?.[ability.key] || 0) > now()) return false;
+      if (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key)) return false;
+      return true;
+    });
+  }
+
   function renderHeroQuickSelect() {
     const host = document.getElementById('heroQuickSelect');
     if (!host) return;
@@ -5327,9 +5461,12 @@ function renderDamageReport() {
       btn.type = 'button';
       btn.className = 'hero-quick-btn';
       if (game.selectedId === tower.id) btn.classList.add('is-selected');
+      const hasReadyAbility = towerHasReadyMobileAbility(tower);
+      if (hasReadyAbility) btn.classList.add('has-ready-ability');
       const baseName = tower.name || tower.type;
-      btn.textContent = `${baseName}${count > 1 ? ` ${count}` : ''}`;
-      btn.title = `Select ${baseName}${count > 1 ? ` ${count}` : ''}`;
+      const heroLabel = `${baseName}${count > 1 ? ` ${count}` : ''}`;
+      btn.textContent = heroLabel;
+      btn.title = hasReadyAbility ? `${heroLabel} — ability ready` : `Select ${heroLabel}`;
       btn.addEventListener('click', () => {
         game.selectedId = tower.id;
         game.movingTowerId = null;
@@ -5361,7 +5498,7 @@ function renderDamageReport() {
       ? Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))
       : null;
     const selectedHeader = tower.isSatellite && tower.type === 'archer'
-      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><span>ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="margin-left:auto;text-align:right;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;"><span style="flex:1 1 auto;min-width:0;text-align:left;padding-left:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="flex:0 0 auto;margin-left:auto;text-align:right;padding-right:1px;white-space:nowrap;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
       : `${tower.isSoulSplit ? 'TORN SOUL' : tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
     if (tower.isSoulSplit) {
       els.selectedInfo.style.background = 'linear-gradient(135deg, rgba(88,88,96,0.92), rgba(58,50,78,0.94))';
@@ -5685,6 +5822,8 @@ function renderDamageReport() {
       startedAt: new Date().toISOString(),
       submitted: false,
     };
+    game.runWalletConnected = !!getConnectedWalletAddress();
+    game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
     setInstruction('Move the 2x2 portal to a new location. After placing it again, continue setup.');
     log('Portal picked up for repositioning before wave 1.');
     return true;
@@ -6143,6 +6282,23 @@ function renderDamageReport() {
       count += 1;
     }
     return count;
+  }
+
+  function getMaxAffordableUpgradeSpend(tower) {
+    if (!tower) return 0;
+    let gold = Number(game.jewel || 0);
+    let level = Number(tower.level || 1);
+    let spend = 0;
+    const cap = getUpgradeLevelCap();
+    while (level < cap) {
+      const probe = { ...tower, level };
+      const cost = Number(getUpgradeCost(level + 1, probe) || 0);
+      if (!Number.isFinite(cost) || cost <= 0 || gold < cost) break;
+      gold -= cost;
+      spend += cost;
+      level += 1;
+    }
+    return Math.round(spend * 10) / 10;
   }
 
   function upgradeTowerToCurrentCap(tower) {
@@ -7576,18 +7732,19 @@ function renderDamageReport() {
     const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
     const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
     const finalEnemyHp = type === 'skitter' ? enemyHp * 1.15 : enemyHp;
+    const difficulty = game.difficultyProfile || createDifficultyProfileForRun({ connected: false });
     return {
       id: `e${game.nextEnemyId++}`,
       type,
       name: template.name,
       x: spawn.x,
       y: spawn.y,
-      hp: finalEnemyHp,
-      maxHp: finalEnemyHp,
-      damage: enemyDamage,
-      moveInterval: template.moveInterval,
+      hp: finalEnemyHp * difficulty.healthMult,
+      maxHp: finalEnemyHp * difficulty.healthMult,
+      damage: enemyDamage * difficulty.damageMult,
+      moveInterval: template.moveInterval / difficulty.speedMult,
       attackInterval: template.attackInterval,
-      jewel: (template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0),
+      jewel: ((template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: template.typeClass,
       targetPath: [],
       nextMoveAt: now() + 200,
@@ -7615,18 +7772,19 @@ function renderDamageReport() {
   function createBossEnemy(boss, laneName) {
     const lane = BREACH_LANES[laneName];
     const spawn = pickRandom(lane);
+    const difficulty = game.difficultyProfile || createDifficultyProfileForRun({ connected: false });
     return {
       id: `e${game.nextEnemyId++}`,
       type: boss.id,
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15,
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15,
-      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(game.waveNumber),
-      moveInterval: boss.moveInterval,
+      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult,
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult,
+      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(game.waveNumber) * difficulty.damageMult,
+      moveInterval: boss.moveInterval / difficulty.speedMult,
       attackInterval: boss.attackInterval,
-      jewel: (boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0),
+      jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: 'boss',
       targetPath: [],
       nextMoveAt: now() + 300,

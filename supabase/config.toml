@@ -30,4 +30,4 @@ verify_jwt = false
 verify_jwt = false
 
 [db]
-shadow_port = 54420
+shadow_port = 54330

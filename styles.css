@@ -1,5 +1,5 @@
 :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
   --bg: #0f1520;
   --tile-size: 84px;
   --tile-gap: 6px;
@@ -21,6 +21,11 @@
 * { box-sizing: border-box; }
 html, body {
   min-height: 100dvh;
+  touch-action: manipulation;
+}
+
+button {
+  touch-action: manipulation;
 }
 
 body {
@@ -48,10 +53,6 @@ body::before {
   margin: 0;
   padding: 10px 12px 12px;
   min-height: 100dvh;
-}
-.game-board-container {
-  padding: 16px;
-  box-sizing: border-box;
 }
 
 .panel {
@@ -102,7 +103,7 @@ body::before {
 }
 
 .left-panel, .right-panel, .bottom-panel {
-  padding: 3px;
+  padding: 10px;
 }
 
 .speed-toggle {
@@ -159,6 +160,7 @@ body::before {
 }
 
 .hero-quick-btn {
+  position: relative;
   flex: 1 1 calc(50% - 6px);
   min-width: 0;
   padding: 6px 8px;
@@ -169,6 +171,18 @@ body::before {
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1.1;
+}
+
+.hero-quick-btn.has-ready-ability::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #54df72;
+  box-shadow: 0 0 0 1px rgba(12, 22, 18, 0.78), 0 0 5px rgba(84, 223, 114, 0.55);
 }
 
 .hero-quick-btn.is-selected {
@@ -183,7 +197,7 @@ body::before {
 }
 
 .center-panel {
-  padding: 15px;
+  padding: 8px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -455,7 +469,7 @@ body::before {
   width: min(calc(13 * var(--tile-size) + 12 * var(--tile-gap)), 100%);
   max-width: calc(13 * var(--tile-size) + 12 * var(--tile-gap));
   margin: 5px auto 0;
-  padding: 15px 15px 15px;
+  padding: 8px 10px 10px;
   position: relative;
   z-index: 6;
 }
@@ -821,7 +835,7 @@ button:disabled {
 
 @media (max-width: 1100px) and (orientation: landscape) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --tile-size: min(6.35vw, 54px);
     --tile-gap: 3px;
   }
@@ -835,8 +849,8 @@ button:disabled {
   }
   .center-panel {
     order: 1;
-    padding: 12px;
-    overflow-x: visible;
+    padding: 6px;
+    overflow-x: auto;
   }
   .left-panel {
     order: 2;
@@ -845,7 +859,7 @@ button:disabled {
     order: 3;
   }
   .left-panel, .right-panel, .bottom-panel {
-    padding: 12px;
+    padding: 8px;
   }
   .topbar {
     grid-template-columns: repeat(3, minmax(74px, 1fr));
@@ -2680,7 +2694,7 @@ body{
   .left-panel,
   .center-panel,
   .right-panel {
-    min-width: 3;
+    min-width: 0;
   }
 
   .right-panel {
@@ -2746,7 +2760,7 @@ body{
 
 @media (min-width: 901px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 265px;
   }
@@ -2823,27 +2837,27 @@ body{
 /* Keep hero info visible before it drops */
 @media (min-width: 901px) and (max-width: 1760px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 80px; }
+  --board-padding-buffer: 24px; --tile-size: 80px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 280px) minmax(0, 1fr) 255px; }
 }
 @media (min-width: 901px) and (max-width: 1660px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 74px; }
+  --board-padding-buffer: 24px; --tile-size: 74px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 270px) minmax(0, 1fr) 248px; }
 }
 @media (min-width: 901px) and (max-width: 1560px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 68px; }
+  --board-padding-buffer: 24px; --tile-size: 68px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 250px) minmax(0, 1fr) 240px; }
 }
 @media (min-width: 901px) and (max-width: 1460px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 62px; }
+  --board-padding-buffer: 24px; --tile-size: 62px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 220px) minmax(0, 1fr) 228px; gap: 10px; }
 }
 @media (min-width: 901px) and (max-width: 1360px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 58px; --tile-gap: 5px; }
+  --board-padding-buffer: 24px; --tile-size: 58px; --tile-gap: 5px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 200px) minmax(0, 1fr) 220px; gap: 8px; }
   .right-panel { font-size: 14px; }
 }
@@ -2887,7 +2901,7 @@ body{
 
 @media (min-width: 901px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 270px;
   }
@@ -2990,27 +3004,27 @@ body{
 /* Narrow desktop: shrink board tile size first before letting the right panel overlap */
 @media (min-width: 901px) and (max-width: 1760px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 80px; }
+  --board-padding-buffer: 24px; --tile-size: 80px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 300px) minmax(0, 1fr) 260px !important; }
 }
 @media (min-width: 901px) and (max-width: 1660px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 74px; }
+  --board-padding-buffer: 24px; --tile-size: 74px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 280px) minmax(0, 1fr) 252px !important; }
 }
 @media (min-width: 901px) and (max-width: 1560px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 68px; }
+  --board-padding-buffer: 24px; --tile-size: 68px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 250px) minmax(0, 1fr) 244px !important; }
 }
 @media (min-width: 901px) and (max-width: 1460px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 62px; }
+  --board-padding-buffer: 24px; --tile-size: 62px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 220px) minmax(0, 1fr) 234px !important; gap: 10px; }
 }
 @media (min-width: 901px) and (max-width: 1360px) {
   :root {
-  --board-padding-buffer: 50px; --tile-size: 58px; --tile-gap: 5px; }
+  --board-padding-buffer: 24px; --tile-size: 58px; --tile-gap: 5px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 200px) minmax(0, 1fr) 224px !important; gap: 8px; }
   .right-panel { font-size: 14px; }
 }
@@ -3205,7 +3219,7 @@ body{
 
 /* ===== 2026 mobile-first layout reset ===== */
 :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
   --layout-gap: 10px;
   --hud-gap: 8px;
   --tile-gap: 4px;
@@ -3351,7 +3365,7 @@ body{
 /* Mobile-first flow */
 @media (max-width: 1024px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --tile-gap: 4px;
     --tile-size: clamp(22px, min(calc((100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right) - (13 * var(--tile-gap))) / 14), calc((100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - (5 * var(--tile-gap))) / 6)), 64px);
   }
@@ -3392,7 +3406,7 @@ body{
 /* Desktop flow */
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --tile-gap: 6px;
     --desktop-board-edge-room: 28px;
     --tile-size: clamp(
@@ -3701,7 +3715,7 @@ body{
   .mobile-rotate-prompt { display: none !important; }
 
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --mobile-safe-top: max(8px, env(safe-area-inset-top));
     --mobile-safe-bottom: max(8px, env(safe-area-inset-bottom));
     --mobile-safe-left: max(8px, env(safe-area-inset-left));
@@ -3852,7 +3866,7 @@ body{
 
   #mobileFlyoutStack {
     position: fixed;
-    top: var(--mobile-safe-top);
+    top: calc(var(--mobile-safe-top) + var(--mobile-quick-stack-h, 196px));
     left: var(--mobile-safe-left);
     width: var(--mobile-rail-w);
     z-index: 1405;
@@ -3873,7 +3887,7 @@ body{
 
   #mobileQuickRail {
     position: fixed;
-    top: calc(var(--mobile-safe-top) + (3 * 44px) + (2 * var(--mobile-rail-gap)) + 12px);
+    top: var(--mobile-safe-top);
     left: var(--mobile-safe-left);
     width: var(--mobile-rail-w);
     z-index: 1404;
@@ -3884,7 +3898,7 @@ body{
   .mobile-quick-btn,
   .mobile-bottom-btn {
     width: var(--mobile-rail-w);
-    min-height: 34px;
+    min-height: var(--mobile-quick-mini-h, 34px);
     border-radius: 12px;
     padding: 6px 4px;
     font-size: 0.6rem;
@@ -3898,9 +3912,13 @@ body{
   }
 
   .mobile-quick-start {
-    min-height: 42px;
+    min-height: var(--mobile-quick-start-h, 42px);
     background: linear-gradient(180deg, rgba(93,82,255,0.98), rgba(74,63,209,0.98));
   }
+  .mobile-quick-status {
+    min-height: var(--mobile-quick-status-h, 56px);
+  }
+
 
   .mobile-quick-btn:disabled,
   .mobile-bottom-btn:disabled {
@@ -4033,10 +4051,14 @@ body{
 /* iPhone 14 Pro Max landscape tune: keep full board visible and restore full-width ability dock */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --mobile-rail-w: 64px;
     --mobile-rail-gap: 8px;
     --mobile-top-hud-h: 36px;
+    --mobile-quick-start-h: 42px;
+    --mobile-quick-mini-h: 34px;
+    --mobile-quick-status-h: 56px;
+    --mobile-quick-stack-h: calc(var(--mobile-quick-start-h) + (3 * var(--mobile-quick-mini-h)) + var(--mobile-quick-status-h) + (5 * 8px) + 8px);
     --mobile-ability-h: 46px;
     --mobile-status-h: 72px;
     --mobile-board-left: calc(var(--mobile-safe-left) + var(--mobile-rail-w) + 8px);
@@ -4079,7 +4101,7 @@ body{
     bottom: calc(var(--mobile-safe-bottom) + 8px) !important;
     width: auto !important;
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     z-index: 1403;
     padding: 0 !important;
@@ -4144,7 +4166,7 @@ body{
 /* Final mobile landscape board-fit correction: force full 14x6 board on screen */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --mobile-rail-w: 64px;
     --mobile-rail-gap: 8px;
     --mobile-top-hud-h: 36px;
@@ -4248,6 +4270,114 @@ body{
 }
 
 
+
+@media (max-width: 900px) and (orientation: landscape) {
+  :root {
+    --mobile-rail-w: 58px;
+    --mobile-rail-gap: 6px;
+    --mobile-quick-start-h: 40px;
+    --mobile-quick-mini-h: 32px;
+    --mobile-quick-status-h: 52px;
+    --mobile-quick-stack-h: calc(var(--mobile-quick-start-h) + (3 * var(--mobile-quick-mini-h)) + var(--mobile-quick-status-h) + (5 * 8px) + 8px);
+    --mobile-ability-h: 50px;
+    --mobile-status-h: 68px;
+    --mobile-board-left: calc(env(safe-area-inset-left) + var(--mobile-rail-w) + 8px);
+    --mobile-board-right: calc(env(safe-area-inset-right) + 8px);
+    --mobile-board-fit-x: 58px;
+    --mobile-board-fit-y: 30px;
+  }
+
+  .footer-topbar {
+    width: min(390px, calc(100vw - var(--mobile-safe-left) - var(--mobile-safe-right) - var(--mobile-rail-w) - 18px));
+    gap: 6px;
+  }
+
+  .footer-topbar .hud-pill {
+    padding: 7px 8px;
+    font-size: 0.78rem;
+    line-height: 1.05;
+  }
+
+  #mobilePortalHp,
+  #mobileGoldCount {
+    white-space: nowrap;
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+
+  #mobileFlyoutStack {
+    width: var(--mobile-rail-w);
+  }
+
+  .mobile-flyout-tab {
+    width: var(--mobile-rail-w);
+    min-height: 40px;
+    padding: 6px 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  .mobile-flyout-label {
+    font-size: 0.54rem;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #mobileQuickRail {
+    top: var(--mobile-safe-top);
+    width: var(--mobile-rail-w);
+  }
+
+  .mobile-quick-btn {
+    width: var(--mobile-rail-w);
+    min-height: 32px;
+    padding: 5px 3px;
+    font-size: 0.58rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .mobile-quick-start {
+    min-height: var(--mobile-quick-start-h);
+  }
+
+  .mobile-quick-status {
+    min-height: var(--mobile-quick-status-h);
+  }
+
+  #mobileBottomBar {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+
+  .mobile-bottom-btn,
+  .mobile-ability-btn {
+    min-height: 50px !important;
+    font-size: 0.72rem !important;
+    padding: 7px 8px !important;
+  }
+
+  .mobile-ability-btn .ability-name {
+    font-size: 0.72rem;
+  }
+
+  .mobile-ability-btn .ability-meta {
+    font-size: 0.62rem;
+  }
+
+  .hero-quick-btn.has-ready-ability::after {
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+  }
+}
+
 body.intro-open .mobile-side-rail,
 body.intro-open .mobile-bottom-bar,
 body.intro-open .mobile-bar-toggle,
@@ -4279,7 +4409,7 @@ body.intro-open .mobile-right-rail {
 /* v8: runtime-sized mobile board fit for iPhone 14 Pro Max landscape */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --mobile-safe-top: 8px;
     --mobile-safe-bottom: 8px;
     --mobile-safe-left: 8px;
@@ -4688,7 +4818,7 @@ body.intro-open .mobile-right-rail {
 /* v19: desktop board fill tune — expand board and keep right hero/hire info column visually matched */
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-left-panel: 220px;
     --desktop-right-panel: 145px;
     --tile-gap: 6px;
@@ -5743,7 +5873,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* v46.9.1.60: keep the selected info box height fixed, but give the desktop info panel 50% more vertical room so all action buttons stay visible */
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-right-panel: 270px;
   }
 
@@ -5787,7 +5917,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* v46.9.1.27 desktop width restore + announcement modal */
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 270px;
   }
@@ -5900,6 +6030,13 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   display: flex;
   align-items: center;
   gap: 10px;
+  opacity: 0.3;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.story-controls:hover,
+.story-controls:focus-within,
+.story-controls.story-controls-active {
+  opacity: 0.96;
 }
 
 .story-volume-wrap {
@@ -5907,12 +6044,19 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(255,255,255,0.28);
-  background: rgba(10,10,10,0.55);
+  background: rgba(10,10,10,0.35);
   color: #f2f2f2;
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 0.95rem;
   backdrop-filter: blur(4px);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.story-controls:hover .story-volume-wrap,
+.story-controls:focus-within .story-volume-wrap,
+.story-controls.story-controls-active .story-volume-wrap {
+  background: rgba(10,10,10,0.72);
+  border-color: rgba(255,255,255,0.42);
 }
 
 .story-volume-label,
@@ -5932,10 +6076,10 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 
 @media (max-width: 900px) {
   .story-controls {
-    left: 12px;
-    right: 12px;
-    top: 12px;
-    gap: 8px;
+    left: 6px;
+    right: 6px;
+    top: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     justify-content: flex-end;
   }
@@ -5944,11 +6088,33 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     order: 3;
     width: 100%;
     justify-content: space-between;
+    padding: 6px 10px;
   }
 
   .story-volume-slider {
     flex: 1 1 auto;
-    min-width: 120px;
+    min-width: 100px;
+  }
+
+  .story-skip-btn {
+    padding: 7px 12px;
+    font-size: 0.9rem;
+  }
+
+  .story-text {
+    max-width: calc(100vw - 8px);
+    font-size: clamp(1.0rem, 4.2vw, 1.45rem);
+    line-height: 1.32;
+    padding: 78px 14px 18px;
+  }
+
+  #storyText.big-final,
+  .story-text.big-final {
+    font-size: clamp(52px, 10.5vw, 88px) !important;
+    letter-spacing: 0.03em;
+    max-width: calc(100vw - 18px) !important;
+    width: auto !important;
+    white-space: nowrap !important;
   }
 }
 
@@ -6244,7 +6410,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 }
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-right-panel: 270px;
   }
   .right-panel {
@@ -6264,7 +6430,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 }
 .relic-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
   width: 100%;
@@ -6419,7 +6585,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* ===== desktop board fill fix ===== */
 @media (min-width: 1025px) {
   :root {
-  --board-padding-buffer: 50px;
+  --board-padding-buffer: 24px;
     --desktop-shell-pad: 24px;
     --desktop-gap: 12px;
     --desktop-left-panel: clamp(180px, 16vw, 248px);
@@ -6489,12 +6655,181 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     font-size: clamp(13px, 0.72vw, 16px);
   }
 
-
   body.runlog-collapsed {
     --desktop-left-panel: 52px;
   }
 
   body.info-collapsed {
     --desktop-right-panel: 52px;
+  }
+}
+
+
+/* v46.9.1.53 mobile HUD + intro + relic fit fixes */
+#storyText.big-final,
+.story-text.big-final {
+  white-space: normal !important;
+  width: auto !important;
+  max-width: calc(100vw - 28px) !important;
+  text-wrap: balance;
+  font-size: clamp(62px, 10.5vw, 120px) !important;
+  line-height: 0.9;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .mobile-quick-status {
+    order: -1;
+    min-height: auto;
+  }
+
+  .relic-modal {
+    padding: 10px;
+  }
+
+  .relic-modal-card {
+    width: min(1180px, calc(100vw - 20px));
+    max-width: min(1180px, calc(100vw - 20px));
+    max-height: calc(100vh - 20px);
+    padding: 12px;
+  }
+
+  .relic-modal-title {
+    font-size: 1.05rem;
+    margin-bottom: 10px;
+  }
+
+  .relic-list {
+    gap: 10px;
+  }
+
+  .relic-choice-card,
+  .dfkgold-swap-card,
+  .relic-list > .panel,
+  .relic-list > .card {
+    padding: 12px !important;
+  }
+
+  .relic-choice-card h4,
+  .dfkgold-swap-card h4 {
+    font-size: 1rem;
+    margin: 0 0 6px;
+  }
+
+  .relic-choice-card p,
+  .dfkgold-swap-card p,
+  .relic-choice-rarity,
+  .relic-list .gold {
+    font-size: 0.88rem;
+    line-height: 1.3;
+  }
+
+  .relic-list button,
+  .relic-choice-card button,
+  .dfkgold-swap-card button,
+  .relic-skip-btn {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+}
+
+
+/* v7 mobile-only hero tile + max level button refinements */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .tile-hero-label {
+    font-size: 10px;
+    letter-spacing: 0.25px;
+  }
+
+  .tile-small {
+    left: 4px;
+  }
+
+  .tile-small-right {
+    right: 3px;
+  }
+
+  .hp-bar {
+    bottom: 11px !important;
+  }
+
+  #mobileBottomBar {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .mobile-max-level-btn .ability-name {
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-max-level-btn .ability-meta {
+    font-size: 0.56rem;
+  }
+}
+
+
+/* v8.1 mobile-only intro/relic fit cleanup */
+@media (max-width: 1024px) and (orientation: landscape) {
+  #storyText.big-final,
+  .story-text.big-final {
+    max-width: calc(100vw - 88px) !important;
+    font-size: clamp(44px, 8.6vw, 86px) !important;
+    letter-spacing: 0.025em;
+    line-height: 0.92;
+  }
+
+  .relic-modal {
+    align-items: flex-start;
+    padding: 56px 8px 8px 72px;
+  }
+
+  .relic-modal-card {
+    width: min(980px, calc(100vw - 84px));
+    max-width: min(980px, calc(100vw - 84px));
+    max-height: calc(100vh - 64px);
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .relic-modal-title {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .relic-list {
+    gap: 8px;
+  }
+
+  .relic-choice-card,
+  .dfkgold-swap-card,
+  .relic-list > .panel,
+  .relic-list > .card {
+    padding: 10px !important;
+  }
+
+  .relic-choice-card h4,
+  .dfkgold-swap-card h4 {
+    font-size: 0.92rem;
+    margin: 0 0 4px;
+    line-height: 1.15;
+  }
+
+  .relic-choice-card p,
+  .dfkgold-swap-card p,
+  .relic-choice-rarity,
+  .relic-list .gold {
+    font-size: 0.78rem;
+    line-height: 1.18;
+    margin: 0 0 4px;
+  }
+
+  .relic-list button,
+  .relic-choice-card button,
+  .dfkgold-swap-card button,
+  .relic-skip-btn {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+    line-height: 1.1;
   }
 }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -356,6 +356,10 @@
         </div>
       </div>
       <div id="mobileFlyoutStack" class="mobile-flyout-stack" aria-hidden="true">
+        <button id="mobileHireMenuBtn" class="mobile-flyout-tab" type="button" aria-controls="mobileHireMenu" aria-expanded="false">
+          <span class="mobile-flyout-label">Hire</span>
+          <span class="mobile-flyout-chevron" aria-hidden="true">▸</span>
+        </button>
         <button id="mobileFuncMenuBtn" class="mobile-flyout-tab" type="button" aria-controls="mobileFuncMenu" aria-expanded="false">
           <span class="mobile-flyout-label">Func</span>
           <span class="mobile-flyout-chevron" aria-hidden="true">▸</span>
@@ -364,16 +368,8 @@
           <span class="mobile-flyout-label">Hero</span>
           <span class="mobile-flyout-chevron" aria-hidden="true">▸</span>
         </button>
-        <button id="mobileHireMenuBtn" class="mobile-flyout-tab" type="button" aria-controls="mobileHireMenu" aria-expanded="false">
-          <span class="mobile-flyout-label">Hire</span>
-          <span class="mobile-flyout-chevron" aria-hidden="true">▸</span>
-        </button>
       </div>
       <div id="mobileQuickRail" class="mobile-quick-rail" aria-hidden="true">
-        <button id="mobileQuickStartBtn" class="mobile-quick-btn mobile-quick-start" type="button" disabled>Start</button>
-        <button id="mobileQuickUpgradeBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Lvl</button>
-        <button id="mobileQuickMoveBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Move</button>
-        <button id="mobileQuickSatelliteBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Sat</button>
         <div id="mobileQuickStatus" class="mobile-quick-status" aria-live="polite">
           <div class="mobile-quick-stat">
             <span class="mobile-quick-stat-label">Gold</span>
@@ -384,11 +380,15 @@
             <span id="mobilePortalHp" class="mobile-quick-stat-value">2500/2500</span>
           </div>
         </div>
+        <button id="mobileQuickStartBtn" class="mobile-quick-btn mobile-quick-start" type="button" disabled>Start</button>
+        <button id="mobileQuickUpgradeBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Lvl</button>
+        <button id="mobileQuickSatelliteBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Sat</button>
+        <button id="mobileQuickMoveBtn" class="mobile-quick-btn mobile-quick-mini" type="button" disabled>Move</button>
         <div id="mobileBottomBar" class="mobile-bottom-bar panel" aria-hidden="true">
           <button id="mobileAbilityBtn1" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>A1</button>
           <button id="mobileAbilityBtn2" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>A2</button>
           <button id="mobileAbilityBtn3" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>A3</button>
-          <button id="mobileAbilityBtn4" class="mobile-bottom-btn mobile-ability-btn" type="button" disabled>A4</button>
+          <button id="mobileAbilityBtn4" class="mobile-bottom-btn mobile-ability-btn mobile-max-level-btn" type="button" disabled>Max Lvl</button>
         </div>
       </div>
       <button id="mobileBarToggleBtn" class="mobile-bar-toggle hidden" type="button" aria-pressed="false" aria-label="Hide mobile controls">
