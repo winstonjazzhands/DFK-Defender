@@ -41,3 +41,15 @@ A helper script is included in this zip:
 ## Important after queue/backend fixes
 
 After changing `supabase/functions/submit-run/index.ts`, redeploy the `submit-run` Edge Function or the live endpoint will keep using the old code.
+
+## Burn table compatibility fix
+
+If a DFK Gold burn succeeds on-chain but the Supabase burn table stays empty, do all 3 of these steps:
+
+1. In Supabase SQL Editor, run `schema.sql` from this zip again.
+2. Also run `supabase/migrations/20260402_burn_table_compat_fix.sql` from this zip.
+3. Redeploy both burn-related Edge Functions from this project folder:
+   - `npx supabase functions deploy record-dfkgold-burn --no-verify-jwt`
+   - `npx supabase functions deploy public-leaderboard --no-verify-jwt`
+
+After that, do one fresh burn test and check `public.dfk_gold_burns`.

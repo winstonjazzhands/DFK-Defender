@@ -1,5 +1,5 @@
-// build: v46.9.1.77
-// build: v46.9.1.77
+// build: v46.9.1.82
+// build: v46.9.1.82
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -466,7 +466,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v1.2.8';
+const APP_VERSION = 'v1.3.0';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -1497,7 +1497,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.77',
+      gameVersion: 'V46.9.1.82',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1575,6 +1575,177 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     if (!els.burnedGoldDisplay) return;
     const total = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
     els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
+  }
+
+  function getSupabaseFunctionConfig() {
+    const url = String(window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '').trim().replace(/\/+$/, '');
+    const key = String(window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '').trim();
+    return { url, key };
+  }
+
+
+  const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
+
+  function normalizeBurnQueueItem(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    const txHash = String(entry.txHash || '').trim().toLowerCase();
+    const walletAddress = normalizeAddress(entry.walletAddress);
+    const burnAmount = Number(entry.burnAmount || 0);
+    const defenderGoldAwarded = Math.max(0, Number(entry.defenderGoldAwarded || 0));
+    if (!/^0x[a-f0-9]{64}$/.test(txHash)) return null;
+    if (!walletAddress) return null;
+    if (!Number.isFinite(burnAmount) || burnAmount <= 0) return null;
+    return {
+      txHash,
+      walletAddress,
+      burnAmount,
+      defenderGoldAwarded,
+      queuedAt: Number(entry.queuedAt || Date.now()),
+      attempts: Math.max(0, Number(entry.attempts || 0)),
+      lastAttemptAt: Math.max(0, Number(entry.lastAttemptAt || 0)),
+    };
+  }
+
+  function readPendingDfkgoldBurnQueue() {
+    try {
+      const raw = window.localStorage ? window.localStorage.getItem(DFK_GOLD_BURN_QUEUE_STORAGE_KEY) : '';
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeBurnQueueItem).filter(Boolean);
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function writePendingDfkgoldBurnQueue(queue) {
+    try {
+      const nextQueue = Array.isArray(queue) ? queue.map(normalizeBurnQueueItem).filter(Boolean) : [];
+      if (!window.localStorage) return nextQueue;
+      if (!nextQueue.length) window.localStorage.removeItem(DFK_GOLD_BURN_QUEUE_STORAGE_KEY);
+      else window.localStorage.setItem(DFK_GOLD_BURN_QUEUE_STORAGE_KEY, JSON.stringify(nextQueue));
+      return nextQueue;
+    } catch (_error) {
+      return Array.isArray(queue) ? queue : [];
+    }
+  }
+
+  function enqueuePendingDfkgoldBurn(entry) {
+    const normalized = normalizeBurnQueueItem(entry);
+    if (!normalized) return null;
+    const queue = readPendingDfkgoldBurnQueue();
+    const existingIndex = queue.findIndex(item => item.txHash === normalized.txHash);
+    const nextEntry = existingIndex >= 0
+      ? {
+          ...queue[existingIndex],
+          ...normalized,
+          queuedAt: Math.min(Number(queue[existingIndex].queuedAt || Date.now()), Number(normalized.queuedAt || Date.now())),
+          attempts: Math.max(Number(queue[existingIndex].attempts || 0), Number(normalized.attempts || 0)),
+          lastAttemptAt: Math.max(Number(queue[existingIndex].lastAttemptAt || 0), Number(normalized.lastAttemptAt || 0)),
+        }
+      : normalized;
+    if (existingIndex >= 0) queue[existingIndex] = nextEntry;
+    else queue.push(nextEntry);
+    writePendingDfkgoldBurnQueue(queue);
+    return nextEntry;
+  }
+
+  function removePendingDfkgoldBurn(txHash) {
+    const hash = String(txHash || '').trim().toLowerCase();
+    if (!hash) return;
+    const queue = readPendingDfkgoldBurnQueue().filter(item => item.txHash !== hash);
+    writePendingDfkgoldBurnQueue(queue);
+  }
+
+  async function flushPendingDfkgoldBurnQueue(options = {}) {
+    if (game.pendingDfkgoldBurnFlush) return;
+    const queue = readPendingDfkgoldBurnQueue();
+    if (!queue.length) return;
+    game.pendingDfkgoldBurnFlush = true;
+    let savedCount = 0;
+    try {
+      const remaining = [];
+      for (const entry of queue) {
+        try {
+          await recordDfkgoldBurn(entry.txHash, entry.walletAddress, entry.burnAmount, entry.defenderGoldAwarded);
+          savedCount += 1;
+        } catch (error) {
+          remaining.push({
+            ...entry,
+            attempts: Math.max(0, Number(entry.attempts || 0)) + 1,
+            lastAttemptAt: Date.now(),
+          });
+          console.warn('Pending DFK Gold burn save retry failed.', error);
+        }
+      }
+      writePendingDfkgoldBurnQueue(remaining);
+      if (savedCount > 0) {
+        fetchGlobalBurnedGoldTotal(true).catch(() => {});
+        if (options && options.notify) {
+          showBanner(`Recovered ${savedCount} pending DFK Gold burn save${savedCount === 1 ? '' : 's'}.`, 2600);
+        }
+        log(`Recovered ${savedCount} pending DFK Gold burn save${savedCount === 1 ? '' : 's'}.`);
+      }
+    } finally {
+      game.pendingDfkgoldBurnFlush = false;
+    }
+  }
+
+  function startPendingDfkgoldBurnQueueLoop() {
+    if (game.pendingDfkgoldBurnQueueTimer) return;
+    flushPendingDfkgoldBurnQueue({ notify: false }).catch(() => {});
+    game.pendingDfkgoldBurnQueueTimer = window.setInterval(() => {
+      flushPendingDfkgoldBurnQueue({ notify: false }).catch(() => {});
+    }, 45 * 1000);
+    window.addEventListener('online', () => {
+      flushPendingDfkgoldBurnQueue({ notify: true }).catch(() => {});
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) flushPendingDfkgoldBurnQueue({ notify: false }).catch(() => {});
+    });
+  }
+
+  async function fetchSupabaseFunctionJson(functionName, payload = null, method = 'POST', options = {}) {
+    const name = String(functionName || '').trim();
+    const httpMethod = String(method || 'POST').trim().toUpperCase();
+    const { url, key } = getSupabaseFunctionConfig();
+    if (!name) throw new Error('Supabase function name is required.');
+    if (!url || !key) throw new Error('Supabase functions are not configured.');
+
+    const endpoint = `${url}/functions/v1/${name}`;
+    const headers = {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      ...(options && options.headers ? options.headers : {}),
+    };
+
+    const request = {
+      method: httpMethod,
+      headers,
+    };
+
+    if (httpMethod !== 'GET' && httpMethod !== 'HEAD') {
+      headers['Content-Type'] = 'application/json';
+      request.body = JSON.stringify(payload && typeof payload === 'object' ? payload : {});
+    }
+
+    const response = await fetch(endpoint, request);
+    const responseText = await response.text().catch(() => '');
+    let json = null;
+    if (responseText) {
+      try {
+        json = JSON.parse(responseText);
+      } catch (_error) {
+        json = null;
+      }
+    }
+    if (!response.ok) {
+      const message = json && (json.error || json.message)
+        ? (json.error || json.message)
+        : (responseText || `Request failed: ${response.status}`);
+      throw new Error(String(message || `Request failed: ${response.status}`));
+    }
+    return json || {};
   }
 
   async function fetchGlobalBurnedGoldTotal(force = false) {
@@ -1700,8 +1871,20 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       updateBurnedGoldDisplay();
       try {
         await recordDfkgoldBurn(tx.hash, walletAddress, DFK_GOLD_SWAP_COST, DEFENDER_GOLD_SWAP_REWARD);
+        removePendingDfkgoldBurn(tx.hash);
         await fetchGlobalBurnedGoldTotal(true);
-      } catch (recordError) {}
+      } catch (recordError) {
+        enqueuePendingDfkgoldBurn({
+          txHash: tx.hash,
+          walletAddress,
+          burnAmount: DFK_GOLD_SWAP_COST,
+          defenderGoldAwarded: DEFENDER_GOLD_SWAP_REWARD,
+          queuedAt: Date.now(),
+        });
+        console.warn('DFK Gold burn was confirmed on-chain but failed to save to Supabase.', recordError);
+        showBanner('DFK Gold burn succeeded on-chain. Supabase save is queued and will retry automatically.', 4200);
+        log('Warning: DFK Gold burn confirmed on-chain, but Supabase save is queued for automatic retry.');
+      }
       markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
@@ -9436,6 +9619,7 @@ function renderDamageReport() {
 
   refreshWalletEconomyDetails().catch(() => {});
   startGlobalBurnedGoldRefreshLoop();
+  startPendingDfkgoldBurnQueueLoop();
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();

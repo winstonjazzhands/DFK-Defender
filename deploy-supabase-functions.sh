@@ -6,3 +6,5 @@ npx supabase functions deploy wallet-auth-verify --no-verify-jwt
 npx supabase functions deploy submit-run --no-verify-jwt
 
 npx supabase functions deploy revoke-run-session --no-verify-jwt
+npx supabase functions deploy record-dfkgold-burn --no-verify-jwt
+npx supabase functions deploy public-leaderboard --no-verify-jwt

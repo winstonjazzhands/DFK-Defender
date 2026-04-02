@@ -122,7 +122,7 @@ async function fetchGlobalDfkGoldBurned(admin: SupabaseClient, runs: RunRow[]) {
   if (Array.isArray(burnRows) && burnRows.length) {
     for (const row of burnRows) {
       const burn = row as Record<string, unknown>;
-      total += sanitizeNumber(burn.burn_amount);
+      total += sanitizeNumber(burn.burn_amount ?? burn.amount ?? 0);
     }
     return Number(total.toFixed(3));
   }
@@ -137,7 +137,10 @@ async function fetchGlobalDfkGoldBurned(admin: SupabaseClient, runs: RunRow[]) {
 async function fetchBurnRows(admin: SupabaseClient) {
   const selectVariants = [
     'burn_amount',
+    'amount',
     'tx_hash, burn_amount',
+    'tx_hash, amount',
+    'tx_hash, burn_amount, amount',
   ];
 
   for (const columns of selectVariants) {

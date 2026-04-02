@@ -22,16 +22,16 @@ Deno.serve(async (req) => {
 
     const txHash = normalizeTxHash(body.txHash);
     const walletAddress = normalizeAddress(body.walletAddress);
-    const requestedBurnAmount = sanitizeNumber(body.burnAmount);
+    const requestedBurnAmount = sanitizeNumber(body.burnAmount ?? body.amount);
     const defenderGoldAwarded = sanitizeInt(body.defenderGoldAwarded);
 
     if (!txHash) return json({ error: 'txHash is required.' }, 400);
     if (!walletAddress) return json({ error: 'walletAddress is required.' }, 400);
 
     const admin = createAdmin();
-    const existing = await admin.from('dfk_gold_burns').select('tx_hash, burn_amount').eq('tx_hash', txHash).maybeSingle();
-    if (!existing.error && existing.data) {
-      return json({ ok: true, duplicate: true, burn_amount: sanitizeNumber((existing.data as Record<string, unknown>).burn_amount) }, 200);
+    const existing = await fetchExistingBurn(admin, txHash);
+    if (existing) {
+      return json({ ok: true, duplicate: true, burn_amount: existing.burnAmount, global_dfk_gold_burned: await fetchGlobalBurned(admin) }, 200);
     }
 
     const verified = await verifyBurnTransaction(txHash, walletAddress, requestedBurnAmount);
@@ -39,10 +39,12 @@ Deno.serve(async (req) => {
       tx_hash: txHash,
       wallet_address: walletAddress,
       burn_amount: verified.burnAmount,
+      amount: verified.burnAmount,
       defender_gold_awarded: defenderGoldAwarded,
       chain_id: 53935,
       block_number: verified.blockNumber,
       confirmed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
 
     const total = await fetchGlobalBurned(admin);
@@ -86,16 +88,82 @@ async function verifyBurnTransaction(txHash: string, walletAddress: string, requ
 }
 
 async function fetchGlobalBurned(admin: SupabaseClient) {
-  const { data, error } = await admin.from('dfk_gold_burns').select('burn_amount');
-  if (error) throw error;
+  const rows = await fetchBurnRows(admin);
   let total = 0;
-  for (const row of Array.isArray(data) ? data : []) total += sanitizeNumber((row as Record<string, unknown>).burn_amount);
+  for (const row of rows) total += getBurnAmount(row);
   return Number(total.toFixed(3));
 }
 
+async function fetchExistingBurn(admin: SupabaseClient, txHash: string) {
+  const rows = await fetchBurnRows(admin, txHash);
+  const first = rows[0];
+  if (!first) return null;
+  return { burnAmount: getBurnAmount(first) };
+}
+
+async function fetchBurnRows(admin: SupabaseClient, txHash?: string) {
+  const selectVariants = [
+    'tx_hash, burn_amount',
+    'tx_hash, amount',
+    'tx_hash, burn_amount, amount',
+  ];
+
+  for (const columns of selectVariants) {
+    let query = admin.from('dfk_gold_burns').select(columns);
+    if (txHash) query = query.eq('tx_hash', txHash);
+    const { data, error } = await query;
+    if (!error) return (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
+    if (isMissingColumnError(error) || isMissingRelationError(error)) continue;
+    throw error;
+  }
+
+  return [];
+}
+
+function getBurnAmount(row: Record<string, unknown>) {
+  return sanitizeNumber(row.burn_amount ?? row.amount ?? 0);
+}
+
 async function insertBurn(admin: SupabaseClient, payload: Record<string, unknown>) {
-  const { error } = await admin.from('dfk_gold_burns').upsert(payload, { onConflict: 'tx_hash' });
-  if (error) throw error;
+  const optionalColumns = [
+    'amount',
+    'burn_amount',
+    'defender_gold_awarded',
+    'chain_id',
+    'block_number',
+    'confirmed_at',
+    'created_at',
+  ];
+
+  const seen = new Set<string>();
+  const variants: Array<Record<string, unknown>> = [];
+
+  function pushVariant(columnsToDrop: string[]) {
+    const variant = Object.fromEntries(Object.entries(payload).filter(([key]) => !columnsToDrop.includes(key)));
+    const key = JSON.stringify(Object.keys(variant).sort());
+    if (seen.has(key)) return;
+    seen.add(key);
+    variants.push(variant);
+  }
+
+  pushVariant([]);
+  for (const column of optionalColumns) pushVariant([column]);
+  for (let i = 0; i < optionalColumns.length; i += 1) {
+    for (let j = i + 1; j < optionalColumns.length; j += 1) {
+      pushVariant([optionalColumns[i], optionalColumns[j]]);
+    }
+  }
+  pushVariant(optionalColumns);
+
+  let lastError: unknown = null;
+  for (const variant of variants) {
+    const { error } = await admin.from('dfk_gold_burns').upsert(variant, { onConflict: 'tx_hash' });
+    if (!error) return;
+    lastError = error;
+    if (isMissingColumnError(error)) continue;
+    throw error;
+  }
+  if (lastError) throw lastError;
 }
 
 async function rpcCall(method: string, params: unknown[]) {
@@ -130,6 +198,16 @@ function normalizeAddress(value: unknown) {
 function normalizeTxHash(value: unknown) {
   const text = String(value || '').trim().toLowerCase();
   return /^0x[a-f0-9]{64}$/.test(text) ? text : '';
+}
+
+function isMissingColumnError(error: unknown) {
+  const message = String((error && typeof error === 'object' && 'message' in error ? (error as { message?: unknown }).message : '') || '').toLowerCase();
+  return message.includes('column') && (message.includes('does not exist') || message.includes('not found in schema cache'));
+}
+
+function isMissingRelationError(error: unknown) {
+  const message = String((error && typeof error === 'object' && 'message' in error ? (error as { message?: unknown }).message : '') || '').toLowerCase();
+  return message.includes('relation') && message.includes('does not exist');
 }
 
 function sanitizeNumber(value: unknown) {
