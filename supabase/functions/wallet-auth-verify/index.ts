@@ -10,9 +10,10 @@ const corsHeaders = {
 const DFK_CHAIN_RPC_URL = Deno.env.get('DFK_CHAIN_RPC_URL') || 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
 const DFK_PROFILES_ADDRESS = '0xC4cD8C09D1A90b21Be417be91A81603B03993E81';
 const PROFILES_ABI = [
-  'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
-  'function getProfile(address) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
-  'function getProfileByAddress(address) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
+  'function getNames(address[] _addresses) view returns (string[])',
+    'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
+  'function getProfile(address _profileAddress) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
+  'function getProfileByAddress(address _profileAddress) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
 ];
 
 function normalizeAddress(address: string | null | undefined) {
@@ -30,6 +31,12 @@ async function resolveChainDisplayName(address: string) {
   const normalized = normalizeAddress(address);
 
   const attempts = [
+    async () => {
+      const result = await contract.getNames([normalized]);
+      const first = Array.isArray(result) ? result[0] : null;
+      const name = cleanName(first);
+      return name ? name : null;
+    },
     async () => {
       const result = await contract.addressToProfile(normalized);
       const owner = normalizeAddress(result?.owner);
@@ -62,6 +69,37 @@ async function resolveChainDisplayName(address: string) {
 }
 
 
+function normalizeOrigin(value: string | null | undefined) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin.toLowerCase();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function requestOrigin(req: Request) {
+  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+function extractMessageOrigin(message: string) {
+  const match = String(message || '').match(/^URI:\s*(\S+)$/im);
+  return normalizeOrigin(match ? match[1] : '');
+}
+
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function currentUserAgentHash(req: Request) {
+  const ua = String(req.headers.get('user-agent') || '').trim();
+  if (!ua) return '';
+  return await sha256Hex(ua);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
@@ -87,6 +125,14 @@ Deno.serve(async (req) => {
     if (nonceRow.nonce !== nonce) return json({ error: 'Nonce mismatch.' }, 401);
     if (Date.now() >= new Date(nonceRow.expires_at).getTime()) return json({ error: 'Nonce expired.' }, 401);
 
+    const signedOrigin = extractMessageOrigin(String(message));
+    const headerOrigin = requestOrigin(req);
+    if (signedOrigin && headerOrigin && signedOrigin !== headerOrigin) {
+      return json({ error: 'Origin mismatch.' }, 401);
+    }
+    const sessionOrigin = signedOrigin || headerOrigin || null;
+    const userAgentHash = await currentUserAgentHash(req) || null;
+
     const requestedDisplayName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 64) : null;
     const { data: existingPlayer } = await admin
       .from('players')
@@ -109,8 +155,14 @@ Deno.serve(async (req) => {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
     const { data: sessionRow, error: sessionError } = await admin
       .from('wallet_sessions')
-      .insert({ wallet_address: normalized, expires_at: expiresAt, last_seen_at: new Date().toISOString() })
-      .select('session_token, expires_at')
+      .insert({
+        wallet_address: normalized,
+        expires_at: expiresAt,
+        last_seen_at: new Date().toISOString(),
+        session_origin: sessionOrigin,
+        user_agent_hash: userAgentHash,
+      })
+      .select('session_token, expires_at, session_origin')
       .single();
     if (sessionError || !sessionRow) throw sessionError || new Error('Session creation failed.');
 

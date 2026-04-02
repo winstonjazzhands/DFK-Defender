@@ -24,6 +24,51 @@ function normalizeAddress(address: string | null | undefined) {
   return String(address || '').trim().toLowerCase();
 }
 
+
+function normalizeOrigin(value: string | null | undefined) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin.toLowerCase();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function requestOrigin(req: Request) {
+  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function validateSessionContext(req: Request, session: Record<string, unknown>) {
+  const expectedOrigin = normalizeOrigin(String(session.session_origin || ''));
+  if (expectedOrigin) {
+    const actualOrigin = requestOrigin(req);
+    if (!actualOrigin || actualOrigin !== expectedOrigin) {
+      return json({ error: 'Session origin mismatch.', code: 'session_origin_mismatch' }, 401);
+    }
+  }
+
+  const expectedUserAgentHash = String(session.user_agent_hash || '').trim();
+  if (expectedUserAgentHash) {
+    const actualUserAgent = String(req.headers.get('user-agent') || '').trim();
+    if (!actualUserAgent) {
+      return json({ error: 'User agent missing for session.', code: 'missing_user_agent' }, 401);
+    }
+    const actualHash = await sha256Hex(actualUserAgent);
+    if (actualHash !== expectedUserAgentHash) {
+      return json({ error: 'Session device mismatch.', code: 'session_device_mismatch' }, 401);
+    }
+  }
+
+  return null;
+}
+
 function cleanVanityName(value: unknown) {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!raw) return null;
@@ -33,17 +78,20 @@ function cleanVanityName(value: unknown) {
   return raw;
 }
 
-async function requireSession(admin: ReturnType<typeof createAdmin>, token: string) {
+async function requireSession(admin: ReturnType<typeof createAdmin>, token: string, req: Request) {
   const { data, error } = await admin
     .from('wallet_sessions')
-    .select('session_token, wallet_address, expires_at, revoked_at')
+    .select('session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash')
     .eq('session_token', token)
     .maybeSingle();
   if (error) throw error;
-  if (!data || data.revoked_at) return null;
-  if (Date.now() >= new Date(data.expires_at).getTime()) return null;
-  return data;
+  if (!data || data.revoked_at) return { data: null, response: null };
+  if (Date.now() >= new Date(data.expires_at).getTime()) return { data: null, response: null };
+  const contextError = await validateSessionContext(req, data as Record<string, unknown>);
+  if (contextError) return { data: null, response: contextError };
+  return { data, response: null };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
@@ -54,7 +102,9 @@ Deno.serve(async (req) => {
     if (!token) return json({ error: 'Missing authorization header.' }, 401);
 
     const admin = createAdmin();
-    const session = await requireSession(admin, token);
+    const sessionResult = await requireSession(admin, token, req);
+    if (sessionResult.response) return sessionResult.response;
+    const session = sessionResult.data;
     if (!session) return json({ error: 'Invalid or expired session.' }, 401);
 
     const body = await req.json().catch(() => ({}));

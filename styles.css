@@ -1,4 +1,5 @@
 :root {
+  --board-padding-buffer: 50px;
   --bg: #0f1520;
   --tile-size: 84px;
   --tile-gap: 6px;
@@ -47,6 +48,10 @@ body::before {
   margin: 0;
   padding: 10px 12px 12px;
   min-height: 100dvh;
+}
+.game-board-container {
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .panel {
@@ -97,7 +102,7 @@ body::before {
 }
 
 .left-panel, .right-panel, .bottom-panel {
-  padding: 10px;
+  padding: 3px;
 }
 
 .speed-toggle {
@@ -178,7 +183,7 @@ body::before {
 }
 
 .center-panel {
-  padding: 8px;
+  padding: 15px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -450,7 +455,7 @@ body::before {
   width: min(calc(13 * var(--tile-size) + 12 * var(--tile-gap)), 100%);
   max-width: calc(13 * var(--tile-size) + 12 * var(--tile-gap));
   margin: 5px auto 0;
-  padding: 8px 10px 10px;
+  padding: 15px 15px 15px;
   position: relative;
   z-index: 6;
 }
@@ -816,6 +821,7 @@ button:disabled {
 
 @media (max-width: 1100px) and (orientation: landscape) {
   :root {
+  --board-padding-buffer: 50px;
     --tile-size: min(6.35vw, 54px);
     --tile-gap: 3px;
   }
@@ -829,8 +835,8 @@ button:disabled {
   }
   .center-panel {
     order: 1;
-    padding: 6px;
-    overflow-x: auto;
+    padding: 12px;
+    overflow-x: visible;
   }
   .left-panel {
     order: 2;
@@ -839,7 +845,7 @@ button:disabled {
     order: 3;
   }
   .left-panel, .right-panel, .bottom-panel {
-    padding: 8px;
+    padding: 12px;
   }
   .topbar {
     grid-template-columns: repeat(3, minmax(74px, 1fr));
@@ -2674,7 +2680,7 @@ body{
   .left-panel,
   .center-panel,
   .right-panel {
-    min-width: 0;
+    min-width: 3;
   }
 
   .right-panel {
@@ -2740,6 +2746,7 @@ body{
 
 @media (min-width: 901px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 265px;
   }
@@ -2815,23 +2822,28 @@ body{
 
 /* Keep hero info visible before it drops */
 @media (min-width: 901px) and (max-width: 1760px) {
-  :root { --tile-size: 80px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 80px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 280px) minmax(0, 1fr) 255px; }
 }
 @media (min-width: 901px) and (max-width: 1660px) {
-  :root { --tile-size: 74px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 74px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 270px) minmax(0, 1fr) 248px; }
 }
 @media (min-width: 901px) and (max-width: 1560px) {
-  :root { --tile-size: 68px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 68px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 250px) minmax(0, 1fr) 240px; }
 }
 @media (min-width: 901px) and (max-width: 1460px) {
-  :root { --tile-size: 62px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 62px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 220px) minmax(0, 1fr) 228px; gap: 10px; }
 }
 @media (min-width: 901px) and (max-width: 1360px) {
-  :root { --tile-size: 58px; --tile-gap: 5px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 58px; --tile-gap: 5px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 200px) minmax(0, 1fr) 220px; gap: 8px; }
   .right-panel { font-size: 14px; }
 }
@@ -2875,6 +2887,7 @@ body{
 
 @media (min-width: 901px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 270px;
   }
@@ -2976,23 +2989,28 @@ body{
 
 /* Narrow desktop: shrink board tile size first before letting the right panel overlap */
 @media (min-width: 901px) and (max-width: 1760px) {
-  :root { --tile-size: 80px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 80px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 300px) minmax(0, 1fr) 260px !important; }
 }
 @media (min-width: 901px) and (max-width: 1660px) {
-  :root { --tile-size: 74px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 74px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 280px) minmax(0, 1fr) 252px !important; }
 }
 @media (min-width: 901px) and (max-width: 1560px) {
-  :root { --tile-size: 68px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 68px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 250px) minmax(0, 1fr) 244px !important; }
 }
 @media (min-width: 901px) and (max-width: 1460px) {
-  :root { --tile-size: 62px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 62px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 220px) minmax(0, 1fr) 234px !important; gap: 10px; }
 }
 @media (min-width: 901px) and (max-width: 1360px) {
-  :root { --tile-size: 58px; --tile-gap: 5px; }
+  :root {
+  --board-padding-buffer: 50px; --tile-size: 58px; --tile-gap: 5px; }
   .main-layout { grid-template-columns: var(--desktop-left-panel, 200px) minmax(0, 1fr) 224px !important; gap: 8px; }
   .right-panel { font-size: 14px; }
 }
@@ -3187,6 +3205,7 @@ body{
 
 /* ===== 2026 mobile-first layout reset ===== */
 :root {
+  --board-padding-buffer: 50px;
   --layout-gap: 10px;
   --hud-gap: 8px;
   --tile-gap: 4px;
@@ -3332,6 +3351,7 @@ body{
 /* Mobile-first flow */
 @media (max-width: 1024px) {
   :root {
+  --board-padding-buffer: 50px;
     --tile-gap: 4px;
     --tile-size: clamp(22px, min(calc((100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right) - (13 * var(--tile-gap))) / 14), calc((100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - (5 * var(--tile-gap))) / 6)), 64px);
   }
@@ -3372,6 +3392,7 @@ body{
 /* Desktop flow */
 @media (min-width: 1025px) {
   :root {
+  --board-padding-buffer: 50px;
     --tile-gap: 6px;
     --desktop-board-edge-room: 28px;
     --tile-size: clamp(
@@ -3680,6 +3701,7 @@ body{
   .mobile-rotate-prompt { display: none !important; }
 
   :root {
+  --board-padding-buffer: 50px;
     --mobile-safe-top: max(8px, env(safe-area-inset-top));
     --mobile-safe-bottom: max(8px, env(safe-area-inset-bottom));
     --mobile-safe-left: max(8px, env(safe-area-inset-left));
@@ -4011,6 +4033,7 @@ body{
 /* iPhone 14 Pro Max landscape tune: keep full board visible and restore full-width ability dock */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
+  --board-padding-buffer: 50px;
     --mobile-rail-w: 64px;
     --mobile-rail-gap: 8px;
     --mobile-top-hud-h: 36px;
@@ -4121,6 +4144,7 @@ body{
 /* Final mobile landscape board-fit correction: force full 14x6 board on screen */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
+  --board-padding-buffer: 50px;
     --mobile-rail-w: 64px;
     --mobile-rail-gap: 8px;
     --mobile-top-hud-h: 36px;
@@ -4255,6 +4279,7 @@ body.intro-open .mobile-right-rail {
 /* v8: runtime-sized mobile board fit for iPhone 14 Pro Max landscape */
 @media (max-width: 1024px) and (orientation: landscape) {
   :root {
+  --board-padding-buffer: 50px;
     --mobile-safe-top: 8px;
     --mobile-safe-bottom: 8px;
     --mobile-safe-left: 8px;
@@ -4663,6 +4688,7 @@ body.intro-open .mobile-right-rail {
 /* v19: desktop board fill tune — expand board and keep right hero/hire info column visually matched */
 @media (min-width: 1025px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-left-panel: 220px;
     --desktop-right-panel: 145px;
     --tile-gap: 6px;
@@ -5158,7 +5184,8 @@ body.intro-open .mobile-right-rail {
 }
 
 .leaderboard-wave-cell,
-.leaderboard-runs-cell {
+.leaderboard-runs-cell,
+.leaderboard-burn-cell {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -5220,6 +5247,11 @@ body.leaderboard-open {
   width: 86px;
 }
 
+.leaderboard-table th:nth-child(6),
+.leaderboard-table td:nth-child(6) {
+  width: 112px;
+}
+
 .leaderboard-name-cell,
 .leaderboard-wallet-cell {
   overflow: hidden;
@@ -5230,8 +5262,10 @@ body.leaderboard-open {
 
 .leaderboard-table th:nth-child(4),
 .leaderboard-table th:nth-child(5),
+.leaderboard-table th:nth-child(6),
 .leaderboard-table td:nth-child(4),
-.leaderboard-table td:nth-child(5) {
+.leaderboard-table td:nth-child(5),
+.leaderboard-table td:nth-child(6) {
   text-align: right;
 }
 
@@ -5709,6 +5743,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* v46.9.1.60: keep the selected info box height fixed, but give the desktop info panel 50% more vertical room so all action buttons stay visible */
 @media (min-width: 1025px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-right-panel: 270px;
   }
 
@@ -5752,6 +5787,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 /* v46.9.1.27 desktop width restore + announcement modal */
 @media (min-width: 1025px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-left-panel: 300px;
     --desktop-right-panel: 270px;
   }
@@ -6163,11 +6199,22 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 .leaderboard-nft-cell{font-weight:700; text-align:center;}
 .leaderboard-nft-cell.is-yes{color:#8fe0a2;}
 .leaderboard-nft-cell.is-no{color:#d9c4a1; opacity:0.92;}
-.leaderboard-table th:nth-child(6),
-.leaderboard-table td:nth-child(6){
+.leaderboard-table th:nth-child(7),
+.leaderboard-table td:nth-child(7){
   width: 86px;
   text-align:center;
   white-space:nowrap;
+}
+
+.burned-gold-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.burned-gold-leader-display {
+  font-size: 0.72rem;
+  color: rgba(232, 221, 189, 0.88);
+  line-height: 1.25;
 }
 
 
@@ -6197,12 +6244,13 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 }
 @media (min-width: 1025px) {
   :root {
+  --board-padding-buffer: 50px;
     --desktop-right-panel: 270px;
   }
   .right-panel {
-    min-height: 810px !important;
-    height: 810px !important;
-    max-height: 810px !important;
+    min-height: 891px !important;
+    height: 891px !important;
+    max-height: 891px !important;
   }
 }
 
@@ -6328,4 +6376,125 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+
+.milestone-hero-offer-card {
+  max-width: 920px;
+}
+
+.milestone-hero-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 22px 20px;
+}
+
+.milestone-hero-offer-btn {
+  min-width: 140px;
+}
+
+.milestone-hero-offer-note {
+  width: 100%;
+  text-align: center;
+  color: rgba(220, 227, 239, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
+  padding-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .milestone-hero-offer-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .milestone-hero-offer-btn {
+    width: 100%;
+  }
+}
+
+/* ===== desktop board fill fix ===== */
+@media (min-width: 1025px) {
+  :root {
+  --board-padding-buffer: 50px;
+    --desktop-shell-pad: 24px;
+    --desktop-gap: 12px;
+    --desktop-left-panel: clamp(180px, 16vw, 248px);
+    --desktop-right-panel: clamp(190px, 16.5vw, 248px);
+    --desktop-board-min-tile: 34px;
+    --desktop-board-max-tile: 110px;
+    --tile-gap: clamp(3px, 0.35vw, 6px);
+    --desktop-board-fit-width: calc(
+      (
+        100vw
+        - var(--desktop-shell-pad)
+        - var(--desktop-left-panel)
+        - var(--desktop-right-panel)
+        - (2 * var(--desktop-gap))
+        - (13 * var(--tile-gap))
+      ) / 14
+    );
+    --tile-size: clamp(
+      var(--desktop-board-min-tile),
+      var(--desktop-board-fit-width),
+      var(--desktop-board-max-tile)
+    );
+    --board-width: calc(14 * var(--tile-size) + 13 * var(--tile-gap));
+    --board-height: calc(6 * var(--tile-size) + 5 * var(--tile-gap));
+  }
+
+  #app {
+    padding: 12px;
+  }
+
+  .main-layout {
+    display: grid !important;
+    grid-template-columns:
+      minmax(52px, var(--desktop-left-panel))
+      minmax(0, 1fr)
+      minmax(52px, var(--desktop-right-panel));
+    gap: var(--desktop-gap) !important;
+    align-items: start;
+  }
+
+  .center-panel {
+    width: 100%;
+    align-items: center;
+  }
+
+  .grid,
+  #grid.grid {
+    width: var(--board-width) !important;
+    max-width: 100% !important;
+    grid-template-columns: repeat(14, var(--tile-size)) !important;
+    grid-template-rows: repeat(6, var(--tile-size)) !important;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .bottom-panel {
+    width: min(100%, var(--board-width));
+    max-width: min(100%, var(--board-width));
+  }
+
+  .left-panel,
+  .right-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    font-size: clamp(13px, 0.72vw, 16px);
+  }
+
+
+  body.runlog-collapsed {
+    --desktop-left-panel: 52px;
+  }
+
+  body.info-collapsed {
+    --desktop-right-panel: 52px;
+  }
 }

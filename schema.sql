@@ -31,8 +31,13 @@ create table if not exists public.wallet_sessions (
   revoked_at timestamptz,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz,
+  session_origin text,
+  user_agent_hash text,
   constraint wallet_sessions_wallet_lowercase check (wallet_address = lower(wallet_address))
 );
+
+alter table public.wallet_sessions add column if not exists session_origin text;
+alter table public.wallet_sessions add column if not exists user_agent_hash text;
 
 create table if not exists public.runs (
   id uuid primary key default gen_random_uuid(),

@@ -53,3 +53,10 @@ If a DFK Gold burn succeeds on-chain but the Supabase burn table stays empty, do
    - `npx supabase functions deploy public-leaderboard --no-verify-jwt`
 
 After that, do one fresh burn test and check `public.dfk_gold_burns`.
+
+
+## Leaderboard hardening
+
+- `submit-run` now rejects obviously impossible payloads, including invalid run timing, mismatched tower counts, malformed hero aggregates, and extreme out-of-range values.
+- Runs that arrive implausibly fast for their cleared wave count are rejected server-side.
+- Rapid-fire run spam is rate-limited per wallet over a rolling 10-minute window.

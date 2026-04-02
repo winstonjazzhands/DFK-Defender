@@ -20,7 +20,9 @@ Deno.serve(async (req) => {
     const players = await fetchPlayers(admin);
     const runs = await fetchRunUsage(admin);
     const usedMap = buildUsedWalletHeroesMap(runs);
-    const globalDfkGoldBurned = await fetchGlobalDfkGoldBurned(admin, runs);
+    const burnRows = await fetchBurnRows(admin);
+    const burnSummary = buildBurnSummary(burnRows, runs);
+    const globalDfkGoldBurned = burnSummary.total;
 
     const rows = players.map((player) => ({
       wallet_address: player.wallet_address || '',
@@ -35,6 +37,7 @@ Deno.serve(async (req) => {
       total_waves_cleared: sanitizeInt(player.total_waves_cleared),
       last_run_at: player.last_run_at || null,
       updated_at: player.updated_at || null,
+      dfk_gold_burned: Number((burnSummary.byWallet.get(normalizeAddress(player.wallet_address)) || 0).toFixed(3)),
     })).sort((a, b) => {
       return sanitizeInt(b.best_wave) - sanitizeInt(a.best_wave)
         || sanitizeInt(b.total_waves_cleared) - sanitizeInt(a.total_waves_cleared)
@@ -42,7 +45,22 @@ Deno.serve(async (req) => {
         || String(a.wallet_address || '').localeCompare(String(b.wallet_address || ''));
     });
 
-    return json({ rows, global_dfk_gold_burned: globalDfkGoldBurned }, 200);
+    if (burnSummary.topBurner) {
+      const matchedRow = rows.find((row) => normalizeAddress(row.wallet_address) === burnSummary.topBurner.wallet_address);
+      if (matchedRow) burnSummary.topBurner.display_name = String(matchedRow.display_name || burnSummary.topBurner.wallet_address);
+    }
+
+    return json({
+      rows,
+      global_dfk_gold_burned: globalDfkGoldBurned,
+      top_burner: burnSummary.topBurner ? {
+        wallet_address: burnSummary.topBurner.wallet_address,
+        wallet: burnSummary.topBurner.wallet_address,
+        display_name: burnSummary.topBurner.display_name,
+        player_name: burnSummary.topBurner.display_name,
+        dfk_gold_burned: burnSummary.topBurner.total,
+      } : null,
+    }, 200);
   } catch (error) {
     console.error('public-leaderboard failed', normalizeError(error));
     return json({ error: normalizeError(error).message || 'Leaderboard load failed.' }, 500);
@@ -116,26 +134,49 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
   return map;
 }
 
-async function fetchGlobalDfkGoldBurned(admin: SupabaseClient, runs: RunRow[]) {
-  const burnRows = await fetchBurnRows(admin);
+function buildBurnSummary(burnRows: Array<Record<string, unknown>>, runs: RunRow[]) {
+  const byWallet = new Map<string, number>();
   let total = 0;
+
   if (Array.isArray(burnRows) && burnRows.length) {
     for (const row of burnRows) {
       const burn = row as Record<string, unknown>;
-      total += sanitizeNumber(burn.burn_amount ?? burn.amount ?? 0);
+      const wallet = normalizeAddress(burn.wallet_address ?? burn.wallet ?? burn.address ?? '');
+      const amount = sanitizeNumber(burn.burn_amount ?? burn.amount ?? 0);
+      if (amount <= 0) continue;
+      total += amount;
+      if (wallet) byWallet.set(wallet, sanitizeNumber((byWallet.get(wallet) || 0) + amount));
     }
-    return Number(total.toFixed(3));
+  } else {
+    for (const row of runs || []) {
+      const wallet = normalizeAddress(row.wallet_address);
+      if (!wallet) continue;
+      const stats = row.stats_json && typeof row.stats_json === 'object' ? row.stats_json as Record<string, unknown> : {};
+      const amount = sanitizeNumber(stats.dfkGoldBurnedTotal ?? stats.dfk_gold_burned_total ?? stats.burnedGoldTotal ?? 0);
+      if (amount <= 0) continue;
+      total += amount;
+      byWallet.set(wallet, sanitizeNumber((byWallet.get(wallet) || 0) + amount));
+    }
   }
 
-  for (const row of runs || []) {
-    const stats = row.stats_json && typeof row.stats_json === 'object' ? row.stats_json as Record<string, unknown> : {};
-    total += sanitizeNumber(stats.dfkGoldBurnedTotal ?? stats.dfk_gold_burned_total ?? stats.burnedGoldTotal ?? 0);
+  let topBurner: { wallet_address: string; display_name: string; total: number } | null = null;
+  for (const [wallet, amount] of byWallet.entries()) {
+    const roundedAmount = Number(amount.toFixed(3));
+    if (!topBurner || roundedAmount > topBurner.total || (roundedAmount === topBurner.total && wallet.localeCompare(topBurner.wallet_address) < 0)) {
+      topBurner = { wallet_address: wallet, display_name: wallet, total: roundedAmount };
+    }
   }
-  return Number(total.toFixed(3));
+
+  return { byWallet, total: Number(total.toFixed(3)), topBurner };
 }
 
 async function fetchBurnRows(admin: SupabaseClient) {
   const selectVariants = [
+    'wallet_address, burn_amount',
+    'wallet_address, amount',
+    'wallet_address, tx_hash, burn_amount',
+    'wallet_address, tx_hash, amount',
+    'wallet_address, tx_hash, burn_amount, amount',
     'burn_amount',
     'amount',
     'tx_hash, burn_amount',

@@ -1,5 +1,5 @@
-// build: v46.9.1.82
-// build: v46.9.1.82
+// build: v46.9.1.86
+// build: v46.9.1.86
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -466,7 +466,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v1.3.4';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -799,6 +799,12 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     continueOfferBody: document.getElementById('continueOfferBody'),
     continueHellYeahBtn: document.getElementById('continueHellYeahBtn'),
     continueNoThanksBtn: document.getElementById('continueNoThanksBtn'),
+    milestoneHeroOfferModal: document.getElementById('milestoneHeroOfferModal'),
+    milestoneHeroOfferTitle: document.getElementById('milestoneHeroOfferTitle'),
+    milestoneHeroOfferBody: document.getElementById('milestoneHeroOfferBody'),
+    milestoneHeroOfferActions: document.getElementById('milestoneHeroOfferActions'),
+    closeMilestoneHeroOfferBtn: document.getElementById('closeMilestoneHeroOfferBtn'),
+    declineMilestoneHeroOfferBtn: document.getElementById('declineMilestoneHeroOfferBtn'),
     introBody: document.getElementById('introBody'),
     introPageLabel: document.getElementById('introPageLabel'),
     introPrevBtn: document.getElementById('introPrevBtn'),
@@ -961,7 +967,13 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     dfkGoldSwapPending: false,
     dfkGoldBurnedTotal: 0,
     globalDfkGoldBurnedTotal: 0,
+    globalDfkGoldBurnLeaderName: '',
+    globalDfkGoldBurnLeaderWallet: '',
+    globalDfkGoldBurnLeaderTotal: 0,
     globalDfkGoldRefreshTimer: null,
+    milestoneHeroOffer: null,
+    milestoneHeroOffersSeen: {},
+    pendingMilestoneHeroPlacement: null,
     ownedRelics: [],
     foundRelics: [],
     attackLines: [],
@@ -1069,7 +1081,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
 
-  const DAILY_QUEST_GOAL_MULTIPLIER = 3;
+  const DAILY_QUEST_GOAL_MULTIPLIER = 5.625;
   const BASE_DAILY_QUEST_POOL = [
     { id: 'kill_50', name: 'Cull the Weak', description: 'Kill 50 enemies.', metric: 'killsTotal', goal: 50 },
     { id: 'kill_100', name: 'Field Clearer', description: 'Kill 100 enemies.', metric: 'killsTotal', goal: 100 },
@@ -1497,7 +1509,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.82',
+      gameVersion: 'V46.9.1.86',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       waveReached: Number(game.waveNumber || 0),
@@ -1544,6 +1556,13 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return String(address || '').trim().toLowerCase();
   }
 
+  function truncateWalletAddress(value) {
+    const wallet = String(value || '').trim();
+    if (!wallet) return '';
+    if (wallet.length <= 12) return wallet;
+    return `${wallet.slice(0, 6)}…${wallet.slice(-4)}`;
+  }
+
   function getConnectedWalletAddress() {
     if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.getState !== 'function') return '';
     const walletState = window.DFKDefenseWallet.getState() || {};
@@ -1572,9 +1591,21 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   function updateBurnedGoldDisplay() {
-    if (!els.burnedGoldDisplay) return;
     const total = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
-    els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
+    if (els.burnedGoldDisplay) {
+      els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
+    }
+    const leaderEl = document.getElementById('burnedGoldLeaderDisplay');
+    if (!leaderEl) return;
+    const leaderTotal = Math.max(0, Number(game.globalDfkGoldBurnLeaderTotal || 0));
+    const leaderName = String(game.globalDfkGoldBurnLeaderName || '').trim();
+    const leaderWallet = String(game.globalDfkGoldBurnLeaderWallet || '').trim();
+    const leaderLabel = leaderName || truncateWalletAddress(leaderWallet) || 'No one';
+    if (leaderTotal > 0) {
+      leaderEl.textContent = `${leaderLabel} leads the pack with ${leaderTotal.toLocaleString()} gold burned`;
+    } else {
+      leaderEl.textContent = 'No burn leader yet';
+    }
   }
 
   function getSupabaseFunctionConfig() {
@@ -1755,7 +1786,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     try {
       const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
       const total = Math.max(0, Number((response && (response.global_dfk_gold_burned ?? response.globalDfkGoldBurned ?? response.global_burned_total)) || 0));
+      const burnLeader = response && (response.top_burner || response.topBurner || response.burn_leader || null);
       game.globalDfkGoldBurnedTotal = total;
+      game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
+      game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
+      game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
       return total;
@@ -1811,6 +1846,103 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     game.dfkGoldSwapPending = false;
   }
 
+  function getMilestoneHeroOfferConfig(waveNumber) {
+    const safeWave = Math.max(0, Number(waveNumber || 0));
+    const config = MILESTONE_HERO_OFFERS[safeWave];
+    return config ? { ...config } : null;
+  }
+
+  function canOpenMilestoneHeroOffer(waveNumber) {
+    const config = getMilestoneHeroOfferConfig(waveNumber);
+    if (!config) return false;
+    return !game.milestoneHeroOffersSeen[String(config.wave)];
+  }
+
+  function openMilestoneHeroOffer(config) {
+    if (!config) return false;
+    game.milestoneHeroOffer = {
+      wave: Number(config.wave || 0),
+      burnCost: Math.max(0, Number(config.burnCost || 0)),
+      heroLevel: Math.max(1, Number(config.heroLevel || 1)),
+    };
+    return true;
+  }
+
+  function finishMilestoneHeroOffer(startCountdown = true) {
+    const offer = game.milestoneHeroOffer;
+    if (offer && offer.wave) game.milestoneHeroOffersSeen[String(offer.wave)] = true;
+    game.milestoneHeroOffer = null;
+    if (els.milestoneHeroOfferModal) els.milestoneHeroOfferModal.classList.add('hidden');
+    if (startCountdown && !game.runningWave && Number(game.countdownMs || 0) <= 0 && game.phase === SETUP_PHASES.BATTLE) {
+      setCountdown(WAVE_BREAK_SECONDS);
+    }
+  }
+
+  function renderMilestoneHeroOffer() {
+    const modal = els.milestoneHeroOfferModal;
+    const body = els.milestoneHeroOfferBody;
+    const actions = els.milestoneHeroOfferActions;
+    const title = els.milestoneHeroOfferTitle;
+    if (!modal || !body || !actions || !title) return;
+    const offer = game.milestoneHeroOffer;
+    if (!offer) {
+      modal.classList.add('hidden');
+      return;
+    }
+    title.textContent = `Reinforcements at Wave ${offer.wave}`;
+    body.innerHTML = `<p>You survived long enough for help to arrive! One time offer to hire a new hero of your choice for ${offer.burnCost.toLocaleString()} DFK Gold.</p><p>The hired hero arrives at level ${offer.heroLevel} after the burn is confirmed on-chain.</p>`;
+    actions.innerHTML = '';
+    const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
+    const walletDfkgold = getWalletDfkgoldBalance();
+    const hasWallet = !!getConnectedWalletAddress();
+    for (const type of heroTypes) {
+      const t = TOWER_TEMPLATES[type];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'small-action milestone-hero-offer-btn';
+      btn.textContent = game.dfkGoldSwapPending ? 'Waiting…' : `${t.name} L${offer.heroLevel}`;
+      btn.disabled = game.dfkGoldSwapPending || !hasWallet || walletDfkgold < offer.burnCost;
+      btn.addEventListener('click', () => { beginMilestoneHeroHire(type).catch((error) => console.error(error)); });
+      actions.appendChild(btn);
+    }
+    const note = document.createElement('div');
+    note.className = 'milestone-hero-offer-note';
+    if (!hasWallet) note.textContent = 'Connect a wallet on DFK Chain to burn DFK Gold for this hire.';
+    else if (game.dfkGoldSwapPending) note.textContent = 'Waiting for wallet confirmation…';
+    else if (walletDfkgold < offer.burnCost) note.textContent = `Need ${offer.burnCost.toLocaleString()} DFK Gold in the connected wallet.`;
+    else note.textContent = 'Pick a hero below. The burn happens first, then you place the new hero on the board.';
+    actions.appendChild(note);
+    modal.classList.remove('hidden');
+  }
+
+  async function beginMilestoneHeroHire(heroType) {
+    const offer = game.milestoneHeroOffer;
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return;
+    try {
+      const result = await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
+        pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${template.name} reinforcements…`,
+      });
+      game.pendingMilestoneHeroPlacement = {
+        wave: offer.wave,
+        heroType,
+        heroLevel: offer.heroLevel,
+        burnCost: offer.burnCost,
+        txHash: result && result.txHash ? result.txHash : '',
+      };
+      game.placingHeroType = heroType;
+      game.placingHeroCost = 0;
+      game.placingHeroUsesBonus = true;
+      game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
+      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
+      showBanner(`${template.name} reinforcements arrived. Place the level ${offer.heroLevel} hero.`, 2600);
+      finishMilestoneHeroOffer(false);
+      setInstruction(`Place your new level ${offer.heroLevel} ${template.name}. The next wave will wait until you place it or restart.`);
+      render();
+    } catch (_error) {}
+  }
+
   async function recordDfkgoldBurn(txHash, walletAddress, burnAmount, defenderGoldAwarded) {
     const hash = String(txHash || '').trim();
     const wallet = normalizeAddress(walletAddress);
@@ -1835,22 +1967,18 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     }
   }
 
-  async function performDfkgoldSwap() {
-    if (game.dfkGoldSwapPending) return;
-    if (!window.ethers) {
-      showBanner('Ethers is not available for DFK Gold swap.', 2200);
-      return;
-    }
+  async function performVerifiedDfkgoldBurnPurchase(burnCost, defenderGoldAwarded = 0, options = {}) {
+    if (game.dfkGoldSwapPending) throw new Error('A DFK Gold transaction is already pending.');
+    if (!window.ethers) throw new Error('Ethers is not available for DFK Gold transactions.');
     const provider = getWalletRpcProvider();
-    if (!provider) {
-      showBanner('Connect your wallet first.', 1800);
-      return;
-    }
+    if (!provider) throw new Error('Connect your wallet first.');
     const walletAddress = getConnectedWalletAddress();
-    if (!walletAddress) {
-      showBanner('Connect your wallet first.', 1800);
-      return;
-    }
+    if (!walletAddress) throw new Error('Connect your wallet first.');
+
+    const safeBurnCost = Math.max(0, Number(burnCost || 0));
+    const safeAward = Math.max(0, Number(defenderGoldAwarded || 0));
+    if (!safeBurnCost) throw new Error('Invalid DFK Gold burn amount.');
+
     game.dfkGoldSwapPending = true;
     render();
     try {
@@ -1859,45 +1987,58 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       const signer = await browserProvider.getSigner();
       const contract = new window.ethers.Contract(DFK_GOLD_CONTRACT_ADDRESS, DFK_GOLD_ERC20_ABI, signer);
       const decimals = Number(await contract.decimals().catch(() => DFK_GOLD_DECIMALS)) || DFK_GOLD_DECIMALS;
-      const burnAmount = window.ethers.parseUnits(String(DFK_GOLD_SWAP_COST), decimals);
+      const burnAmount = window.ethers.parseUnits(String(safeBurnCost), decimals);
       const balance = await contract.balanceOf(walletAddress);
-      if (balance < burnAmount) throw new Error(`Need ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold.`);
+      if (balance < burnAmount) throw new Error(`Need ${safeBurnCost.toLocaleString()} DFK Gold.`);
       const tx = await contract.transfer(DFK_GOLD_BURN_ADDRESS, burnAmount);
-      showBanner(`Burning ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold…`, 2200);
+      showBanner(options.pendingBannerText || `Burning ${safeBurnCost.toLocaleString()} DFK Gold…`, 2200);
       await tx.wait();
-      game.jewel = Math.max(0, Number(game.jewel || 0)) + DEFENDER_GOLD_SWAP_REWARD;
-      game.dfkGoldBurnedTotal = Math.max(0, Number(game.dfkGoldBurnedTotal || 0)) + DFK_GOLD_SWAP_COST;
-      game.globalDfkGoldBurnedTotal = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0)) + DFK_GOLD_SWAP_COST;
+      game.dfkGoldBurnedTotal = Math.max(0, Number(game.dfkGoldBurnedTotal || 0)) + safeBurnCost;
+      game.globalDfkGoldBurnedTotal = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0)) + safeBurnCost;
+      if (safeAward > 0) game.jewel = Math.max(0, Number(game.jewel || 0)) + safeAward;
       updateBurnedGoldDisplay();
       try {
-        await recordDfkgoldBurn(tx.hash, walletAddress, DFK_GOLD_SWAP_COST, DEFENDER_GOLD_SWAP_REWARD);
+        await recordDfkgoldBurn(tx.hash, walletAddress, safeBurnCost, safeAward);
         removePendingDfkgoldBurn(tx.hash);
         await fetchGlobalBurnedGoldTotal(true);
       } catch (recordError) {
         enqueuePendingDfkgoldBurn({
           txHash: tx.hash,
           walletAddress,
-          burnAmount: DFK_GOLD_SWAP_COST,
-          defenderGoldAwarded: DEFENDER_GOLD_SWAP_REWARD,
+          burnAmount: safeBurnCost,
+          defenderGoldAwarded: safeAward,
           queuedAt: Date.now(),
         });
         console.warn('DFK Gold burn was confirmed on-chain but failed to save to Supabase.', recordError);
         showBanner('DFK Gold burn succeeded on-chain. Supabase save is queued and will retry automatically.', 4200);
         log('Warning: DFK Gold burn confirmed on-chain, but Supabase save is queued for automatic retry.');
       }
-      markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
-      log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
-      showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
-      closeDfkgoldSwapOffer();
       await refreshWalletEconomyDetails();
       render();
+      return { txHash: tx.hash, walletAddress, burnCost: safeBurnCost, defenderGoldAwarded: safeAward };
     } catch (error) {
-      const message = error && error.message ? error.message : 'DFK Gold swap failed.';
+      const message = error && error.message ? error.message : 'DFK Gold transaction failed.';
       showBanner(message, 2600);
+      throw error;
+    } finally {
       game.dfkGoldSwapPending = false;
       await refreshWalletEconomyDetails();
       render();
     }
+  }
+
+  async function performDfkgoldSwap() {
+    if (game.dfkGoldSwapPending) return;
+    try {
+      await performVerifiedDfkgoldBurnPurchase(DFK_GOLD_SWAP_COST, DEFENDER_GOLD_SWAP_REWARD, {
+        pendingBannerText: `Burning ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold…`,
+      });
+      markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
+      closeDfkgoldSwapOffer();
+      render();
+    } catch (_error) {}
   }
 
   function canUseTestGoldGrant() {
@@ -2364,6 +2505,9 @@ function renderDamageReport() {
     game.dfkGoldSwapOfferReason = '';
     game.dfkGoldSwapPending = false;
     game.dfkGoldBurnedTotal = 0;
+    game.milestoneHeroOffer = null;
+    game.milestoneHeroOffersSeen = {};
+    game.pendingMilestoneHeroPlacement = null;
     game.ownedRelics = [];
     game.foundRelics = [];
     game.continueOfferUsed = false;
@@ -3361,6 +3505,11 @@ function renderDamageReport() {
   const DFK_GOLD_DECIMALS = 3;
   const DFK_GOLD_SWAP_COST = 10000;
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
+  const MILESTONE_HERO_OFFERS = {
+    25: { wave: 25, burnCost: 100000, heroLevel: 25 },
+    50: { wave: 50, burnCost: 200000, heroLevel: 50 },
+    100: { wave: 100, burnCost: 500000, heroLevel: 100 },
+  };
   const DFK_GOLD_BURN_ADDRESS = String(window.DFK_GOLD_BURN_ADDRESS || '0x000000000000000000000000000000000000dEaD');
   const DFK_GOLD_ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -4040,6 +4189,7 @@ function renderDamageReport() {
     renderSelection();
     renderHirePanel();
     renderRelics();
+    renderMilestoneHeroOffer();
     updateTopbar();
     renderDamageReport();
     if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
@@ -5345,9 +5495,7 @@ function renderDamageReport() {
 
     const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
     const normalAvailable = heroTypes.filter(type => !game.towers.some(t => t.type === type && !t.isSatellite) && game.placingHeroType !== type);
-    const bonusAvailable = game.bonusHeroHireCharges > 0
-      ? heroTypes.filter(type => game.towers.some(t => t.type === type && !t.isSatellite) && game.placingHeroType !== type)
-      : [];
+    const bonusAvailable = [];
     const cost = getNextHireCost(false);
     const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
@@ -6198,6 +6346,16 @@ function renderDamageReport() {
       const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
       if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
     }
+    const pendingMilestonePlacement = !isSatellitePlacement && game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === typeToPlace
+      ? { ...game.pendingMilestoneHeroPlacement }
+      : null;
+    if (pendingMilestonePlacement) {
+      const targetLevel = Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1));
+      for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
+        applyTowerLevelStep(tower, nextLevel);
+      }
+      tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Reinforcement L${targetLevel}`;
+    }
     if (isSatellitePlacement) {
       tower.level = 1;
       tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
@@ -6254,10 +6412,18 @@ function renderDamageReport() {
       updateQuestMetric('heroesPlaced', 1);
       if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
       game.placingWalletHeroId = null;
-      const placementVerb = (!usesBonusHire && tower.walletHeroId && cost <= 0) ? 'Placed NFT' : `Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name}`;
+      const placementVerb = pendingMilestonePlacement
+        ? `Placed milestone reinforcement ${tower.name} L${tower.level}`
+        : ((!usesBonusHire && tower.walletHeroId && cost <= 0) ? 'Placed NFT' : `Hired ${usesBonusHire ? 'an extra ' : ''}${tower.name}`);
       log(`${placementVerb} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+      if (pendingMilestonePlacement) {
+        game.pendingMilestoneHeroPlacement = null;
+        if (!game.runningWave && Number(game.countdownMs || 0) <= 0 && game.phase === SETUP_PHASES.BATTLE) {
+          setCountdown(WAVE_BREAK_SECONDS);
+        }
+      }
     }
 
     game.selectedId = tower.id;
@@ -6655,7 +6821,7 @@ function renderDamageReport() {
     const rebuildText = '';
     const relicText = game.startingRelicPending ? ' Choose 1 free starting relic before wave 1 begins.' : '';
     const eliteText = game.nextWavePlan?.elite ? ' Elite Wave incoming. Prepare yourself.' : '';
-    setInstruction(`Wave ${game.waveNumber + 1} ready. Pattern: ${prettyPattern(game.nextWavePlan.pattern)}${mutationText}.${eliteText} Spend Gold, move towers, or start the wave.${game.bonusHeroHireCharges > 0 ? ` ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? ' is' : 's are'} available.` : ''}${rebuildText}${relicText}`);
+    setInstruction(`Wave ${game.waveNumber + 1} ready. Pattern: ${prettyPattern(game.nextWavePlan.pattern)}${mutationText}.${eliteText} Spend Gold, move towers, or start the wave.${rebuildText}${relicText}`);
     maybeShowEliteWaveWarning(game.nextWavePlan);
     els.startWaveBtn.disabled = !!game.startingRelicPending;
     armAutoStartCountdown(true);
@@ -7034,6 +7200,9 @@ function renderDamageReport() {
       dfkGoldSwapOfferOpen: !!game.dfkGoldSwapOfferOpen,
       dfkGoldSwapOfferReason: game.dfkGoldSwapOfferReason || '',
       dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
+      milestoneHeroOffer: cloneContinueData(game.milestoneHeroOffer),
+      milestoneHeroOffersSeen: cloneContinueData(game.milestoneHeroOffersSeen),
+      pendingMilestoneHeroPlacement: cloneContinueData(game.pendingMilestoneHeroPlacement),
       ownedRelics: cloneContinueData(game.ownedRelics),
       foundRelics: cloneContinueData(game.foundRelics),
       modifiers: cloneContinueData(game.modifiers),
@@ -7195,7 +7364,7 @@ function renderDamageReport() {
     game.autoStartDelayMs = snap.autoStartDelayMs;
     game.autoStartReadyAt = 0;
     game.autoStartToken = snap.autoStartToken;
-    game.bonusHeroHireCharges = snap.bonusHeroHireCharges;
+    game.bonusHeroHireCharges = 0;
     game.placingHeroUsesBonus = false;
     game.rebuildingBarriers = false;
     game.barrierRefitCount = snap.barrierRefitCount;
@@ -7209,6 +7378,9 @@ function renderDamageReport() {
     game.dfkGoldSwapOfferReason = String(snap.dfkGoldSwapOfferReason || '');
     game.dfkGoldSwapPending = false;
     game.dfkGoldBurnedTotal = Math.max(0, Number(snap.dfkGoldBurnedTotal || 0));
+    game.milestoneHeroOffer = cloneContinueData(snap.milestoneHeroOffer) || null;
+    game.milestoneHeroOffersSeen = cloneContinueData(snap.milestoneHeroOffersSeen) || {};
+    game.pendingMilestoneHeroPlacement = cloneContinueData(snap.pendingMilestoneHeroPlacement) || null;
     game.ownedRelics = cloneContinueData(snap.ownedRelics) || [];
     game.foundRelics = cloneContinueData(snap.foundRelics) || [];
     game.modifiers = cloneContinueData(snap.modifiers) || game.modifiers;
@@ -7248,6 +7420,7 @@ function renderDamageReport() {
     game.waveStartAt = now();
     game.nextWavePlan = null;
     game.relicChoices = [];
+    game.milestoneHeroOffer = null;
     setInstruction(`Wave ${game.waveNumber} is live.${currentPlan.elite ? ' Elite wave active.' : ''} Defend the portal.`);
     els.startWaveBtn.disabled = true;
     const mutationText = game.activeMutation ? ` • ${game.activeMutation.name}` : '';
@@ -7656,15 +7829,16 @@ function renderDamageReport() {
         log(`Torn Soul triggered after wave ${game.waveNumber}: +1 charge${unlockedWizards.length > 1 ? ' for each Wizard' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 25 === 0) {
-      game.bonusHeroHireCharges += 1;
-      showBanner(`Milestone reward: +1 extra hero hire unlocked (${game.bonusHeroHireCharges} available).`, 3000);
-      log(`Milestone reward unlocked after wave ${game.waveNumber}: +1 extra hero hire (now ${game.bonusHeroHireCharges} available).`);
+    const milestoneHeroOfferConfig = canOpenMilestoneHeroOffer(game.waveNumber) ? getMilestoneHeroOfferConfig(game.waveNumber) : null;
+    if (milestoneHeroOfferConfig) {
+      openMilestoneHeroOffer(milestoneHeroOfferConfig);
+      showBanner(`Help has arrived at wave ${game.waveNumber}.`, 2600);
+      log(`Milestone hero offer unlocked after wave ${game.waveNumber}: burn ${milestoneHeroOfferConfig.burnCost.toLocaleString()} DFK Gold for one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice.`);
     }
     dissipateExpiredSatelliteArchers();
     const tenWaveSwapReady = game.waveNumber > 0 && game.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap();
-    const bonusHireText = game.bonusHeroHireCharges > 0 ? ` You can also use ${game.bonusHeroHireCharges} extra hero hire${game.bonusHeroHireCharges === 1 ? '' : 's'}.` : '';
-    let shopOpened = false;
+    const bonusHireText = '';
+    let shopOpened = !!milestoneHeroOfferConfig;
     if (game.waveNumber % 7 === 0) {
       shopOpened = offerRelics(tenWaveSwapReady ? 'wave10' : 'relic');
       if (shopOpened) {
@@ -7677,7 +7851,11 @@ function renderDamageReport() {
         setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip. DFK Gold swap is also available.${bonusHireText}`);
       }
     }
-    if (!shopOpened) {
+    if (milestoneHeroOfferConfig) {
+      closeDfkgoldSwapOffer();
+      game.relicChoices = [];
+      setInstruction(`Wave ${game.waveNumber} cleared. You survived long enough for help to arrive. One time offer: burn ${milestoneHeroOfferConfig.burnCost.toLocaleString()} DFK Gold for a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice.${bonusHireText}`);
+    } else if (!shopOpened) {
       closeDfkgoldSwapOffer();
       setCountdown(WAVE_BREAK_SECONDS);
     }
@@ -9389,6 +9567,8 @@ function renderDamageReport() {
     game.mobileInstallDismissed = true;
     updateMobileInstallPrompt();
   });
+  els.closeMilestoneHeroOfferBtn?.addEventListener('click', () => finishMilestoneHeroOffer(true));
+  els.declineMilestoneHeroOfferBtn?.addEventListener('click', () => finishMilestoneHeroOffer(true));
   els.closeIntroBtn?.addEventListener('click', () => { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); });
   els.introModal?.addEventListener('click', (event) => { if (event.target === els.introModal) { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); } });
   els.closeBountyBtn?.addEventListener('click', closeBountyModal);

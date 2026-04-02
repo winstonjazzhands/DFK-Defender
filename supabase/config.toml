@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.record-dfkgold-burn]
 verify_jwt = false
+
+[db]
+shadow_port = 54420

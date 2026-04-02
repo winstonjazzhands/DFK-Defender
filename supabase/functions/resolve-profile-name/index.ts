@@ -10,9 +10,10 @@ const DFK_CHAIN_RPC_URL = Deno.env.get('DFK_CHAIN_RPC_URL') || 'https://subnets.
 const DFK_PROFILES_ADDRESS = '0xC4cD8C09D1A90b21Be417be91A81603B03993E81';
 
 const PROFILES_ABI = [
-  'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
-  'function getProfile(address) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
-  'function getProfileByAddress(address) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
+  'function getNames(address[] _addresses) view returns (string[])',
+    'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
+  'function getProfile(address _profileAddress) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
+  'function getProfileByAddress(address _profileAddress) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
 ];
 
 function json(payload: unknown, status = 200) {
@@ -37,6 +38,12 @@ async function resolveName(address: string) {
   const normalized = normalizeAddress(address);
 
   const attempts = [
+    async () => {
+      const result = await contract.getNames([normalized]);
+      const first = Array.isArray(result) ? result[0] : null;
+      const name = cleanName(first);
+      return name ? { name, method: 'getNames' } : null;
+    },
     async () => {
       const result = await contract.addressToProfile(normalized);
       const owner = normalizeAddress(result?.owner);

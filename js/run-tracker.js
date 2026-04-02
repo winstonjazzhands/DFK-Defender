@@ -65,8 +65,11 @@
     setText(ui.summary, state.summary);
     if (ui.status) ui.status.className = `wallet-tracking-status ${state.statusClass}`.trim();
     if (ui.enableBtn) {
-      ui.enableBtn.disabled = !state.address || !state.client;
-      ui.enableBtn.textContent = state.session ? 'Disable Run Tracking' : 'Enable Run Tracking';
+      const showEnable = !state.session;
+      ui.enableBtn.disabled = !showEnable || !state.address || !state.client;
+      ui.enableBtn.textContent = 'Enable Run Tracking';
+      ui.enableBtn.classList.toggle('hidden', !showEnable);
+      ui.enableBtn.setAttribute('aria-hidden', showEnable ? 'false' : 'true');
     }
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';

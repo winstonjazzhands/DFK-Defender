@@ -1,10 +1,116 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { Contract, JsonRpcProvider } from 'npm:ethers@6';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token, cache-control',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+
+const DFK_CHAIN_RPC_URL = Deno.env.get('DFK_CHAIN_RPC_URL') || 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
+const DFK_PROFILES_ADDRESS = '0xC4cD8C09D1A90b21Be417be91A81603B03993E81';
+const PROFILES_ABI = [
+  'function getNames(address[] _addresses) view returns (string[])',
+  'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
+  'function getProfile(address _profileAddress) view returns ((address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri))',
+  'function getProfileByAddress(address _profileAddress) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
+];
+
+function normalizeOrigin(value: string | null | undefined) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin.toLowerCase();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function requestOrigin(req: Request) {
+  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function validateSessionContext(req: Request, session: Record<string, unknown>) {
+  const expectedOrigin = normalizeOrigin(String(session.session_origin || ''));
+  if (expectedOrigin) {
+    const actualOrigin = requestOrigin(req);
+    if (!actualOrigin || actualOrigin !== expectedOrigin) {
+      return json({ error: 'Session origin mismatch.', code: 'session_origin_mismatch' }, 401);
+    }
+  }
+
+  const expectedUserAgentHash = String(session.user_agent_hash || '').trim();
+  if (expectedUserAgentHash) {
+    const actualUserAgent = String(req.headers.get('user-agent') || '').trim();
+    if (!actualUserAgent) {
+      return json({ error: 'User agent missing for session.', code: 'missing_user_agent' }, 401);
+    }
+    const actualHash = await sha256Hex(actualUserAgent);
+    if (actualHash !== expectedUserAgentHash) {
+      return json({ error: 'Session device mismatch.', code: 'session_device_mismatch' }, 401);
+    }
+  }
+
+  return null;
+}
+
+function shouldRefreshChainName(existingPlayer: { display_name?: string | null; vanity_name?: string | null } | null | undefined, walletAddress: string) {
+  const vanity = cleanName(existingPlayer?.vanity_name);
+  if (vanity) return false;
+  const display = cleanName(existingPlayer?.display_name);
+  if (!display) return true;
+  return normalizeAddress(display) === normalizeAddress(walletAddress);
+}
+
+async function resolveChainDisplayName(address: string) {
+  const provider = new JsonRpcProvider(DFK_CHAIN_RPC_URL, 53935, { staticNetwork: true });
+  const contract = new Contract(DFK_PROFILES_ADDRESS, PROFILES_ABI, provider);
+  const normalized = normalizeAddress(address);
+
+  const attempts = [
+    async () => {
+      const result = await contract.getNames([normalized]);
+      const first = Array.isArray(result) ? result[0] : null;
+      const name = cleanName(first);
+      return name || null;
+    },
+    async () => {
+      const result = await contract.addressToProfile(normalized);
+      const owner = normalizeAddress(result?.owner);
+      const name = cleanName(result?.name);
+      return owner === normalized && name ? name : null;
+    },
+    async () => {
+      const result = await contract.getProfile(normalized);
+      const owner = normalizeAddress(result?.owner);
+      const name = cleanName(result?.name);
+      return owner === normalized && name ? name : null;
+    },
+    async () => {
+      const result = await contract.getProfileByAddress(normalized);
+      const owner = normalizeAddress(result?._owner);
+      const name = cleanName(result?._name);
+      return owner === normalized && name ? name : null;
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const name = await attempt();
+      if (name) return name;
+    } catch (_error) {
+      // continue
+    }
+  }
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
@@ -16,7 +122,7 @@ Deno.serve(async (req) => {
     }
 
     const admin = createAdmin();
-    const session = await loadValidSession(admin, token);
+    const session = await loadValidSession(admin, token, req);
     if ('response' in session) return session.response;
 
     const body = await safeReadJson(req);
@@ -57,11 +163,38 @@ Deno.serve(async (req) => {
       })
     );
 
+    const validationError = validateRunSubmission({
+      clientRunId,
+      waveReached,
+      wavesCleared,
+      portalHpLeft,
+      goldOnHand,
+      premiumJewels,
+      gameVersion,
+      mode,
+      result,
+      heroes,
+      stats,
+      completedAt,
+      runStartedAt,
+      usedWalletHeroes,
+    });
+    if (validationError) {
+      return json({ error: validationError.error, code: validationError.code, details: validationError.details }, 400);
+    }
+
+    const rateLimit = await checkRunSubmissionRate(admin, walletAddress, completedAt);
+    if (rateLimit) return rateLimit;
+
     const existingPlayer = await fetchExistingPlayer(admin, walletAddress);
+    const chainDisplayName = shouldRefreshChainName(existingPlayer, walletAddress)
+      ? await resolveChainDisplayName(walletAddress)
+      : null;
     const resolvedDisplayName =
       cleanName(existingPlayer?.vanity_name) ||
-      cleanName(existingPlayer?.display_name) ||
       requestedDisplayName ||
+      chainDisplayName ||
+      cleanName(existingPlayer?.display_name) ||
       null;
 
     await ensurePlayerExists(admin, {
@@ -143,8 +276,10 @@ async function safeReadJson(req: Request) {
   }
 }
 
-async function loadValidSession(admin: SupabaseClient, token: string) {
+async function loadValidSession(admin: SupabaseClient, token: string, req: Request) {
   const selectVariants = [
+    'session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash',
+    'session_token, wallet_address, expires_at, revoked_at, session_origin',
     'session_token, wallet_address, expires_at, revoked_at',
     'session_token, wallet_address, expires_at',
     'session_token, wallet_address',
@@ -169,6 +304,9 @@ async function loadValidSession(admin: SupabaseClient, token: string) {
 
     const row = session as Record<string, unknown>;
     if (row.revoked_at) return { response: json({ error: 'Session revoked.', code: 'session_revoked' }, 401) };
+
+    const contextError = await validateSessionContext(req, row);
+    if (contextError) return { response: contextError };
 
     const expiresAt = safeIsoDate(row.expires_at);
     if (expiresAt && Date.now() >= new Date(expiresAt).getTime()) {
@@ -479,6 +617,181 @@ async function touchWalletSession(admin: SupabaseClient, token: string) {
     console.error('submit-run wallet session touch failed', normalizeError(error));
     return;
   }
+}
+
+
+function validateRunSubmission(input: {
+  clientRunId: string;
+  waveReached: number;
+  wavesCleared: number;
+  portalHpLeft: number;
+  goldOnHand: number;
+  premiumJewels: number;
+  gameVersion: string;
+  mode: string;
+  result: string;
+  heroes: unknown[];
+  stats: Record<string, unknown>;
+  completedAt: string;
+  runStartedAt: string | null;
+  usedWalletHeroes: boolean;
+}) {
+  const allowedModes = new Set(['easy', 'challenge']);
+  const allowedResults = new Set(['loss', 'abandoned', 'closed', 'disconnected', 'win']);
+  const nowMs = Date.now();
+  const completedMs = Date.parse(input.completedAt);
+  const startedMs = input.runStartedAt ? Date.parse(input.runStartedAt) : NaN;
+
+  if (!/^[a-z0-9][a-z0-9_-]{7,127}$/i.test(input.clientRunId)) {
+    return { error: 'Invalid clientRunId.', code: 'invalid_client_run_id', details: 'clientRunId must be 8-128 characters.' };
+  }
+  if (!allowedModes.has(input.mode)) {
+    return { error: 'Invalid mode.', code: 'invalid_mode' };
+  }
+  if (!allowedResults.has(input.result)) {
+    return { error: 'Invalid result.', code: 'invalid_result' };
+  }
+  if (!Number.isFinite(completedMs)) {
+    return { error: 'Invalid completedAt.', code: 'invalid_completed_at' };
+  }
+  if (completedMs > nowMs + 5 * 60_000) {
+    return { error: 'completedAt is too far in the future.', code: 'completed_at_future' };
+  }
+  if (input.runStartedAt) {
+    if (!Number.isFinite(startedMs)) {
+      return { error: 'Invalid runStartedAt.', code: 'invalid_run_started_at' };
+    }
+    if (startedMs > completedMs) {
+      return { error: 'runStartedAt cannot be after completedAt.', code: 'run_time_inverted' };
+    }
+    const durationMs = completedMs - startedMs;
+    if (durationMs > 24 * 60 * 60_000) {
+      return { error: 'Run duration exceeds the maximum allowed tracked session length.', code: 'run_duration_too_long' };
+    }
+    const minDurationMs = Math.max(0, (input.wavesCleared - 5) * 10_000);
+    if (durationMs + 20_000 < minDurationMs) {
+      return {
+        error: 'Run finished faster than allowed by leaderboard validation.',
+        code: 'run_duration_too_short',
+        details: `duration_ms=${durationMs}, min_required_ms=${minDurationMs}`,
+      };
+    }
+  }
+  if (!Number.isInteger(input.waveReached) || input.waveReached < 0 || input.waveReached > 25000) {
+    return { error: 'Invalid waveReached.', code: 'invalid_wave_reached' };
+  }
+  if (!Number.isInteger(input.wavesCleared) || input.wavesCleared < 0 || input.wavesCleared > input.waveReached) {
+    return { error: 'Invalid wavesCleared.', code: 'invalid_waves_cleared' };
+  }
+  if (!Number.isInteger(input.portalHpLeft) || input.portalHpLeft < 0 || input.portalHpLeft > 500000) {
+    return { error: 'Invalid portalHpLeft.', code: 'invalid_portal_hp_left' };
+  }
+  if (!Number.isInteger(input.goldOnHand) || input.goldOnHand < 0 || input.goldOnHand > 50000000) {
+    return { error: 'Invalid goldOnHand.', code: 'invalid_gold_on_hand' };
+  }
+  if (!Number.isInteger(input.premiumJewels) || input.premiumJewels < 0 || input.premiumJewels > 1000000) {
+    return { error: 'Invalid premiumJewels.', code: 'invalid_premium_jewels' };
+  }
+  if (input.gameVersion.length > 80 || !input.gameVersion) {
+    return { error: 'Invalid gameVersion.', code: 'invalid_game_version' };
+  }
+  if (!Array.isArray(input.heroes) || input.heroes.length > 32) {
+    return { error: 'Invalid heroes payload.', code: 'invalid_heroes_payload' };
+  }
+
+  let aggregateHeroCount = 0;
+  let aggregateSatelliteCount = 0;
+  let aggregateWalletHeroCount = 0;
+  for (const hero of input.heroes) {
+    const row = hero && typeof hero === 'object' ? hero as Record<string, unknown> : null;
+    if (!row) return { error: 'Invalid hero row.', code: 'invalid_hero_row' };
+    const type = sliceText(row.type, 40, '');
+    const count = sanitizeInt(row.count);
+    const highestLevel = sanitizeInt(row.highestLevel);
+    const satellites = sanitizeInt(row.satellites);
+    const walletHeroCount = sanitizeInt(row.walletHeroCount);
+    if (!type) return { error: 'Hero type is required.', code: 'invalid_hero_type' };
+    if (count < 0 || count > 32) return { error: 'Hero count is out of range.', code: 'invalid_hero_count' };
+    if (highestLevel < 0 || highestLevel > Math.max(250, input.waveReached + 100)) {
+      return { error: 'Hero level is out of range.', code: 'invalid_hero_level' };
+    }
+    if (satellites < 0 || satellites > count) {
+      return { error: 'Satellite count is out of range.', code: 'invalid_satellite_count' };
+    }
+    if (walletHeroCount < 0 || walletHeroCount > count) {
+      return { error: 'Wallet hero count is out of range.', code: 'invalid_wallet_hero_count' };
+    }
+    aggregateHeroCount += count;
+    aggregateSatelliteCount += satellites;
+    aggregateWalletHeroCount += walletHeroCount;
+  }
+
+  if (aggregateHeroCount > 32) {
+    return { error: 'Total hero count is out of range.', code: 'invalid_total_hero_count' };
+  }
+
+  const towerCount = sanitizeInt(input.stats.towerCount);
+  const satelliteCount = sanitizeInt(input.stats.satelliteCount);
+  const hireCount = sanitizeInt(input.stats.hireCount);
+  const barrierRefits = sanitizeInt(input.stats.barrierRefits);
+  const playerBarriersPlaced = sanitizeInt(input.stats.playerBarriersPlaced);
+  const usedWalletHeroCount = sanitizeInt(input.stats.usedWalletHeroCount || input.stats.used_wallet_hero_count);
+  const dfkGoldBurnedTotal = sanitizeInt(input.stats.dfkGoldBurnedTotal);
+
+  if (towerCount !== aggregateHeroCount) {
+    return { error: 'towerCount does not match heroes payload.', code: 'tower_count_mismatch' };
+  }
+  if (satelliteCount !== aggregateSatelliteCount) {
+    return { error: 'satelliteCount does not match heroes payload.', code: 'satellite_count_mismatch' };
+  }
+  if (input.usedWalletHeroes && aggregateWalletHeroCount <= 0 && usedWalletHeroCount <= 0) {
+    return { error: 'Wallet hero usage flag does not match heroes payload.', code: 'wallet_hero_flag_mismatch' };
+  }
+  if (!input.usedWalletHeroes && (aggregateWalletHeroCount > 0 || usedWalletHeroCount > 0)) {
+    return { error: 'Wallet hero counts were provided without a usage flag.', code: 'wallet_hero_count_mismatch' };
+  }
+  if (hireCount < 0 || hireCount > 32) {
+    return { error: 'hireCount is out of range.', code: 'invalid_hire_count' };
+  }
+  if (barrierRefits < 0 || barrierRefits > 2000 || playerBarriersPlaced < 0 || playerBarriersPlaced > 2000) {
+    return { error: 'Barrier stats are out of range.', code: 'invalid_barrier_stats' };
+  }
+  if (dfkGoldBurnedTotal < 0 || dfkGoldBurnedTotal > 50000000) {
+    return { error: 'dfkGoldBurnedTotal is out of range.', code: 'invalid_dfk_gold_burned_total' };
+  }
+
+  const conservativeGoldCeiling = Math.max(250000, input.wavesCleared * 25000 + dfkGoldBurnedTotal * 2 + 250000);
+  if (input.goldOnHand > conservativeGoldCeiling) {
+    return {
+      error: 'goldOnHand exceeds the conservative leaderboard validation ceiling.',
+      code: 'gold_on_hand_too_high',
+      details: `gold_on_hand=${input.goldOnHand}, ceiling=${conservativeGoldCeiling}`,
+    };
+  }
+
+  return null;
+}
+
+async function checkRunSubmissionRate(admin: SupabaseClient, walletAddress: string, completedAt: string) {
+  const completedMs = Date.parse(completedAt);
+  if (!Number.isFinite(completedMs)) return null;
+  const since = new Date(completedMs - 10 * 60_000).toISOString();
+  const until = new Date(completedMs + 5 * 60_000).toISOString();
+  const { count, error } = await admin
+    .from('runs')
+    .select('id', { count: 'exact', head: true })
+    .eq('wallet_address', walletAddress)
+    .gte('completed_at', since)
+    .lte('completed_at', until);
+
+  if (error) {
+    console.error('submit-run rate check failed (non-fatal)', normalizeError(error));
+    return null;
+  }
+  if (Number(count || 0) >= 20) {
+    return json({ error: 'Too many tracked runs submitted in a short period.', code: 'run_rate_limited' }, 429);
+  }
+  return null;
 }
 
 function uniquePayloadVariants(variants: Record<string, unknown>[]) {

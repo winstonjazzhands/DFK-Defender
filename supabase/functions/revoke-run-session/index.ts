@@ -6,6 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+
+function normalizeOrigin(value: string | null | undefined) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin.toLowerCase();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function requestOrigin(req: Request) {
+  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function validateSessionContext(req: Request, session: Record<string, unknown>) {
+  const expectedOrigin = normalizeOrigin(String(session.session_origin || ''));
+  if (expectedOrigin) {
+    const actualOrigin = requestOrigin(req);
+    if (!actualOrigin || actualOrigin !== expectedOrigin) {
+      return json({ error: 'Session origin mismatch.', code: 'session_origin_mismatch' }, 401);
+    }
+  }
+
+  const expectedUserAgentHash = String(session.user_agent_hash || '').trim();
+  if (expectedUserAgentHash) {
+    const actualUserAgent = String(req.headers.get('user-agent') || '').trim();
+    if (!actualUserAgent) {
+      return json({ error: 'User agent missing for session.', code: 'missing_user_agent' }, 401);
+    }
+    const actualHash = await sha256Hex(actualUserAgent);
+    if (actualHash !== expectedUserAgentHash) {
+      return json({ error: 'Session device mismatch.', code: 'session_device_mismatch' }, 401);
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
@@ -21,10 +66,12 @@ Deno.serve(async (req) => {
     const admin = createAdmin();
     const { data: session, error: sessionError } = await admin
       .from('wallet_sessions')
-      .select('session_token, wallet_address, expires_at, revoked_at')
+      .select('session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash')
       .eq('session_token', token)
       .single();
     if (sessionError || !session) return json({ error: 'Session not found.' }, 401);
+    const contextError = await validateSessionContext(req, session as Record<string, unknown>);
+    if (contextError) return contextError;
     if (session.wallet_address !== walletAddress) return json({ error: 'Wallet mismatch.' }, 401);
     if (session.revoked_at) return json({ ok: true, alreadyRevoked: true }, 200);
 

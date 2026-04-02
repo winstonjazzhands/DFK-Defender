@@ -11,6 +11,11 @@
       return (Number(b.runs) || 0) - (Number(a.runs) || 0)
         || (Number(b.best_wave) || 0) - (Number(a.best_wave) || 0)
         || String(a.player_name || '').localeCompare(String(b.player_name || ''));
+    },
+    dfk_gold_burned: function (a, b) {
+      return (Number(b.dfk_gold_burned) || 0) - (Number(a.dfk_gold_burned) || 0)
+        || (Number(b.best_wave) || 0) - (Number(a.best_wave) || 0)
+        || String(a.player_name || '').localeCompare(String(b.player_name || ''));
     }
   };
 
@@ -96,7 +101,8 @@
       score: score == null ? '—' : score,
       best_wave: row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0),
       runs: row.runs != null ? row.runs : (row.total_runs != null ? row.total_runs : 0),
-      used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts)
+      used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts),
+      dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : (row.burn_total != null ? row.burn_total : 0))) || 0
     };
   }
 
@@ -165,7 +171,7 @@
     var items = rows.slice().sort(SORTS[sortKey] || SORTS.best_wave);
     syncFlyoutSizing(items);
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (row, index) {
@@ -178,6 +184,7 @@
         '<td class="leaderboard-wallet-cell" title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
         '<td class="leaderboard-wave-cell">' + escapeHtml(String(row.best_wave)) + '</td>' +
         '<td class="leaderboard-runs-cell">' + escapeHtml(String(row.runs)) + '</td>' +
+        '<td class="leaderboard-burn-cell">' + escapeHtml(String(Math.round(Number(row.dfk_gold_burned) || 0).toLocaleString())) + '</td>' +
         '<td class="leaderboard-nft-cell ' + (nftUsed ? 'is-yes' : 'is-no') + '">' + (nftUsed ? 'Yes' : 'No') + '</td>' +
       '</tr>';
     }).join('');
@@ -186,8 +193,10 @@
   function updateSortButtons(sortKey) {
     var byWave = el('leaderboardSortWave');
     var byRuns = el('leaderboardSortRuns');
+    var byBurned = el('leaderboardSortBurned');
     if (byWave) byWave.classList.toggle('active', sortKey === 'best_wave');
     if (byRuns) byRuns.classList.toggle('active', sortKey === 'runs');
+    if (byBurned) byBurned.classList.toggle('active', sortKey === 'dfk_gold_burned');
   }
 
   async function refreshLeaderboard(options) {
@@ -237,6 +246,7 @@
     var backdrop = el('leaderboardBackdrop');
     var sortWave = el('leaderboardSortWave');
     var sortRuns = el('leaderboardSortRuns');
+    var sortBurned = el('leaderboardSortBurned');
     var refreshBtn = el('leaderboardRefreshBtn');
 
     if (openBtn) openBtn.addEventListener('click', function () { setOpenState(true); });
@@ -256,6 +266,12 @@
       window.DFKLeaderboardSort = 'runs';
       updateSortButtons('runs');
       renderRows(window.DFKLeaderboardRows || [], 'runs');
+    });
+
+    if (sortBurned) sortBurned.addEventListener('click', function () {
+      window.DFKLeaderboardSort = 'dfk_gold_burned';
+      updateSortButtons('dfk_gold_burned');
+      renderRows(window.DFKLeaderboardRows || [], 'dfk_gold_burned');
     });
 
     if (refreshBtn) refreshBtn.addEventListener('click', function () {
