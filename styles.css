@@ -7567,23 +7567,189 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 
   #mobileBottomBar.mobile-bottom-bar,
   #mobileBottomBar {
-    left: var(--mobile-board-left) !important;
+    left: auto !important;
     right: var(--mobile-board-right) !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-    justify-items: stretch !important;
+    width: var(--board-width) !important;
+    max-width: var(--board-width) !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: stretch !important;
+    gap: 8px !important;
   }
 
   #mobileBottomBar .mobile-bottom-btn,
   #mobileBottomBar .mobile-ability-btn {
-    width: 100% !important;
-    max-width: none !important;
-    justify-self: stretch !important;
+    flex: 0 0 calc((var(--board-width) - (3 * 8px)) / 4) !important;
+    width: calc((var(--board-width) - (3 * 8px)) / 4) !important;
+    max-width: calc((var(--board-width) - (3 * 8px)) / 4) !important;
+    min-width: 0 !important;
+    justify-self: auto !important;
   }
 
   .status-overlay {
     left: var(--mobile-board-left) !important;
     right: var(--mobile-board-right) !important;
     max-width: calc(100vw - var(--mobile-board-left) - var(--mobile-board-right) - 12px) !important;
+  }
+}
+
+/* v31: force mobile ability buttons under the board and keep all 4 visible */
+@media (max-width: 1024px) and (orientation: landscape) {
+  :root {
+    --mobile-board-left: calc(var(--mobile-safe-left) + var(--mobile-rail-w) + 10px) !important;
+    --mobile-board-right: max(8px, var(--mobile-safe-right)) !important;
+    --mobile-bottom-reserve: 64px !important;
+    --tile-gap: 2px !important;
+    --tile-size: clamp(40px, min(
+      calc((100vw - var(--mobile-board-left) - var(--mobile-board-right) - (13 * var(--tile-gap))) / 14),
+      calc((100dvh - var(--mobile-safe-top) - var(--mobile-safe-bottom) - var(--mobile-bottom-reserve) - 16px - (5 * var(--tile-gap))) / 6)
+    ), 60px) !important;
+    --board-width: calc(14 * var(--tile-size) + 13 * var(--tile-gap)) !important;
+    --board-height: calc(6 * var(--tile-size) + 5 * var(--tile-gap)) !important;
+  }
+
+  .center-panel {
+    padding-left: var(--mobile-board-left) !important;
+    padding-right: var(--mobile-board-right) !important;
+    padding-bottom: calc(var(--mobile-bottom-reserve) + 10px) !important;
+  }
+
+  #grid.grid,
+  .grid {
+    width: var(--board-width) !important;
+    min-width: var(--board-width) !important;
+    max-width: var(--board-width) !important;
+    height: var(--board-height) !important;
+    min-height: var(--board-height) !important;
+    max-height: var(--board-height) !important;
+    grid-template-columns: repeat(14, var(--tile-size)) !important;
+    grid-template-rows: repeat(6, var(--tile-size)) !important;
+    gap: var(--tile-gap) !important;
+    margin: 0 !important;
+  }
+
+  #mobileBottomBar,
+  #mobileBottomBar.mobile-bottom-bar {
+    position: fixed !important;
+    left: var(--mobile-board-left) !important;
+    right: var(--mobile-board-right) !important;
+    bottom: calc(var(--mobile-safe-bottom) + 6px) !important;
+    width: auto !important;
+    max-width: none !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    column-gap: 8px !important;
+    row-gap: 0 !important;
+    justify-items: stretch !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    z-index: 1408 !important;
+  }
+
+  #mobileBottomBar .mobile-bottom-btn,
+  #mobileBottomBar .mobile-ability-btn,
+  #mobileAbilityBtn1,
+  #mobileAbilityBtn2,
+  #mobileAbilityBtn3,
+  #mobileAbilityBtn4 {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: none !important;
+    min-height: 46px !important;
+    padding: 6px 8px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}
+
+
+/* v32 mobile landscape hard reset: ability dock spans under board area, not the left rail */
+@media (max-width: 1024px) and (orientation: landscape) {
+  :root {
+    --mobile-board-left: calc(var(--mobile-safe-left) + var(--mobile-rail-w) + 10px) !important;
+    --mobile-board-right: max(8px, var(--mobile-safe-right)) !important;
+    --mobile-dock-h: 48px !important;
+    --mobile-dock-gap: 8px !important;
+    --mobile-bottom-reserve: calc(var(--mobile-dock-h) + 12px) !important;
+    --tile-gap: 2px !important;
+  }
+
+  .center-panel {
+    padding-left: var(--mobile-board-left) !important;
+    padding-right: var(--mobile-board-right) !important;
+    padding-bottom: calc(var(--mobile-safe-bottom) + var(--mobile-dock-h) + 14px) !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+  }
+
+  #grid.grid,
+  .grid {
+    margin: 6px 0 0 0 !important;
+    place-self: start !important;
+  }
+
+  #mobileBottomBar,
+  #mobileBottomBar.mobile-bottom-bar {
+    position: fixed !important;
+    left: var(--mobile-board-left) !important;
+    right: var(--mobile-board-right) !important;
+    bottom: calc(var(--mobile-safe-bottom) + 6px) !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    transform: none !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    column-gap: var(--mobile-dock-gap) !important;
+    row-gap: 0 !important;
+    justify-items: stretch !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    z-index: 1450 !important;
+  }
+
+  #mobileBottomBar .mobile-bottom-btn,
+  #mobileBottomBar .mobile-ability-btn,
+  #mobileAbilityBtn1,
+  #mobileAbilityBtn2,
+  #mobileAbilityBtn3,
+  #mobileAbilityBtn4 {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: var(--mobile-dock-h) !important;
+    min-height: var(--mobile-dock-h) !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+    flex: none !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  #mobileBottomBar .mobile-btn-copy {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .status-overlay {
+    left: var(--mobile-board-left) !important;
+    right: var(--mobile-board-right) !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    bottom: calc(var(--mobile-safe-bottom) + var(--mobile-dock-h) + 12px) !important;
   }
 }

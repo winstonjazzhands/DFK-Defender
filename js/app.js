@@ -1741,7 +1741,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
           speedMult: 0.9,
           damageMult: 0.85,
           goldDropMult: 1.15,
-          startingGold: 150,
+          startingGold: 300,
         };
   }
 
