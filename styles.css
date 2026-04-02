@@ -4268,9 +4268,16 @@ body{
   }
 
   #mobileBottomBar {
-    left: var(--mobile-board-left) !important;
-    right: var(--mobile-board-right) !important;
+    left: 50% !important;
+    right: auto !important;
     bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
+    width: min(calc(var(--board-width) * 0.88), calc(100vw - var(--mobile-board-left) - var(--mobile-board-right) - 8px)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    transform: translateX(-50%) !important;
+    justify-content: center !important;
+    align-items: stretch !important;
+    margin: 0 auto !important;
   }
 
   .status-overlay {
