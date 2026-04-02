@@ -1,4 +1,4 @@
-// build: v46.9.1.86
+// build: v46.9.1.87
 
 let lastTouchEnd = 0;
 
@@ -10,7 +10,7 @@ document.addEventListener('touchend', (event) => {
   lastTouchEnd = now;
 }, { passive: false });
 
-// build: v46.9.1.86
+// build: v46.9.1.87
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -66,7 +66,7 @@ const STORY_SCREENS = [
   { text: '"Defend the portal, they’re coming!" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months. We never should have trusted the Dark Summoner. He said "Your sacrifice could stop the void forever" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss strengthened his ritual—the Dark Summoner had betrayed us from the start.', duration: 15000 },
   { text: 'We weren’t fighting the darkness, we were feeding it', duration: 5000 },
   { text: 'Now the truth is clear. He’s bending dark magic directly against Crystalvale—warping creatures and sending wave after wave to break the portal. If he completes his ritual we won’t have the strength to stop whatever he brings through from the void. You have a chance to hold the line. Choose your best five heroes. Make every wave cost him and you might survive long enough for help to arrive.', duration: 15000 },
-  { text: 'DFK DEFENDER', duration: 999999, noAnim: true }
+  { text: 'DFK DEFENDER', subtitle: 'Judgement Day', duration: 999999, noAnim: true, fieryFinal: true }
 ];
 
 
@@ -93,7 +93,7 @@ function injectPlayButtonIntoStory(textEl) {
 }
 
 const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
-const STORY_MUSIC_START_SECONDS = 40;
+const STORY_MUSIC_START_SECONDS = 35;
 const STORY_MUSIC_VOLUME = 0.2;
 let storyMusic = null;
 let storyMusicVolume = STORY_MUSIC_VOLUME;
@@ -202,8 +202,28 @@ function startStoryMusic() {
 function renderStoryScreen(textEl, screen) {
   if (!textEl) return;
   const rawText = String(screen && screen.text ? screen.text : '');
-  textEl.textContent = rawText.replace(/\|/g, ' ');
-  textEl.classList.remove('story-text-staggered');
+  const safeText = rawText.replace(/\|/g, ' ');
+  textEl.classList.remove('story-text-staggered', 'fiery-final');
+  if (screen && screen.fieryFinal) {
+    const subtitle = String(screen.subtitle || '').trim();
+    const escapedTitle = safeText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const escapedSubtitle = subtitle
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    textEl.classList.add('fiery-final');
+    textEl.innerHTML = `
+      <div class="story-final-title-wrap">
+        <div class="story-final-title" aria-label="${escapedTitle}">${escapedTitle}</div>
+        <div class="story-final-subtitle">${escapedSubtitle}</div>
+      </div>
+    `;
+    return;
+  }
+  textEl.textContent = safeText;
 }
 
 
@@ -382,13 +402,18 @@ syncStoryMusicControls();
         } else {
           textEl.classList.remove('big-final');
         }
+        if (screen && screen.fieryFinal) {
+          textEl.classList.add('fiery-final');
+        } else {
+          textEl.classList.remove('fiery-final');
+        }
       } catch (error) {}
 try {
         if (screen && screen.noAnim) {
           textEl.style.animation = 'none';
-          textEl.style.transition = 'none';
+          textEl.style.transition = 'opacity 600ms ease, transform 600ms ease';
           textEl.style.opacity = '1';
-          textEl.style.transform = 'scale(1)';
+          textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
         } else {
           textEl.style.animation = '';
           textEl.style.transition = '';
@@ -409,7 +434,23 @@ textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
       if (screen && screen.noAnim) {
         textEl.style.animation = 'none';
         textEl.style.opacity = '1';
-        textEl.style.transform = 'scale(1)';
+        textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
+        if (screen && screen.fieryFinal) {
+          let zoomStep = 0;
+          const zoomMax = 0.16;
+          const zoomTickMs = 140;
+          const approxDuration = Math.max(1, Number((ensureStoryMusic() && ensureStoryMusic().duration) || 45) - STORY_MUSIC_START_SECONDS);
+          const totalTicks = Math.max(1, Math.round((approxDuration * 1000) / zoomTickMs));
+          const zoomFrame = () => {
+            if (cancelled) return;
+            zoomStep += 1;
+            const zoomRatio = Math.min(1, zoomStep / totalTicks);
+            const scale = 1.01 + (zoomMax * zoomRatio);
+            try { textEl.style.transform = `scale(${scale.toFixed(4)})`; } catch (error) {}
+            queue(zoomFrame, zoomTickMs);
+          };
+          queue(zoomFrame, zoomTickMs);
+        }
       } else {
         textEl.classList.add('visible');
       }
@@ -1036,6 +1077,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     pendingMilestoneHeroPlacement: null,
     ownedRelics: [],
     foundRelics: [],
+    persistentKnownRelics: [],
     attackLines: [],
     explosionEffects: [],
     projectileEffects: [],
@@ -1476,12 +1518,63 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return choices;
   }
 
+  function getKnownRelicStorageKey() {
+    const walletAddress = getConnectedWalletAddress();
+    if (walletAddress) return `dfkDefenderKnownRelics:${walletAddress}`;
+    return 'dfkDefenderKnownRelics:guest';
+  }
+
+  function loadPersistentKnownRelics() {
+    try {
+      const raw = window.localStorage ? window.localStorage.getItem(getKnownRelicStorageKey()) : '';
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(id => String(id || '').trim()).filter(Boolean);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function savePersistentKnownRelics(ids) {
+    try {
+      if (!window.localStorage) return;
+      const uniqueIds = Array.from(new Set((Array.isArray(ids) ? ids : []).map(id => String(id || '').trim()).filter(Boolean)));
+      window.localStorage.setItem(getKnownRelicStorageKey(), JSON.stringify(uniqueIds));
+    } catch (error) {}
+  }
+
+  function getPersistentKnownRelics() {
+    if (!Array.isArray(game.persistentKnownRelics)) game.persistentKnownRelics = loadPersistentKnownRelics();
+    return game.persistentKnownRelics;
+  }
+
+  function syncPersistentKnownRelics() {
+    game.persistentKnownRelics = loadPersistentKnownRelics();
+    return game.persistentKnownRelics;
+  }
+
+  function revealRelicsForPlayer(relics) {
+    const reveals = getPersistentKnownRelics();
+    let changed = false;
+    for (const relic of relics || []) {
+      if (!relic?.id) continue;
+      const rarity = String(relic.rarity || 'common');
+      if (rarity !== 'legendary' && rarity !== 'mythic') continue;
+      if (!reveals.includes(relic.id)) {
+        reveals.push(relic.id);
+        changed = true;
+      }
+    }
+    if (changed) savePersistentKnownRelics(reveals);
+  }
+
   function markRelicsFound(relics) {
     if (!Array.isArray(game.foundRelics)) game.foundRelics = [];
     for (const relic of relics || []) {
       if (!relic?.id) continue;
       if (!game.foundRelics.includes(relic.id)) game.foundRelics.push(relic.id);
     }
+    revealRelicsForPlayer(relics);
   }
 
 
@@ -2551,6 +2644,7 @@ function renderDamageReport() {
       submitted: false,
     };
     game.runWalletConnected = !!getConnectedWalletAddress();
+    syncPersistentKnownRelics();
     game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
     game.damageReportVisible = canViewLiveDamageReport();
     game.damageReportExpandedTowerIds = {};
@@ -2596,6 +2690,7 @@ function renderDamageReport() {
     game.pendingMilestoneHeroPlacement = null;
     game.ownedRelics = [];
     game.foundRelics = [];
+    syncPersistentKnownRelics();
     game.continueOfferUsed = false;
     game.continueOfferPending = false;
     game.continueSnapshot = null;
@@ -3272,8 +3367,13 @@ function renderDamageReport() {
     if (!els.knownRelicsModal || !els.knownRelicsBody) return;
     closeQuestsModal();
     const commonAndRare = RELICS.filter(r => ['common', 'rare'].includes(r.rarity || 'common'));
-    const hiddenLegendary = RELICS.filter(r => (r.rarity || 'common') === 'legendary');
-    const hiddenMythic = RELICS.filter(r => (r.rarity || 'common') === 'mythic');
+    const legendaryRelics = RELICS.filter(r => (r.rarity || 'common') === 'legendary');
+    const mythicRelics = RELICS.filter(r => (r.rarity || 'common') === 'mythic');
+    const persistentKnownRelicIds = syncPersistentKnownRelics();
+    const revealedLegendary = legendaryRelics.filter(r => persistentKnownRelicIds.includes(r.id));
+    const revealedMythic = mythicRelics.filter(r => persistentKnownRelicIds.includes(r.id));
+    const hiddenLegendaryCount = Math.max(0, legendaryRelics.length - revealedLegendary.length);
+    const hiddenMythicCount = Math.max(0, mythicRelics.length - revealedMythic.length);
     const foundRelics = (Array.isArray(game.foundRelics) ? game.foundRelics : []).map(id => RELICS.find(r => r.id === id)).filter(Boolean);
     const foundSection = foundRelics.length
       ? `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (${foundRelics.length}/${RELICS.length})</div><div class="known-relic-found-list">${foundRelics.map(r => { const rarity = getRelicRarity(r); return `<span class=\"relic-pill ${rarity.className}\" title=\"${r.desc}\">${r.name}</span>`; }).join(' ')}</div></section>`
@@ -3284,7 +3384,13 @@ function renderDamageReport() {
       if (!items.length) return '';
       return `<section class="known-relic-section"><div class="known-relic-heading ${rarity.className}">${rarity.label} Relics</div>${items.map(r => `<article class=\"known-relic-card ${rarity.className}\"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}</section>`;
     }).join('');
-    els.knownRelicsBody.innerHTML = `${foundSection}${sections}<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div><article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>Powerful relics are rumored to exist. You will have to find them.</p></article></section>${hiddenMythic.length ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-mythic">Mythic</div><article class="known-relic-card relic-rarity-mythic relic-hidden-card"><h4>????</h4><p>Little is known about mythic relics. They may not exist at all.</p></article></section>` : ''}`;
+    const legendarySection = legendaryRelics.length
+      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div>${revealedLegendary.map(r => `<article class="known-relic-card relic-rarity-legendary"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}${hiddenLegendaryCount ? `<article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>${hiddenLegendaryCount === 1 ? 'One legendary relic remains hidden.' : `${hiddenLegendaryCount} legendary relics remain hidden.`}</p></article>` : ''}</section>`
+      : '';
+    const mythicSection = mythicRelics.length
+      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-mythic">Mythic</div>${revealedMythic.map(r => `<article class="known-relic-card relic-rarity-mythic"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}${hiddenMythicCount ? `<article class="known-relic-card relic-rarity-mythic relic-hidden-card"><h4>????</h4><p>${hiddenMythicCount === 1 ? 'One mythic relic remains hidden.' : `${hiddenMythicCount} mythic relics remain hidden.`}</p></article>` : ''}</section>`
+      : '';
+    els.knownRelicsBody.innerHTML = `${foundSection}${sections}${legendarySection}${mythicSection}`;
     els.knownRelicsModal.classList.remove('hidden');
     els.knownRelicsModal.setAttribute('aria-hidden', 'false');
   }
@@ -5377,6 +5483,20 @@ function renderDamageReport() {
     btn.innerHTML = `${art}<span class="mobile-btn-copy"><span class="ability-name">${title}</span><span class="ability-meta">${meta || '&nbsp;'}</span></span>`;
   }
 
+  function setMobileAbilityVisualState(btn, state = 'disabled') {
+    if (!btn) return;
+    btn.classList.remove('is-ready', 'is-cooldown', 'is-locked', 'is-empty');
+    btn.classList.add(
+      state === 'ready'
+        ? 'is-ready'
+        : state === 'cooldown'
+          ? 'is-cooldown'
+          : state === 'locked'
+            ? 'is-locked'
+            : 'is-empty'
+    );
+  }
+
   function renderMobileAbilityDock() {
     const abilityButtons = [els.mobileAbilityBtn1, els.mobileAbilityBtn2, els.mobileAbilityBtn3].filter(Boolean);
     const maxLevelBtn = els.mobileAbilityBtn4;
@@ -5397,6 +5517,7 @@ function renderDamageReport() {
       if (!ability || !tower) {
         setMobileAbilityButtonMarkup(btn, `A${index + 1}`, '&nbsp;', buttonArt);
         btn.title = 'Hire and place a hero to enable this ability.';
+        setMobileAbilityVisualState(btn, 'disabled');
         btn.disabled = true;
         btn.onclick = null;
         return;
@@ -5407,6 +5528,7 @@ function renderDamageReport() {
       const disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
       const meta = locked ? `Unlocks L${unlockLevel}` : (remain > 0 ? `${remain.toFixed(1)}s` : 'Ready');
       setMobileAbilityButtonMarkup(btn, ability.name, meta, buttonArt);
+      setMobileAbilityVisualState(btn, locked ? 'locked' : (remain > 0 ? 'cooldown' : 'ready'));
       btn.title = locked ? `${ability.name} unlocks at level ${unlockLevel}` : (remain > 0 ? `${ability.name} (${remain.toFixed(1)}s)` : ability.name);
       btn.disabled = disabled;
       btn.onclick = disabled ? null : () => castAbility(tower, ability.key);
@@ -5415,6 +5537,7 @@ function renderDamageReport() {
       const maxButtonArt = towerArt || fallbackMobileArt[3] || '';
       if (!tower) {
         setMobileAbilityButtonMarkup(maxLevelBtn, 'Max Lvl', '&nbsp;', maxButtonArt);
+        setMobileAbilityVisualState(maxLevelBtn, 'disabled');
         maxLevelBtn.title = 'Hire and place a hero to enable max level.';
         maxLevelBtn.disabled = true;
         maxLevelBtn.onclick = null;
@@ -5429,6 +5552,7 @@ function renderDamageReport() {
           ? `L${targetLevel} • ${formatJewel(affordableSpend, tower)}g`
           : `L${Math.min(getUpgradeLevelCap(), Number(tower.level || 1))} • 0g`;
         setMobileAbilityButtonMarkup(maxLevelBtn, 'Max Lvl', meta, maxButtonArt);
+        setMobileAbilityVisualState(maxLevelBtn, canUse ? 'ready' : 'locked');
         maxLevelBtn.title = canUse
           ? `Spend ${formatJewel(affordableSpend, tower)} gold to reach level ${targetLevel}`
           : (canUpgradeTower(tower) ? 'Not enough gold to level further.' : `Level cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`);
