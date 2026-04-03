@@ -1,4 +1,4 @@
-// build: v46.9.1.87
+// build: v46.9.1.103
 
 let lastTouchEnd = 0;
 
@@ -10,7 +10,7 @@ document.addEventListener('touchend', (event) => {
   lastTouchEnd = now;
 }, { passive: false });
 
-// build: v46.9.1.87
+// build: v46.9.1.103
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -311,12 +311,17 @@ textEl.classList.remove('visible');
         overlay.classList.add('hidden');
         try {
           document.body.classList.remove('intro-open');
+          document.body.classList.remove('story-active');
           if (typeof syncStatusOverlayVisibility === 'function') syncStatusOverlayVisibility(true);
         } catch (error) {}
         try {
           overlay.style.opacity = '';
           textEl.style.opacity = '';
         } catch (error) {}
+        try {
+          if (typeof window !== 'undefined') window.__dfkStartModePromptShown = true;
+        } catch (error) {}
+        setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 120);
       }
     }, Math.round(fadeMs / fadeSteps));
   }
@@ -501,7 +506,7 @@ textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
 }
 
 window.addEventListener('load', () => {
-  try { document.body.classList.add('intro-open'); } catch (error) {}
+  try { document.body.classList.add('intro-open'); document.body.classList.add('story-active'); } catch (error) {}
   playStorySequence();
 });
 
@@ -565,7 +570,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.007;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.10;
-const APP_VERSION = 'v1.3.6';
+const APP_VERSION = 'v1.4.20';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -579,7 +584,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const KRAKEN_SLOW_PERCENT = 0.9;
   const KRAKEN_DURATION_SECONDS = 10;
   const KRAKEN_RANGE_BONUS = 3;
-  const MULTI_SHOT_BASE_DAMAGE_BONUS = 3;
+  const MULTI_SHOT_BASE_DAMAGE_BONUS = 4;
   const BIG_ENEMY_HP_MULTIPLIER = 1.25;
   const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
   const ENEMY_TILE_LIMITS = {
@@ -603,9 +608,12 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const TORN_SOUL_BURN_RADIUS = 1;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
-  const SATELLITE_DISSIPATE_AFTER_WAVES = 9;
-  const SATELLITE_FADE_STAGE_ONE_WAVES = 3;
-  const SATELLITE_FADE_STAGE_TWO_WAVES = 7;
+  const SATELLITE_DISSIPATE_AFTER_WAVES = 13;
+  const SATELLITE_FADE_STAGE_ONE_WAVES = 5;
+  const SATELLITE_FADE_STAGE_TWO_WAVES = 10;
+  const GUEST_ARCHER_SHADOW_DISSIPATE_AFTER_WAVES = 15;
+  const GUEST_ARCHER_SHADOW_FADE_STAGE_ONE_WAVES = 5;
+  const GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES = 11;
   let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const WARRIOR_HP_GROWTH_PER_LEVEL = 1.053;
@@ -643,7 +651,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       range: 4,
       autoAttack: true,
       abilities: [
-        { key: 'multi_shot', name: 'Multi-Shot', cooldown: 8 },
+        { key: 'multi_shot', name: 'Multi-Shot', cooldown: 6.5 },
         { key: 'rapid_shot', name: 'Rapid Shot', cooldown: 20 },
         { key: 'piercing_shot', name: 'Piercing Shot', cooldown: 7 },
         { key: 'eagle_nest', name: "Assassin's Training", cooldown: 0, passive: true },
@@ -690,8 +698,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       range: 3,
       autoAttack: true,
       abilities: [
-        { key: 'warning_shot', name: 'Warning Shot', cooldown: 4 },
-        { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 10 },
+        { key: 'warning_shot', name: 'Warning Shot', cooldown: 5.5 },
+        { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 9 },
         { key: 'kraken', name: 'Kraken', cooldown: 0 },
       ],
       passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
@@ -911,6 +919,18 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     closeIntroBtn: document.getElementById('closeIntroBtn'),
     introTitle: document.getElementById('introTitle'),
     introKicker: document.getElementById('introKicker'),
+    startModeModal: document.getElementById('startModeModal'),
+    startModeTitle: document.getElementById('startModeTitle'),
+    startModeNote: document.getElementById('startModeNote'),
+    closeStartModeBtn: document.getElementById('closeStartModeBtn'),
+    guestModeChoiceBtn: document.getElementById('guestModeChoiceBtn'),
+    connectModeChoiceBtn: document.getElementById('connectModeChoiceBtn'),
+    guestConnectConfirmModal: document.getElementById('guestConnectConfirmModal'),
+    closeGuestConnectConfirmBtn: document.getElementById('closeGuestConnectConfirmBtn'),
+    guestConnectStayBtn: document.getElementById('guestConnectStayBtn'),
+    guestConnectConfirmBtn: document.getElementById('guestConnectConfirmBtn'),
+    avaxTreasuryPanel: document.getElementById('avaxTreasuryPanel'),
+    avaxTreasuryPanelToggle: document.getElementById('avaxTreasuryPanelToggle'),
     walletPanel: document.getElementById('walletPanel'),
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
@@ -1078,6 +1098,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     ownedRelics: [],
     foundRelics: [],
     persistentKnownRelics: [],
+    startModePromptShown: !!(typeof window !== 'undefined' && window.__dfkStartModePromptShown),
+    pendingGuestConnectRestart: false,
+    suppressBoardClicksUntil: 0,
+    boardInputLocked: false,
     attackLines: [],
     explosionEffects: [],
     projectileEffects: [],
@@ -1657,6 +1681,80 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return Array.from(buckets.values()).sort((a, b) => a.type.localeCompare(b.type));
   }
 
+  function getConnectedWalletChainId() {
+    if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.getState !== 'function') return 0;
+    const walletState = window.DFKDefenseWallet.getState() || {};
+    return Math.max(0, Number(walletState.activeChainId || 0));
+  }
+
+  function isConnectedWalletOnAvax() {
+    return getConnectedWalletChainId() === Number(window.DFK_AVAX_CHAIN_ID || 43114);
+  }
+
+  function getActiveCryptoRailState() {
+    const rails = window.DFKCryptoRails;
+    if (!rails || typeof rails.getActiveRunPayment !== 'function') return null;
+    return rails.getActiveRunPayment();
+  }
+
+  function formatAvaxValue(wei) {
+    const rails = window.DFKCryptoRails;
+    if (rails && typeof rails.formatAvaxFromWei === 'function') return rails.formatAvaxFromWei(wei);
+    return '.001 AVAX';
+  }
+
+  function getCurrentRunClientId() {
+    return String(game?.runTracking?.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+  }
+
+  function hasAvaxRailsPurchaseSupport() {
+    return !!(window.DFKCryptoRails && typeof window.DFKCryptoRails.purchaseCustom === 'function');
+  }
+
+  function canUseAvaxRailsPurchases() {
+    return isConnectedWalletOnAvax() && !!getConnectedWalletAddress() && hasAvaxRailsPurchaseSupport();
+  }
+
+  function shouldOfferAvaxSwap() {
+    return canUseAvaxRailsPurchases();
+  }
+
+  async function performAvaxTreasuryPurchase(kind, amountWei, label, metadata = {}) {
+    if (!canUseAvaxRailsPurchases()) throw new Error('Connect a wallet on Avalanche to use AVAX rails.');
+    return window.DFKCryptoRails.purchaseCustom({
+      clientRunId: getCurrentRunClientId(),
+      kind,
+      amountWei: String(amountWei || '0'),
+      label,
+      metadata,
+    });
+  }
+
+  function buildPaymentSummary() {
+    const payment = getActiveCryptoRailState();
+    if (!payment) {
+      return {
+        runPaymentRequired: false,
+        entryFeeWei: '0',
+        powerUpSpendWei: '0',
+        totalSpendWei: '0',
+        chainId: getConnectedWalletChainId() || Number(window.DFK_AVAX_CHAIN_ID || 43114),
+      };
+    }
+    return {
+      runPaymentRequired: true,
+      chainId: Number(payment.chainId || getConnectedWalletChainId() || window.DFK_AVAX_CHAIN_ID || 43114),
+      network: String(payment.network || 'avalanche-c-chain'),
+      paymentSessionId: payment.paymentSessionId || null,
+      clientRunId: payment.clientRunId || null,
+      entryFeeWei: String(payment.entryFeeWei || '0'),
+      entryTxHash: payment.entryTxHash || null,
+      powerUpSpendWei: String(payment.powerUpSpendWei || '0'),
+      totalSpendWei: String(payment.totalSpendWei || payment.entryFeeWei || '0'),
+      powerUps: Array.isArray(payment.powerUps) ? payment.powerUps : [],
+    };
+  }
+
   function buildCompletedRunPayload(result = 'loss') {
     return {
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -1670,6 +1768,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       portalHpLeft: Math.max(0, Math.round(Number(game.portalHp || 0))),
       goldOnHand: Math.max(0, Math.round(Number(game.jewel || 0))),
       premiumJewels: Math.max(0, Math.round(Number(game.premiumJewels || 0))),
+      paymentSummary: buildPaymentSummary(),
       heroes: buildRunTrackingHeroes(),
       stats: {
         towerCount: game.towers.length,
@@ -1737,11 +1836,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       : {
           connected: false,
           guestMode: true,
-          healthMult: 0.72,
-          speedMult: 0.9,
-          damageMult: 0.85,
-          goldDropMult: 1.15,
-          startingGold: 300,
+          healthMult: 0.612,
+          speedMult: 0.765,
+          damageMult: 0.7225,
+          goldDropMult: 1.3225,
+          startingGold: 345,
         };
   }
 
@@ -1991,6 +2090,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return Boolean(getConnectedWalletAddress() && hasDfkgoldForSwap());
   }
 
+  function shouldOfferAnyPremiumSwap() {
+    return shouldOfferDfkgoldSwap() || shouldOfferAvaxSwap();
+  }
+
   function getAvailableRelicPool() {
     return RELICS.filter(r => !(game.ownedRelics || []).includes(r.id));
   }
@@ -2010,7 +2113,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   function openDfkgoldSwapOffer(reason = 'swap') {
-    if (!shouldOfferDfkgoldSwap()) return false;
+    if (!shouldOfferAnyPremiumSwap()) return false;
     ensureRelicChoicesForOffer(reason);
     game.dfkGoldSwapOfferOpen = true;
     game.dfkGoldSwapOfferReason = String(reason || 'swap');
@@ -2025,8 +2128,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   function getMilestoneHeroOfferConfig(waveNumber) {
     const safeWave = Math.max(0, Number(waveNumber || 0));
-    const config = MILESTONE_HERO_OFFERS[safeWave];
-    return config ? { ...config } : null;
+    if (!safeWave || safeWave % 25 !== 0) return null;
+    const burnCost = Number(MILESTONE_HERO_OFFER_COSTS[safeWave] || (safeWave >= 100 ? safeWave * 5000 : safeWave * 4000));
+    return { wave: safeWave, burnCost, heroLevel: safeWave };
   }
 
   function canOpenMilestoneHeroOffer(waveNumber) {
@@ -2067,27 +2171,41 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       return;
     }
     title.textContent = `Reinforcements at Wave ${offer.wave}`;
-    body.innerHTML = `<p>You survived long enough for help to arrive! One time offer to hire a new hero of your choice for ${offer.burnCost.toLocaleString()} DFK Gold.</p><p>The hired hero arrives at level ${offer.heroLevel} after the burn is confirmed on-chain.</p>`;
+    const useAvax = canUseAvaxRailsPurchases();
+    const purchaseLabel = useAvax ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : `${offer.burnCost.toLocaleString()} DFK Gold`;
+    body.innerHTML = `<p>You survived long enough for help to arrive! One time offer to hire a new hero of your choice for ${purchaseLabel}.</p><p>The hired hero arrives at level ${offer.heroLevel} after the payment is confirmed.</p>`;
     actions.innerHTML = '';
     const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
     const walletDfkgold = getWalletDfkgoldBalance();
     const hasWallet = !!getConnectedWalletAddress();
+    const duplicateLockedTypes = [];
     for (const type of heroTypes) {
       const t = TOWER_TEMPLATES[type];
+      const typeLocked = isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true });
+      if (typeLocked) duplicateLockedTypes.push(t.name);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'small-action milestone-hero-offer-btn';
       btn.textContent = game.dfkGoldSwapPending ? 'Waiting…' : `${t.name} L${offer.heroLevel}`;
-      btn.disabled = game.dfkGoldSwapPending || !hasWallet || walletDfkgold < offer.burnCost;
-      btn.addEventListener('click', () => { beginMilestoneHeroHire(type).catch((error) => console.error(error)); });
+      btn.disabled = typeLocked || game.dfkGoldSwapPending || !hasWallet || (!useAvax && walletDfkgold < offer.burnCost);
+      btn.title = typeLocked ? `${t.name} is already in this run.` : '';
+      btn.addEventListener('click', () => {
+        if (typeLocked) {
+          showBanner(`${t.name} is already in this run. Pick a different reinforcement.`, 1800);
+          return;
+        }
+        (useAvax ? beginMilestoneHeroHireAvax(type) : beginMilestoneHeroHire(type)).catch((error) => console.error(error));
+      });
       actions.appendChild(btn);
     }
     const note = document.createElement('div');
     note.className = 'milestone-hero-offer-note';
-    if (!hasWallet) note.textContent = 'Connect a wallet on DFK Chain to burn DFK Gold for this hire.';
+    if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to burn DFK Gold for this hire.';
     else if (game.dfkGoldSwapPending) note.textContent = 'Waiting for wallet confirmation…';
-    else if (walletDfkgold < offer.burnCost) note.textContent = `Need ${offer.burnCost.toLocaleString()} DFK Gold in the connected wallet.`;
-    else note.textContent = 'Pick a hero below. The burn happens first, then you place the new hero on the board.';
+    else if (!useAvax && walletDfkgold < offer.burnCost) note.textContent = `Need ${offer.burnCost.toLocaleString()} DFK Gold in the connected wallet.`;
+    else if (duplicateLockedTypes.length >= heroTypes.length) note.textContent = 'Every hero type is already in this run. No duplicate reinforcements can be chosen.';
+    else if (duplicateLockedTypes.length) note.textContent = `${duplicateLockedTypes.join(', ')} ${duplicateLockedTypes.length === 1 ? 'is' : 'are'} already in this run and cannot be chosen again.`;
+    else note.textContent = useAvax ? 'Pick a hero below. The AVAX payment happens first, then you place the new hero on the board.' : 'Pick a hero below. The burn happens first, then you place the new hero on the board.';
     actions.appendChild(note);
     modal.classList.remove('hidden');
   }
@@ -2096,6 +2214,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
+    if (isHeroTypeLocked(heroType, { includePendingPlacement: true, includePendingMilestone: true })) {
+      showBanner(`${template.name} is already in this run. Pick a different reinforcement.`, 1800);
+      return;
+    }
     try {
       const result = await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
         pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${template.name} reinforcements…`,
@@ -2113,6 +2235,41 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       game.placingSatelliteSourceId = null;
       game.placingWalletHeroId = null;
       log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
+      showBanner(`${template.name} reinforcements arrived. Place the level ${offer.heroLevel} hero.`, 2600);
+      finishMilestoneHeroOffer(false);
+      setInstruction(`Place your new level ${offer.heroLevel} ${template.name}. The next wave will wait until you place it or restart.`);
+      render();
+    } catch (_error) {}
+  }
+
+  async function beginMilestoneHeroHireAvax(heroType) {
+    const offer = game.milestoneHeroOffer;
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return;
+    if (isHeroTypeLocked(heroType, { includePendingPlacement: true, includePendingMilestone: true })) {
+      showBanner(`${template.name} is already in this run. Pick a different reinforcement.`, 1800);
+      return;
+    }
+    try {
+      const result = await performAvaxTreasuryPurchase('milestone_hero_hire', AVAX_MILESTONE_HERO_WEI, `${template.name} reinforcement`, {
+        wave: offer.wave,
+        heroType,
+        heroLevel: offer.heroLevel,
+        treasuryAddress: AVAX_TREASURY_ADDRESS,
+      });
+      game.pendingMilestoneHeroPlacement = {
+        wave: offer.wave,
+        heroType,
+        heroLevel: offer.heroLevel,
+        burnCost: 0,
+        txHash: result && result.txHash ? result.txHash : '',
+      };
+      game.placingHeroType = heroType;
+      game.placingHeroCost = 0;
+      game.placingHeroUsesBonus = true;
+      game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
+      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after paying ${formatAvaxValue(AVAX_MILESTONE_HERO_WEI)}.`);
       showBanner(`${template.name} reinforcements arrived. Place the level ${offer.heroLevel} hero.`, 2600);
       finishMilestoneHeroOffer(false);
       setInstruction(`Place your new level ${offer.heroLevel} ${template.name}. The next wave will wait until you place it or restart.`);
@@ -2192,7 +2349,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       }
       await refreshWalletEconomyDetails();
       render();
-      return { txHash: tx.hash, walletAddress, burnCost: safeBurnCost, defenderGoldAwarded: safeAward };
+      return { txHash: tx.hashash, walletAddress, burnCost: safeBurnCost, defenderGoldAwarded: safeAward };
     } catch (error) {
       const message = error && error.message ? error.message : 'DFK Gold transaction failed.';
       showBanner(message, 2600);
@@ -2216,6 +2373,27 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       closeDfkgoldSwapOffer();
       render();
     } catch (_error) {}
+  }
+
+  async function performAvaxGoldSwap() {
+    if (game.dfkGoldSwapPending) return;
+    try {
+      game.dfkGoldSwapPending = true;
+      render();
+      await performAvaxTreasuryPurchase('gold_swap', AVAX_DEFENDER_GOLD_SWAP_WEI, '3,000 defender gold', {
+        rewardGold: AVAX_DEFENDER_GOLD_SWAP_REWARD,
+        treasuryAddress: AVAX_TREASURY_ADDRESS,
+      });
+      game.jewel = Math.max(0, Number(game.jewel || 0)) + AVAX_DEFENDER_GOLD_SWAP_REWARD;
+      markProgress(`Swapped ${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)} for ${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      log(`AVAX swap complete: paid ${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)} for ${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
+      showBanner(`+${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
+      closeDfkgoldSwapOffer();
+      render();
+    } catch (_error) {
+      game.dfkGoldSwapPending = false;
+      render();
+    }
   }
 
   function canUseTestGoldGrant() {
@@ -2464,6 +2642,7 @@ function renderDamageReport() {
     if (window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRunKeepalive === 'function') {
       const queued = runTrackerCallSafely(() => window.DFKRunTracker.submitCompletedRunKeepalive(payload), false);
       if (!queued) game.runTracking.submitted = false;
+      if (queued && window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       return queued;
     }
     game.runTracking.submitted = false;
@@ -2490,8 +2669,10 @@ function renderDamageReport() {
       );
       if (response && response.ok) {
         log(`Run tracked at wave ${game.waveNumber}.`);
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else {
         game.runTracking.submitted = false;
         log(`Run tracking failed: ${response && response.error ? response.error : 'Unknown error'}.`);
@@ -2628,6 +2809,7 @@ function renderDamageReport() {
       const canReset = await maybeConfirmAndCaptureTrackedReset();
       if (!canReset) return false;
     }
+    const pendingRunId = (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     loadPremiumJewels();
     if (game.premiumJewels < game.runEntryCost) {
       showBanner(`Not enough Jewel to start a run (${game.premiumJewels}/${game.runEntryCost})`, 2400);
@@ -2635,11 +2817,34 @@ function renderDamageReport() {
       updatePremiumJewelInfo();
       return;
     }
+    if (!(options && options.skipCryptoPayment)) {
+      const trackingEnabled = !!(window.DFKRunTracker && typeof window.DFKRunTracker.isTrackingEnabled === 'function' && window.DFKRunTracker.isTrackingEnabled());
+      if (trackingEnabled && isConnectedWalletOnAvax()) {
+        const freeWeb3RunsEnabled = !(window.DFK_AVAX_FREE_WEB3_RUNS === false);
+        if (!freeWeb3RunsEnabled) {
+          if (!window.DFKCryptoRails || typeof window.DFKCryptoRails.ensurePaidRunAccess !== 'function') {
+            showBanner('AVAX game access is not ready. Refresh the page and try again.', 3200);
+            setInstruction('AVAX game access is not ready.');
+            return false;
+          }
+          let paid = false;
+          try {
+            paid = await window.DFKCryptoRails.ensurePaidRunAccess({ clientRunId: pendingRunId });
+          } catch (error) {
+            const message = error && error.message ? error.message : 'Could not load AVAX run balance.';
+            showBanner(message, 4200);
+            setInstruction(message);
+            return false;
+          }
+          if (!paid) return false;
+        }
+      }
+    }
     game.premiumJewels -= game.runEntryCost;
     savePremiumJewels();
     game.phase = SETUP_PHASES.PORTAL;
     game.runTracking = {
-      clientRunId: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      clientRunId: pendingRunId,
       startedAt: new Date().toISOString(),
       submitted: false,
     };
@@ -3681,6 +3886,10 @@ function renderDamageReport() {
   const DFK_HERO_CORE_ADDRESS = '0xEb9B61B145D6489Be575D3603F4a704810e143dF';
   const METIS_HERO_CORE_ADDRESS = '0xc7681698B14a2381d9f1eD69FC3D27F33965b53B';
   const DFK_CHAIN_RPC_URL = 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
+  const DFK_CHAIN_RPC_FALLBACKS = Object.freeze([
+    DFK_CHAIN_RPC_URL,
+    'https://dfk-chain.rpc.thirdweb.com/'
+  ]);
   const METIS_CHAIN_RPC_URL = 'https://andromeda.metis.io/?owner=1088';
 
 
@@ -3701,11 +3910,16 @@ function renderDamageReport() {
   const DFK_GOLD_DECIMALS = 3;
   const DFK_GOLD_SWAP_COST = 10000;
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
-  const MILESTONE_HERO_OFFERS = {
-    25: { wave: 25, burnCost: 100000, heroLevel: 25 },
-    50: { wave: 50, burnCost: 200000, heroLevel: 50 },
-    100: { wave: 100, burnCost: 500000, heroLevel: 100 },
-  };
+  const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
+  const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
+  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '1000000000000000');
+  const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81').trim().toLowerCase();
+  const MILESTONE_HERO_OFFER_COSTS = Object.freeze({
+    25: 100000,
+    50: 200000,
+    75: 300000,
+    100: 500000,
+  });
   const DFK_GOLD_BURN_ADDRESS = String(window.DFK_GOLD_BURN_ADDRESS || '0x000000000000000000000000000000000000dEaD');
   const DFK_GOLD_ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -3735,7 +3949,7 @@ function renderDamageReport() {
   ];
 
   const WALLET_HERO_CHAIN_CONFIGS = Object.freeze([
-    { key: 'dfk', chainId: DFK_CHAIN_ID, name: 'DFK Chain', heroAddress: DFK_HERO_CORE_ADDRESS, rpcUrl: DFK_CHAIN_RPC_URL, transferSupported: true },
+    { key: 'dfk', chainId: DFK_CHAIN_ID, name: 'DFK Chain', heroAddress: DFK_HERO_CORE_ADDRESS, rpcUrl: DFK_CHAIN_RPC_URL, rpcUrls: DFK_CHAIN_RPC_FALLBACKS, transferSupported: true },
     { key: 'metis', chainId: METIS_CHAIN_ID, name: 'Metis', heroAddress: METIS_HERO_CORE_ADDRESS, rpcUrl: METIS_CHAIN_RPC_URL, transferSupported: false },
   ]);
 
@@ -4333,6 +4547,15 @@ function renderDamageReport() {
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
     }
+    const revealPrimedStartMode = !!(els.startModeModal && !els.startModeModal.classList.contains('hidden') && els.startModeModal.classList.contains('modal-primed-under-intro'));
+    if (revealPrimedStartMode) {
+      game.introOpen = true;
+      document.body.classList.add('intro-open');
+      setBoardInputLocked(true);
+      activateStartModeModalInteractive();
+      syncStatusOverlayVisibility(true);
+      return;
+    }
     document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
     showStatusOverlay();
@@ -4493,10 +4716,18 @@ function renderDamageReport() {
         } catch (_error) {}
       }
 
+      function createFallbackJsonRpcProvider(urls, chainId) {
+        const list = Array.isArray(urls) ? urls.filter(Boolean) : [urls].filter(Boolean);
+        if (!list.length) return null;
+        const providers = list.map((url) => new window.ethers.JsonRpcProvider(url, chainId, { staticNetwork: true }));
+        if (providers.length === 1) return providers[0];
+        return new window.ethers.FallbackProvider(providers.map((provider, index) => ({ provider, priority: index + 1, weight: 1, stallTimeout: 1200 })));
+      }
+
       async function loadDfkWalletHeroes() {
         const provider = walletProvider && walletChainId === DFK_CHAIN_ID
           ? walletProvider
-          : new window.ethers.JsonRpcProvider(DFK_CHAIN_RPC_URL, DFK_CHAIN_ID, { staticNetwork: true });
+          : createFallbackJsonRpcProvider(DFK_CHAIN_RPC_FALLBACKS, DFK_CHAIN_ID);
         const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
         const balance = Number(await contract.balanceOf(address));
         const ids = [];
@@ -4823,8 +5054,8 @@ function renderDamageReport() {
         if (tower.isSatellite && tower.type === 'archer') {
           const wavesLeftBadge = document.createElement('div');
           wavesLeftBadge.className = 'tile-small tile-small-right tile-shadow-waves-badge';
-          const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
-          wavesLeftBadge.innerHTML = `<span class="tile-shadow-waves-label">LEFT</span><span class="tile-shadow-waves-count">${wavesLeft}</span>`;
+          const wavesLeft = Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower));
+          wavesLeftBadge.innerHTML = `<span class="tile-shadow-waves-count">${wavesLeft}</span>`;
           wavesLeftBadge.title = `${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
           tile.el.appendChild(wavesLeftBadge);
         }
@@ -4928,7 +5159,7 @@ function renderDamageReport() {
         } else if (tower.isSatellite && tower.type === 'archer') {
           const etherealNote = document.createElement('div');
           etherealNote.className = 'tile-hover-meta';
-          const wavesLeft = Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower));
+          const wavesLeft = Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower));
           etherealNote.textContent = `Ethereal • ${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
           hover.appendChild(etherealNote);
         } else if (tower.isSoulSplit) {
@@ -5669,7 +5900,7 @@ function renderDamageReport() {
     }
     const nextCost = getUpgradeCost(tower.level + 1, tower);
     const satelliteWavesRemaining = tower.isSatellite && tower.type === 'archer'
-      ? Math.max(0, SATELLITE_DISSIPATE_AFTER_WAVES - getSatelliteWavesSurvived(tower))
+      ? Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower))
       : null;
     const selectedHeader = tower.isSatellite && tower.type === 'archer'
       ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;"><span style="flex:1 1 auto;min-width:0;text-align:left;padding-left:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="flex:0 0 auto;margin-left:auto;text-align:right;padding-right:1px;white-space:nowrap;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
@@ -5796,6 +6027,22 @@ function renderDamageReport() {
     return game.towers.filter(t => t.type !== 'warrior').length + (includePendingPlacement && game.placingHeroType ? 1 : 0);
   }
 
+  function isHeroTypeLocked(type, options = {}) {
+    if (!type) return false;
+    const includePendingPlacement = options.includePendingPlacement !== false;
+    const includePendingMilestone = options.includePendingMilestone !== false;
+    const ignoreTowerId = options.ignoreTowerId ? String(options.ignoreTowerId) : '';
+    const activeOfType = (game.towers || []).some((tower) => {
+      if (!tower || tower.isSatellite || tower.type !== type) return false;
+      if (ignoreTowerId && String(tower.id) === ignoreTowerId) return false;
+      return true;
+    });
+    if (activeOfType) return true;
+    if (includePendingPlacement && game.placingHeroType === type && !game.placingSatelliteSourceId) return true;
+    if (includePendingMilestone && game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === type) return true;
+    return false;
+  }
+
   function getNextHireCost(includePendingPlacement = false) {
     const index = Math.min(getLivingHireCount(includePendingPlacement), HIRE_COSTS.length - 1);
     return HIRE_COSTS[index];
@@ -5805,7 +6052,7 @@ function renderDamageReport() {
     els.hirePanel.innerHTML = '';
 
     const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
-    const normalAvailable = heroTypes.filter(type => !game.towers.some(t => t.type === type && !t.isSatellite) && game.placingHeroType !== type);
+    const normalAvailable = heroTypes.filter(type => !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true }));
     const bonusAvailable = [];
     const cost = getNextHireCost(false);
     const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
@@ -5904,7 +6151,7 @@ function renderDamageReport() {
       card.appendChild(btn);
       els.relicModalBody.appendChild(card);
     }
-    if (swapOfferActive) {
+    if (swapOfferActive && shouldOfferDfkgoldSwap()) {
       const swapCard = document.createElement('div');
       swapCard.className = 'card relic-choice-card dfkgold-swap-card';
       const walletDfkgold = getWalletDfkgoldBalance();
@@ -5928,6 +6175,24 @@ function renderDamageReport() {
         swapCard.appendChild(note);
       }
       els.relicModalBody.appendChild(swapCard);
+    }
+    if (swapOfferActive && shouldOfferAvaxSwap()) {
+      const avaxCard = document.createElement('div');
+      avaxCard.className = 'card relic-choice-card dfkgold-swap-card';
+      const canSwapNow = !game.dfkGoldSwapPending;
+      avaxCard.innerHTML = `
+        <div class="relic-choice-rarity relic-rarity-mythic">AVAX Rails</div>
+        <h4>Swap AVAX for defender gold?</h4>
+        <p>${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)} for ${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.</p>
+        <p class="gold">Sent to: ${AVAX_TREASURY_ADDRESS.slice(0, 6)}…${AVAX_TREASURY_ADDRESS.slice(-4)}</p>
+      `;
+      const avaxBtn = document.createElement('button');
+      avaxBtn.className = 'buy-btn';
+      avaxBtn.textContent = game.dfkGoldSwapPending ? 'Waiting…' : `Swap ${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)}`;
+      avaxBtn.disabled = !canSwapNow;
+      avaxBtn.addEventListener('click', () => { performAvaxGoldSwap().catch((error) => console.error(error)); });
+      avaxCard.appendChild(avaxBtn);
+      els.relicModalBody.appendChild(avaxCard);
     }
 
     if (!isFreeStartingRelic || swapOfferActive) {
@@ -6132,11 +6397,6 @@ function renderDamageReport() {
     if (selectedWarriorHero) applyWalletHeroToTower(warrior, selectedWarriorHero);
     game.towers.push(warrior);
     tileAt(x, y).towerId = warrior.id;
-    if (!placementKeepsEnemiesReachable(warrior)) {
-      tileAt(x, y).towerId = null;
-      game.towers = game.towers.filter(t => t.id !== warrior.id);
-      return false;
-    }
     game.phase = SETUP_PHASES.BATTLE;
     setInstruction('Setup complete. Choose 1 free starting relic, then start the first wave.');
     offerStartingRelic();
@@ -6225,7 +6485,7 @@ function renderDamageReport() {
       fireball: 10,
       frost_lance: 20,
       starboard_cannons: 10,
-      kraken: 15,
+      kraken: 16.5,
       healing_aura: 15,
       eagle_nest: 1,
       soul_split: 1,
@@ -6358,10 +6618,10 @@ function renderDamageReport() {
       shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
-      multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows.${common}${scale}`,
+      multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows. Cooldown: 6.5s.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 3 enemies for ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, and ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.6 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place a level 1 Archer Shadow on any valid open tile. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Archer Shadows are ethereal: after 3 cleared waves they fade to 25% translucency, after 7 cleared waves they fade to 50% translucency, and after 9 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.`,
+      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place a level 1 Archer Shadow on any valid open tile. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up. Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
@@ -6372,9 +6632,9 @@ function renderDamageReport() {
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
       healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${common}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
-      warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: 4.0s.${common}${scale}`,
-      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level.${common}${scale}`,
-      kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%.${stronger}${common}${scale}`,
+      warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: 5.5s.${common}${scale}`,
+      starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: 9.0s.${common}${scale}`,
+      kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Cooldown: 24.8s.${stronger}${common}${scale}`,
     };
     if (tower.type === 'pirate') {
       map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
@@ -6432,12 +6692,33 @@ function renderDamageReport() {
     return Math.max(0, Number(game.waveNumber || 0) - summonedAtWave);
   }
 
+  function getSatelliteDissipateAfterWaves(tower) {
+    if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
+      return GUEST_ARCHER_SHADOW_DISSIPATE_AFTER_WAVES;
+    }
+    return SATELLITE_DISSIPATE_AFTER_WAVES;
+  }
+
+  function getSatelliteFadeStageOneWaves(tower) {
+    if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
+      return GUEST_ARCHER_SHADOW_FADE_STAGE_ONE_WAVES;
+    }
+    return SATELLITE_FADE_STAGE_ONE_WAVES;
+  }
+
+  function getSatelliteFadeStageTwoWaves(tower) {
+    if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
+      return GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES;
+    }
+    return SATELLITE_FADE_STAGE_TWO_WAVES;
+  }
+
   function getSatelliteVisualOpacity(tower) {
     if (!tower || !tower.isSatellite || tower.type !== 'archer') return 1;
     const survived = getSatelliteWavesSurvived(tower);
-    if (survived >= SATELLITE_DISSIPATE_AFTER_WAVES) return 0;
-    if (survived >= 7) return 0.5;
-    if (survived >= 3) return 0.75;
+    if (survived >= getSatelliteDissipateAfterWaves(tower)) return 0;
+    if (survived >= getSatelliteFadeStageTwoWaves(tower)) return 0.5;
+    if (survived >= getSatelliteFadeStageOneWaves(tower)) return 0.75;
     return 1;
   }
 
@@ -6498,7 +6779,7 @@ function renderDamageReport() {
   }
 
   function dissipateExpiredSatelliteArchers() {
-    const expired = (game.towers || []).filter(t => t && t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= SATELLITE_DISSIPATE_AFTER_WAVES);
+    const expired = (game.towers || []).filter(t => t && t.isSatellite && t.type === 'archer' && getSatelliteWavesSurvived(t) >= getSatelliteDissipateAfterWaves(t));
     for (const tower of expired) {
       const { x, y } = tower;
       removeTower(tower, `${tower.name} dissipated.`);
@@ -6696,6 +6977,16 @@ function renderDamageReport() {
         render();
         return;
       }
+    } else if (isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
+      const heroName = TOWER_TEMPLATES[typeToPlace]?.name || 'That hero';
+      showBanner(`${heroName} is already in this run.`, 1600);
+      game.placingHeroType = null;
+      game.placingHeroCost = 0;
+      game.placingHeroUsesBonus = false;
+      game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
+      render();
+      return;
     } else if ((Number(game.jewel || 0) + 1e-9) < cost) {
       showBanner(`Not enough Gold. Need ${formatJewel(cost)}.`, 1400);
       game.placingHeroType = null;
@@ -6765,12 +7056,10 @@ function renderDamageReport() {
     normalizeArcherStats(tower);
     game.towers.push(tower);
     tileAt(x, y).towerId = tower.id;
-    if ((tower.type === 'warrior' || isStatueTower(tower)) && !placementKeepsEnemiesReachable(tower)) {
+    if (isStatueTower(tower) && !placementKeepsEnemiesReachable(tower)) {
       tileAt(x, y).towerId = null;
       game.towers = game.towers.filter(t => t.id !== tower.id);
-      showBanner(isStatueTower(tower)
-        ? 'Statue must leave enemies a route to the portal or to a tile next to it.'
-        : 'Warrior must leave enemies a route to the portal or to a tile next to him.', 1800);
+      showBanner('Statue must leave enemies a route to the portal or to a tile next to it.', 1800);
       return;
     }
 
@@ -6825,7 +7114,7 @@ function renderDamageReport() {
         if (!inBounds(x, y)) continue;
         if (!isOpenForTower(x, y)) continue;
         if (tower.type !== 'warrior' && chebyshevDist(tower, { x, y }) > moveRange) continue;
-        if ((tower.type === 'warrior' || isStatueTower(tower)) && !moveWouldPreservePath(tower, x, y)) continue;
+        if (isStatueTower(tower) && !moveWouldPreservePath(tower, x, y)) continue;
         targets.push({ x, y });
       }
     }
@@ -6874,7 +7163,7 @@ function renderDamageReport() {
     if (isStatueTower(tower)) return false;
     if (!getMoveTargetsForTower(tower).some(p => p.x === nx && p.y === ny)) return false;
     if (!isOpenForTower(nx, ny)) return false;
-    if ((tower.type === 'warrior' || isStatueTower(tower)) && !moveWouldPreservePath(tower, nx, ny)) return false;
+    if (isStatueTower(tower) && !moveWouldPreservePath(tower, nx, ny)) return false;
     tileAt(tower.x, tower.y).towerId = null;
     tower.x = nx;
     tower.y = ny;
@@ -7185,10 +7474,28 @@ function renderDamageReport() {
     return Math.min(...targets.map(t => Math.abs(t.x - point.x) + Math.abs(t.y - point.y)));
   }
 
+  function sanitizeWavePlan(plan) {
+    if (!plan || typeof plan !== 'object') return null;
+    const enemies = Array.isArray(plan.enemies) ? plan.enemies : [];
+    let fallbackDelay = 0;
+    plan.enemies = enemies.map((entry, index) => {
+      const safe = entry && typeof entry === 'object' ? { ...entry } : {};
+      const parsedDelay = Number(safe.delayMs);
+      const delayMs = Number.isFinite(parsedDelay) && parsedDelay >= 0 ? parsedDelay : fallbackDelay;
+      safe.delayMs = delayMs;
+      fallbackDelay = delayMs + 500;
+      safe.spawned = false;
+      if (!safe.lane || !BREACH_LANES[safe.lane]) safe.lane = chooseLane();
+      return safe;
+    });
+    if (!plan.pattern) plan.pattern = 'uniform';
+    return plan;
+  }
+
   function prepareNextWave() {
     // allow hiring during waves
 
-    game.nextWavePlan = buildWavePlan(game.waveNumber + 1);
+    game.nextWavePlan = sanitizeWavePlan(buildWavePlan(game.waveNumber + 1));
     game.autoStartReadyAt = 0;
     const mutationText = game.nextWavePlan.mutation ? ` • Mutation: ${game.nextWavePlan.mutation.name}` : '';
     const rebuildText = '';
@@ -7359,7 +7666,7 @@ function renderDamageReport() {
     enemy.hp *= 1.25;
     enemy.maxHp *= 1.25;
     enemy.spawnMaxHp = enemy.maxHp;
-    enemy.moveInterval *= 1.05;
+    enemy.moveInterval *= 1.1025;
     game.enemies.push(enemy);
     if (enemy && (enemy.isBoss || enemy.type === 'boss')) { setBoardDim(true); }
     game.eliteFinalSpawnReleasedWave = waveNumber;
@@ -7610,6 +7917,199 @@ function renderDamageReport() {
     document.body.classList.add('intro-open');
   }
 
+  function closeStartModeModal(options = {}) {
+    if (els.startModeModal) {
+      els.startModeModal.classList.add('hidden');
+      els.startModeModal.setAttribute('aria-hidden', 'true');
+      els.startModeModal.classList.remove('modal-primed-under-intro');
+    }
+    if (els.startModeNote) {
+      els.startModeNote.textContent = '';
+      els.startModeNote.classList.add('hidden');
+    }
+    if (!options.keepBoardLocked) {
+      setBoardInputLocked(false);
+    }
+    if (!options.preserveIntroState) {
+      game.introOpen = false;
+      document.body.classList.remove('intro-open');
+      syncStatusOverlayVisibility(false);
+      showStatusOverlay();
+    }
+  }
+
+  function activateStartModeModalInteractive() {
+    if (!els.startModeModal) return;
+    els.startModeModal.classList.remove('modal-primed-under-intro');
+    els.startModeModal.classList.add('start-mode-interactive');
+    els.startModeModal.setAttribute('aria-hidden', 'false');
+    const card = els.startModeModal.querySelector('.intro-modal-card');
+    if (card) card.style.pointerEvents = 'auto';
+    [els.guestModeChoiceBtn, els.connectModeChoiceBtn, els.closeStartModeBtn].forEach((btn) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('disabled');
+        btn.style.pointerEvents = 'auto';
+      }
+    });
+  }
+
+  function primeStartModeModalBehindIntro() {
+    if (!els.startModeModal) return;
+    if (!els.startModeNote) return;
+    setBoardInputLocked(true);
+    els.startModeNote.textContent = '';
+    els.startModeNote.classList.add('hidden');
+    els.startModeModal.classList.remove('hidden');
+    els.startModeModal.setAttribute('aria-hidden', 'false');
+    els.startModeModal.classList.remove('start-mode-interactive');
+    els.startModeModal.classList.add('modal-primed-under-intro');
+    const card = els.startModeModal.querySelector('.intro-modal-card');
+    if (card) card.style.pointerEvents = '';
+    [els.guestModeChoiceBtn, els.connectModeChoiceBtn, els.closeStartModeBtn].forEach((btn) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('disabled');
+        btn.style.pointerEvents = '';
+      }
+    });
+  }
+
+  function closeGuestConnectConfirmModal(options = {}) {
+    if (els.guestConnectConfirmModal) {
+      els.guestConnectConfirmModal.classList.add('hidden');
+      els.guestConnectConfirmModal.setAttribute('aria-hidden', 'true');
+    }
+    if (!options.preserveIntroState) {
+      game.introOpen = false;
+      document.body.classList.remove('intro-open');
+      syncStatusOverlayVisibility(false);
+      showStatusOverlay();
+    }
+  }
+
+  function openStartModeModal() {
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    closeContinueOfferModal();
+    closeGuestConnectConfirmModal({ preserveIntroState: true });
+    game.modalDismiss = null;
+    game.introOpen = true;
+    setBoardInputLocked(true);
+    document.body.classList.add('intro-open');
+    syncStatusOverlayVisibility(true);
+    if (els.startModeNote) {
+      els.startModeNote.textContent = '';
+      els.startModeNote.classList.add('hidden');
+    }
+    if (els.startModeModal) {
+      els.startModeModal.classList.remove('hidden');
+      activateStartModeModalInteractive();
+    }
+  }
+
+  function setStartModeNote(message = '') {
+    if (!els.startModeNote) return;
+    els.startModeNote.textContent = message;
+    els.startModeNote.classList.toggle('hidden', !message);
+  }
+
+  function setBoardInputLocked(locked) {
+    game.boardInputLocked = !!locked;
+    if (els.grid) {
+      els.grid.style.pointerEvents = locked ? 'none' : '';
+    }
+  }
+
+  function suppressBoardClicks(durationMs = 420) {
+    game.suppressBoardClicksUntil = Math.max(Number(game.suppressBoardClicksUntil) || 0, Date.now() + durationMs);
+  }
+
+  function shouldSuppressBoardClicks() {
+    return !!game.boardInputLocked || Date.now() < (Number(game.suppressBoardClicksUntil) || 0);
+  }
+
+  function swallowModalEvent(event) {
+    if (!event) return;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+  }
+
+  function stopModalPropagation(event) {
+    if (!event) return;
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+  }
+
+  function chooseGuestModeFromPrompt(event = null) {
+    swallowModalEvent(event);
+    suppressBoardClicks(1200);
+    closeStartModeModal({ keepBoardLocked: true });
+    window.setTimeout(() => setBoardInputLocked(false), 250);
+    showBanner('Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
+  }
+
+  async function chooseConnectModeFromPrompt(event = null) {
+    swallowModalEvent(event);
+    suppressBoardClicks(2000);
+    if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.connectWallet !== 'function') {
+      setBoardInputLocked(false);
+      return;
+    }
+    closeStartModeModal({ keepBoardLocked: true });
+    showBanner('Opening your wallet…', 1800);
+    try {
+      const address = await window.DFKDefenseWallet.connectWallet();
+      if (address) {
+        await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
+        showBanner('Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
+        window.setTimeout(() => setBoardInputLocked(false), 250);
+      } else {
+        openStartModeModal();
+        setStartModeNote('Wallet connection was canceled.');
+      }
+    } catch (error) {
+      openStartModeModal();
+      setStartModeNote(error?.message || 'Wallet connection failed.');
+    }
+  }
+
+  function openGuestConnectConfirmModal() {
+    return new Promise((resolve) => {
+      closeStartModeModal();
+      closeIntroModal();
+      closeBountyModal();
+      closeQuestsModal();
+      closeTrackedRunsModal();
+      closeKnownRelicsModal();
+      closeContinueOfferModal();
+      game.modalDismiss = null;
+      game.introOpen = true;
+      document.body.classList.add('intro-open');
+      syncStatusOverlayVisibility(true);
+      if (els.guestConnectConfirmModal) {
+        els.guestConnectConfirmModal.classList.remove('hidden');
+        els.guestConnectConfirmModal.setAttribute('aria-hidden', 'false');
+      }
+      const finish = (answer) => {
+        closeGuestConnectConfirmModal();
+        resolve(!!answer);
+      };
+      if (els.guestConnectConfirmBtn) els.guestConnectConfirmBtn.onclick = () => finish(true);
+      if (els.guestConnectStayBtn) els.guestConnectStayBtn.onclick = () => finish(false);
+      if (els.closeGuestConnectConfirmBtn) els.closeGuestConnectConfirmBtn.onclick = () => finish(false);
+      if (els.guestConnectConfirmModal) {
+        els.guestConnectConfirmModal.onclick = (event) => {
+          if (event.target === els.guestConnectConfirmModal) finish(false);
+        };
+      }
+    });
+  }
+
   function openAnnouncementModal({ kicker = '', title = '', bodyHtml = '', okText = 'OK', onClose = null } = {}) {
     closeIntroModal();
     closeBountyModal();
@@ -7783,7 +8283,7 @@ function renderDamageReport() {
   function startWave() {
     if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending) return;
     game.autoStartReadyAt = 0;
-    const currentPlan = cloneContinueData(game.nextWavePlan);
+    const currentPlan = sanitizeWavePlan(cloneContinueData(game.nextWavePlan));
     game.waveNumber = currentPlan.waveNumber;
     game.runningWave = true;
     saveContinueSnapshot(currentPlan);
@@ -7896,7 +8396,7 @@ function renderDamageReport() {
     }
     enemy.spawnMaxHp = enemy.maxHp;
     enemy.damage *= getWaveDamageMultiplier(game.waveNumber || 0);
-    enemy.moveInterval *= 1.05;
+    enemy.moveInterval *= 1.1025;
     if (enemy.type === 'skitter' && plan.bossWaveSkitter) {
       enemy.isBossWaveSkitter = true;
       enemy.moveInterval *= 3;
@@ -8081,6 +8581,57 @@ function renderDamageReport() {
     return rescued;
   }
 
+  function attemptRecoverWaveSoftlock(current) {
+    if (!game.runningWave) return false;
+    let recovered = false;
+    if (!Array.isArray(game.pendingSpawns)) game.pendingSpawns = [];
+    let fallbackDelay = 0;
+    for (const plan of game.pendingSpawns) {
+      if (!plan || typeof plan !== 'object' || plan.spawned) continue;
+      const parsedDelay = Number(plan.delayMs);
+      if (!Number.isFinite(parsedDelay) || parsedDelay < 0) {
+        plan.delayMs = fallbackDelay;
+        recovered = true;
+      } else {
+        fallbackDelay = parsedDelay + 500;
+      }
+    }
+    const pending = game.pendingSpawns.filter(plan => plan && !plan.spawned);
+    if (!game.enemies.length && pending.length) {
+      const elapsed = Math.max(0, current - (game.waveStartAt || current));
+      const ordered = [...pending].sort((a, b) => Number(a.delayMs || 0) - Number(b.delayMs || 0));
+      const ready = ordered.filter(plan => elapsed >= Number(plan.delayMs || 0));
+      const toSpawn = ready.length ? ready : ordered.slice(0, 1);
+      for (const plan of toSpawn) {
+        spawnEnemyFromPlan(plan);
+        plan.spawned = true;
+        recovered = true;
+      }
+      if (recovered) markProgress(`Wave ${game.waveNumber} recovered stalled spawn scheduling.`);
+    }
+    if (game.pendingSpawns.every(plan => plan && plan.spawned) && game.enemies.length === 0) {
+      finishWave();
+      recovered = true;
+    }
+    return recovered;
+  }
+
+  function maintainWaveReadiness() {
+    if (game.phase !== SETUP_PHASES.BATTLE || game.runningWave || game.crashed) return false;
+    if (game.startingRelicPending || game.continueOfferPending) return false;
+    if ((game.relicChoices && game.relicChoices.length) || game.dfkGoldSwapOfferOpen) return false;
+    if (!game.nextWavePlan) {
+      prepareNextWave();
+      return true;
+    }
+    if (buyableWaveStart()) {
+      syncStartWaveButtonState();
+      if (game.autoStartEnabled && game.autoStartReadyAt <= 0) armAutoStartCountdown(true);
+      return true;
+    }
+    return false;
+  }
+
   function update() {
     if (game.phase === SETUP_PHASES.GAME_OVER) return;
     const current = now();
@@ -8117,6 +8668,10 @@ function renderDamageReport() {
       if (game.countdownMs <= 0) prepareNextWave();
     }
 
+    if (!game.runningWave) {
+      maintainWaveReadiness();
+    }
+
     if (game.autoStartEnabled && buyableWaveStart() && game.autoStartReadyAt > 0 && !game.startingRelicPending) {
       const armedToken = game.autoStartToken || 0;
       if ((current - game.autoStartReadyAt) >= game.autoStartDelayMs && buyableWaveStart() && game.autoStartEnabled && armedToken === (game.autoStartToken || 0)) {
@@ -8134,8 +8689,8 @@ function renderDamageReport() {
     if (progressHash !== game.diagnostics.lastProgressHash) {
       game.diagnostics.lastProgressHash = progressHash;
       game.diagnostics.lastProgressAt = current;
-    } else if (game.runningWave && !game.diagnostics.softLockTriggered && game.enemies.length > 0 && current - game.diagnostics.lastProgressAt > 7000) {
-      if (attemptResolveBattleStall(current)) {
+    } else if (game.runningWave && !game.diagnostics.softLockTriggered && current - game.diagnostics.lastProgressAt > 7000) {
+      if (attemptResolveBattleStall(current) || attemptRecoverWaveSoftlock(current)) {
         game.diagnostics.lastProgressHash = buildProgressHash();
         game.diagnostics.lastProgressAt = current;
       } else {
@@ -8208,7 +8763,7 @@ function renderDamageReport() {
     if (milestoneHeroOfferConfig) {
       openMilestoneHeroOffer(milestoneHeroOfferConfig);
       showBanner(`Help has arrived at wave ${game.waveNumber}.`, 2600);
-      log(`Milestone hero offer unlocked after wave ${game.waveNumber}: burn ${milestoneHeroOfferConfig.burnCost.toLocaleString()} DFK Gold for one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice.`);
+      log(`Milestone hero offer unlocked after wave ${game.waveNumber}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
     }
     dissipateExpiredSatelliteArchers();
     const tenWaveSwapReady = game.waveNumber > 0 && game.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap();
@@ -8217,19 +8772,19 @@ function renderDamageReport() {
     if (game.waveNumber % 7 === 0) {
       shopOpened = offerRelics(tenWaveSwapReady ? 'wave10' : 'relic');
       if (shopOpened) {
-        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${tenWaveSwapReady ? ' DFK Gold swap is also available.' : ''}${bonusHireText}`);
+        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${tenWaveSwapReady ? ' a premium swap is also available.' : ''}${bonusHireText}`);
       }
     } else if (tenWaveSwapReady) {
       game.relicChoices = [];
       shopOpened = offerRelics('wave10');
       if (shopOpened) {
-        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip. DFK Gold swap is also available.${bonusHireText}`);
+        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip. a premium swap is also available.${bonusHireText}`);
       }
     }
     if (milestoneHeroOfferConfig) {
       closeDfkgoldSwapOffer();
       game.relicChoices = [];
-      setInstruction(`Wave ${game.waveNumber} cleared. You survived long enough for help to arrive. One time offer: burn ${milestoneHeroOfferConfig.burnCost.toLocaleString()} DFK Gold for a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice.${bonusHireText}`);
+      setInstruction(`Wave ${game.waveNumber} cleared. You survived long enough for help to arrive. One time offer: hire a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.${bonusHireText}`);
     } else if (!shopOpened) {
       closeDfkgoldSwapOffer();
       setCountdown(WAVE_BREAK_SECONDS);
@@ -8257,7 +8812,7 @@ function renderDamageReport() {
       return false;
     }
     els.startWaveBtn.disabled = true;
-    showBanner(hasChoices ? 'Choose 1 free starting relic' : 'DFK Gold swap available', 2500);
+    showBanner(hasChoices ? 'Choose 1 free starting relic' : 'Premium swap available', 2500);
     return true;
   }
 
@@ -8268,7 +8823,7 @@ function renderDamageReport() {
     const swapOpened = openDfkgoldSwapOffer(reason);
     const hasChoices = Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
     if (!hasChoices && !swapOpened) return false;
-    showBanner(hasChoices ? 'Relic Shop Open' : 'DFK Gold swap available', 2500);
+    showBanner(hasChoices ? 'Relic Shop Open' : 'Premium swap available', 2500);
     return true;
   }
 
@@ -9810,21 +10365,21 @@ function renderDamageReport() {
 
   const damageReportStyle = document.createElement('style');
   damageReportStyle.textContent = `
-    .live-damage-report { margin: 10px 0 0; padding: 10px 12px; border: 1px solid rgba(235, 220, 180, 0.18); border-radius: 12px; background: rgba(12, 18, 30, 0.94); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
+    .live-damage-report { width: 65%; max-width: 1120px; margin: 10px auto 0; padding: 7px 9px; border: 1px solid rgba(235, 220, 180, 0.18); border-radius: 12px; background: rgba(12, 18, 30, 0.94); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
     .live-damage-report.hidden { display: none; }
-    .live-damage-report-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-    .live-damage-report-kicker { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(214, 197, 151, 0.74); }
-    .live-damage-report-title { font-size: 15px; font-weight: 700; color: #f5edd7; }
-    .live-damage-report-total { font-size: 13px; font-weight: 700; color: #9ce1ff; white-space: nowrap; }
-    .live-damage-report-body { display: grid; gap: 6px; }
-    .live-damage-report-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.035); }
-    .live-damage-report-rank { font-weight: 700; color: rgba(245, 237, 215, 0.8); text-align: center; }
+    .live-damage-report-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .live-damage-report-kicker { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(214, 197, 151, 0.74); }
+    .live-damage-report-title { font-size: 13px; font-weight: 700; color: #f5edd7; }
+    .live-damage-report-total { font-size: 12px; font-weight: 700; color: #9ce1ff; white-space: nowrap; }
+    .live-damage-report-body { display: grid; gap: 4px; }
+    .live-damage-report-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.035); }
+    .live-damage-report-rank { font-size: 14px; font-weight: 700; color: rgba(245, 237, 215, 0.8); text-align: center; }
     .live-damage-report-main { min-width: 0; }
-    .live-damage-report-name { font-size: 13px; font-weight: 700; color: #f5edd7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .live-damage-report-meta { font-size: 11px; color: rgba(220, 227, 239, 0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .live-damage-report-value { font-size: 16px; font-weight: 800; color: #78f3a4; }
-    .live-damage-report-empty { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.035); color: rgba(220, 227, 239, 0.78); }
-    @media (max-width: 900px) { .live-damage-report-header { flex-direction: column; align-items: flex-start; } .live-damage-report-row { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; } }
+    .live-damage-report-name { font-size: 12px; font-weight: 700; color: #f5edd7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-damage-report-meta { font-size: 10px; color: rgba(220, 227, 239, 0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-damage-report-value { font-size: 14px; font-weight: 800; color: #78f3a4; }
+    .live-damage-report-empty { padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.035); color: rgba(220, 227, 239, 0.78); }
+    @media (max-width: 900px) { .live-damage-report { width: calc(100% - 12px); max-width: none; } .live-damage-report-header { flex-direction: column; align-items: flex-start; } .live-damage-report-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; padding: 5px 7px; } }
   `;
   document.head.appendChild(damageReportStyle);
 
@@ -9957,6 +10512,47 @@ function renderDamageReport() {
   els.declineMilestoneHeroOfferBtn?.addEventListener('click', () => finishMilestoneHeroOffer(true));
   els.closeIntroBtn?.addEventListener('click', () => { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); });
   els.introModal?.addEventListener('click', (event) => { if (event.target === els.introModal) { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); } });
+  const startModeCard = els.startModeModal?.querySelector('.intro-modal-card');
+  const eatBackdropEvent = (event) => {
+    if (event.target !== els.startModeModal) return;
+    swallowModalEvent(event);
+  };
+  ['pointerdown','mousedown','mouseup','touchstart','touchend','click'].forEach((evtName) => {
+    els.startModeModal?.addEventListener(evtName, eatBackdropEvent, true);
+  });
+  const stopCardBubble = (event) => {
+    if (!event) return;
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  };
+  ['pointerdown','mousedown','mouseup','touchstart','touchend','click'].forEach((evtName) => {
+    startModeCard?.addEventListener(evtName, stopCardBubble);
+  });
+  if (els.guestModeChoiceBtn) {
+    els.guestModeChoiceBtn.onclick = (event) => { chooseGuestModeFromPrompt(event); };
+  }
+  if (els.connectModeChoiceBtn) {
+    els.connectModeChoiceBtn.onclick = (event) => { chooseConnectModeFromPrompt(event).catch(() => {}); };
+  }
+  if (els.closeStartModeBtn) {
+    els.closeStartModeBtn.onclick = (event) => { chooseGuestModeFromPrompt(event); };
+  }
+  document.addEventListener('click', (event) => {
+    if (!els.startModeModal || els.startModeModal.classList.contains('hidden')) return;
+    if (els.startModeModal.classList.contains('modal-primed-under-intro')) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const guestBtn = target.closest('#guestModeChoiceBtn');
+    if (guestBtn) {
+      chooseGuestModeFromPrompt(event);
+      return;
+    }
+    const connectBtn = target.closest('#connectModeChoiceBtn');
+    if (connectBtn) {
+      chooseConnectModeFromPrompt(event).catch(() => {});
+      return;
+    }
+  }, true);
+
   els.closeBountyBtn?.addEventListener('click', closeBountyModal);
   els.closeQuestsBtn?.addEventListener('click', closeQuestsModal);
   els.closeTrackedRunsBtn?.addEventListener('click', closeTrackedRunsModal);
@@ -10010,6 +10606,11 @@ function renderDamageReport() {
     if (els.bankPanelToggle) els.bankPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
 
+  els.avaxTreasuryPanelToggle?.addEventListener('click', () => {
+    const collapsed = els.avaxTreasuryPanel?.classList.toggle('collapsed');
+    if (els.avaxTreasuryPanelToggle) els.avaxTreasuryPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
+
   els.walletPanelToggle?.addEventListener('click', () => {
     const opening = els.walletPanel?.classList.contains('collapsed');
     if (isLandscapeMobileUi()) {
@@ -10039,7 +10640,7 @@ function renderDamageReport() {
       game.introPageIndex += 1;
       renderIntroPage();
     } else {
-      closeIntroModal();
+      openStartModeModal();
     }
   });
   els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
@@ -10090,6 +10691,11 @@ function renderDamageReport() {
   }
 
   els.grid.addEventListener('click', (event) => {
+    if (shouldSuppressBoardClicks()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const tileEl = event.target.closest('.tile');
     if (!tileEl) return;
     handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y));
@@ -10097,6 +10703,7 @@ function renderDamageReport() {
 
   // Preview portal / obstacle placements on hover.
   els.grid.addEventListener('mousemove', (event) => {
+    if (shouldSuppressBoardClicks()) return;
     const tileEl = event.target.closest('.tile');
     clearPathPreview();
     game.hoveredTowerId = null;
@@ -10203,6 +10810,21 @@ function renderDamageReport() {
     }
   });
 
+  window.DFKDefenseBeforeConnect = async () => {
+    const connectingDuringGuestRun = !!(game.difficultyProfile?.guestMode && hasMeaningfulRunInProgress() && !game.runWalletConnected);
+    if (!connectingDuringGuestRun) return true;
+    const confirmed = await openGuestConnectConfirmModal();
+    game.pendingGuestConnectRestart = !!confirmed;
+    return confirmed;
+  };
+
+  window.DFKDefenseAfterConnect = async () => {
+    if (!game.pendingGuestConnectRestart) return;
+    game.pendingGuestConnectRestart = false;
+    showBanner('Guest game canceled. Starting a tracked run.', 2600);
+    await resetGame({ skipTrackedResetConfirm: true });
+  };
+
   window.DFKDefenseGameControl = {
     hasMeaningfulRunInProgress,
     restartForTracking: () => resetGame({ skipTrackedResetConfirm: true }),
@@ -10210,6 +10832,7 @@ function renderDamageReport() {
 
   ensureDailyQuestBoard(true);
   applyVersionStamp();
+  primeStartModeModalBehindIntro();
   resetGame();
   game.lastTick = now();
   setPlayMode('easy', false);

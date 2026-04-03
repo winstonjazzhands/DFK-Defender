@@ -6,7 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>DFK Defender</title>
+  <title>DFK Defender v1.4.20</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2750%27 font-size=%2748%27%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,6 +27,22 @@
         <div id="runLogHeader" class="runlog-header">
           <button id="runLogToggleBtn" class="runlog-inline-toggle" type="button" aria-pressed="false" aria-label="Collapse run log" title="Collapse run log" onclick="return window.DFKToggleRunLog && window.DFKToggleRunLog(event)">▸</button>
         </div>
+        <div id="avaxTreasuryPanel" class="wallet-panel panel-lite collapsed hidden" aria-hidden="true">
+          <button id="avaxTreasuryPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="avaxTreasuryPanelBody">
+            <span class="wallet-panel-title-row">
+              <span class="meta-title" id="avaxTreasuryPanelTitle">AVAX Treasury View</span>
+              <span id="avaxTreasuryStatus" class="wallet-status wallet-good">Private</span>
+            </span>
+            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="avaxTreasuryPanelBody" class="wallet-panel-body">
+            <div id="avaxTreasuryTotal" class="wallet-profile-balance">Treasury Earned: --</div>
+            <div id="avaxTreasuryToday" class="wallet-tracking-summary">Today: --</div>
+            <div id="avaxTreasuryBreakdown" class="wallet-tracking-summary">Bundles: -- · Gold swaps: -- · Hero hires: --</div>
+            <div id="avaxTreasuryTxCount" class="wallet-tracking-summary">Confirmed payments: --</div>
+          </div>
+        </div>
+
         <div class="wallet-panel panel-lite collapsed" id="walletPanel">
           <button id="walletPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="walletPanelBody">
             <span class="wallet-panel-title-row">
@@ -74,6 +91,31 @@
 
           </div>
         </div>
+        <div class="meta-currency panel-lite collapsed" id="bankPanel">
+          <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
+            <span id="bankPanelTitle" class="meta-title">Jewel Bank</span>
+            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="bankPanelBody" class="wallet-panel-body bank-panel-body">
+            <div id="jewelBankSection">
+              <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
+              <div><strong>Entry Cost:</strong> 3 Jewel</div>
+              <div class="meta-rewards">
+                Wave 5: +1 Jewel<br>
+                Wave 10: +2 Jewel<br>
+                Wave 15: +5 Jewel
+              </div>
+            </div>
+            <div id="avaxRailsSection" class="hidden">
+              <div id="avaxRailStatus" class="wallet-tracking-status">AVAX Rails: Connect wallet</div>
+              <div id="avaxRunBalance" class="wallet-tracking-summary">Games: Free -- · Paid --</div>
+              <div id="avaxRailSummary" class="wallet-tracking-summary avax-rail-summary" aria-hidden="false"></div>
+              <div class="wallet-actions avax-actions">
+                <button id="buyRunBundleBtn" class="wallet-btn secondary" type="button">Buy 100 Games</button>
+              </div>
+            </div>
+          </div>
+        </div>
                 <button id="mobileModeBtn" class="mobile-toggle coming-soon-toggle" type="button" aria-pressed="false" aria-disabled="true" disabled title="Challenge Mode is coming soon">⚔️ Challenge Mode — Coming Soon</button>
         <button id="introBtn" class="intro-toggle" type="button">📖 Learn More / Instructions</button>
         <button id="leaderboardFlyoutBtn" class="leaderboard-flyout-btn intro-toggle secondary-guide" type="button" aria-expanded="false" aria-controls="leaderboardFlyout">📊 Leaderboard</button>
@@ -84,21 +126,6 @@
         <button id="knownRelicsBtn" class="intro-toggle secondary-guide known-relics-toggle" type="button">🧿 Known Relics</button>
         <button id="transferHeroesBtn" class="intro-toggle secondary-guide transfer-heroes-toggle" type="button">📦 Transfer Heroes</button>
         <div id="log" class="log"></div>
-        <div class="meta-currency panel-lite collapsed" id="bankPanel">
-          <button id="bankPanelToggle" class="wallet-panel-toggle" type="button" aria-expanded="false" aria-controls="bankPanelBody">
-            <span class="meta-title">Jewel Bank</span>
-            <span class="wallet-panel-chevron" aria-hidden="true">▾</span>
-          </button>
-          <div id="bankPanelBody" class="wallet-panel-body bank-panel-body">
-            <div><strong>Jewel:</strong> <span id="premiumJewelCount">--</span></div>
-            <div><strong>Entry Cost:</strong> 3 Jewel</div>
-            <div class="meta-rewards">
-              Wave 5: +1 Jewel<br>
-              Wave 10: +2 Jewel<br>
-              Wave 15: +5 Jewel
-            </div>
-          </div>
-        </div>
 
       </section>
 
@@ -217,6 +244,44 @@
           <button id="introPrevBtn" type="button" class="secondary small-action">← Back</button>
           <div id="introPageLabel" class="intro-page-label">Page 1 / 6</div>
           <button id="introNextBtn" type="button" class="small-action">Next →</button>
+        </div>
+      </div>
+    </div>
+    <div id="startModeModal" class="intro-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card start-mode-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="startModeTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Choose how to play</div>
+            <h2 id="startModeTitle">Guest Mode or Connect Wallet</h2>
+          </div>
+          <button id="closeStartModeBtn" type="button" class="intro-close" aria-label="Close mode choice">×</button>
+        </div>
+        <div class="intro-body">
+          <p>Guest mode is a fun and easy to play web2 version of DFK Defender.</p>
+          <p>Connect your wallet to track runs, trade AVAX for in-game gold, and reach the top of the leaderboard.</p>
+          <div id="startModeNote" class="choice-modal-note hidden" aria-live="polite"></div>
+        </div>
+        <div class="intro-modal-footer start-mode-modal-footer">
+          <button id="guestModeChoiceBtn" type="button" class="secondary small-action">Guest Mode</button>
+          <button id="connectModeChoiceBtn" type="button" class="small-action">Connect</button>
+        </div>
+      </div>
+    </div>
+    <div id="guestConnectConfirmModal" class="intro-modal hidden" aria-hidden="true">
+      <div class="intro-modal-card start-mode-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="guestConnectConfirmTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Tracked run warning</div>
+            <h2 id="guestConnectConfirmTitle">Connect Wallet?</h2>
+          </div>
+          <button id="closeGuestConnectConfirmBtn" type="button" class="intro-close" aria-label="Close connect warning">×</button>
+        </div>
+        <div class="intro-body">
+          <p>By connecting you will cancel this guest game and start a tracked run.</p>
+        </div>
+        <div class="intro-modal-footer start-mode-modal-footer">
+          <button id="guestConnectStayBtn" type="button" class="secondary small-action">No I want to finish this game</button>
+          <button id="guestConnectConfirmBtn" type="button" class="small-action">OK</button>
         </div>
       </div>
     </div>
@@ -438,7 +503,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.config.js"></script>
-  <script src="js/security-wallet.js?v=46.9.1.86"></script>
+  <script src="js/security-wallet.js?v=46.9.1.97"></script>
+  <script src="js/avax-rails.js?v=46.9.1.103"></script>
+  <script src="js/multi-chain-rails.js?v=46.9.1.97"></script>
   <script src="js/run-tracker.js"></script>
   <script src="js/leaderboard-flyout.js"></script>
   <script>
@@ -480,8 +547,8 @@
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-  <script src="js/app.js?v=46.9.1.87"></script>
-  <script src="js/layout-fixes.js?v=46.9.1.87"></script>
+  <script src="js/app.js?v=46.9.1.103"></script>
+  <script src="js/layout-fixes.js?v=46.9.1.103"></script>
 
 
 

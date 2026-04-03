@@ -1,17 +1,37 @@
 (() => {
   'use strict';
 
-  const CONFIG = Object.freeze({
+  const DFK_CONFIG = Object.freeze({
+    key: 'dfk',
     chainId: 53935,
     chainHex: '0xd2af',
     chainName: 'DFK Chain',
-    rpcUrls: ['https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc'],
+    rpcUrls: [
+      'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc',
+      'https://dfk-chain.rpc.thirdweb.com/'
+    ],
     blockExplorerUrls: ['https://subnets.avax.network/defi-kingdoms/'],
     nativeCurrency: { name: 'JEWEL', symbol: 'JEWEL', decimals: 18 },
+  });
+
+  const AVAX_CONFIG = Object.freeze({
+    key: 'avax',
+    chainId: Number(window.DFK_AVAX_CHAIN_ID || 43114),
+    chainHex: window.DFK_AVAX_CHAIN_HEX || '0xa86a',
+    chainName: window.DFK_AVAX_CHAIN_NAME || 'Avalanche C-Chain',
+    rpcUrls: [window.DFK_AVAX_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc'],
+    blockExplorerUrls: [window.DFK_AVAX_EXPLORER_URL || 'https://snowtrace.io'],
+    nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+  });
+
+  const CONFIG = Object.freeze({
+    ...DFK_CONFIG,
     supabaseUrl: window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '',
     supabaseAnonKey: window.DFK_SUPABASE_PUBLISHABLE_KEY || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey) || '',
     resolveProfileFunction: window.DFK_SUPABASE_RESOLVE_PROFILE_FUNCTION || 'resolve-profile-name',
   });
+
+  const SUPPORTED_CHAINS = Object.freeze([DFK_CONFIG, AVAX_CONFIG]);
 
   const CONTRACTS = Object.freeze({
     dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
@@ -49,6 +69,10 @@
     user: null,
     mode: 'local',
     depositAddress: null,
+    activeChainId: CONFIG.chainId,
+    activeChainHex: CONFIG.chainHex,
+    activeChainName: CONFIG.chainName,
+    nativeSymbol: CONFIG.nativeCurrency.symbol,
     initialized: false,
   };
 
@@ -71,18 +95,53 @@
         balance: state.balance,
         dfkGoldBalance: state.dfkGoldBalance,
         providerName: providerLabel(state.providerInfo),
+        activeChainId: state.activeChainId,
+        activeChainHex: state.activeChainHex,
+        activeChainName: state.activeChainName,
+        nativeSymbol: state.nativeSymbol,
       },
     }));
   }
   function setHtml(el, text) { if (el) el.innerHTML = text; }
   function normalizeAddress(address) { return String(address || '').trim().toLowerCase(); }
 
-  function formatJewelBalance(rawBalance) {
+  function formatNativeBalance(rawBalance, symbol = state.nativeSymbol || CONFIG.nativeCurrency.symbol) {
     const value = Number(rawBalance || 0);
     if (!Number.isFinite(value)) return '--';
-    if (value >= 1000) return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} JEWEL`;
-    if (value >= 10) return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} JEWEL`;
-    return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })} JEWEL`;
+    if (value >= 1000) return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${symbol}`;
+    if (value >= 10) return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${symbol}`;
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })} ${symbol}`;
+  }
+
+  function getSupportedChainConfigByHex(chainHex) {
+    const normalized = String(chainHex || '').toLowerCase();
+    return SUPPORTED_CHAINS.find((entry) => String(entry.chainHex || '').toLowerCase() === normalized) || null;
+  }
+
+  async function getProviderChainConfig(provider = state.selectedProvider) {
+    if (!provider) return DFK_CONFIG;
+    try {
+      const chainIdHex = await request(provider, 'eth_chainId');
+      return getSupportedChainConfigByHex(chainIdHex) || {
+        key: 'unknown',
+        chainId: Number(chainIdHex || 0),
+        chainHex: String(chainIdHex || ''),
+        chainName: `Chain ${chainIdHex}`,
+        rpcUrls: CONFIG.rpcUrls,
+        blockExplorerUrls: CONFIG.blockExplorerUrls,
+        nativeCurrency: { name: 'Native', symbol: 'Native', decimals: 18 },
+      };
+    } catch (_error) {
+      return DFK_CONFIG;
+    }
+  }
+
+  function applyActiveChainConfig(chainConfig) {
+    const next = chainConfig || DFK_CONFIG;
+    state.activeChainId = Number(next.chainId || 0);
+    state.activeChainHex = String(next.chainHex || '');
+    state.activeChainName = String(next.chainName || 'Unknown Chain');
+    state.nativeSymbol = String((next.nativeCurrency && next.nativeCurrency.symbol) || 'Native');
   }
 
   function formatEtherFromHex(hexValue) {
@@ -115,11 +174,12 @@
 
   async function fetchDfkgoldBalance(address) {
     if (!address || !window.ethers) return null;
+    if (Number(state.activeChainId || 0) !== Number(DFK_CONFIG.chainId || 0)) return null;
     try {
       const walletProvider = state.selectedProvider;
       const provider = walletProvider
         ? new window.ethers.BrowserProvider(walletProvider)
-        : new window.ethers.JsonRpcProvider(CONFIG.rpcUrls[0], CONFIG.chainId, { staticNetwork: true });
+        : new window.ethers.JsonRpcProvider(DFK_CONFIG.rpcUrls[0], DFK_CONFIG.chainId, { staticNetwork: true });
       const contract = new window.ethers.Contract(CONTRACTS.dfkGold, ERC20_ABI, provider);
       const [rawBalance, decimals] = await Promise.all([
         contract.balanceOf(address),
@@ -262,11 +322,14 @@
       state.balance = null;
       state.dfkGoldBalance = null;
       state.profileName = null;
+      applyActiveChainConfig(DFK_CONFIG);
       render();
       emitWalletState();
       return null;
     }
     try {
+      const activeChain = await getProviderChainConfig();
+      applyActiveChainConfig(activeChain);
       const [balance, dfkGoldBalance, profileName] = await Promise.all([
         fetchNativeBalance(state.address),
         fetchDfkgoldBalance(state.address),
@@ -368,26 +431,19 @@
 
   async function ensureChain(provider) {
     const chainIdHex = await request(provider, 'eth_chainId');
-    if (chainIdHex === CONFIG.chainHex) return true;
-    try {
-      await request(provider, 'wallet_switchEthereumChain', [{ chainId: CONFIG.chainHex }]);
+    const supported = getSupportedChainConfigByHex(chainIdHex);
+    if (supported) {
+      applyActiveChainConfig(supported);
       return true;
-    } catch (switchError) {
-      if (switchError && switchError.code === 4902) {
-        await request(provider, 'wallet_addEthereumChain', [{
-          chainId: CONFIG.chainHex,
-          chainName: CONFIG.chainName,
-          rpcUrls: CONFIG.rpcUrls,
-          blockExplorerUrls: CONFIG.blockExplorerUrls,
-          nativeCurrency: CONFIG.nativeCurrency,
-        }]);
-        return true;
-      }
-      throw switchError;
     }
+    throw new Error('Switch your wallet to DFK Chain or Avalanche C-Chain and try again.');
   }
 
   async function connectWallet() {
+    if (typeof window.DFKDefenseBeforeConnect === 'function') {
+      const allowed = await window.DFKDefenseBeforeConnect();
+      if (allowed === false) return null;
+    }
     if (!state.providers.length) await discoverProviders();
     const chosen = chooseProvider();
     if (!chosen) throw new Error('No supported wallet found. Refresh the page and make sure MetaMask or Rabby is enabled for this site.');
@@ -400,6 +456,9 @@
     render();
     emitWalletState();
     await refreshWalletDetails();
+    if (state.address && typeof window.DFKDefenseAfterConnect === 'function') {
+      await window.DFKDefenseAfterConnect(state.address);
+    }
     return state.address;
   }
 
@@ -495,11 +554,11 @@
     const providerName = providerLabel(state.providerInfo);
     setText(ui.walletAddress, state.address ? `${providerName}: ${shortAddress(state.address)}` : 'No wallet connected.');
     setText(ui.walletProfileName, `${state.vanityName ? 'Vanity Name' : 'In-game Name'}: ${(state.vanityName || state.profileName || '--')}`);
-    setText(ui.walletJewelBalance, `Wallet JEWEL: ${state.balance && state.balance.balance != null ? formatJewelBalance(state.balance.balance) : '--'}`);
-    setText(ui.walletDfkgoldBalance, `Wallet DFK Gold: ${state.dfkGoldBalance && state.dfkGoldBalance.balance != null ? formatTokenBalance(state.dfkGoldBalance.balance, state.dfkGoldBalance.decimals) : '--'}`);
+    setText(ui.walletJewelBalance, `Wallet ${state.nativeSymbol || 'Native'}: ${state.balance && state.balance.balance != null ? formatNativeBalance(state.balance.balance, state.nativeSymbol) : '--'}`);
+    setText(ui.walletDfkgoldBalance, Number(state.activeChainId || 0) === Number(DFK_CONFIG.chainId || 0) ? `Wallet DFK Gold: ${state.dfkGoldBalance && state.dfkGoldBalance.balance != null ? formatTokenBalance(state.dfkGoldBalance.balance, state.dfkGoldBalance.decimals) : '--'}` : 'Wallet DFK Gold: DFK Chain only');
     setText(ui.walletPanelTitle, 'Player Profile');
     if (state.address) {
-      setText(ui.walletStatus, `${providerName} Connected`);
+      setText(ui.walletStatus, `${providerName} Connected • ${state.activeChainName}`);
       ui.walletStatus.className = 'wallet-status wallet-good';
     } else {
       setText(ui.walletStatus, state.providers.length ? 'Wallet available.' : 'Offline');

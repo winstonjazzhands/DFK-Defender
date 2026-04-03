@@ -1287,6 +1287,28 @@ body{
   transform: rotate(-90deg);
 }
 
+#avaxTreasuryPanel.hidden {
+  display: none !important;
+}
+
+#avaxTreasuryPanel .wallet-panel-body {
+  display: grid;
+  gap: 4px;
+}
+
+#avaxTreasuryTotal {
+  color: #9df7b1;
+}
+
+#avaxTreasuryStatus {
+  color: #9df7b1;
+}
+
+#avaxTreasuryPanel.collapsed .wallet-panel-body {
+  display: none;
+}
+
+
 #bankPanel .wallet-panel-toggle {
   margin-bottom: 0;
 }
@@ -7753,3 +7775,53 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     bottom: calc(var(--mobile-safe-bottom) + var(--mobile-dock-h) + 12px) !important;
   }
 }
+
+
+
+#startModeModal.modal-primed-under-intro {
+  z-index: 1500;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+#startModeModal.modal-primed-under-intro .intro-modal-card {
+  pointer-events: auto;
+}
+
+body.story-active #storyOverlay {
+  z-index: 2000;
+}
+
+body.story-active #startModeModal.modal-primed-under-intro {
+  z-index: 1500;
+  opacity: 1;
+  pointer-events: none;
+}
+
+body.story-active #startModeModal.modal-primed-under-intro .intro-modal-card,
+body.story-active #startModeModal.modal-primed-under-intro button {
+  pointer-events: none;
+}
+
+.start-mode-modal-card {
+  max-width: min(700px, calc(100vw - 40px));
+}
+.start-mode-modal-footer {
+  justify-content: flex-end;
+  gap: 12px;
+}
+.choice-modal-note {
+  margin-top: 12px;
+  min-height: 20px;
+  color: #f6d7a8;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.choice-modal-note.hidden {
+  display: none;
+}
+
+#startModeModal.start-mode-interactive { pointer-events: auto; z-index: 2100; }
+#startModeModal.start-mode-interactive .intro-modal-card { pointer-events: auto; }
+#startModeModal.start-mode-interactive button { pointer-events: auto; }
