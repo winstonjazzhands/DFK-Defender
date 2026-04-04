@@ -248,7 +248,7 @@
     const walletConnected = !!(wallet && wallet.address);
     const freeWeb3Mode = walletConnected && isFreeWeb3RunsMode();
     if (ui.panel) {
-      const panelDisabled = !walletConnected || freeWeb3Mode;
+      const panelDisabled = !walletConnected;
       ui.panel.classList.toggle('wallet-disabled', panelDisabled);
       ui.panel.setAttribute('aria-disabled', panelDisabled ? 'true' : 'false');
       ui.panel.style.opacity = panelDisabled ? '0.38' : '';
@@ -257,7 +257,7 @@
     if (ui.panelToggle) {
       ui.panelToggle.disabled = !walletConnected;
       ui.panelToggle.setAttribute('aria-disabled', walletConnected ? 'false' : 'true');
-      ui.panelToggle.title = !walletConnected ? 'Connect wallet first.' : (freeWeb3Mode ? 'AVAX Rails are disabled while web3 tracked games are free.' : 'AVAX Rails');
+      ui.panelToggle.title = !walletConnected ? 'Connect wallet first.' : 'AVAX Rails';
     }
     if (ui.runPrice) ui.runPrice.textContent = `${CONFIG.bundleGames} games · ${formatAvaxFromWei(CONFIG.runPriceWei)}`;
     if (ui.runBalance) {
@@ -272,8 +272,8 @@
       setStatus('AVAX Rails: Connect wallet', 'warn');
       setText(ui.summary, `Includes ${CONFIG.dailyFreeGames} free games daily · resets at 00:00 UTC`);
     } else if (isFreeWeb3RunsMode()) {
-      setStatus('AVAX Rails: Web3 games are free right now', 'warn');
-      setText(ui.summary, 'AVAX Rails are temporarily disabled while tracked web3 games are free.');
+      setStatus('AVAX Rails: Web3 games are free right now', 'good');
+      setText(ui.summary, 'Tracked web3 games are free right now. AVAX swaps and extra hero purchases are still available.');
     } else if (!isTrackingEnabled()) {
       setStatus('AVAX Rails: Enable run tracking', 'warn');
       setText(ui.summary, 'Enable tracking to load paid games.');
@@ -288,16 +288,19 @@
     const bundleBtn = qs('buyRunBundleBtn');
     if (bundleBtn) {
       const walletReady = !!(state.lastWallet || (wallet && wallet.address));
-      const disabled = state.purchaseBundlePending || !walletReady || !CONFIG.treasuryAddress || isFreeWeb3RunsMode();
+      const bundleHidden = isFreeWeb3RunsMode();
+      const disabled = state.purchaseBundlePending || !walletReady || !CONFIG.treasuryAddress || bundleHidden;
       bundleBtn.disabled = disabled;
       bundleBtn.textContent = state.purchaseBundlePending
         ? 'Buying Bundle…'
         : `Buy ${CONFIG.bundleGames} Games · ${formatAvaxFromWei(CONFIG.runPriceWei)}`;
       bundleBtn.title = state.purchaseBundlePending
         ? 'Bundle purchase in progress.'
-        : (isFreeWeb3RunsMode() ? 'Web3 tracked games are free right now.' : (bundleBtn.disabled ? 'Connect wallet first.' : (!isTrackingEnabled() ? 'Enable tracking first to credit purchased games.' : `Buy ${CONFIG.bundleGames} paid games`)));
+        : (bundleHidden ? 'Tracked web3 games are free right now.' : (bundleBtn.disabled ? 'Connect wallet first.' : (!isTrackingEnabled() ? 'Enable tracking first to credit purchased games.' : `Buy ${CONFIG.bundleGames} paid games`)));
       bundleBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
       bundleBtn.dataset.pending = state.purchaseBundlePending ? 'true' : 'false';
+      bundleBtn.classList.toggle('hidden', bundleHidden);
+      bundleBtn.setAttribute('aria-hidden', bundleHidden ? 'true' : 'false');
     }
     Object.values(CONFIG.powerUps).forEach((item) => {
       const btn = qs(item.buttonId);
