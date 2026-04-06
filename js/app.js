@@ -843,7 +843,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 100 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 100, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
 { id: 'blade_dancer', name: 'Blade Dancer', desc: 'Spend 350 Gold to teach the Warrior blade dancing and reduce Whirlwind cooldown by 2 seconds.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.whirlwindCooldownAdjust += 2 },
     { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 100 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 100, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
-{ id: 'devotion', name: 'Devotion', desc: "The Priest studies the old ways and Prayer of Healing cooldown is reduced by 0.5 seconds.", cost: 150, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 0.5 },
+    { id: 'devotion', name: 'Devotion', desc: "Spend 300 Gold. The Priest studies the old ways and Prayer of Healing cooldown is reduced by 1 second.", cost: 300, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 1 },
+    { id: 'meditate', name: 'Meditate', desc: 'Spend 100 Gold and the Seer meditates on the future to gain 5% attack speed.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'seer', { speedMult: 1.05 }) },
+    { id: 'art_enjoyer', name: 'Art Enjoyer', desc: 'Spend 300 Gold to teach the Seer about art so Temporal Restoration also heals Statues.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.seerPassiveHealsStatues = true },
+    { id: 'oracle', name: 'Oracle', desc: 'Spend 300 Gold to reduce all Seer damage to zero but increase Seer healing by 3x.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.seerDamageMultiplier *= 0; game.modifiers.seerHealMultiplier *= 3; } },
+    { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
     { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 100, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
     { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 100, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
     { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
@@ -1205,6 +1209,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       ringOfFire: false,
       krakenCooldownAdjust: 0,
       masterAssassin: false,
+      seerPassiveHealsStatues: false,
+      seerHealMultiplier: 1,
+      seerDamageMultiplier: 1,
+      seerHealingDisabled: false,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -1286,6 +1294,14 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   function isRelicFree(relic, isFreeStartingRelic = false) {
     return !!isFreeStartingRelic || (relic?.rarity === 'mythic');
+  }
+
+  function getRelicCostLabel(relic, isFreeStartingRelic = false) {
+    return isRelicFree(relic, isFreeStartingRelic) ? 'FREE' : `${formatJewel(relic?.cost || 0)} GOLD`;
+  }
+
+  function getSeerDamageMultiplier() {
+    return Math.max(0, Number(game.modifiers?.seerDamageMultiplier ?? 1));
   }
 
 
@@ -3146,6 +3162,10 @@ function renderDamageReport() {
       ringOfFire: false,
       krakenCooldownAdjust: 0,
       masterAssassin: false,
+      seerPassiveHealsStatues: false,
+      seerHealMultiplier: 1,
+      seerDamageMultiplier: 1,
+      seerHealingDisabled: false,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -3796,19 +3816,19 @@ function renderDamageReport() {
     const hiddenMythicCount = Math.max(0, mythicRelics.length - revealedMythic.length);
     const foundRelics = (Array.isArray(game.foundRelics) ? game.foundRelics : []).map(id => RELICS.find(r => r.id === id)).filter(Boolean);
     const foundSection = foundRelics.length
-      ? `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (${foundRelics.length}/${RELICS.length})</div><div class="known-relic-found-list">${foundRelics.map(r => { const rarity = getRelicRarity(r); return `<span class=\"relic-pill ${rarity.className}\" title=\"${r.desc}\">${r.name}</span>`; }).join(' ')}</div></section>`
+      ? `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (${foundRelics.length}/${RELICS.length})</div><div class="known-relic-found-list">${foundRelics.map(r => { const rarity = getRelicRarity(r); return `<span class=\"relic-pill ${rarity.className}\" title=\"${r.desc}\">${r.name} (${getRelicCostLabel(r)})</span>`; }).join(' ')}</div></section>`
       : `<section class="known-relic-section"><div class="known-relic-heading known-relic-heading-found">Found This Game (0/${RELICS.length})</div><article class="known-relic-card known-relic-found-empty"><p>No relics found yet in this run.</p></article></section>`;
     const sections = ['common', 'rare'].map(key => {
       const rarity = RELIC_RARITY_META[key];
       const items = commonAndRare.filter(r => (r.rarity || 'common') === key);
       if (!items.length) return '';
-      return `<section class="known-relic-section"><div class="known-relic-heading ${rarity.className}">${rarity.label} Relics</div>${items.map(r => `<article class=\"known-relic-card ${rarity.className}\"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}</section>`;
+      return `<section class="known-relic-section"><div class="known-relic-heading ${rarity.className}">${rarity.label} Relics</div>${items.map(r => `<article class=\"known-relic-card ${rarity.className}\"><h4>${r.name}</h4><p class=\"gold\">${getRelicCostLabel(r)}</p><p>${r.desc}</p></article>`).join('')}</section>`;
     }).join('');
     const legendarySection = legendaryRelics.length
-      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div>${revealedLegendary.map(r => `<article class="known-relic-card relic-rarity-legendary"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}${hiddenLegendaryCount ? `<article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>${hiddenLegendaryCount === 1 ? 'One legendary relic remains hidden.' : `${hiddenLegendaryCount} legendary relics remain hidden.`}</p></article>` : ''}</section>`
+      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-legendary">Legendary Relics</div>${revealedLegendary.map(r => `<article class="known-relic-card relic-rarity-legendary"><h4>${r.name}</h4><p class="gold">${getRelicCostLabel(r)}</p><p>${r.desc}</p></article>`).join('')}${hiddenLegendaryCount ? `<article class="known-relic-card relic-rarity-legendary relic-hidden-card"><h4>????</h4><p>${hiddenLegendaryCount === 1 ? 'One legendary relic remains hidden.' : `${hiddenLegendaryCount} legendary relics remain hidden.`}</p></article>` : ''}</section>`
       : '';
     const mythicSection = mythicRelics.length
-      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-mythic">Mythic</div>${revealedMythic.map(r => `<article class="known-relic-card relic-rarity-mythic"><h4>${r.name}</h4><p>${r.desc}</p></article>`).join('')}${hiddenMythicCount ? `<article class="known-relic-card relic-rarity-mythic relic-hidden-card"><h4>????</h4><p>${hiddenMythicCount === 1 ? 'One mythic relic remains hidden.' : `${hiddenMythicCount} mythic relics remain hidden.`}</p></article>` : ''}</section>`
+      ? `<section class="known-relic-section"><div class="known-relic-heading relic-rarity-mythic">Mythic</div>${revealedMythic.map(r => `<article class="known-relic-card relic-rarity-mythic"><h4>${r.name}</h4><p class="gold">${getRelicCostLabel(r)}</p><p>${r.desc}</p></article>`).join('')}${hiddenMythicCount ? `<article class="known-relic-card relic-rarity-mythic relic-hidden-card"><h4>????</h4><p>${hiddenMythicCount === 1 ? 'One mythic relic remains hidden.' : `${hiddenMythicCount} mythic relics remain hidden.`}</p></article>` : ''}</section>`
       : '';
     els.knownRelicsBody.innerHTML = `${foundSection}${sections}${legendarySection}${mythicSection}`;
     els.knownRelicsModal.classList.remove('hidden');
@@ -6399,7 +6419,7 @@ function renderDamageReport() {
       card.className = 'card';
       const rarity = getRelicRarity(relic);
       card.classList.add('relic-choice-card', rarity.className);
-      card.innerHTML = `<div class="relic-choice-rarity ${rarity.className}">${rarity.label}</div><h4>${relic.name}</h4><p>${relic.desc}</p><p class="gold">${isFreeStartingRelic ? 'FREE STARTING RELIC' : `${formatJewel(relic.cost)} GOLD`}</p>`;
+      card.innerHTML = `<div class="relic-choice-rarity ${rarity.className}">${rarity.label}</div><h4>${relic.name}</h4><p>${relic.desc}</p><p class="gold">${isFreeStartingRelic ? 'FREE STARTING RELIC' : getRelicCostLabel(relic)}</p>`;
       const btn = document.createElement('button');
       btn.className = 'buy-btn';
       btn.textContent = isFreeStartingRelic ? `Choose ${relic.name}` : `Buy ${relic.name}`;
@@ -6891,13 +6911,15 @@ function renderDamageReport() {
   }
 
   function getSeerPassiveHealPercent(tower) {
+    if (game.modifiers?.seerHealingDisabled) return 0;
     const level = Math.max(1, Number(tower?.level || 1));
-    return level >= 20 ? SEER_PASSIVE_HEAL_PERCENT_LEVEL20 : SEER_PASSIVE_HEAL_PERCENT_BASE;
+    const basePercent = level >= 20 ? SEER_PASSIVE_HEAL_PERCENT_LEVEL20 : SEER_PASSIVE_HEAL_PERCENT_BASE;
+    return basePercent * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1));
   }
 
   function getChronoPurgeDamage(tower) {
     const level = Math.max(10, Number(tower?.level || 10));
-    return CHRONO_PURGE_BASE_DAMAGE * (1 + ((level - 10) * CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL));
+    return CHRONO_PURGE_BASE_DAMAGE * (1 + ((level - 10) * CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL)) * getSeerDamageMultiplier();
   }
 
   function hasUnlockedSeerEvasion() {
@@ -6971,7 +6993,7 @@ function renderDamageReport() {
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'fireball').toFixed(1)}s.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      temporal_restoration: `Passive. Heals all friendly heroes except Statues for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * 100).toFixed(1)}% every second.${common}${scale}`,
+      temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every second.${common}${scale}`,
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
       chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10. Cooldown: ${getAbilityCooldownSeconds(tower, 'chrono_purge').toFixed(1)}s.${common}${scale}`,
       evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage.${common}${scale}`,
@@ -9466,7 +9488,11 @@ function renderDamageReport() {
       const healTickAt = tower.seerHealTickAt || 0;
       if (current >= healTickAt) {
         const healPercent = getSeerPassiveHealPercent(tower);
-        const allies = game.towers.filter((ally) => ally && ally.hp > 0 && !isStatueTower(ally));
+        const allies = game.towers.filter((ally) => {
+          if (!ally || ally.hp <= 0) return false;
+          if (isStatueTower(ally)) return !!game.modifiers.seerPassiveHealsStatues;
+          return true;
+        });
         let healedAny = false;
         for (const ally of allies) {
           const before = Number(ally.hp || 0);
@@ -9512,6 +9538,7 @@ function renderDamageReport() {
     const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
     if (!target) return;
     let damage = tower.damage;
+    if (tower.type === 'seer') damage *= getSeerDamageMultiplier();
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
@@ -11107,7 +11134,7 @@ function renderDamageReport() {
             .filter((enemy) => enemy.x === tileTarget.x && enemy.y === tileTarget.y)
             .slice(0, 3);
           for (const enemy of tileEnemies) {
-            damageEnemy(tower, enemy, WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1), null, { key: 'warstone', label: 'Warstone' });
+            damageEnemy(tower, enemy, (WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1)) * getSeerDamageMultiplier(), null, { key: 'warstone', label: 'Warstone' });
             hitAny = true;
           }
         }
