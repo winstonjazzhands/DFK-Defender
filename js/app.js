@@ -1055,6 +1055,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   ensureMilestoneOfferModalElements();
 
+  const MAX_LIVE_WAVES = 3;
+
   const game = {
     phase: SETUP_PHASES.PORTAL,
     grid: [],
@@ -1097,6 +1099,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     nextEnemyId: 1,
     nextTowerId: 1,
     nextWavePlan: null,
+    activeWavePlans: [],
+    activeWaveBase: 0,
     activeMutation: null,
     recentMutations: [],
     recentLanes: [],
@@ -2402,7 +2406,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
     try {
-      const result = await performAvaxTreasuryPurchase('milestone_hero_hire', AVAX_MILESTONE_HERO_WEI, `${template.name} reinforcement`, {
+      const result = await performAvaxTreasuryPurchase('hero_hire', AVAX_MILESTONE_HERO_WEI, `${template.name} reinforcement`, {
         wave: offer.wave,
         heroType,
         heroLevel: offer.heroLevel,
@@ -3028,6 +3032,8 @@ function renderDamageReport() {
     game.waveNumber = 0;
     game.countdownMs = 0;
     game.runningWave = false;
+    game.activeWavePlans = [];
+    game.activeWaveBase = 0;
     game.playerObstacleCount = 0;
     game.selectedId = null;
     game.movingTowerId = null;
@@ -3039,6 +3045,8 @@ function renderDamageReport() {
     game.nextEnemyId = 1;
     game.nextTowerId = 1;
     game.nextWavePlan = null;
+    game.activeWavePlans = [];
+    game.activeWaveBase = 0;
     game.activeMutation = null;
     game.recentMutations = [];
     game.recentLanes = [];
@@ -7756,7 +7764,7 @@ function renderDamageReport() {
   }
 
   function buildWavePlan(waveNumber) {
-    if (waveNumber % 5 === 0) {
+    if (waveNumber % 5 === 0 && waveNumber >= 15) {
       return { waveNumber, pattern: 'boss', mutation: null, enemies: buildBossWave(waveNumber), sizeMultiplier: 1, elite: isEliteWave(waveNumber), eliteConfig: getEliteWaveConfig(waveNumber) };
     }
 
@@ -7850,7 +7858,8 @@ function renderDamageReport() {
 
   function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
     const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber) * getWaveSpecificEnemyCountMultiplier(waveNumber);
-    return Math.max(1, Math.round((6 + waveNumber * 2.3) * countMultiplier * 0.92));
+    const earlyBossReplacementMult = (waveNumber === 5 || waveNumber === 10) ? 1.10 : 1;
+    return Math.max(1, Math.round((6 + waveNumber * 2.3) * countMultiplier * 0.92 * earlyBossReplacementMult));
   }
 
   function getWaveBossOverrideCount(waveNumber, defaultBossCount) {
@@ -7901,7 +7910,7 @@ function renderDamageReport() {
       isBoss: true,
       slowResistance: 0,
       isFlyingSiege: true,
-      visualSizePx: Math.max(56, computeEnemyVisualSizeFromSpawnHp(maxHp) * 1.35),
+      visualSizePx: Math.max(56, computeEnemyVisualSizeFromSpawnHp(maxHp, waveNumber) * 1.35),
       enraged: false,
       lastEnrageHealAt: now(),
     };
@@ -8091,6 +8100,12 @@ function renderDamageReport() {
   function saveContinueSnapshot(planOverride = null) {
     const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
     if (game.continueOfferUsed || !replayPlan) return;
+    const restoredPendingSpawns = Array.isArray(planOverride?.pendingSpawns)
+      ? cloneContinueData(planOverride.pendingSpawns)
+      : null;
+    const restoredActiveWavePlans = Array.isArray(planOverride?.activeWavePlans)
+      ? cloneContinueData(planOverride.activeWavePlans)
+      : null;
     game.continueSnapshot = {
       phase: game.phase,
       portal: cloneContinueData(game.portal),
@@ -8108,6 +8123,10 @@ function renderDamageReport() {
       nextEnemyId: game.nextEnemyId,
       nextTowerId: game.nextTowerId,
       nextWavePlan: replayPlan,
+      pendingSpawns: restoredPendingSpawns,
+      activeWavePlans: restoredActiveWavePlans,
+      activeWaveBase: Number(planOverride?.activeWaveBase || game.activeWaveBase || 0),
+      currentPattern: planOverride?.currentPattern || game.currentPattern || replayPlan?.pattern || null,
       activeMutation: null,
       recentMutations: cloneContinueData(game.recentMutations),
       recentLanes: cloneContinueData(game.recentLanes),
@@ -8418,7 +8437,15 @@ function renderDamageReport() {
             const copy = { ...s };
             delete copy.spawned;
             return copy;
-          }))
+          })),
+          pendingSpawns: cloneContinueData((game.pendingSpawns || []).map(s => {
+            const copy = { ...s };
+            delete copy.spawned;
+            return copy;
+          })),
+          activeWavePlans: cloneContinueData(game.activeWavePlans || []),
+          activeWaveBase: Number(game.activeWaveBase || 0),
+          currentPattern: game.currentPattern || null,
         });
       }
       if (game.continueSnapshot) {
@@ -8483,6 +8510,10 @@ function renderDamageReport() {
     game.nextEnemyId = snap.nextEnemyId;
     game.nextTowerId = snap.nextTowerId;
     game.nextWavePlan = cloneContinueData(snap.nextWavePlan);
+    game.pendingSpawns = Array.isArray(snap.pendingSpawns) ? sanitizeWavePlan({ enemies: cloneContinueData(snap.pendingSpawns), pattern: snap.currentPattern || snap.nextWavePlan?.pattern || 'uniform' })?.enemies || null : null;
+    game.activeWavePlans = Array.isArray(snap.activeWavePlans) ? cloneContinueData(snap.activeWavePlans) : [];
+    game.activeWaveBase = Number(snap.activeWaveBase || 0);
+    game.currentPattern = snap.currentPattern || null;
     game.activeMutation = null;
     game.recentMutations = cloneContinueData(snap.recentMutations) || [];
     game.recentLanes = cloneContinueData(snap.recentLanes) || [];
@@ -8531,34 +8562,68 @@ function renderDamageReport() {
     game.autoStartReadyAt = 0;
     game.autoStartToken = (game.autoStartToken || 0) + 1;
     closeContinueOfferModal();
-    setInstruction(`Wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} is getting a second shot. Bonus: +${extraGold} gold.`);
-    log(`Continue used: replaying wave ${game.nextWavePlan?.waveNumber || (game.waveNumber + 1)} with +${extraGold} gold.`);
+    const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
+    setInstruction(`Wave ${retriedWaveLabel} is getting a second shot. Bonus: +${extraGold} gold.`);
+    log(`Continue used: replaying wave ${retriedWaveLabel} with +${extraGold} gold.`);
+    if (Array.isArray(game.pendingSpawns) && game.pendingSpawns.length) {
+      game.runningWave = true;
+      game.waveStartAt = now();
+      if (!Array.isArray(game.activeWavePlans) || !game.activeWavePlans.length) {
+        game.activeWavePlans = [cloneContinueData(game.nextWavePlan)].filter(Boolean);
+      }
+      if (!game.currentPattern) {
+        game.currentPattern = game.activeWavePlans.length > 1 ? 'mixed' : (game.nextWavePlan?.pattern || null);
+      }
+      stageUpcomingWavePlan(true);
+      syncStartWaveButtonState();
+      render();
+      updateAutoStartButton();
+      return true;
+    }
     render();
     updateAutoStartButton();
     startWave();
     return true;
   }
 
+  function stageUpcomingWavePlan(silent = false) {
+    game.nextWavePlan = sanitizeWavePlan(buildWavePlan((game.waveNumber || 0) + 1));
+    if (!silent) maybeShowEliteWaveWarning(game.nextWavePlan);
+  }
+
   function startWave() {
-    if (!game.nextWavePlan || game.runningWave || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending || hasActiveMilestoneOffer()) return;
+    if (!game.nextWavePlan || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending || hasActiveMilestoneOffer()) return;
+    if (getLiveWaveCount() >= MAX_LIVE_WAVES) return;
     game.autoStartReadyAt = 0;
     const currentPlan = sanitizeWavePlan(cloneContinueData(game.nextWavePlan));
+    const firstWaveInBatch = !game.runningWave || !Array.isArray(game.pendingSpawns) || !game.pendingSpawns.length;
+    if (firstWaveInBatch) {
+      game.activeWaveBase = Number(game.waveNumber || 0);
+      game.runningWave = true;
+      game.pendingSpawns = [];
+      game.waveStartAt = now();
+      game.relicChoices = [];
+      game.milestoneHeroOffer = null;
+      game.milestoneBarrierOffer = null;
+      saveContinueSnapshot(currentPlan);
+    }
     game.waveNumber = currentPlan.waveNumber;
-    game.runningWave = true;
-    saveContinueSnapshot(currentPlan);
-    game.currentPattern = currentPlan.pattern;
-    game.activeMutation = currentPlan.mutation;
-    game.pendingSpawns = currentPlan.enemies.map(item => ({ ...item, spawned: false }));
-    game.waveStartAt = now();
+    if (!Array.isArray(game.activeWavePlans)) game.activeWavePlans = [];
+    game.activeWavePlans.push(cloneContinueData(currentPlan));
+    game.currentPattern = getLiveWaveCount() > 1 ? 'mixed' : currentPlan.pattern;
+    game.activeMutation = null;
+    const sourceWave = Number(currentPlan.waveNumber || game.waveNumber || 0);
+    const spawns = currentPlan.enemies.map(item => ({ ...item, spawned: false, sourceWaveNumber: sourceWave, sourceMutation: currentPlan.mutation || null, sourceElite: !!currentPlan.elite, sourcePattern: currentPlan.pattern || null }));
+    game.pendingSpawns.push(...spawns);
     game.nextWavePlan = null;
-    game.relicChoices = [];
-    game.milestoneHeroOffer = null;
-    setInstruction(`Wave ${game.waveNumber} is live.${currentPlan.elite ? ' Elite wave active.' : ''} Defend the portal.`);
-    els.startWaveBtn.disabled = true;
-    const mutationText = game.activeMutation ? ` • ${game.activeMutation.name}` : '';
-    showBanner(`${currentPlan.elite ? 'Elite Wave' : 'Wave'} ${game.waveNumber}: ${prettyPattern(game.currentPattern)}${mutationText}`, 2200);
-    markProgress(`Wave ${game.waveNumber} started.`);
-    log(`Wave ${game.waveNumber} started. Pattern: ${prettyPattern(game.currentPattern)}${mutationText ? `, Mutation: ${game.activeMutation.name}` : ''}.`);
+    stageUpcomingWavePlan(true);
+    const liveCount = getLiveWaveCount();
+    setInstruction(`Waves ${Math.max(1, game.activeWaveBase + 1)}-${game.waveNumber} are live (${liveCount}/3). Defend the portal.`);
+    syncStartWaveButtonState();
+    const mutationText = currentPlan.mutation ? ` • ${currentPlan.mutation.name}` : '';
+    showBanner(`${currentPlan.elite ? 'Elite Wave' : 'Wave'} ${currentPlan.waveNumber} joined the battle${liveCount > 1 ? ` (${liveCount}/3 live)` : ''}.`, 2200);
+    markProgress(`Wave ${currentPlan.waveNumber} started.`);
+    log(`Wave ${currentPlan.waveNumber} started. Pattern: ${prettyPattern(currentPlan.pattern)}${mutationText ? `, Mutation: ${currentPlan.mutation.name}` : ''}. ${liveCount}/3 live.`);
     render();
   }
 
@@ -8634,28 +8699,31 @@ function renderDamageReport() {
   }
 
   function spawnEnemyFromPlan(plan) {
+    const sourceWaveNumber = Number(plan?.sourceWaveNumber || game.waveNumber || 0);
     let enemy;
     if (plan.bossId) {
       const boss = BOSSES.find(b => b.id === plan.bossId);
-      enemy = createBossEnemy(boss, plan.lane);
+      enemy = createBossEnemy(boss, plan.lane, sourceWaveNumber);
     } else {
-      enemy = createEnemy(plan.type, plan.lane);
+      enemy = createEnemy(plan.type, plan.lane, sourceWaveNumber);
     }
-    if (game.activeMutation && game.activeMutation.apply) game.activeMutation.apply(enemy);
+    const sourceMutation = plan?.sourceMutation || null;
+    if (sourceMutation && sourceMutation.apply) sourceMutation.apply(enemy);
+    enemy.spawnWaveNumber = sourceWaveNumber;
     enemy.spawnMaxHp = enemy.maxHp;
-    enemy.visualSizePx = computeEnemyVisualSizeFromSpawnHp(enemy.spawnMaxHp);
+    enemy.visualSizePx = computeEnemyVisualSizeFromSpawnHp(enemy.spawnMaxHp, sourceWaveNumber);
 
-    const waveHpMultiplier = getWaveHpMultiplier(game.waveNumber || 0);
+    const waveHpMultiplier = getWaveHpMultiplier(sourceWaveNumber);
     enemy.hp *= waveHpMultiplier * 1.25;
     enemy.maxHp *= waveHpMultiplier * 1.25;
-    const eliteWaveHpMult = getEliteWaveConfig(game.waveNumber || 0)?.hpMult || 1;
+    const eliteWaveHpMult = getEliteWaveConfig(sourceWaveNumber)?.hpMult || 1;
     if (eliteWaveHpMult !== 1) {
       enemy.hp *= eliteWaveHpMult;
       enemy.maxHp *= eliteWaveHpMult;
     }
     enemy.spawnMaxHp = enemy.maxHp;
-    enemy.damage *= getWaveDamageMultiplier(game.waveNumber || 0) * getPostWave20EnemyDamageMultiplier(game.waveNumber || 0);
-    enemy.moveInterval *= 1.1025 * getPostWave20EnemySpeedMultiplier(game.waveNumber || 0);
+    enemy.damage *= getWaveDamageMultiplier(sourceWaveNumber) * getPostWave20EnemyDamageMultiplier(sourceWaveNumber);
+    enemy.moveInterval *= 1.1025 * getPostWave20EnemySpeedMultiplier(sourceWaveNumber);
     if (enemy.type === 'skitter' && plan.bossWaveSkitter) {
       enemy.isBossWaveSkitter = true;
       enemy.moveInterval *= 3;
@@ -8664,20 +8732,20 @@ function renderDamageReport() {
       enemy.moveInterval *= 1.3;
     }
     if (enemy.typeClass === 'runner') {
-      enemy.moveInterval /= getRunnerSpeedMultiplier(game.waveNumber || 0);
+      enemy.moveInterval /= getRunnerSpeedMultiplier(sourceWaveNumber);
     }
     if (enemy.typeClass === 'brute') {
-      const bruteHpMultiplier = getBruteHpMultiplier(game.waveNumber || 0) * BIG_ENEMY_HP_MULTIPLIER;
+      const bruteHpMultiplier = getBruteHpMultiplier(sourceWaveNumber) * BIG_ENEMY_HP_MULTIPLIER;
       enemy.hp *= bruteHpMultiplier;
       enemy.maxHp *= bruteHpMultiplier;
       enemy.spawnMaxHp = enemy.maxHp;
     }
-    enemy.moveInterval /= getEarlyWaveSpeedMultiplier(game.waveNumber || 0);
+    enemy.moveInterval /= getEarlyWaveSpeedMultiplier(sourceWaveNumber);
     if (enemy.isBoss) {
       enemy.moveInterval /= (1.25 * BIG_ENEMY_SPEED_MULTIPLIER);
     }
     if (enemy.isBoss || enemy.typeClass === 'brute') {
-      enemy.moveInterval /= (getLargeEnemySpeedMultiplier(game.waveNumber || 0) * BIG_ENEMY_SPEED_MULTIPLIER);
+      enemy.moveInterval /= (getLargeEnemySpeedMultiplier(sourceWaveNumber) * BIG_ENEMY_SPEED_MULTIPLIER);
     }
 
         game.enemies.push(enemy);
@@ -8716,18 +8784,19 @@ function renderDamageReport() {
     return waveNumber > 25 ? (1 / 0.95) : 1;
   }
 
-  function createEnemy(type, laneName) {
+  function createEnemy(type, laneName, waveNumberOverride = null) {
     const template = ENEMY_TEMPLATES[type];
     const lane = BREACH_LANES[laneName];
     const spawn = pickRandom(lane);
-    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(game.waveNumber);
-    const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
+    const waveNumber = Number(waveNumberOverride ?? game.waveNumber ?? 0);
+    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(waveNumber);
+    const postWave15StatMultiplier = getPostWave15StatMultiplier(waveNumber);
     const isSmallOrMediumEnemy = type === 'grunt' || type === 'runner';
     const hpCurvePerWave = isSmallOrMediumEnemy ? 0.132 : 0.12;
     const baseHpMultiplier = getEnemyBaselineHpMultiplier(type);
     const baseDamageMultiplier = getEnemyBaselineDamageMultiplier(type, false);
-    const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, game.waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
-    const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, game.waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
+    const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
+    const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
     const finalEnemyHp = type === 'skitter' ? enemyHp * 1.15 : enemyHp;
     const difficulty = game.difficultyProfile || createDifficultyProfileForRun({ connected: false });
     return {
@@ -8739,9 +8808,9 @@ function renderDamageReport() {
       hp: finalEnemyHp * difficulty.healthMult,
       maxHp: finalEnemyHp * difficulty.healthMult,
       damage: enemyDamage * difficulty.damageMult,
-      moveInterval: (template.moveInterval / getEnemyWaveSpeedMultiplier(game.waveNumber || 0)) / difficulty.speedMult,
+      moveInterval: (template.moveInterval / getEnemyWaveSpeedMultiplier(waveNumber)) / difficulty.speedMult,
       attackInterval: template.attackInterval,
-      jewel: ((template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
+      jewel: ((template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: template.typeClass,
       targetPath: [],
       nextMoveAt: now() + 200,
@@ -8766,22 +8835,23 @@ function renderDamageReport() {
     };
   }
 
-  function createBossEnemy(boss, laneName) {
+  function createBossEnemy(boss, laneName, waveNumberOverride = null) {
     const lane = BREACH_LANES[laneName];
     const spawn = pickRandom(lane);
     const difficulty = game.difficultyProfile || createDifficultyProfileForRun({ connected: false });
+    const waveNumber = Number(waveNumberOverride ?? game.waveNumber ?? 0);
     return {
       id: `e${game.nextEnemyId++}`,
       type: boss.id,
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(game.waveNumber || 0),
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(game.waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(game.waveNumber || 0),
-      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(game.waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(game.waveNumber || 0),
-      moveInterval: ((boss.moveInterval * getPostWave25BossSpeedMultiplier(game.waveNumber || 0)) / getEnemyWaveSpeedMultiplier(game.waveNumber || 0)) / difficulty.speedMult,
+      hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber),
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber),
+      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(waveNumber),
+      moveInterval: ((boss.moveInterval * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) / difficulty.speedMult,
       attackInterval: boss.attackInterval,
-      jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(game.waveNumber)) + ((game.waveNumber || 0) > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
+      jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: 'boss',
       targetPath: [],
       nextMoveAt: now() + 300,
@@ -8988,94 +9058,96 @@ function renderDamageReport() {
     return game.pendingSpawns && game.pendingSpawns.every(s => s.spawned);
   }
 
-  function finishWave() {
-    game.runningWave = false;
-    game.pendingSpawns = null;
-    game.activeMutation = null;
-    markProgress(`Wave ${game.waveNumber} cleared.`);
-    log(`Wave ${game.waveNumber} cleared.`);
+  function applyWaveClearRewards(clearedWave) {
+    markProgress(`Wave ${clearedWave} cleared.`);
+    log(`Wave ${clearedWave} cleared.`);
     updateQuestMetric('wavesClearedTotal', 1);
-    updateQuestMetric('maxWave', Number(game.waveNumber || 0), 'max');
-    if (game.waveNumber > 0 && game.waveNumber % 5 === 0) updateQuestMetric('bossWavesCleared', 1);
-    if (game.waveNumber === 5 && !game.milestoneJewelsGranted[5]) {
+    updateQuestMetric('maxWave', Number(clearedWave || 0), 'max');
+    if (clearedWave > 0 && clearedWave % 5 === 0) updateQuestMetric('bossWavesCleared', 1);
+    if (clearedWave === 5 && !game.milestoneJewelsGranted[5]) {
       game.milestoneJewelsGranted[5] = true;
       awardPremiumJewels(1, 'Wave 5 reward');
     }
-    if (game.waveNumber === 10 && !game.milestoneJewelsGranted[10]) {
+    if (clearedWave === 10 && !game.milestoneJewelsGranted[10]) {
       game.milestoneJewelsGranted[10] = true;
       awardPremiumJewels(2, 'Wave 10 reward');
     }
-    if (game.waveNumber === 15 && !game.milestoneJewelsGranted[15]) {
+    if (clearedWave === 15 && !game.milestoneJewelsGranted[15]) {
       game.milestoneJewelsGranted[15] = true;
       awardPremiumJewels(5, 'Wave 15 reward');
     }
-    if (game.waveNumber > 0 && game.waveNumber % 5 === 0) {
+    if (clearedWave > 0 && clearedWave % 5 === 0) {
       const unlockedWarriors = game.towers.filter(t => t.type === 'warrior' && !t.isSatellite && isAbilityUnlocked(t, 'new_blood'));
-      for (const warrior of unlockedWarriors) {
-        warrior.satelliteCharges = Math.min(1, (warrior.satelliteCharges || 0) + 1);
-      }
+      for (const warrior of unlockedWarriors) warrior.satelliteCharges = Math.min(1, (warrior.satelliteCharges || 0) + 1);
       if (unlockedWarriors.length) {
         showBanner(`Statue: +1 charge ready${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`, 2500);
-        log(`Statue triggered after wave ${game.waveNumber}: +1 charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
+        log(`Statue triggered after wave ${clearedWave}: +1 charge${unlockedWarriors.length > 1 ? ' for each Warrior' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 12 === 0) {
+    if (clearedWave > 0 && clearedWave % 12 === 0) {
       const unlockedArchers = game.towers.filter(t => t.type === 'archer' && !t.isSatellite && isAbilityUnlocked(t, 'eagle_nest'));
-      for (const archer of unlockedArchers) {
-        archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
-      }
+      for (const archer of unlockedArchers) archer.satelliteCharges = Math.min(1, (archer.satelliteCharges || 0) + 1);
       if (unlockedArchers.length) {
         showBanner(`Assassin's Training: +1 Archer Shadow charge ready${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`, 2500);
-        log(`Assassin's Training triggered after wave ${game.waveNumber}: +1 Archer Shadow charge${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`);
+        log(`Assassin's Training triggered after wave ${clearedWave}: +1 Archer Shadow charge${unlockedArchers.length > 1 ? ' for each Archer' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % SOUL_SPLIT_CHARGE_WAVE_INTERVAL === 0) {
+    if (clearedWave > 0 && clearedWave % SOUL_SPLIT_CHARGE_WAVE_INTERVAL === 0) {
       const unlockedWizards = game.towers.filter(t => t.type === 'wizard' && !t.isSatellite && isAbilityUnlocked(t, 'soul_split'));
-      for (const wizard of unlockedWizards) {
-        wizard.satelliteCharges = Math.min(1, (wizard.satelliteCharges || 0) + 1);
-      }
+      for (const wizard of unlockedWizards) wizard.satelliteCharges = Math.min(1, (wizard.satelliteCharges || 0) + 1);
       if (unlockedWizards.length) {
         showBanner(`Torn Soul: +1 charge ready${unlockedWizards.length > 1 ? ' for each Wizard' : ''}.`, 2500);
-        log(`Torn Soul triggered after wave ${game.waveNumber}: +1 charge${unlockedWizards.length > 1 ? ' for each Wizard' : ''}.`);
+        log(`Torn Soul triggered after wave ${clearedWave}: +1 charge${unlockedWizards.length > 1 ? ' for each Wizard' : ''}.`);
       }
     }
-    if (game.waveNumber > 0 && game.waveNumber % 10 === 0) {
+    if (clearedWave > 0 && clearedWave % 10 === 0) {
       const unlockedPriests = game.towers.filter(t => t.type === 'priest' && !t.isSatellite && isAbilityUnlocked(t, 'slow_totem'));
-      for (const priest of unlockedPriests) {
-        priest.satelliteCharges = Math.min(1, (priest.satelliteCharges || 0) + 1);
-      }
+      for (const priest of unlockedPriests) priest.satelliteCharges = Math.min(1, (priest.satelliteCharges || 0) + 1);
       if (unlockedPriests.length) {
         showBanner(`Blinding Light Totem: +1 charge ready${unlockedPriests.length > 1 ? ' for each Priest' : ''}.`, 2500);
-        log(`Blinding Light Totem triggered after wave ${game.waveNumber}: +1 charge${unlockedPriests.length > 1 ? ' for each Priest' : ''}.`);
+        log(`Blinding Light Totem triggered after wave ${clearedWave}: +1 charge${unlockedPriests.length > 1 ? ' for each Priest' : ''}.`);
       }
     }
-    const milestoneHeroOfferConfig = canOpenMilestoneHeroOffer(game.waveNumber) ? getMilestoneHeroOfferConfig(game.waveNumber) : null;
-    const milestoneBarrierOfferConfig = canOpenMilestoneBarrierOffer(game.waveNumber) ? getMilestoneBarrierOfferConfig(game.waveNumber) : null;
+  }
+
+  function finishWave() {
+    const clearedPlans = (Array.isArray(game.activeWavePlans) && game.activeWavePlans.length
+      ? game.activeWavePlans.map(plan => cloneContinueData(plan))
+      : [{ waveNumber: game.waveNumber }])
+      .sort((a, b) => Number(a.waveNumber || 0) - Number(b.waveNumber || 0));
+    const finalWaveNumber = Number(clearedPlans[clearedPlans.length - 1]?.waveNumber || game.waveNumber || 0);
+    game.runningWave = false;
+    game.pendingSpawns = null;
+    game.activeMutation = null;
+    game.currentPattern = null;
+    game.activeWavePlans = [];
+    game.activeWaveBase = finalWaveNumber;
+    for (const plan of clearedPlans) {
+      applyWaveClearRewards(Number(plan.waveNumber || 0));
+    }
+    const milestoneHeroOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneHeroOffer(plan.waveNumber) ? getMilestoneHeroOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
+    const milestoneBarrierOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneBarrierOffer(plan.waveNumber) ? getMilestoneBarrierOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
     if (milestoneHeroOfferConfig) {
       openMilestoneHeroOffer(milestoneHeroOfferConfig);
-      showBanner(`Help has arrived at wave ${game.waveNumber}.`, 2600);
-      log(`Milestone hero offer unlocked after wave ${game.waveNumber}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
+      showBanner(`Help has arrived at wave ${milestoneHeroOfferConfig.wave}.`, 2600);
+      log(`Milestone hero offer unlocked after wave ${milestoneHeroOfferConfig.wave}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
     }
     if (milestoneBarrierOfferConfig) {
       openMilestoneBarrierOffer(milestoneBarrierOfferConfig);
-      showBanner(`Barrier bundle unlocked at wave ${game.waveNumber}.`, 2600);
-      log(`Barrier offer unlocked after wave ${game.waveNumber}: buy ${milestoneBarrierOfferConfig.barrierCount} more barriers for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : (milestoneBarrierOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
+      showBanner(`Barrier bundle unlocked at wave ${milestoneBarrierOfferConfig.wave}.`, 2600);
+      log(`Barrier offer unlocked after wave ${milestoneBarrierOfferConfig.wave}: buy ${milestoneBarrierOfferConfig.barrierCount} more barriers for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : (milestoneBarrierOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
     }
     dissipateExpiredSatelliteArchers();
-    const tenWaveSwapReady = game.waveNumber > 0 && game.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap();
-    const bonusHireText = '';
+    const tenWaveSwapReady = clearedPlans.some(plan => plan.waveNumber > 0 && plan.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap());
+    const relicWaveCleared = clearedPlans.some(plan => plan.waveNumber % 7 === 0);
     let shopOpened = !!(milestoneHeroOfferConfig || milestoneBarrierOfferConfig);
-    if (game.waveNumber % 7 === 0) {
+    if (relicWaveCleared) {
       shopOpened = offerRelics(tenWaveSwapReady ? 'wave10' : 'relic');
-      if (shopOpened) {
-        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip.${tenWaveSwapReady ? ' a premium swap is also available.' : ''}${bonusHireText}`);
-      }
+      if (shopOpened) setInstruction(`Wave ${finalWaveNumber} cleared. Relic shop is open. You can buy one relic or skip.${tenWaveSwapReady ? ' A premium swap is also available.' : ''}`);
     } else if (tenWaveSwapReady) {
       game.relicChoices = [];
       shopOpened = offerRelics('wave10');
-      if (shopOpened) {
-        setInstruction(`Wave ${game.waveNumber} cleared. Relic shop is open. You can buy one relic or skip. a premium swap is also available.${bonusHireText}`);
-      }
+      if (shopOpened) setInstruction(`Wave ${finalWaveNumber} cleared. Relic shop is open. You can buy one relic or skip. A premium swap is also available.`);
     }
     if (milestoneHeroOfferConfig || milestoneBarrierOfferConfig) {
       closeDfkgoldSwapOffer();
@@ -9086,11 +9158,12 @@ function renderDamageReport() {
       const offerParts = [];
       if (milestoneHeroOfferConfig) offerParts.push(`hire a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}`);
       if (milestoneBarrierOfferConfig) offerParts.push(`buy ${milestoneBarrierOfferConfig.barrierCount} more barriers for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : (milestoneBarrierOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}`);
-      setInstruction(`Wave ${game.waveNumber} cleared. Bonus offer: ${offerParts.join(' or ')}.${bonusHireText}`);
+      setInstruction(`Wave ${finalWaveNumber} cleared. Bonus offer: ${offerParts.join(' or ')}.`);
     } else if (!shopOpened) {
       closeDfkgoldSwapOffer();
       setCountdown(WAVE_BREAK_SECONDS);
     }
+    syncStartWaveButtonState();
     render();
   }
 
@@ -9098,6 +9171,7 @@ function renderDamageReport() {
     game.countdownMs = seconds * 1000;
     setInstruction(`Preparation phase. Next wave in ${seconds}s unless you start it early.`);
     prepareNextWave();
+    syncStartWaveButtonState();
   }
 
   function offerStartingRelic() {
@@ -10185,14 +10259,15 @@ function renderDamageReport() {
     }
   }
 
-  function getGlobalEnemyHpRange() {
+  function getGlobalEnemyHpRange(waveNumberOverride = null) {
     const hpValues = [];
     const activeMutation = game.activeMutation && game.activeMutation.apply ? game.activeMutation : null;
-    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(game.waveNumber);
-    const postWave15StatMultiplier = getPostWave15StatMultiplier(game.waveNumber);
+    const waveNumber = Number(waveNumberOverride ?? game.waveNumber ?? 0);
+    const earlyWaveMultiplier = getEarlyWaveStatMultiplier(waveNumber);
+    const postWave15StatMultiplier = getPostWave15StatMultiplier(waveNumber);
 
     for (const template of Object.values(ENEMY_TEMPLATES)) {
-      const hp = template.hp * (1 + Math.max(0, game.waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
+      const hp = template.hp * (1 + Math.max(0, waveNumber - 1) * 0.12) * earlyWaveMultiplier * postWave15StatMultiplier;
       const probe = { hp, maxHp: hp, isBoss: false, moveInterval: template.moveInterval, attackInterval: template.attackInterval, damage: template.damage };
       if (activeMutation) activeMutation.apply(probe);
       hpValues.push(probe.maxHp || probe.hp || hp);
@@ -10265,12 +10340,12 @@ function renderDamageReport() {
     if (versionEl) versionEl.textContent = APP_VERSION;
   }
 
-  function computeEnemyVisualSizeFromSpawnHp(spawnHp) {
+  function computeEnemyVisualSizeFromSpawnHp(spawnHp, waveNumberOverride = null) {
     const sampleTile = game.grid && game.grid[0] && game.grid[0].el ? game.grid[0].el : null;
     const tileWidth = sampleTile ? sampleTile.offsetWidth : 36;
     const maxSize = tileWidth * 0.75;
     const minSize = Math.max(10, tileWidth * 0.28);
-    const { minHp, maxHp } = getGlobalEnemyHpRange();
+    const { minHp, maxHp } = getGlobalEnemyHpRange(waveNumberOverride);
     const range = Math.max(1, maxHp - minHp);
     const normalized = Math.max(0, Math.min(1, (spawnHp - minHp) / range));
     return Math.max(minSize, Math.min(maxSize, minSize + (maxSize - minSize) * Math.sqrt(normalized)));
@@ -10698,14 +10773,25 @@ function renderDamageReport() {
     game.grid.forEach(tile => { tile.pathPreview = null; });
   }
 
+  function getLiveWaveCount() {
+    return Array.isArray(game.activeWavePlans) ? game.activeWavePlans.length : 0;
+  }
+
   function buyableWaveStart() {
-    return game.phase === SETUP_PHASES.BATTLE && !game.runningWave && !game.relicChoices.length && !!game.nextWavePlan && !game.crashed;
+    return game.phase === SETUP_PHASES.BATTLE
+      && !game.relicChoices.length
+      && !!game.nextWavePlan
+      && !game.crashed
+      && !hasActiveMilestoneOffer()
+      && getLiveWaveCount() < MAX_LIVE_WAVES;
   }
 
   function syncStartWaveButtonState() {
     if (!els.startWaveBtn) return false;
     const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending;
     els.startWaveBtn.disabled = !canStart;
+    const liveCount = getLiveWaveCount();
+    els.startWaveBtn.textContent = liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave');
     return canStart;
   }
 

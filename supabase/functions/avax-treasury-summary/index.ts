@@ -69,7 +69,10 @@ Deno.serve(async (req) => {
     const todayRows = confirmed.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
     const entryRows = confirmed.filter((row) => String(row.kind || '') === 'entry_fee');
     const goldRows = confirmed.filter((row) => String(row.kind || '') === 'gold_swap');
-    const heroRows = confirmed.filter((row) => String(row.kind || '') === 'milestone_hero_hire');
+    const heroRows = confirmed.filter((row) => {
+      const kind = String(row.kind || '');
+      return kind === 'hero_hire' || kind === 'milestone_hero_hire';
+    });
 
     return json({
       ok: true,
