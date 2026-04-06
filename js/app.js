@@ -11184,17 +11184,53 @@ function renderDamageReport() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const shots = 4 + game.modifiers.extraCannons;
+        const visualShots = Math.max(1, shots - 2);
         const cannonballDamage = STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 4);
+        const spreadPatterns = [
+          [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 1, y: 0 }],
+          [{ x: 0, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }],
+          [{ x: 0, y: 0 }, { x: -1, y: -1 }, { x: 1, y: 1 }],
+          [{ x: 0, y: 0 }, { x: -1, y: 1 }, { x: 1, y: -1 }],
+        ];
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
-          const projectileMeta = createCannonballProjectileEffect(tower, chosen, {
-            startedAt: now() + (i * 55),
-            durationMs: 420,
-          });
-          if (projectileMeta) {
-            createExplosionEffect(chosen.x, chosen.y, 'pirate', 0.55, 260, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: chosen.x, y: chosen.y }], { startedAt: projectileMeta.arrivalAt - 50 });
+          const shotStartedAt = now() + (i * 55);
+          const shouldRenderVisual = i < visualShots;
+          const pattern = spreadPatterns[i % spreadPatterns.length];
+          const visualTiles = [];
+          const seenTiles = new Set();
+
+          if (shouldRenderVisual) {
+            for (let j = 0; j < pattern.length; j += 1) {
+              const offset = pattern[j];
+              const tile = { x: chosen.x + offset.x, y: chosen.y + offset.y };
+              if (!inBounds(tile.x, tile.y)) continue;
+              const key = `${tile.x},${tile.y}`;
+              if (seenTiles.has(key)) continue;
+              seenTiles.add(key);
+              visualTiles.push(tile);
+
+              const projectileMeta = createCannonballProjectileEffect(tower, tile, {
+                startedAt: shotStartedAt + (j * 22),
+                durationMs: 420 + (j * 10),
+              });
+              if (projectileMeta) {
+                createExplosionEffect(tile.x, tile.y, 'pirate', 0.5, 240, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: tile.x, y: tile.y }], { startedAt: projectileMeta.arrivalAt - 45 });
+              }
+            }
           }
+
+          if (shouldRenderVisual && !visualTiles.length) {
+            const fallbackMeta = createCannonballProjectileEffect(tower, chosen, {
+              startedAt: shotStartedAt,
+              durationMs: 420,
+            });
+            if (fallbackMeta) {
+              createExplosionEffect(chosen.x, chosen.y, 'pirate', 0.5, 240, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: chosen.x, y: chosen.y }], { startedAt: fallbackMeta.arrivalAt - 45 });
+            }
+          }
+
           createAttackLine(tower, chosen, 'pirate', 'pirate-cannonball');
           damageEnemy(tower, chosen, cannonballDamage, null, { key: 'starboard_cannons', label: 'Starboard Cannons' });
         }

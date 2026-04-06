@@ -18,7 +18,7 @@
     <div class="mobile-rotate-card panel">
       <div class="mobile-rotate-icon" aria-hidden="true">📱↻</div>
       <div class="mobile-rotate-title">Rotate your device</div>
-      <div class="mobile-rotate-copy">This game plays best in landscape so the full board and menus stay on screen.</div>
+      <div class="mobile-rotate-copy">This game plays best in landscape so the full board and menus stay on screen. On iPhone, the best experience is to add the game to the home screen.</div>
     </div>
   </div>
   <div id="app">
@@ -602,6 +602,30 @@
   </div>
   <div id="storyText" class="story-text"></div>
 </div>
+
+
+<script>
+(function(){
+  function isMobile(){ return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 900; }
+  function tryAutoGuest(){
+    if(!isMobile()) return;
+    // hide connect/guest modal if present
+    var modal = document.getElementById('connectModal') || document.querySelector('.connect-modal');
+    if(modal){ modal.style.display='none'; }
+    // call guest init if available
+    if (typeof window.startGuestMode === 'function') { window.startGuestMode(); return; }
+    if (typeof window.enterGuestMode === 'function') { window.enterGuestMode(); return; }
+    if (typeof window.onGuestSelected === 'function') { window.onGuestSelected(); return; }
+    // fallback: dispatch a custom event apps might listen to
+    window.dispatchEvent(new Event('guest-mode'));
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', tryAutoGuest);
+  } else {
+    tryAutoGuest();
+  }
+})();
+</script>
 
 </body>
 </html>
