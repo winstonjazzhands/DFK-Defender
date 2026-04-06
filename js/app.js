@@ -2189,10 +2189,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   function hasMilestoneBarrierOffer(waveNumber) {
-    const safeWave = Math.max(0, Number(waveNumber || 0));
-    if (safeWave < 30) return false;
-    if (safeWave === 30) return true;
-    return (safeWave - 30) % 50 === 0;
+    return false;
   }
 
   function getMilestoneBarrierOfferConfig(waveNumber) {
@@ -4099,7 +4096,9 @@ function renderDamageReport() {
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
+  const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 10000);
   const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '1000000000000000');
+  const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || '1000000000000000');
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81').trim().toLowerCase();
   const MILESTONE_HERO_OFFER_COSTS = Object.freeze({
     25: 100000,
@@ -7181,6 +7180,10 @@ function renderDamageReport() {
         ? 0
         : (Number.isFinite(game.placingHeroCost) ? Number(game.placingHeroCost) : getNextHireCost(false)));
 
+    const pendingMilestoneDuplicatePlacement = !isSatellitePlacement
+      && game.pendingMilestoneHeroPlacement
+      && game.pendingMilestoneHeroPlacement.heroType === typeToPlace;
+
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
         showBanner(sourceTower?.type === 'warrior' ? 'No Statue charge is available for that Warrior.' : (sourceTower?.type === 'wizard' ? 'No Torn Soul charge is available for that Wizard.' : (sourceTower?.type === 'priest' ? 'No Blinding Light Totem charge is available for that Priest.' : 'No Archer Shadow charge is available for that hero.')), 1500);
@@ -7212,7 +7215,7 @@ function renderDamageReport() {
         render();
         return;
       }
-    } else if (isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
+    } else if (!pendingMilestoneDuplicatePlacement && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
       const heroName = TOWER_TEMPLATES[typeToPlace]?.name || 'That hero';
       showBanner(`${heroName} is already in this run.`, 1600);
       game.placingHeroType = null;
