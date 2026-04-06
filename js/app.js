@@ -2074,9 +2074,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const endpoint = `${url}/functions/v1/${name}`;
     const headers = {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       ...(options && options.headers ? options.headers : {}),
     };
+    if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(String(key || '').trim())) {
+      headers.Authorization = `Bearer ${key}`;
+    }
 
     const request = {
       method: httpMethod,

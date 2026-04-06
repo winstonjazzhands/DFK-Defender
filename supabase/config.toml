@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.revoke-run-session]
 verify_jwt = false
 
+[functions.set-vanity-name]
+verify_jwt = false
+
 [functions.bounty-board]
 verify_jwt = false
 

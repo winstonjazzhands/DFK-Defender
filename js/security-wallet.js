@@ -200,13 +200,16 @@
   async function resolveProfileNameViaFunction(address) {
     if (!address || !CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return null;
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        apikey: CONFIG.supabaseAnonKey,
+      };
+      if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(String(CONFIG.supabaseAnonKey || '').trim())) {
+        headers.Authorization = `Bearer ${CONFIG.supabaseAnonKey}`;
+      }
       const response = await fetch(`${CONFIG.supabaseUrl}/functions/v1/${CONFIG.resolveProfileFunction}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: CONFIG.supabaseAnonKey,
-          Authorization: `Bearer ${CONFIG.supabaseAnonKey}`,
-        },
+        headers,
         body: JSON.stringify({ address }),
       });
       const payload = await response.json().catch(() => null);

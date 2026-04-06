@@ -24,7 +24,6 @@ function normalizeAddress(address: string | null | undefined) {
   return String(address || '').trim().toLowerCase();
 }
 
-
 function normalizeOrigin(value: string | null | undefined) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -37,6 +36,29 @@ function normalizeOrigin(value: string | null | undefined) {
 
 function requestOrigin(req: Request) {
   return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+function normalizeError(error: unknown) {
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    return {
+      message: String(record.message || ''),
+      code: String(record.code || ''),
+      details: String(record.details || ''),
+      hint: String(record.hint || ''),
+    };
+  }
+  return { message: String(error || '') };
+}
+
+function isMissingColumnError(error: unknown, columnName?: string) {
+  const info = normalizeError(error);
+  const haystack = `${info.message} ${info.details} ${info.hint}`.toLowerCase();
+  if (String(info.code || '') === 'PGRST204') {
+    if (!columnName) return true;
+    return haystack.includes(columnName.toLowerCase());
+  }
+  return haystack.includes('column') && (!columnName || haystack.includes(columnName.toLowerCase()));
 }
 
 async function sha256Hex(value: string) {
@@ -70,12 +92,19 @@ async function validateSessionContext(req: Request, session: Record<string, unkn
 }
 
 function cleanVanityName(value: unknown) {
+  if (value == null) return null;
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!raw) return null;
   if (!/^[a-zA-Z0-9 _\-]{2,32}$/.test(raw)) {
     throw new Error('Vanity name must be 2-32 letters, numbers, spaces, - or _.');
   }
   return raw;
+}
+
+function extractVanityName(body: Record<string, unknown>) {
+  if (!body || typeof body !== 'object') return null;
+  const candidate = body.vanityName ?? body.vanity_name ?? body.name ?? null;
+  return cleanVanityName(candidate);
 }
 
 async function requireSession(admin: ReturnType<typeof createAdmin>, token: string, req: Request) {
@@ -92,9 +121,93 @@ async function requireSession(admin: ReturnType<typeof createAdmin>, token: stri
   return { data, response: null };
 }
 
+async function ensurePlayerRow(admin: ReturnType<typeof createAdmin>, walletAddress: string) {
+  const variants = [
+    { wallet_address: walletAddress },
+    { wallet_address: walletAddress, display_name: null },
+  ];
+
+  let lastError: unknown = null;
+  for (const payload of variants) {
+    const { error } = await admin.from('players').upsert(payload, { onConflict: 'wallet_address' });
+    if (!error) return;
+    lastError = error;
+  }
+
+  throw lastError || new Error('Unable to ensure player row exists.');
+}
+
+async function assertVanityColumn(admin: ReturnType<typeof createAdmin>) {
+  const { error } = await admin.from('players').select('vanity_name').limit(1);
+  if (!error) return;
+  if (isMissingColumnError(error, 'vanity_name')) {
+    throw new Error('Database missing players.vanity_name column. Run: npx supabase db push');
+  }
+  throw error;
+}
+
+async function ensureVanityNameAvailable(admin: ReturnType<typeof createAdmin>, vanityName: string, walletAddress: string) {
+  const { data, error } = await admin
+    .from('players')
+    .select('wallet_address, vanity_name')
+    .ilike('vanity_name', vanityName)
+    .neq('wallet_address', walletAddress)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingColumnError(error, 'vanity_name')) {
+      throw new Error('Database missing players.vanity_name column. Run: npx supabase db push');
+    }
+    throw error;
+  }
+
+  if (data) {
+    return false;
+  }
+
+  return true;
+}
+
+async function saveVanityName(admin: ReturnType<typeof createAdmin>, walletAddress: string, vanityName: string | null) {
+  const payloads = [
+    { vanity_name: vanityName, updated_at: new Date().toISOString() },
+    { vanity_name: vanityName },
+  ];
+
+  let lastError: unknown = null;
+  for (const payload of payloads) {
+    const { data, error } = await admin
+      .from('players')
+      .update(payload)
+      .eq('wallet_address', walletAddress)
+      .select('wallet_address, vanity_name')
+      .maybeSingle();
+
+    if (!error) {
+      if (!data) throw new Error('Vanity name save did not persist to the expected player row.');
+      return data;
+    }
+
+    if (isMissingColumnError(error, 'updated_at')) {
+      lastError = error;
+      continue;
+    }
+
+    if (isMissingColumnError(error, 'vanity_name')) {
+      throw new Error('Database missing players.vanity_name column. Run: npx supabase db push');
+    }
+
+    lastError = error;
+    break;
+  }
+
+  throw lastError || new Error('Failed to save vanity name.');
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
+
   try {
     const auth = req.headers.get('Authorization') || '';
     const sessionHeader = req.headers.get('x-session-token') || '';
@@ -104,54 +217,34 @@ Deno.serve(async (req) => {
     const admin = createAdmin();
     const sessionResult = await requireSession(admin, token, req);
     if (sessionResult.response) return sessionResult.response;
+
     const session = sessionResult.data;
     if (!session) return json({ error: 'Invalid or expired session.' }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const vanityName = cleanVanityName(body.vanityName);
+    const walletAddress = normalizeAddress(session.wallet_address);
+    const vanityName = extractVanityName(body as Record<string, unknown>);
+
+    await ensurePlayerRow(admin, walletAddress);
+    await assertVanityColumn(admin);
 
     if (vanityName) {
-      const { data: existing } = await admin
-        .from('players')
-        .select('wallet_address, vanity_name')
-        .ilike('vanity_name', vanityName)
-        .maybeSingle();
-      if (existing && normalizeAddress(existing.wallet_address) != normalizeAddress(session.wallet_address)) {
+      const available = await ensureVanityNameAvailable(admin, vanityName, walletAddress);
+      if (!available) {
         return json({ error: 'That vanity name is already taken.' }, 409);
       }
     }
 
-    const walletAddress = normalizeAddress(session.wallet_address);
-
-    const { data: existingPlayer, error: existingPlayerError } = await admin
-      .from('players')
-      .select('wallet_address, display_name, best_wave, total_runs, total_waves_cleared, last_run_at')
-      .eq('wallet_address', walletAddress)
-      .maybeSingle();
-    if (existingPlayerError) throw existingPlayerError;
-
-    const { data: savedPlayer, error } = await admin
-      .from('players')
-      .upsert({
-        wallet_address: walletAddress,
-        display_name: existingPlayer?.display_name || null,
-        vanity_name: vanityName,
-        best_wave: Number(existingPlayer?.best_wave || 0),
-        total_runs: Number(existingPlayer?.total_runs || 0),
-        total_waves_cleared: Number(existingPlayer?.total_waves_cleared || 0),
-        last_run_at: existingPlayer?.last_run_at || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'wallet_address' })
-      .select('wallet_address, vanity_name')
-      .single();
-    if (error) throw error;
-
-    if (!savedPlayer || normalizeAddress(savedPlayer.wallet_address) !== walletAddress) {
+    const savedPlayer = await saveVanityName(admin, walletAddress, vanityName);
+    if (normalizeAddress(savedPlayer.wallet_address) !== walletAddress) {
       throw new Error('Vanity name save did not persist to the expected player row.');
     }
 
     return json({ ok: true, vanityName: savedPlayer.vanity_name || null, walletAddress });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Failed to save vanity name.' }, 500);
+    const info = normalizeError(error);
+    const message = info.message || 'Failed to save vanity name.';
+    console.error('[set-vanity-name] failed:', info);
+    return json({ error: message }, 500);
   }
 });
