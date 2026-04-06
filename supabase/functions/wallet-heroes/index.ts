@@ -1,5 +1,14 @@
 import { ethers } from 'npm:ethers@6.13.4';
 
+const DFK_BASE_CLASS_TO_SLOT: Record<number, string> = Object.freeze({
+  0: 'warrior',
+  3: 'archer',
+  4: 'priest',
+  5: 'wizard',
+  7: 'pirate',
+  25: 'seer',
+});
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
@@ -115,6 +124,7 @@ Deno.serve(async (req) => {
             rarity: Number(core.rarity || 0),
             mainClass: Number(core.class || 0),
             subClass: Number(core.subclass || 0),
+            type: DFK_BASE_CLASS_TO_SLOT[Number(core.class || 0)] || '',
           };
         }
         const core = await contract.getHeroV3(heroId);
@@ -126,6 +136,7 @@ Deno.serve(async (req) => {
           rarity: Number(core.info.rarity || 0),
           mainClass: Number(core.info.class || 0),
           subClass: Number(core.info.subClass || 0),
+          type: DFK_BASE_CLASS_TO_SLOT[Number(core.info.class || 0)] || '',
         };
       }));
       heroes.push(...batchHeroes);

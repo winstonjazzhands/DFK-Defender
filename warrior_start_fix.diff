@@ -1,0 +1,54 @@
+--- js/app.js.pre_warrior_start_duplicate_fix_backup	2026-04-06 13:08:43.760660309 +0000
++++ js/app.js	2026-04-06 13:08:43.764562908 +0000
+@@ -6285,12 +6285,22 @@
+     return HIRE_COSTS[index];
+   }
+ 
++  function shouldHideWarriorHireDuringStartingPlacement() {
++    if (Number(game.waveNumber || 0) !== 0) return false;
++    const hasStartingWarriorPlaced = (game.towers || []).some((tower) => tower && !tower.isSatellite && tower.type === 'warrior');
++    return !hasStartingWarriorPlaced;
++  }
++
+   function renderHirePanel() {
+     els.hirePanel.innerHTML = '';
+ 
+     const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+     const reachedStandardHeroCap = hasReachedStandardHeroBoardCap(true);
+-    const normalAvailable = heroTypes.filter(type => !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true }));
++    const suppressStartingWarriorHire = shouldHideWarriorHireDuringStartingPlacement();
++    const normalAvailable = heroTypes.filter(type => {
++      if (type === 'warrior' && suppressStartingWarriorHire) return false;
++      return !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true });
++    });
+     const bonusAvailable = [];
+     const cost = getNextHireCost(false);
+     const canHireNow = !reachedStandardHeroCap && !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
+@@ -6316,6 +6326,10 @@
+       if (!forceDisabled) {
+         btn.addEventListener('click', () => {
+           if (game.phase === SETUP_PHASES.GAME_OVER) return;
++          if (type === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
++            showBanner('Your selected Warrior is your free starting Warrior. Place him during setup instead of hiring a second Warrior on wave 1.', 2200);
++            return;
++          }
+           if (hasReachedStandardHeroBoardCap(true)) {
+             showBanner(`You can only field ${MAX_STANDARD_HEROES_ON_BOARD} heroes until a milestone hire offer appears.`, 1800);
+             return;
+@@ -7304,6 +7318,16 @@
+ 
+     const typeToPlace = game.placingHeroType;
+     const usesBonusHire = !!game.placingHeroUsesBonus;
++    if (!isSatellitePlacement && typeToPlace === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
++      game.placingHeroType = null;
++      game.placingHeroCost = 0;
++      game.placingHeroUsesBonus = false;
++      game.placingSatelliteSourceId = null;
++      game.placingWalletHeroId = null;
++      showBanner('Wave 1 only allows your single free starting Warrior. Place that Warrior first.', 2200);
++      render();
++      return;
++    }
+     const pendingMilestonePlacement = !isSatellitePlacement && game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === typeToPlace
+       ? { ...game.pendingMilestoneHeroPlacement }
+       : null;

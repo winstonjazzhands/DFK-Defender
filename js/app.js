@@ -1,4 +1,4 @@
-// build: v46.9.1.110
+// build: v46.9.1.117
 
 let lastTouchEnd = 0;
 
@@ -10,7 +10,7 @@ document.addEventListener('touchend', (event) => {
   lastTouchEnd = now;
 }, { passive: false });
 
-// build: v46.9.1.110
+// build: v46.9.1.117
 
 function injectPlayButton(textEl) {
   if (document.getElementById('introPlayBtn')) return;
@@ -555,6 +555,7 @@ function getRandomTree(){
     : ['0x971bDACd04EF40141ddb6bA175d4f76665103c81']).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
   const TEST_GOLD_GRANT_AMOUNT = 10000;
   const HIRE_COSTS = [25, 50, 88, 138];
+  const MAX_STANDARD_HEROES_ON_BOARD = 5;
   const UPGRADE_COST_MULTIPLIER = 3.3062;
   const ARCHER_BASE_ATTACK_INTERVAL = 1.29657803625;
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
@@ -570,7 +571,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v1.4.30';
+const APP_VERSION = 'v1.4.39d';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -580,6 +581,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const STARBOARD_CANNONS_BASE_DAMAGE = 40;
   const ABILITY_DAMAGE_PER_LEVEL = 3;
   const PRAYER_OF_HEALING_BASE_AMOUNT = 127;
+  const SEER_PASSIVE_HEAL_PERCENT_BASE = 0.01;
+  const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.02;
+  const SEER_PASSIVE_HEAL_INTERVAL_MS = 1000;
+  const WARSTONE_BASE_DAMAGE = 38;
+  const CHRONO_PURGE_BASE_DAMAGE = 20;
+  const CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL = 0.01;
+  const CHRONO_PURGE_BONUS_DAMAGE_TAKEN = 0.10;
+  const CHRONO_PURGE_DURATION_SECONDS = 6;
+  const SEER_EVASION_CHANCE = 0.10;
   const KRAKEN_BASE_DAMAGE = 10.115;
   const KRAKEN_SLOW_PERCENT = 0.9;
   const KRAKEN_DURATION_SECONDS = 10;
@@ -609,6 +619,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const GREEN_FIRE_GIF_PATH = 'assets/green-fire.gif';
   const RED_FIRE_GIF_PATH = 'assets/red-fire.gif';
   const PURPLE_FIRE_GIF_PATH = 'assets/purple-fire.gif';
+  const FIREBALL_GIF_PATH = 'assets/fireball-flame-ball.png';
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
   const TORN_SOUL_BURN_RADIUS = 1;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
@@ -676,6 +687,21 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         { key: 'soul_split', name: 'Torn Soul', cooldown: 0, passive: true },
         { key: 'fireball', name: 'Fireball', cooldown: 14 },
         { key: 'frost_lance', name: 'Frost Lance', cooldown: 6 },
+      ],
+    },
+    seer: {
+      name: 'Seer',
+      letter: 'SEE',
+      hp: 276,
+      damage: 33 * 0.85,
+      attackInterval: 1.425,
+      range: 3,
+      autoAttack: true,
+      abilities: [
+        { key: 'temporal_restoration', name: 'Temporal Restoration', cooldown: 0, passive: true },
+        { key: 'warstone', name: 'Warstone', cooldown: 9 },
+        { key: 'chrono_purge', name: 'Chrono Purge', cooldown: 11 },
+        { key: 'evasion', name: 'Evasion', cooldown: 0, passive: true },
       ],
     },
     priest: {
@@ -747,7 +773,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
       if (tower) {
             didHit = true;
-            damageTower(game, tower, 80, `${enemy.name} used Ground Slam on ${tower.name}`);
+            damageTower(game, tower, 80, `${enemy.name} used Ground Slam on ${tower.name}`, enemy);
           }
         }
         if (didHit) showBanner(`${enemy.name} used Ground Slam`);
@@ -800,7 +826,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         const candidates = game.towers.filter(t => t.type !== 'warrior');
         if (!candidates.length) return;
         const target = candidates[Math.floor(Math.random() * candidates.length)];
-        damageTower(game, target, 90, `${enemy.name} summoned a tentacle under ${target.name}`);
+        damageTower(game, target, 90, `${enemy.name} summoned a tentacle under ${target.name}`, enemy);
         applyDebuff(target, 'rooted', 2, {});
         showBanner('Kraken Caller summoned tentacles');
       },
@@ -935,6 +961,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     closeGuestConnectConfirmBtn: document.getElementById('closeGuestConnectConfirmBtn'),
     guestConnectStayBtn: document.getElementById('guestConnectStayBtn'),
     guestConnectConfirmBtn: document.getElementById('guestConnectConfirmBtn'),
+    seerIntroModal: document.getElementById('seerIntroModal'),
+    closeSeerIntroBtn: document.getElementById('closeSeerIntroBtn'),
+    seerIntroOkBtn: document.getElementById('seerIntroOkBtn'),
     avaxTreasuryPanel: document.getElementById('avaxTreasuryPanel'),
     avaxTreasuryPanelToggle: document.getElementById('avaxTreasuryPanelToggle'),
     walletPanel: document.getElementById('walletPanel'),
@@ -2074,11 +2103,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const endpoint = `${url}/functions/v1/${name}`;
     const headers = {
       apikey: key,
+      Authorization: `Bearer ${key}`,
       ...(options && options.headers ? options.headers : {}),
     };
-    if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(String(key || '').trim())) {
-      headers.Authorization = `Bearer ${key}`;
-    }
 
     const request = {
       method: httpMethod,
@@ -2189,7 +2216,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   function hasMilestoneBarrierOffer(waveNumber) {
-    return false;
+    const safeWave = Math.max(0, Number(waveNumber || 0));
+    if (safeWave < 30) return false;
+    if (safeWave === 30) return true;
+    return (safeWave - 30) % 50 === 0;
   }
 
   function getMilestoneBarrierOfferConfig(waveNumber) {
@@ -2284,7 +2314,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     body.innerHTML = sections.join('');
     actions.innerHTML = '';
     if (heroOffer) {
-      const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
+      const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
       for (const type of heroTypes) {
         const t = TOWER_TEMPLATES[type];
         const btn = document.createElement('button');
@@ -2890,13 +2920,14 @@ function renderDamageReport() {
     };
   }
 
-  function createHitFlash(x, y, colorKey, text = '') {
+  function createHitFlash(x, y, colorKey, text = '', options = null) {
     if (!inBounds(x, y)) return;
     const tile = tileAt(x, y);
     if (!tile) return;
     tile.hitFlash = {
       colorKey,
       text,
+      smallText: !!options?.smallText,
       until: now() + 360,
     };
   }
@@ -2906,6 +2937,7 @@ function renderDamageReport() {
       warrior: 'warrior',
       archer: 'archer',
       wizard: 'wizard',
+      seer: 'seer',
       priest: 'priest',
       pirate: 'pirate',
     })[type] || 'default';
@@ -4051,6 +4083,7 @@ function renderDamageReport() {
   const HERO_TILE_IMAGES = {
     warrior: 'assets/hero_tile_warrior.png',
     wizard: 'assets/hero_tile_wizard.png',
+    seer: 'assets/hero_tile_seer.png',
     archer: 'assets/hero_tile_archer.png',
     priest: 'assets/hero_tile_priest.png',
     pirate: 'assets/hero_tile_pirate.png',
@@ -4059,6 +4092,7 @@ function renderDamageReport() {
   const HERO_TILE_LABELS = {
     warrior: 'WARRIOR',
     wizard: 'WIZARD',
+    seer: 'SEER',
     archer: 'ARCHER',
     priest: 'PRIEST',
     pirate: 'PIRATE',
@@ -4083,23 +4117,24 @@ function renderDamageReport() {
     4: 'priest',
     5: 'wizard',
     7: 'pirate',
+    25: 'seer',
   });
   const DFK_CLASS_NAMES = Object.freeze({
     0: 'Warrior', 1: 'Knight', 2: 'Thief', 3: 'Archer', 4: 'Priest', 5: 'Wizard', 6: 'Monk', 7: 'Pirate',
     16: 'Paladin', 17: 'DarkKnight', 18: 'Summoner', 19: 'Ninja', 20: 'Shapeshifter', 21: 'Bard', 24: 'Dragoon', 25: 'Sage', 28: 'DreadKnight'
   });
   const DFK_RARITY_NAMES = Object.freeze({ 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Legendary', 4: 'Mythic' });
-  const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
+  const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
   const DFK_GOLD_CONTRACT_ADDRESS = '0x576C260513204392F0eC0bc865450872025CB1cA';
   const DFK_GOLD_DECIMALS = 3;
   const DFK_GOLD_SWAP_COST = 10000;
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
-  const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 10000);
   const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '1000000000000000');
-  const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || '1000000000000000');
+  const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || AVAX_MILESTONE_HERO_WEI || '1000000000000000');
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81').trim().toLowerCase();
+  const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
   const MILESTONE_HERO_OFFER_COSTS = Object.freeze({
     25: 100000,
     50: 200000,
@@ -4824,6 +4859,12 @@ function renderDamageReport() {
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
+    } else if (tower.type === 'seer') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
+      tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     } else if (tower.type === 'warrior') {
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= WARRIOR_HP_GROWTH_PER_LEVEL;
@@ -5401,7 +5442,7 @@ function renderDamageReport() {
         tile.el.appendChild(flash);
         if (tile.hitFlash.text) {
           const txt = document.createElement('div');
-          txt.className = 'hit-text';
+          txt.className = `hit-text${tile.hitFlash.smallText ? ' hit-text-small' : ''}`;
           txt.textContent = tile.hitFlash.text;
           tile.el.appendChild(txt);
         }
@@ -6213,6 +6254,16 @@ function renderDamageReport() {
     return game.towers.filter(t => t.type !== 'warrior').length + (includePendingPlacement && game.placingHeroType ? 1 : 0);
   }
 
+  function getStandardHeroBoardCount(includePendingPlacement = false) {
+    const activeStandardHeroes = (game.towers || []).filter(t => t && !t.isSatellite).length;
+    const pendingStandardPlacement = includePendingPlacement && game.placingHeroType && !game.placingSatelliteSourceId ? 1 : 0;
+    return activeStandardHeroes + pendingStandardPlacement;
+  }
+
+  function hasReachedStandardHeroBoardCap(includePendingPlacement = false) {
+    return getStandardHeroBoardCount(includePendingPlacement) >= MAX_STANDARD_HEROES_ON_BOARD;
+  }
+
   function isHeroTypeLocked(type, options = {}) {
     if (!type) return false;
     const includePendingPlacement = options.includePendingPlacement !== false;
@@ -6234,14 +6285,25 @@ function renderDamageReport() {
     return HIRE_COSTS[index];
   }
 
+  function shouldHideWarriorHireDuringStartingPlacement() {
+    if (Number(game.waveNumber || 0) !== 0) return false;
+    const hasStartingWarriorPlaced = (game.towers || []).some((tower) => tower && !tower.isSatellite && tower.type === 'warrior');
+    return !hasStartingWarriorPlaced;
+  }
+
   function renderHirePanel() {
     els.hirePanel.innerHTML = '';
 
-    const heroTypes = ['warrior', 'archer', 'wizard', 'priest', 'pirate'];
-    const normalAvailable = heroTypes.filter(type => !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true }));
+    const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+    const reachedStandardHeroCap = hasReachedStandardHeroBoardCap(true);
+    const suppressStartingWarriorHire = shouldHideWarriorHireDuringStartingPlacement();
+    const normalAvailable = heroTypes.filter(type => {
+      if (type === 'warrior' && suppressStartingWarriorHire) return false;
+      return !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true });
+    });
     const bonusAvailable = [];
     const cost = getNextHireCost(false);
-    const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
+    const canHireNow = !reachedStandardHeroCap && !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
 
     function appendHireButton(type, usesBonus, forceDisabled = false) {
@@ -6257,11 +6319,21 @@ function renderDamageReport() {
         ? `${t.name} Hired`
         : pendingThisType
           ? `Placing… ${formatJewel(game.placingHeroCost)} Gold`
-          : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''} (${formatJewel(effectiveCost)} Gold)`;
-      btn.disabled = forceDisabled || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
+          : reachedStandardHeroCap
+            ? `${labelPrefix} ${t.name} (Cap Reached)`
+            : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''} (${formatJewel(effectiveCost)} Gold)`;
+      btn.disabled = forceDisabled || reachedStandardHeroCap || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
       if (!forceDisabled) {
         btn.addEventListener('click', () => {
           if (game.phase === SETUP_PHASES.GAME_OVER) return;
+          if (type === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
+            showBanner('Your selected Warrior is your free starting Warrior. Place him during setup instead of hiring a second Warrior on wave 1.', 2200);
+            return;
+          }
+          if (hasReachedStandardHeroBoardCap(true)) {
+            showBanner(`You can only field ${MAX_STANDARD_HEROES_ON_BOARD} heroes until a milestone hire offer appears.`, 1800);
+            return;
+          }
           if ((Number(game.jewel || 0) + 1e-9) < effectiveCost) {
             showBanner(`Not enough Gold. Need ${formatJewel(effectiveCost)}.`, 1400);
             return;
@@ -6652,6 +6724,7 @@ function renderDamageReport() {
     };
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
     if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
+    if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     return tower;
   }
 
@@ -6672,6 +6745,10 @@ function renderDamageReport() {
       piercing_shot: 15,
       fireball: 10,
       frost_lance: 20,
+      temporal_restoration: 1,
+      warstone: 1,
+      chrono_purge: 10,
+      evasion: 20,
       starboard_cannons: 10,
       kraken: 16.5,
       healing_aura: 15,
@@ -6693,6 +6770,7 @@ function renderDamageReport() {
 
   function getAbilityPowerMultiplier(tower, abilityKey) {
     if (abilityKey === 'healing_aura' || abilityKey === 'shield_bash') return 1;
+    if (['temporal_restoration', 'warstone', 'chrono_purge', 'evasion'].includes(abilityKey)) return 1;
     return getAbilityIndex(tower, abilityKey) >= 2 ? 2 : 1;
   }
 
@@ -6711,10 +6789,12 @@ function renderDamageReport() {
       : base;
     if (tower?.type === 'wizard' && abilityKey === 'fireball') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.fireballCooldownAdjust || 0));
     if (tower?.type === 'wizard') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
+    if (tower?.type === 'seer') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'warrior' && abilityKey === 'whirlwind') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.whirlwindCooldownAdjust || 0));
     if (tower?.type === 'pirate' && abilityKey === 'kraken') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.krakenCooldownAdjust || 0));
     if (abilityKey === 'shield_bash') return scaledBase;
-    let finalCooldown = getAbilityIndex(tower, abilityKey) >= 2 ? scaledBase * 1.5 : scaledBase;
+    const seerBaseCooldown = ['temporal_restoration', 'warstone', 'chrono_purge', 'evasion'].includes(abilityKey);
+    let finalCooldown = (getAbilityIndex(tower, abilityKey) >= 2 && !seerBaseCooldown) ? scaledBase * 1.5 : scaledBase;
     if (abilityKey === 'fireball') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'warning_shot') finalCooldown += 1.5;
     if (abilityKey === 'kraken') finalCooldown += 1.5;
@@ -6811,6 +6891,64 @@ function renderDamageReport() {
     return (PRAYER_OF_HEALING_BASE_AMOUNT + ((level - 1) * 5)) * game.modifiers.priestHealing;
   }
 
+  function getSeerPassiveHealPercent(tower) {
+    const level = Math.max(1, Number(tower?.level || 1));
+    return level >= 20 ? SEER_PASSIVE_HEAL_PERCENT_LEVEL20 : SEER_PASSIVE_HEAL_PERCENT_BASE;
+  }
+
+  function getChronoPurgeDamage(tower) {
+    const level = Math.max(10, Number(tower?.level || 10));
+    return CHRONO_PURGE_BASE_DAMAGE * (1 + ((level - 10) * CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL));
+  }
+
+  function hasUnlockedSeerEvasion() {
+    return (game.towers || []).some((tower) => tower && tower.type === 'seer' && !tower.isSatellite && tower.hp > 0 && isAbilityUnlocked(tower, 'evasion'));
+  }
+
+  function collectTileTargets(originEnemy, tileCount = 1, maxRange = 1) {
+    if (!originEnemy) return [];
+    const occupiedByKey = new Map();
+    for (const enemy of game.enemies) {
+      const key = `${enemy.x},${enemy.y}`;
+      if (!occupiedByKey.has(key)) occupiedByKey.set(key, { x: enemy.x, y: enemy.y, count: 0 });
+      occupiedByKey.get(key).count += 1;
+    }
+    const candidates = Array.from(occupiedByKey.values())
+      .filter((tile) => Math.abs(tile.x - originEnemy.x) + Math.abs(tile.y - originEnemy.y) <= maxRange)
+      .sort((a, b) => {
+        const byDist = (Math.abs(a.x - originEnemy.x) + Math.abs(a.y - originEnemy.y)) - (Math.abs(b.x - originEnemy.x) + Math.abs(b.y - originEnemy.y));
+        if (byDist !== 0) return byDist;
+        return b.count - a.count;
+      });
+    const selected = [];
+    const seen = new Set();
+    for (const tile of candidates) {
+      const key = `${tile.x},${tile.y}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      selected.push({ x: tile.x, y: tile.y });
+      if (selected.length >= tileCount) break;
+    }
+    if (!selected.length) selected.push({ x: originEnemy.x, y: originEnemy.y });
+    while (selected.length < tileCount) {
+      const offsets = [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+        { x: 1, y: 1 },
+        { x: -1, y: -1 },
+      ];
+      const base = selected[0];
+      const next = offsets
+        .map((offset) => ({ x: base.x + offset.x, y: base.y + offset.y }))
+        .find((tile) => inBounds(tile.x, tile.y) && !selected.some((entry) => entry.x === tile.x && entry.y === tile.y));
+      if (!next) break;
+      selected.push(next);
+    }
+    return selected.slice(0, tileCount);
+  }
+
   function getAbilityDescription(tower, abilityKey) {
     const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
     const stronger = powerMult > 1 ? ' This is an unlock skill, so it is 100% stronger and has 50% longer cooldown.' : '';
@@ -6834,6 +6972,10 @@ function renderDamageReport() {
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'fireball').toFixed(1)}s.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
+      temporal_restoration: `Passive. Heals all friendly heroes except Statues for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * 100).toFixed(1)}% every second.${common}${scale}`,
+      warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
+      chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10. Cooldown: ${getAbilityCooldownSeconds(tower, 'chrono_purge').toFixed(1)}s.${common}${scale}`,
+      evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage.${common}${scale}`,
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Support Satellite. Every 10 cleared waves, the Priest gains 1 Blinding Light Totem charge. Place it on any open tile for ${BLINDING_LIGHT_TOTEM_DURATION_WAVES} waves. Enemies in the aura are slowed by ${(BLINDING_LIGHT_TOTEM_SLOW_PERCENT * 100).toFixed(0)}%, their attack speed is slowed by ${(BLINDING_LIGHT_TOTEM_ATTACK_SLOW_PERCENT * 100).toFixed(0)}%, and both effects linger for ${BLINDING_LIGHT_TOTEM_LINGER_SECONDS}s after leaving. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
@@ -6845,6 +6987,8 @@ function renderDamageReport() {
     };
     if (tower.type === 'pirate') {
       map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
+    }
+    if (tower.type === 'seer') {
     }
     return map[abilityKey] || `${common}${scale}`;
   }
@@ -7174,15 +7318,25 @@ function renderDamageReport() {
 
     const typeToPlace = game.placingHeroType;
     const usesBonusHire = !!game.placingHeroUsesBonus;
+    if (!isSatellitePlacement && typeToPlace === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
+      game.placingHeroType = null;
+      game.placingHeroCost = 0;
+      game.placingHeroUsesBonus = false;
+      game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
+      showBanner('Wave 1 only allows your single free starting Warrior. Place that Warrior first.', 2200);
+      render();
+      return;
+    }
+    const pendingMilestonePlacement = !isSatellitePlacement && game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === typeToPlace
+      ? { ...game.pendingMilestoneHeroPlacement }
+      : null;
+    const isMilestonePlacement = !!pendingMilestonePlacement;
     const cost = isSatellitePlacement
       ? 0
       : (game.placingHeroCost === 0
         ? 0
         : (Number.isFinite(game.placingHeroCost) ? Number(game.placingHeroCost) : getNextHireCost(false)));
-
-    const pendingMilestoneDuplicatePlacement = !isSatellitePlacement
-      && game.pendingMilestoneHeroPlacement
-      && game.pendingMilestoneHeroPlacement.heroType === typeToPlace;
 
     if (isSatellitePlacement) {
       if (!sourceTower || (sourceTower.satelliteCharges || 0) <= 0) {
@@ -7215,7 +7369,7 @@ function renderDamageReport() {
         render();
         return;
       }
-    } else if (!pendingMilestoneDuplicatePlacement && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
+    } else if (!isMilestonePlacement && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
       const heroName = TOWER_TEMPLATES[typeToPlace]?.name || 'That hero';
       showBanner(`${heroName} is already in this run.`, 1600);
       game.placingHeroType = null;
@@ -7262,9 +7416,6 @@ function renderDamageReport() {
       const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
       if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
     }
-    const pendingMilestonePlacement = !isSatellitePlacement && game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === typeToPlace
-      ? { ...game.pendingMilestoneHeroPlacement }
-      : null;
     if (pendingMilestonePlacement) {
       const targetLevel = Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1));
       for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
@@ -7340,8 +7491,10 @@ function renderDamageReport() {
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
       if (pendingMilestonePlacement) {
         game.pendingMilestoneHeroPlacement = null;
-        if (!game.runningWave && Number(game.countdownMs || 0) <= 0 && game.phase === SETUP_PHASES.BATTLE) {
-          setCountdown(WAVE_BREAK_SECONDS);
+        game.countdownMs = 0;
+        game.autoStartReadyAt = 0;
+        if (game.phase === SETUP_PHASES.BATTLE) {
+          setInstruction(`Reinforcement placed. Wave ${game.waveNumber + 1} is ready when you are.`);
         }
       }
     }
@@ -8265,6 +8418,42 @@ function renderDamageReport() {
     }
   }
 
+  function closeSeerIntroModal(options = {}) {
+    if (els.seerIntroModal) {
+      els.seerIntroModal.classList.add('hidden');
+      els.seerIntroModal.setAttribute('aria-hidden', 'true');
+    }
+    if (!options.keepBoardLocked) {
+      setBoardInputLocked(false);
+    }
+    if (!options.preserveIntroState) {
+      game.introOpen = false;
+      document.body.classList.remove('intro-open');
+      syncStatusOverlayVisibility(false);
+      showStatusOverlay();
+    }
+  }
+
+  function openSeerIntroModal() {
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    closeContinueOfferModal();
+    closeGuestConnectConfirmModal({ preserveIntroState: true });
+    closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+    game.modalDismiss = null;
+    game.introOpen = true;
+    document.body.classList.add('intro-open');
+    syncStatusOverlayVisibility(true);
+    setBoardInputLocked(true);
+    if (els.seerIntroModal) {
+      els.seerIntroModal.classList.remove('hidden');
+      els.seerIntroModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
   function openStartModeModal() {
     closeIntroModal();
     closeBountyModal();
@@ -8325,8 +8514,8 @@ function renderDamageReport() {
   function chooseGuestModeFromPrompt(event = null) {
     swallowModalEvent(event);
     suppressBoardClicks(1200);
-    closeStartModeModal({ keepBoardLocked: true });
-    window.setTimeout(() => setBoardInputLocked(false), 250);
+    closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+    openSeerIntroModal();
     showBanner('Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
   }
 
@@ -8344,7 +8533,7 @@ function renderDamageReport() {
       if (address) {
         await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
         showBanner('Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
-        window.setTimeout(() => setBoardInputLocked(false), 250);
+        openSeerIntroModal();
       } else {
         openStartModeModal();
         setStartModeNote('Wallet connection was canceled.');
@@ -9274,6 +9463,22 @@ function renderDamageReport() {
       }
     }
 
+    if (tower.type === 'seer' && isAbilityUnlocked(tower, 'temporal_restoration') && tower.hp > 0) {
+      const healTickAt = tower.seerHealTickAt || 0;
+      if (current >= healTickAt) {
+        const healPercent = getSeerPassiveHealPercent(tower);
+        const allies = game.towers.filter((ally) => ally && ally.hp > 0 && !isStatueTower(ally));
+        let healedAny = false;
+        for (const ally of allies) {
+          const before = Number(ally.hp || 0);
+          healTower(ally, Math.max(1, ally.maxHp * healPercent), null);
+          if (ally.hp > before) healedAny = true;
+        }
+        if (healedAny) createTileFlashArea([{ x: tower.x, y: tower.y }], 'seer');
+        tower.seerHealTickAt = current + SEER_PASSIVE_HEAL_INTERVAL_MS;
+      }
+    }
+
     if ((tower.type === 'wizard' || tower.type === 'wizard_satellite') && isAbilityUnlocked(tower, 'frost_bolt')) {
       const tickAt = tower.iceAuraTickAt || 0;
       if (current >= tickAt) {
@@ -9309,7 +9514,6 @@ function renderDamageReport() {
     if (!target) return;
     let damage = tower.damage;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
-    if (target.debuffs.warning_shot) damage *= (1 + Number(target.debuffs.warning_shot.bonusDamageTaken || 0.3));
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
     tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
@@ -9718,12 +9922,12 @@ function renderDamageReport() {
         } else if (enemy.type === 'skitter') {
           const splashDamage = ENEMY_TEMPLATES.skitter.damage * SKITTER_EXPLOSION_DAMAGE_MULTIPLIER * getWaveDamageMultiplier(game.waveNumber || 0);
           createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.21, 750, RED_FIRE_GIF_PATH, 'skitter-red-fire');
-          damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`);
+          damageTower(game, attackTarget, splashDamage, `${enemy.name} exploded on ${attackTarget.name}`, enemy);
           enemy.hp = 0;
           markProgress(`${enemy.name} exploded on ${attackTarget.name}.`);
           log(`${enemy.name} exploded on ${attackTarget.name} for ${Math.round(splashDamage)}.`);
         } else {
-          damageTower(game, attackTarget, enemy.damage, `${enemy.name} hit ${attackTarget.name}`);
+          damageTower(game, attackTarget, enemy.damage, `${enemy.name} hit ${attackTarget.name}`, enemy);
           markProgress(`${enemy.name} hit ${attackTarget.name}.`);
         }
         enemy.nextAttackAt = current + (enemy.attackInterval * (1 + getBlindingLightAttackSlowPercent(enemy))) * 1000;
@@ -9862,11 +10066,13 @@ function renderDamageReport() {
   function createProjectileEffect(effect) {
     if (!effect || !game) return;
     if (!game.projectileEffects) game.projectileEffects = [];
+    const startedAt = Number.isFinite(Number(effect.startedAt)) ? Number(effect.startedAt) : now();
+    const durationMs = effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS;
     game.projectileEffects.push({
       id: `projectile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ...effect,
-      startedAt: effect.startedAt || now(),
-      until: effect.until || (now() + (effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)),
+      startedAt,
+      until: effect.until || (startedAt + durationMs),
     });
   }
 
@@ -9883,6 +10089,42 @@ function renderDamageReport() {
       durationMs: ARCHER_PROJECTILE_ANIMATION_MS,
       imagePath: GREEN_FIRE_GIF_PATH,
     });
+  }
+
+  function createFireballProjectileEffect(sourceTower, target, opts = {}) {
+    if (!sourceTower || !target) return null;
+    const from = getTowerPixelCenter(sourceTower);
+    let to = null;
+    if (typeof target.x === 'number' && typeof target.y === 'number' && typeof target.hp === 'number') {
+      to = getEnemyPixelCenter(target);
+    } else if (typeof target.x === 'number' && typeof target.y === 'number') {
+      const tilePos = getTilePixelPosition(target.x, target.y);
+      to = {
+        x: tilePos.left + (tilePos.width / 2),
+        y: tilePos.top + (tilePos.height / 2),
+      };
+    }
+    if (!to) return null;
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 460;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    createProjectileEffect({
+      kind: 'wizard-fireball',
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs,
+      startedAt,
+      imagePath: FIREBALL_GIF_PATH,
+      sizeMultiplier: 0.62,
+      opacityFloor: 0.68,
+      opacityDrop: 0.12,
+      filter: 'drop-shadow(0 0 18px rgba(255, 140, 40, 0.98))',
+      rotationSpeed: 220,
+      pulseAmount: 0.09,
+      trailSteps: 3,
+    });
+    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
   }
 
   function createTowerLine(sourceTower, targetTower, colorKey) {
@@ -9902,20 +10144,22 @@ function renderDamageReport() {
     }
   }
 
-  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH, kind = 'statue-red-fire') {
+  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH, kind = 'statue-red-fire', effectTiles = null, opts = {}) {
     if (!inBounds(x, y)) return;
     if (!game.explosionEffects) game.explosionEffects = [];
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
     game.explosionEffects.push({
       id: `explosion-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       x,
       y,
       colorKey,
       radiusTiles,
-      startedAt: now(),
-      until: now() + durationMs,
+      startedAt,
+      until: startedAt + durationMs,
       durationMs,
       kind,
       imagePath,
+      effectTiles: Array.isArray(effectTiles) ? effectTiles.filter(tile => tile && inBounds(tile.x, tile.y)) : null,
     });
   }
 
@@ -10038,27 +10282,68 @@ function renderDamageReport() {
     els.enemyLayer.appendChild(svg);
     game.projectileEffects = (game.projectileEffects || []).filter(effect => effect.until > current);
     for (const effect of game.projectileEffects) {
+      if (current < (effect.startedAt || 0)) continue;
       const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)));
-      const x = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * progress);
-      const y = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * progress);
+      const easedProgress = effect.kind === 'wizard-fireball'
+        ? (1 - Math.pow(1 - progress, 3))
+        : progress;
+      const x = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * easedProgress);
+      const y = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * easedProgress);
       const sampleSize = game.grid?.[0]?.el?.offsetWidth || 36;
-      const size = Math.max(18, sampleSize * ARCHER_PROJECTILE_SIZE_MULTIPLIER);
-      const sprite = document.createElement('img');
-      sprite.src = effect.imagePath || GREEN_FIRE_GIF_PATH;
-      sprite.alt = '';
-      sprite.setAttribute('aria-hidden', 'true');
-      sprite.style.position = 'absolute';
-      sprite.style.left = `${x - (size / 2)}px`;
-      sprite.style.top = `${y - (size / 2)}px`;
-      sprite.style.width = `${size}px`;
-      sprite.style.height = `${size}px`;
-      sprite.style.pointerEvents = 'none';
-      sprite.style.opacity = `${Math.max(0.35, 1 - (progress * 0.45))}`;
-      sprite.style.filter = 'drop-shadow(0 0 8px rgba(140,255,170,0.95))';
-      els.enemyLayer.appendChild(sprite);
+      const effectSizeMultiplier = Number.isFinite(Number(effect.sizeMultiplier)) ? Number(effect.sizeMultiplier) : ARCHER_PROJECTILE_SIZE_MULTIPLIER;
+      const baseSize = Math.max(18, sampleSize * effectSizeMultiplier);
+      const pulseAmount = Number.isFinite(Number(effect.pulseAmount)) ? Number(effect.pulseAmount) : 0;
+      const pulseScale = effect.kind === 'wizard-fireball'
+        ? (1 + (Math.sin((current - effect.startedAt) / 38) * pulseAmount))
+        : 1;
+      const size = Math.max(18, baseSize * pulseScale);
+      const opacityFloor = Number.isFinite(Number(effect.opacityFloor)) ? Number(effect.opacityFloor) : 0.35;
+      const opacityDrop = Number.isFinite(Number(effect.opacityDrop)) ? Number(effect.opacityDrop) : 0.45;
+      const rotationSpeed = Number.isFinite(Number(effect.rotationSpeed)) ? Number(effect.rotationSpeed) : 0;
+      const rotation = effect.kind === 'wizard-fireball'
+        ? (((current - effect.startedAt) / rotationSpeed) % 360)
+        : 0;
+      const trailSteps = effect.kind === 'wizard-fireball'
+        ? Math.max(0, Math.round(Number(effect.trailSteps) || 0))
+        : 0;
+
+      for (let trailIndex = trailSteps; trailIndex >= 0; trailIndex -= 1) {
+        const trailFactor = trailSteps > 0 ? (trailIndex / Math.max(1, trailSteps)) : 0;
+        const trailProgress = effect.kind === 'wizard-fireball'
+          ? Math.max(0, easedProgress - (0.08 * trailIndex))
+          : easedProgress;
+        const trailX = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * trailProgress);
+        const trailY = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * trailProgress);
+        const sprite = document.createElement('img');
+        sprite.src = effect.imagePath || GREEN_FIRE_GIF_PATH;
+        sprite.alt = '';
+        sprite.setAttribute('aria-hidden', 'true');
+        sprite.style.position = 'absolute';
+        const trailSize = effect.kind === 'wizard-fireball'
+          ? (size * (1 - (0.08 * trailIndex)))
+          : size;
+        sprite.style.left = `${trailX - (trailSize / 2)}px`;
+        sprite.style.top = `${trailY - (trailSize / 2)}px`;
+        sprite.style.width = `${trailSize}px`;
+        sprite.style.height = `${trailSize}px`;
+        sprite.style.pointerEvents = 'none';
+        const baseOpacity = Math.max(opacityFloor, 1 - (progress * opacityDrop));
+        const finalOpacity = effect.kind === 'wizard-fireball'
+          ? Math.max(0.12, baseOpacity * (trailIndex === 0 ? 1 : (0.45 - (0.08 * (trailSteps - trailIndex)))))
+          : baseOpacity;
+        sprite.style.opacity = `${finalOpacity}`;
+        sprite.style.filter = effect.kind === 'wizard-fireball'
+          ? `drop-shadow(0 0 ${14 + (trailFactor * 8)}px rgba(255, 138, 32, 0.98))`
+          : (effect.filter || 'drop-shadow(0 0 8px rgba(140,255,170,0.95))');
+        sprite.style.transform = effect.kind === 'wizard-fireball'
+          ? `rotate(${rotation + (trailIndex * 14)}deg)`
+          : 'none';
+        els.enemyLayer.appendChild(sprite);
+      }
     }
     game.explosionEffects = (game.explosionEffects || []).filter(effect => effect.until > current);
     for (const effect of game.explosionEffects) {
+      if (current < (effect.startedAt || 0)) continue;
       const pos = getTilePixelPosition(effect.x, effect.y);
       const centerX = pos.left + (pos.width / 2);
       const centerY = pos.top + (pos.height / 2);
@@ -10068,22 +10353,34 @@ function renderDamageReport() {
       const radiusPx = baseRadiusPx + ((finalRadiusPx - baseRadiusPx) * progress);
       const alpha = Math.max(0, 0.55 - (progress * 0.45));
 
-      if (effect.kind === 'statue-red-fire') {
-        const spriteSizeMultiplier = effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER;
-        const spriteSize = Math.max(pos.width, pos.height) * spriteSizeMultiplier;
-        const sprite = document.createElement('img');
-        sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
-        sprite.alt = '';
-        sprite.setAttribute('aria-hidden', 'true');
-        sprite.style.position = 'absolute';
-        sprite.style.left = `${centerX - (spriteSize / 2)}px`;
-        sprite.style.top = `${centerY - (spriteSize / 2)}px`;
-        sprite.style.width = `${spriteSize}px`;
-        sprite.style.height = `${spriteSize}px`;
-        sprite.style.pointerEvents = 'none';
-        sprite.style.opacity = `${Math.max(0.4, 1 - (progress * 0.35))}`;
-        sprite.style.filter = 'drop-shadow(0 0 14px rgba(255,80,40,0.95))';
-        els.enemyLayer.appendChild(sprite);
+      if (effect.kind === 'statue-red-fire' || effect.kind === 'fireball-orange-burst') {
+        const effectTiles = effect.kind === 'fireball-orange-burst' && Array.isArray(effect.effectTiles) && effect.effectTiles.length
+          ? effect.effectTiles
+          : [{ x: effect.x, y: effect.y }];
+        for (const tile of effectTiles) {
+          const tilePos = getTilePixelPosition(tile.x, tile.y);
+          const tileCenterX = tilePos.left + (tilePos.width / 2);
+          const tileCenterY = tilePos.top + (tilePos.height / 2);
+          const spriteSizeMultiplier = effect.kind === 'fireball-orange-burst'
+            ? 0.8
+            : (effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER);
+          const spriteSize = Math.max(tilePos.width, tilePos.height) * spriteSizeMultiplier;
+          const sprite = document.createElement('img');
+          sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
+          sprite.alt = '';
+          sprite.setAttribute('aria-hidden', 'true');
+          sprite.style.position = 'absolute';
+          sprite.style.left = `${tileCenterX - (spriteSize / 2)}px`;
+          sprite.style.top = `${tileCenterY - (spriteSize / 2)}px`;
+          sprite.style.width = `${spriteSize}px`;
+          sprite.style.height = `${spriteSize}px`;
+          sprite.style.pointerEvents = 'none';
+          sprite.style.opacity = `${Math.max(0.4, 1 - (progress * 0.35))}`;
+          sprite.style.filter = effect.kind === 'fireball-orange-burst'
+            ? 'drop-shadow(0 0 10px rgba(255,110,30,0.95))'
+            : 'drop-shadow(0 0 14px rgba(255,80,40,0.95))';
+          els.enemyLayer.appendChild(sprite);
+        }
       }
 
       const ring = document.createElement('div');
@@ -10400,6 +10697,8 @@ function renderDamageReport() {
       if (message && chance(0.2)) log(`${sourceTower.name} missed ${enemy.name}.`);
       return 0;
     }
+    if (enemy.debuffs?.warning_shot) damage *= (1 + Number(enemy.debuffs.warning_shot.bonusDamageTaken || 0.3));
+    if (enemy.debuffs?.chrono_purge) damage *= (1 + Number(enemy.debuffs.chrono_purge.bonusDamageTaken || CHRONO_PURGE_BONUS_DAMAGE_TAKEN));
     if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
     const appliedDamage = Math.max(0, Math.min(Number(enemy.hp || 0), Number(damage || 0)));
     enemy.hp -= damage;
@@ -10410,30 +10709,43 @@ function renderDamageReport() {
       recordTowerDamage(sourceTower, appliedDamage, methodKey, methodLabel);
       updateQuestMetric('damageTotal', appliedDamage);
     }
-    const towerCanPullAggro = !!sourceTower && (sourceTower.type === 'warrior' || isStatueTower(sourceTower));
-    const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
-    enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + aggroGain;
-    enemy.lastAggroAt = now();
-    const currentThreat = enemy.aggroTargetId ? (enemy.threat[enemy.aggroTargetId] || 0) : 0;
-    const portalBiasDistance = portalDistance(enemy);
-    const towerDistance = Math.abs(enemy.x - sourceTower.x) + Math.abs(enemy.y - sourceTower.y);
-    if (towerCanPullAggro && canEnemyAggroTower(enemy, sourceTower) && (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 2.4) && towerDistance <= portalBiasDistance) {
-      enemy.aggroTargetId = sourceTower.id;
+    if (sourceTower) {
+      const towerCanPullAggro = sourceTower.type === 'warrior' || isStatueTower(sourceTower);
+      const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
+      enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + aggroGain;
+      enemy.lastAggroAt = now();
+      const currentThreat = enemy.aggroTargetId ? (enemy.threat[enemy.aggroTargetId] || 0) : 0;
+      const portalBiasDistance = portalDistance(enemy);
+      const towerDistance = Math.abs(enemy.x - sourceTower.x) + Math.abs(enemy.y - sourceTower.y);
+      if (towerCanPullAggro && canEnemyAggroTower(enemy, sourceTower) && (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 2.4) && towerDistance <= portalBiasDistance) {
+        enemy.aggroTargetId = sourceTower.id;
+      }
+      createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
+      createHitFlash(enemy.x, enemy.y, heroColorKey(sourceTower.type), `-${Math.round(damage)}`);
+      markProgress(`${sourceTower.name} damaged ${enemy.name}.`);
+    } else {
+      createHitFlash(enemy.x, enemy.y, 'default', `-${Math.round(damage)}`);
     }
-    createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
-    createHitFlash(enemy.x, enemy.y, heroColorKey(sourceTower.type), `-${Math.round(damage)}`);
-    markProgress(`${sourceTower.name} damaged ${enemy.name}.`);
     if (message && chance(0.15)) log(`${message} for ${Math.round(damage)}.`);
   }
 
-  function damageTower(gameState, tower, amount, message) {
+  function damageTower(gameState, tower, amount, message, attacker = null) {
     let damage = amount;
+    const warriorOrStatue = tower && (tower.type === 'warrior' || isStatueTower(tower));
+    if (warriorOrStatue && hasUnlockedSeerEvasion() && Math.random() < SEER_EVASION_CHANCE) {
+      const missX = attacker && Number.isFinite(attacker.x) ? attacker.x : tower.x;
+      const missY = attacker && Number.isFinite(attacker.y) ? attacker.y : tower.y;
+      createHitFlash(missX, missY, 'seer', 'MISS', { smallText: true });
+      if (message && chance(0.2)) log(`${tower.name} evaded the attack.`);
+      return 0;
+    }
     if (tower.type === 'warrior' && game.modifiers.shieldWall && game.towers.some(t => t.type === 'priest' && dist(t, tower) === 1)) {
       damage *= 0.93;
     }
     tower.hp -= damage;
     markProgress(`${tower.name} took damage.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(damage)}.`);
+    return damage;
   }
 
   function healTower(tower, amount, message, options = null) {
@@ -10453,7 +10765,8 @@ function renderDamageReport() {
   }
 
   function applyDebuffTickDamage(unit, debuff, amount, methodKey, methodLabel) {
-    const damage = Math.max(0, Number(amount || 0));
+    let damage = Math.max(0, Number(amount || 0));
+    if (unit?.debuffs?.chrono_purge) damage *= (1 + Number(unit.debuffs.chrono_purge.bonusDamageTaken || CHRONO_PURGE_BONUS_DAMAGE_TAKEN));
     if (!damage || !unit || unit.hp <= 0) return;
     const appliedDamage = Math.max(0, Math.min(Number(unit.hp || 0), damage));
     unit.hp -= damage;
@@ -10679,6 +10992,35 @@ function renderDamageReport() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
+        const impactedTiles = [];
+        const seenImpactedTiles = new Set();
+        targets.forEach((enemy) => {
+          const impactedKey = `${enemy.x},${enemy.y}`;
+          if (seenImpactedTiles.has(impactedKey)) return;
+          seenImpactedTiles.add(impactedKey);
+          impactedTiles.push({ x: enemy.x, y: enemy.y });
+        });
+        if (!impactedTiles.length) impactedTiles.push({ x: target.x, y: target.y });
+        impactedTiles.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        const rowOrder = [...new Set(impactedTiles.map(tile => tile.y))];
+        const baseCastAt = now();
+        const rowRippleDelayMs = 95;
+        const withinRowDelayMs = 30;
+        impactedTiles.forEach((tile, tileIndex) => {
+          const rowIndex = Math.max(0, rowOrder.indexOf(tile.y));
+          const rowStartAt = baseCastAt + (rowIndex * rowRippleDelayMs);
+          const withinRowIndex = impactedTiles
+            .slice(0, tileIndex)
+            .filter(previousTile => previousTile.y === tile.y)
+            .length;
+          const projectileMeta = createFireballProjectileEffect(tower, tile, {
+            startedAt: rowStartAt + (withinRowIndex * withinRowDelayMs),
+            durationMs: 460,
+          });
+          if (projectileMeta) {
+            createExplosionEffect(tile.x, tile.y, 'wizard', 0.65, 420, FIREBALL_GIF_PATH, 'fireball-orange-burst', [{ x: tile.x, y: tile.y }], { startedAt: projectileMeta.arrivalAt - 70 });
+          }
+        });
         const fireballDamage = (70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage;
         targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, fireballDamage, null, { key: 'fireball', label: 'Fireball' }); });
         const areaTiles = [];
@@ -10693,6 +11035,59 @@ function renderDamageReport() {
         if (getEnemySlowPercent(target) > 0) dmg *= 2;
         damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`, { key: 'frost_lance', label: 'Frost Lance' });
         return true;
+      },
+      temporal_restoration() {
+        return false;
+      },
+      warstone() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        const targetTiles = collectTileTargets(target, 3, 1);
+        const from = getTowerPixelCenter(tower);
+        let hitAny = false;
+        for (const tileTarget of targetTiles) {
+          const tilePos = getTilePixelPosition(tileTarget.x, tileTarget.y);
+          createProjectileEffect({
+            kind: 'seer-warstone',
+            fromX: from.x,
+            fromY: from.y,
+            toX: tilePos.left + (tilePos.width / 2),
+            toY: tilePos.top + (tilePos.height / 2),
+            durationMs: 450,
+            imagePath: 'assets/rock.png',
+          });
+          const tileEnemies = game.enemies
+            .filter((enemy) => enemy.x === tileTarget.x && enemy.y === tileTarget.y)
+            .slice(0, 3);
+          for (const enemy of tileEnemies) {
+            damageEnemy(tower, enemy, WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1), null, { key: 'warstone', label: 'Warstone' });
+            hitAny = true;
+          }
+        }
+        createTileFlashArea(targetTiles, 'seer');
+        return hitAny;
+      },
+      chrono_purge() {
+        const target = nearestEnemyInRange(tower, tower.range);
+        if (!target) return false;
+        const targetTiles = collectTileTargets(target, 2, 1);
+        const chronoDamage = getChronoPurgeDamage(tower);
+        let hitAny = false;
+        for (const tileTarget of targetTiles) {
+          const tileEnemies = game.enemies
+            .filter((enemy) => enemy.x === tileTarget.x && enemy.y === tileTarget.y)
+            .slice(0, 3);
+          for (const enemy of tileEnemies) {
+            damageEnemy(tower, enemy, chronoDamage, null, { key: 'chrono_purge', label: 'Chrono Purge' });
+            applyDebuff(enemy, 'chrono_purge', CHRONO_PURGE_DURATION_SECONDS, { bonusDamageTaken: CHRONO_PURGE_BONUS_DAMAGE_TAKEN });
+            hitAny = true;
+          }
+        }
+        createTileFlashArea(targetTiles, 'seer');
+        return hitAny;
+      },
+      evasion() {
+        return false;
       },
       prayer_of_healing() {
         const allies = game.towers.filter(t => dist(t, tower) <= 5 && !isStatueTower(t) && t.hp < t.maxHp);
@@ -10765,7 +11160,7 @@ function renderDamageReport() {
     }
     const cooldown = getAbilityCooldownSeconds(tower, abilityKey);
     let mult = 1;
-    if ((tower.type === 'wizard' || tower.type === 'wizard_satellite')) mult *= game.modifiers.wizardCooldown;
+    if ((tower.type === 'wizard' || tower.type === 'wizard_satellite' || tower.type === 'seer')) mult *= game.modifiers.wizardCooldown;
     if (tower.type === 'warrior') mult *= game.modifiers.warriorCooldown;
     tower.abilityReadyAt[abilityKey] = now() + cooldown * 1000 * mult;
     if (!opts.auto) log(`${tower.name} used ${abilityKey.replaceAll('_', ' ')}.`);
@@ -11025,6 +11420,23 @@ function renderDamageReport() {
   }
   if (els.closeStartModeBtn) {
     els.closeStartModeBtn.onclick = (event) => { chooseGuestModeFromPrompt(event); };
+  }
+  if (els.seerIntroOkBtn) {
+    els.seerIntroOkBtn.onclick = (event) => {
+      swallowModalEvent(event);
+      closeSeerIntroModal();
+    };
+  }
+  if (els.closeSeerIntroBtn) {
+    els.closeSeerIntroBtn.onclick = (event) => {
+      swallowModalEvent(event);
+      closeSeerIntroModal();
+    };
+  }
+  if (els.seerIntroModal) {
+    els.seerIntroModal.addEventListener('click', (event) => {
+      if (event.target === els.seerIntroModal) stopModalPropagation(event);
+    });
   }
   document.addEventListener('click', (event) => {
     if (!els.startModeModal || els.startModeModal.classList.contains('hidden')) return;

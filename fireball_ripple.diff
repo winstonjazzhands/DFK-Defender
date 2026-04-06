@@ -1,0 +1,122 @@
+--- before
+
++++ after
+
+@@ -10004,9 +10004,11 @@
+
+     if (!effect || !game) return;
+     if (!game.projectileEffects) game.projectileEffects = [];
++    const startedAt = Number.isFinite(Number(effect.startedAt)) ? Number(effect.startedAt) : now();
++    const durationMs = effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS;
+     game.projectileEffects.push({
+       id: `projectile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+       ...effect,
+-      startedAt: effect.startedAt || now(),
+-      until: effect.until || (now() + (effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)),
++      startedAt,
++      until: effect.until || (startedAt + durationMs),
+     });
+   }
+@@ -10027,6 +10029,6 @@
+
+   }
+ 
+-  function createFireballProjectileEffect(sourceTower, target) {
+-    if (!sourceTower || !target) return;
++  function createFireballProjectileEffect(sourceTower, target, opts = {}) {
++    if (!sourceTower || !target) return null;
+     const from = getTowerPixelCenter(sourceTower);
+     let to = null;
+@@ -10040,5 +10042,7 @@
+
+       };
+     }
+-    if (!to) return;
++    if (!to) return null;
++    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 460;
++    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+     createProjectileEffect({
+       kind: 'wizard-fireball',
+@@ -10047,5 +10051,6 @@
+
+       toX: to.x,
+       toY: to.y,
+-      durationMs: 460,
++      durationMs,
++      startedAt,
+       imagePath: FIREBALL_GIF_PATH,
+       sizeMultiplier: 0.62,
+@@ -10057,4 +10062,5 @@
+
+       trailSteps: 3,
+     });
++    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+   }
+ 
+@@ -10076,7 +10082,8 @@
+
+   }
+ 
+-  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH, kind = 'statue-red-fire', effectTiles = null) {
++  function createExplosionEffect(x, y, colorKey = 'warrior', radiusTiles = EXPLODING_STATUE_RADIUS, durationMs = EXPLODING_STATUE_ANIMATION_MS, imagePath = RED_FIRE_GIF_PATH, kind = 'statue-red-fire', effectTiles = null, opts = {}) {
+     if (!inBounds(x, y)) return;
+     if (!game.explosionEffects) game.explosionEffects = [];
++    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+     game.explosionEffects.push({
+       id: `explosion-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+@@ -10085,6 +10092,6 @@
+
+       colorKey,
+       radiusTiles,
+-      startedAt: now(),
+-      until: now() + durationMs,
++      startedAt,
++      until: startedAt + durationMs,
+       durationMs,
+       kind,
+@@ -10213,4 +10220,5 @@
+
+     game.projectileEffects = (game.projectileEffects || []).filter(effect => effect.until > current);
+     for (const effect of game.projectileEffects) {
++      if (current < (effect.startedAt || 0)) continue;
+       const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)));
+       const easedProgress = effect.kind === 'wizard-fireball'
+@@ -10273,4 +10281,5 @@
+
+     game.explosionEffects = (game.explosionEffects || []).filter(effect => effect.until > current);
+     for (const effect of game.explosionEffects) {
++      if (current < (effect.startedAt || 0)) continue;
+       const pos = getTilePixelPosition(effect.x, effect.y);
+       const centerX = pos.left + (pos.width / 2);
+@@ -10930,10 +10939,28 @@
+
+         });
+         if (!impactedTiles.length) impactedTiles.push({ x: target.x, y: target.y });
+-        impactedTiles.forEach((tile) => createFireballProjectileEffect(tower, tile));
++        impactedTiles.sort((a, b) => (a.y - b.y) || (a.x - b.x));
++        const rowOrder = [...new Set(impactedTiles.map(tile => tile.y))];
++        const baseCastAt = now();
++        const rowRippleDelayMs = 95;
++        const withinRowDelayMs = 30;
++        impactedTiles.forEach((tile, tileIndex) => {
++          const rowIndex = Math.max(0, rowOrder.indexOf(tile.y));
++          const rowStartAt = baseCastAt + (rowIndex * rowRippleDelayMs);
++          const withinRowIndex = impactedTiles
++            .slice(0, tileIndex)
++            .filter(previousTile => previousTile.y === tile.y)
++            .length;
++          const projectileMeta = createFireballProjectileEffect(tower, tile, {
++            startedAt: rowStartAt + (withinRowIndex * withinRowDelayMs),
++            durationMs: 460,
++          });
++          if (projectileMeta) {
++            createExplosionEffect(tile.x, tile.y, 'wizard', 0.65, 420, FIREBALL_GIF_PATH, 'fireball-orange-burst', [{ x: tile.x, y: tile.y }], { startedAt: projectileMeta.arrivalAt - 70 });
++          }
++        });
+         const fireballDamage = (70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage;
+         targets.forEach(e => { createAttackLine(tower, e, 'wizard', 'wizard-fireball'); damageEnemy(tower, e, fireballDamage, null, { key: 'fireball', label: 'Fireball' }); });
+         const areaTiles = [];
+         for (let xx = target.x - 2; xx <= target.x + 2; xx++) for (let yy = target.y - 2; yy <= target.y + 2; yy++) if (inBounds(xx, yy) && Math.abs(xx - target.x) + Math.abs(yy - target.y) <= 2) areaTiles.push({x:xx,y:yy});
+-        createExplosionEffect(target.x, target.y, 'wizard', 1.15, 700, FIREBALL_GIF_PATH, 'fireball-orange-burst', areaTiles);
+         createTileFlashArea(areaTiles, 'wizard');
+         return true;

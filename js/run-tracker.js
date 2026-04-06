@@ -260,17 +260,12 @@
     writeQueue(trimmed);
   }
 
-  function looksLikeJwt(value) {
-    const raw = String(value || '').trim();
-    return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(raw);
-  }
-
   async function callFunction(functionName, payload, token) {
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.key,
+      Authorization: `Bearer ${CONFIG.key}`,
     };
-    if (looksLikeJwt(CONFIG.key)) headers.Authorization = `Bearer ${CONFIG.key}`;
     if (token) headers['x-session-token'] = String(token);
     const response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
       method: 'POST',
@@ -733,16 +728,15 @@
 
       try {
         const body = JSON.stringify(payload);
-        const headers = {
-          'Content-Type': 'application/json',
-          apikey: CONFIG.key,
-          'x-session-token': String(state.session.sessionToken),
-        };
-        if (looksLikeJwt(CONFIG.key)) headers.Authorization = `Bearer ${CONFIG.key}`;
         fetch(`${CONFIG.url}/functions/v1/${CONFIG.submitFunction}`, {
           method: 'POST',
           keepalive: true,
-          headers,
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: CONFIG.key,
+            Authorization: `Bearer ${state.session.sessionToken}`,
+            'x-session-token': String(state.session.sessionToken),
+          },
           body,
         }).then(async () => {
           try {
