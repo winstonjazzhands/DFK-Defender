@@ -620,6 +620,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const RED_FIRE_GIF_PATH = 'assets/red-fire.gif';
   const PURPLE_FIRE_GIF_PATH = 'assets/purple-fire.gif';
   const FIREBALL_GIF_PATH = 'assets/fireball-flame-ball.png';
+  const CANNONBALL_IMAGE_PATH = 'assets/cannonball.png';
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
   const TORN_SOUL_BURN_RADIUS = 1;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
@@ -2216,10 +2217,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   }
 
   function hasMilestoneBarrierOffer(waveNumber) {
-    const safeWave = Math.max(0, Number(waveNumber || 0));
-    if (safeWave < 30) return false;
-    if (safeWave === 30) return true;
-    return (safeWave - 30) % 50 === 0;
+    void waveNumber;
+    return false;
   }
 
   function getMilestoneBarrierOfferConfig(waveNumber) {
@@ -10127,6 +10126,42 @@ function renderDamageReport() {
     return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
   }
 
+  function createCannonballProjectileEffect(sourceTower, target, opts = {}) {
+    if (!sourceTower || !target) return null;
+    const from = getTowerPixelCenter(sourceTower);
+    let to = null;
+    if (typeof target.x === 'number' && typeof target.y === 'number' && typeof target.hp === 'number') {
+      to = getEnemyPixelCenter(target);
+    } else if (typeof target.x === 'number' && typeof target.y === 'number') {
+      const tilePos = getTilePixelPosition(target.x, target.y);
+      to = {
+        x: tilePos.left + (tilePos.width / 2),
+        y: tilePos.top + (tilePos.height / 2),
+      };
+    }
+    if (!to) return null;
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 420;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    createProjectileEffect({
+      kind: 'pirate-cannonball',
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs,
+      startedAt,
+      imagePath: CANNONBALL_IMAGE_PATH,
+      sizeMultiplier: 0.48,
+      opacityFloor: 0.82,
+      opacityDrop: 0.08,
+      filter: 'drop-shadow(0 0 10px rgba(40, 20, 0, 0.75))',
+      rotationSpeed: 180,
+      pulseAmount: 0.03,
+      trailSteps: 2,
+    });
+    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+  }
+
   function createTowerLine(sourceTower, targetTower, colorKey) {
     if (!sourceTower || !targetTower) return;
     game.attackLines.push({
@@ -10284,7 +10319,8 @@ function renderDamageReport() {
     for (const effect of game.projectileEffects) {
       if (current < (effect.startedAt || 0)) continue;
       const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)));
-      const easedProgress = effect.kind === 'wizard-fireball'
+      const usesArcProjectileStyle = effect.kind === 'wizard-fireball' || effect.kind === 'pirate-cannonball';
+      const easedProgress = usesArcProjectileStyle
         ? (1 - Math.pow(1 - progress, 3))
         : progress;
       const x = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * easedProgress);
@@ -10293,23 +10329,23 @@ function renderDamageReport() {
       const effectSizeMultiplier = Number.isFinite(Number(effect.sizeMultiplier)) ? Number(effect.sizeMultiplier) : ARCHER_PROJECTILE_SIZE_MULTIPLIER;
       const baseSize = Math.max(18, sampleSize * effectSizeMultiplier);
       const pulseAmount = Number.isFinite(Number(effect.pulseAmount)) ? Number(effect.pulseAmount) : 0;
-      const pulseScale = effect.kind === 'wizard-fireball'
+      const pulseScale = usesArcProjectileStyle
         ? (1 + (Math.sin((current - effect.startedAt) / 38) * pulseAmount))
         : 1;
       const size = Math.max(18, baseSize * pulseScale);
       const opacityFloor = Number.isFinite(Number(effect.opacityFloor)) ? Number(effect.opacityFloor) : 0.35;
       const opacityDrop = Number.isFinite(Number(effect.opacityDrop)) ? Number(effect.opacityDrop) : 0.45;
       const rotationSpeed = Number.isFinite(Number(effect.rotationSpeed)) ? Number(effect.rotationSpeed) : 0;
-      const rotation = effect.kind === 'wizard-fireball'
+      const rotation = usesArcProjectileStyle
         ? (((current - effect.startedAt) / rotationSpeed) % 360)
         : 0;
-      const trailSteps = effect.kind === 'wizard-fireball'
+      const trailSteps = usesArcProjectileStyle
         ? Math.max(0, Math.round(Number(effect.trailSteps) || 0))
         : 0;
 
       for (let trailIndex = trailSteps; trailIndex >= 0; trailIndex -= 1) {
         const trailFactor = trailSteps > 0 ? (trailIndex / Math.max(1, trailSteps)) : 0;
-        const trailProgress = effect.kind === 'wizard-fireball'
+        const trailProgress = usesArcProjectileStyle
           ? Math.max(0, easedProgress - (0.08 * trailIndex))
           : easedProgress;
         const trailX = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * trailProgress);
@@ -10319,7 +10355,7 @@ function renderDamageReport() {
         sprite.alt = '';
         sprite.setAttribute('aria-hidden', 'true');
         sprite.style.position = 'absolute';
-        const trailSize = effect.kind === 'wizard-fireball'
+        const trailSize = usesArcProjectileStyle
           ? (size * (1 - (0.08 * trailIndex)))
           : size;
         sprite.style.left = `${trailX - (trailSize / 2)}px`;
@@ -10328,14 +10364,16 @@ function renderDamageReport() {
         sprite.style.height = `${trailSize}px`;
         sprite.style.pointerEvents = 'none';
         const baseOpacity = Math.max(opacityFloor, 1 - (progress * opacityDrop));
-        const finalOpacity = effect.kind === 'wizard-fireball'
+        const finalOpacity = usesArcProjectileStyle
           ? Math.max(0.12, baseOpacity * (trailIndex === 0 ? 1 : (0.45 - (0.08 * (trailSteps - trailIndex)))))
           : baseOpacity;
         sprite.style.opacity = `${finalOpacity}`;
         sprite.style.filter = effect.kind === 'wizard-fireball'
           ? `drop-shadow(0 0 ${14 + (trailFactor * 8)}px rgba(255, 138, 32, 0.98))`
-          : (effect.filter || 'drop-shadow(0 0 8px rgba(140,255,170,0.95))');
-        sprite.style.transform = effect.kind === 'wizard-fireball'
+          : (effect.kind === 'pirate-cannonball'
+            ? `drop-shadow(0 0 ${8 + (trailFactor * 4)}px rgba(60, 35, 12, 0.72))`
+            : (effect.filter || 'drop-shadow(0 0 8px rgba(140,255,170,0.95))'));
+        sprite.style.transform = usesArcProjectileStyle
           ? `rotate(${rotation + (trailIndex * 14)}deg)`
           : 'none';
         els.enemyLayer.appendChild(sprite);
@@ -10353,8 +10391,8 @@ function renderDamageReport() {
       const radiusPx = baseRadiusPx + ((finalRadiusPx - baseRadiusPx) * progress);
       const alpha = Math.max(0, 0.55 - (progress * 0.45));
 
-      if (effect.kind === 'statue-red-fire' || effect.kind === 'fireball-orange-burst') {
-        const effectTiles = effect.kind === 'fireball-orange-burst' && Array.isArray(effect.effectTiles) && effect.effectTiles.length
+      if (effect.kind === 'statue-red-fire' || effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst') {
+        const effectTiles = (effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst') && Array.isArray(effect.effectTiles) && effect.effectTiles.length
           ? effect.effectTiles
           : [{ x: effect.x, y: effect.y }];
         for (const tile of effectTiles) {
@@ -10363,7 +10401,9 @@ function renderDamageReport() {
           const tileCenterY = tilePos.top + (tilePos.height / 2);
           const spriteSizeMultiplier = effect.kind === 'fireball-orange-burst'
             ? 0.8
-            : (effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER);
+            : (effect.kind === 'pirate-cannonball-burst'
+              ? 0.55
+              : (effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER));
           const spriteSize = Math.max(tilePos.width, tilePos.height) * spriteSizeMultiplier;
           const sprite = document.createElement('img');
           sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
@@ -10378,7 +10418,9 @@ function renderDamageReport() {
           sprite.style.opacity = `${Math.max(0.4, 1 - (progress * 0.35))}`;
           sprite.style.filter = effect.kind === 'fireball-orange-burst'
             ? 'drop-shadow(0 0 10px rgba(255,110,30,0.95))'
-            : 'drop-shadow(0 0 14px rgba(255,80,40,0.95))';
+            : (effect.kind === 'pirate-cannonball-burst'
+              ? 'drop-shadow(0 0 10px rgba(60,35,12,0.8))'
+              : 'drop-shadow(0 0 14px rgba(255,80,40,0.95))');
           els.enemyLayer.appendChild(sprite);
         }
       }
@@ -10392,8 +10434,13 @@ function renderDamageReport() {
       ring.style.borderRadius = '50%';
       ring.style.pointerEvents = 'none';
       ring.style.boxSizing = 'border-box';
-      ring.style.border = `${Math.max(2, Math.round(8 - (progress * 5)))}px solid rgba(255, 173, 66, ${alpha.toFixed(3)})`;
-      ring.style.background = `radial-gradient(circle, rgba(255, 240, 180, ${(0.28 * (1 - progress)).toFixed(3)}) 0%, rgba(255, 163, 66, ${(0.24 * (1 - progress)).toFixed(3)}) 40%, rgba(255, 120, 30, 0) 75%)`;
+      if (effect.kind === 'pirate-cannonball-burst') {
+        ring.style.border = `${Math.max(2, Math.round(7 - (progress * 4)))}px solid rgba(120, 88, 48, ${alpha.toFixed(3)})`;
+        ring.style.background = `radial-gradient(circle, rgba(214, 189, 148, ${(0.18 * (1 - progress)).toFixed(3)}) 0%, rgba(120, 88, 48, ${(0.16 * (1 - progress)).toFixed(3)}) 45%, rgba(70, 45, 18, 0) 78%)`;
+      } else {
+        ring.style.border = `${Math.max(2, Math.round(8 - (progress * 5)))}px solid rgba(255, 173, 66, ${alpha.toFixed(3)})`;
+        ring.style.background = `radial-gradient(circle, rgba(255, 240, 180, ${(0.28 * (1 - progress)).toFixed(3)}) 0%, rgba(255, 163, 66, ${(0.24 * (1 - progress)).toFixed(3)}) 40%, rgba(255, 120, 30, 0) 75%)`;
+      }
       els.enemyLayer.appendChild(ring);
     }
     const byTile = new Map();
@@ -11137,10 +11184,19 @@ function renderDamageReport() {
         const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const shots = 4 + game.modifiers.extraCannons;
+        const cannonballDamage = STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 4);
         for (let i = 0; i < shots; i += 1) {
           const targets = game.enemies.filter(e => dist(e, target) <= 2);
           const chosen = targets.length ? pickRandom(targets) : target;
-          damageEnemy(tower, chosen, STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 4), null, { key: 'starboard_cannons', label: 'Starboard Cannons' });
+          const projectileMeta = createCannonballProjectileEffect(tower, chosen, {
+            startedAt: now() + (i * 55),
+            durationMs: 420,
+          });
+          if (projectileMeta) {
+            createExplosionEffect(chosen.x, chosen.y, 'pirate', 0.55, 260, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: chosen.x, y: chosen.y }], { startedAt: projectileMeta.arrivalAt - 50 });
+          }
+          createAttackLine(tower, chosen, 'pirate', 'pirate-cannonball');
+          damageEnemy(tower, chosen, cannonballDamage, null, { key: 'starboard_cannons', label: 'Starboard Cannons' });
         }
         return true;
       },
