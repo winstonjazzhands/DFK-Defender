@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BUILD_VERSION = 'v10.2.2';
+  const BUILD_VERSION = 'v10.2.3';
 
   const CONFIG = Object.freeze({
     chainId: Number(window.DFK_AVAX_CHAIN_ID || 43114),
@@ -16,6 +16,7 @@
     runBalanceFunction: window.DFK_SUPABASE_AVAX_RUN_BALANCE_FUNCTION || 'avax-run-balance',
     consumeRunFunction: window.DFK_SUPABASE_AVAX_CONSUME_RUN_FUNCTION || 'avax-consume-run',
     treasurySummaryFunction: window.DFK_SUPABASE_AVAX_TREASURY_SUMMARY_FUNCTION || 'avax-treasury-summary',
+    rewardClaimsAdminFunction: window.DFK_SUPABASE_REWARD_CLAIMS_ADMIN_FUNCTION || 'reward-claims-admin',
     treasuryAddress: window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81',
     runPriceWei: String(window.DFK_AVAX_RUN_PRICE_WEI || '2000000000000000'),
     bundleGames: Number(window.DFK_AVAX_BUNDLE_GAMES || 100),
@@ -37,6 +38,9 @@
     purchaseBundlePending: false,
     balanceLoadError: '',
     treasurySummary: null,
+    rewardClaims: null,
+    rewardClaimsLoading: false,
+    rewardClaimsError: '',
   };
   const ui = {};
 
@@ -62,6 +66,14 @@
     }
   }
   function normalizeAddress(address) { return String(address || '').trim().toLowerCase(); }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   function isTreasuryWallet(address) {
     return !!normalizeAddress(address) && normalizeAddress(address) === normalizeAddress(CONFIG.treasuryAddress);
@@ -72,36 +84,130 @@
     return full === '--' ? '--' : full.replace(/\s+AVAX$/, '');
   }
 
-  function updateTreasuryUi() {
-    const panel = qs('avaxTreasuryPanel');
-    const totalEl = qs('avaxTreasuryTotal');
-    const todayEl = qs('avaxTreasuryToday');
-    const breakdownEl = qs('avaxTreasuryBreakdown');
-    const countEl = qs('avaxTreasuryTxCount');
-    const statusEl = qs('avaxTreasuryStatus');
-    const wallet = getWallet();
-    const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
-    if (panel) {
-      panel.classList.toggle('hidden', !visible);
-      panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    }
-    if (!visible) return;
-    if (statusEl) statusEl.textContent = 'Private';
-    if (!state.treasurySummary) {
-      if (totalEl) totalEl.textContent = 'Treasury Earned: Loading…';
-      if (todayEl) todayEl.textContent = 'Today: --';
-      if (breakdownEl) breakdownEl.textContent = 'Bundles: -- · Gold swaps: -- · Hero hires: --';
-      if (countEl) countEl.textContent = 'Confirmed payments: --';
-      return;
-    }
-    const s = state.treasurySummary;
-    if (totalEl) totalEl.textContent = `Treasury Earned: ${formatAvaxFromWei(s.totalConfirmedWei || '0')}`;
-    if (todayEl) todayEl.textContent = `Today: ${formatAvaxFromWei(s.todayConfirmedWei || '0')}`;
-    if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')}`;
-    if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)}`;
-  }
 
-  function loadCachedBalance() {
+function renderRewardClaimsAdmin() {
+  const section = qs('rewardClaimsAdminSection');
+  const statusEl = qs('rewardClaimsAdminStatus');
+  const bodyEl = qs('rewardClaimsAdminBody');
+  const refreshBtn = qs('refreshRewardClaimsBtn');
+  const wallet = getWallet();
+  const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
+  if (section) {
+    section.classList.toggle('hidden', !visible);
+    section.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+  if (!visible || !bodyEl) return;
+  if (refreshBtn) refreshBtn.disabled = !!state.rewardClaimsLoading;
+  if (state.rewardClaimsLoading && !state.rewardClaims) {
+    if (statusEl) statusEl.textContent = 'Pending claims: Loading…';
+    bodyEl.innerHTML = '<div class="reward-claims-admin-empty">Loading reward claims…</div>';
+    return;
+  }
+  if (state.rewardClaimsError) {
+    if (statusEl) statusEl.textContent = 'Pending claims: Error';
+    bodyEl.innerHTML = `<div class="bounty-status-banner is-error">${state.rewardClaimsError}</div>`;
+    return;
+  }
+  const data = state.rewardClaims || { pendingCount: 0, pendingTotalsByCurrency: {}, items: [] };
+  const pendingCount = Number(data.pendingCount || 0);
+  const items = Array.isArray(data.items) ? data.items : [];
+  if (statusEl) statusEl.textContent = `Pending claims: ${pendingCount} · Showing ${items.length}`;
+  if (!items.length) {
+    bodyEl.innerHTML = '<div class="reward-claims-admin-empty">No reward claims yet.</div>';
+    return;
+  }
+  const totals = data && data.pendingTotalsByCurrency && typeof data.pendingTotalsByCurrency === 'object'
+    ? Object.entries(data.pendingTotalsByCurrency)
+        .map(([currency, value]) => ({ currency: String(currency || '').trim() || 'OTHER', value: Number(value || 0) || 0 }))
+        .filter((entry) => entry.value > 0)
+    : [];
+  const totalsMarkup = totals.length
+    ? `<div class="reward-claims-admin-summary">${totals.map((entry) => `<div class="reward-claims-pill"><span class="reward-claims-pill-label">Pending ${entry.currency}</span><span class="reward-claims-pill-value">${entry.value}</span></div>`).join('')}</div>`
+    : '';
+  bodyEl.innerHTML = `${totalsMarkup}${items.map((item) => {
+    const status = String(item.status || 'pending').toLowerCase();
+    const type = String(item.claimTypeLabel || item.claimType || 'Reward').trim();
+    const amount = String(item.amountText || '--').trim();
+    const walletText = String(item.walletAddress || '').trim();
+    const player = String(item.playerName || walletText || 'Unknown player').trim();
+    const reason = String(item.reason || item.title || '').trim();
+    const when = String(item.requestedAtLabel || item.requestedAt || '').trim();
+    const sourceRef = String(item.sourceRef || '').trim();
+    const claimDay = String(item.claimDay || '').trim();
+    const adminNote = String(item.adminNote || '').trim();
+    const whitelistLabel = item.whitelist && item.whitelist.isActive
+      ? `<div class="reward-claim-whitelist-badge">Whitelist${item.whitelist.autoDaily || item.whitelist.autoBounty ? ' · Auto' : ''}</div>`
+      : '';
+    const actions = `
+      <div class="reward-claim-actions">
+        ${status === 'pending' ? `<button class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve</button><button class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button>` : ''}
+        ${status !== 'paid' ? `<button class="reward-claim-action-btn is-good" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}
+      </div>
+    `;
+    return `
+      <article class="reward-claim-card is-${status}">
+        <div class="reward-claim-card-top">
+          <div>
+            <div class="reward-claim-card-title">${type}</div>${whitelistLabel}
+            <div class="reward-claim-card-status status-${status}">${String(status).toUpperCase()}</div>
+          </div>
+          <div class="reward-claim-card-amount">${amount}</div>
+        </div>
+        <div class="reward-claim-card-grid">
+          <div><span class="reward-claim-label">Player</span><div class="reward-claim-value">${player}</div></div>
+          <div><span class="reward-claim-label">Wallet</span><div class="reward-claim-value mono">${walletText}</div></div>
+          <div><span class="reward-claim-label">For</span><div class="reward-claim-value">${reason || '--'}</div></div>
+          <div><span class="reward-claim-label">Requested</span><div class="reward-claim-value">${when || '--'}</div></div>
+          ${claimDay ? `<div><span class="reward-claim-label">Claim day</span><div class="reward-claim-value">${claimDay}</div></div>` : ''}
+          ${sourceRef ? `<div><span class="reward-claim-label">Source</span><div class="reward-claim-value mono">${sourceRef}</div></div>` : ''}
+          ${adminNote ? `<div class="reward-claim-admin-note"><span class="reward-claim-label">Admin note</span><div class="reward-claim-value">${escapeHtml(adminNote)}</div></div>` : ''}
+          ${item.txHash ? `<div><span class="reward-claim-label">Tx Hash</span><div class="reward-claim-value mono">${escapeHtml(item.txHash)}</div></div>` : ''}
+          ${item.failureReason ? `<div class="reward-claim-admin-note"><span class="reward-claim-label">Failure</span><div class="reward-claim-value">${escapeHtml(item.failureReason)}</div></div>` : ''}
+        </div>
+        ${actions}
+      </article>
+    `;
+  }).join('')}`;
+}
+
+function updateTreasuryUi() {
+  const panel = qs('avaxTreasuryPanel');
+  const totalEl = qs('avaxTreasuryTotal');
+  const todayEl = qs('avaxTreasuryToday');
+  const breakdownEl = qs('avaxTreasuryBreakdown');
+  const countEl = qs('avaxTreasuryTxCount');
+  const statusEl = qs('avaxTreasuryStatus');
+  const wallet = getWallet();
+  const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
+  if (panel) {
+    panel.classList.toggle('hidden', !visible);
+    panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+  if (!visible) {
+    renderRewardClaimsAdmin();
+    return;
+  }
+  if (statusEl) {
+    const pendingCount = Number((state.rewardClaims && state.rewardClaims.pendingCount) || 0);
+    statusEl.textContent = pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private';
+  }
+  if (!state.treasurySummary) {
+    if (totalEl) totalEl.textContent = 'Treasury Earned: Loading…';
+    if (todayEl) todayEl.textContent = 'Today: --';
+    if (breakdownEl) breakdownEl.textContent = 'Bundles: -- · Gold swaps: -- · Hero hires: --';
+    if (countEl) countEl.textContent = 'Confirmed payments: --';
+    renderRewardClaimsAdmin();
+    return;
+  }
+  const s = state.treasurySummary;
+  if (totalEl) totalEl.textContent = `Treasury Earned: ${formatAvaxFromWei(s.totalConfirmedWei || '0')}`;
+  if (todayEl) todayEl.textContent = `Today: ${formatAvaxFromWei(s.todayConfirmedWei || '0')}`;
+  if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')}`;
+  if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)}`;
+  renderRewardClaimsAdmin();
+}
+
+function loadCachedBalance() {
     try {
       const raw = localStorage.getItem(BALANCE_CACHE_KEY);
       if (!raw) return null;
@@ -337,6 +443,56 @@
     state.treasurySummary = summary || null;
     updateTreasuryUi();
     return state.treasurySummary;
+  }
+
+
+  async function updateRewardClaimStatus(claimId, nextStatus) {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
+    const adminNote = window.prompt(`Optional admin note for ${nextStatus}:`, '') || '';
+    let txHash = '';
+    if (nextStatus === 'paid') txHash = window.prompt('Optional payout transaction hash:', '') || '';
+    state.rewardClaimsLoading = true;
+    updateTreasuryUi();
+    try {
+      await callFunction(CONFIG.rewardClaimsAdminFunction, {
+        walletAddress: wallet.address,
+        action: 'update_status',
+        claimId,
+        status: nextStatus,
+        adminNote,
+        txHash,
+      });
+      await refreshRewardClaimsAdmin();
+    } finally {
+      state.rewardClaimsLoading = false;
+      updateTreasuryUi();
+    }
+  }
+
+  async function refreshRewardClaimsAdmin() {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) {
+      state.rewardClaims = null;
+      state.rewardClaimsError = '';
+      state.rewardClaimsLoading = false;
+      updateTreasuryUi();
+      return null;
+    }
+    state.rewardClaimsLoading = true;
+    state.rewardClaimsError = '';
+    updateTreasuryUi();
+    try {
+      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 30 });
+      state.rewardClaims = response || { pendingCount: 0, items: [] };
+      return state.rewardClaims;
+    } catch (error) {
+      state.rewardClaimsError = error && error.message ? error.message : 'Failed to load reward claims.';
+      throw error;
+    } finally {
+      state.rewardClaimsLoading = false;
+      updateTreasuryUi();
+    }
   }
 
   async function purchaseCustom({ clientRunId, kind, amountWei, label, metadata = {} }) {
@@ -746,6 +902,20 @@
     }
     if (goldBtn) goldBtn.addEventListener('click', () => buyPowerUp('gold_crate').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
     if (patchBtn) patchBtn.addEventListener('click', () => buyPowerUp('portal_patch').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
+    const refreshClaimsBtn = qs('refreshRewardClaimsBtn');
+    if (refreshClaimsBtn) refreshClaimsBtn.addEventListener('click', () => refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); }));
+    const rewardClaimsBody = qs('rewardClaimsAdminBody');
+    if (rewardClaimsBody) rewardClaimsBody.addEventListener('click', (event) => {
+      const button = event.target && event.target.closest ? event.target.closest('[data-claim-action]') : null;
+      if (!button) return;
+      const claimId = String(button.getAttribute('data-claim-id') || '').trim();
+      const action = String(button.getAttribute('data-claim-action') || '').trim().toLowerCase();
+      if (!claimId || !action) return;
+      const map = { approve: 'approved', reject: 'rejected', paid: 'paid' };
+      const nextStatus = map[action];
+      if (!nextStatus) return;
+      updateRewardClaimStatus(claimId, nextStatus).catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to update reward claim.'}`, 'bad'); updateTreasuryUi(); });
+    });
   }
 
   function getActiveRunPayment() {
@@ -772,14 +942,17 @@
       handleWalletState(event.detail);
       if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
       refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
+      refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
     });
     window.addEventListener('dfk-defense:tracking-state', () => {
       if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
       refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
+      refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
     });
     render();
     if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
     refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
+    refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
   }
 
   window.DFKCryptoRails = {
@@ -792,6 +965,7 @@
     refreshRunBalance,
     purchaseCustom,
     refreshTreasurySummary,
+    refreshRewardClaimsAdmin,
     getTreasurySummary: () => (state.treasurySummary ? { ...state.treasurySummary } : null),
     formatAvaxFromWei,
     getRunBalance: () => (state.balance ? { ...state.balance } : null),

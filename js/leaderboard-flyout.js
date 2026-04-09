@@ -1,22 +1,12 @@
 (function () {
   'use strict';
 
-  var SORTS = {
-    best_wave: function (a, b) {
-      return (Number(b.best_wave) || 0) - (Number(a.best_wave) || 0)
-        || (Number(b.runs) || 0) - (Number(a.runs) || 0)
-        || String(a.player_name || '').localeCompare(String(b.player_name || ''));
-    },
-    runs: function (a, b) {
-      return (Number(b.runs) || 0) - (Number(a.runs) || 0)
-        || (Number(b.best_wave) || 0) - (Number(a.best_wave) || 0)
-        || String(a.player_name || '').localeCompare(String(b.player_name || ''));
-    },
-    dfk_gold_burned: function (a, b) {
-      return (Number(b.dfk_gold_burned) || 0) - (Number(a.dfk_gold_burned) || 0)
-        || (Number(b.best_wave) || 0) - (Number(a.best_wave) || 0)
-        || String(a.player_name || '').localeCompare(String(b.player_name || ''));
-    }
+  var DEFAULT_SORT = { key: 'best_wave', direction: 'desc' };
+  var RANGE_MODES = {
+    current_week: 'current_week',
+    last_week: 'last_week',
+    current_day: 'current_day',
+    custom: 'custom'
   };
 
   function el(id) {
@@ -47,25 +37,99 @@
     };
   }
 
-  async function fetchFromEndpoint(baseUrl, anonKey, endpoint, select) {
-    var url = baseUrl.replace(/\/$/, '') + '/rest/v1/' + endpoint + '?select=' + encodeURIComponent(select);
-    var response = await fetch(url, {
-      headers: {
-        apikey: anonKey,
-        Authorization: 'Bearer ' + anonKey,
-        Accept: 'application/json'
-      }
-    });
-    if (!response.ok) {
-      var errorText = '';
-      try { errorText = await response.text(); } catch (e) {}
-      throw new Error(endpoint + ': ' + response.status + ' ' + (errorText || response.statusText || 'Request failed'));
-    }
-    return response.json();
+  function getCurrentSort() {
+    var current = window.DFKLeaderboardSort || DEFAULT_SORT;
+    return {
+      key: current.key || DEFAULT_SORT.key,
+      direction: current.direction === 'asc' ? 'asc' : 'desc'
+    };
   }
 
-  async function fetchFunctionJson(baseUrl, anonKey, functionName) {
-    var url = baseUrl.replace(/\/$/, '') + '/functions/v1/' + functionName;
+  function getCurrentRangeRequest() {
+    var current = window.DFKLeaderboardRangeRequest || { mode: RANGE_MODES.current_week };
+    return {
+      mode: current.mode || RANGE_MODES.current_week,
+      start: current.start || '',
+      end: current.end || ''
+    };
+  }
+
+  function normalizeDateInputValue(value) {
+    var text = String(value || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+  }
+
+  function parseDateOnlyToUtc(value) {
+    var text = normalizeDateInputValue(value);
+    if (!text) return null;
+    return new Date(text + 'T00:00:00.000Z');
+  }
+
+  function formatDateOnlyUtc(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  }
+
+  function getCurrentUtcDateOnly() {
+    return formatDateOnlyUtc(new Date());
+  }
+
+  function isDailyRaffleMode() {
+    return getCurrentRangeRequest().mode === RANGE_MODES.current_day;
+  }
+
+  function getDailyRaffleQualifiedWaveCount() {
+    return 10;
+  }
+
+  function getCurrentUtcDayBounds() {
+    var now = new Date();
+    return {
+      startMs: Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+      endMs: Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0)
+    };
+  }
+
+  function parseIsoMs(value) {
+    if (!value) return 0;
+    var ms = new Date(value).getTime();
+    return Number.isFinite(ms) ? ms : 0;
+  }
+
+  function isWithinCurrentUtcDay(value) {
+    var ms = parseIsoMs(value);
+    if (!ms) return false;
+    var bounds = getCurrentUtcDayBounds();
+    return ms >= bounds.startMs && ms < bounds.endMs;
+  }
+
+
+  function formatRangeLabel(startIso, endIso) {
+    if (!startIso || !endIso) return 'Week of —';
+    var startDate = new Date(startIso);
+    var endDate = new Date(endIso);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 'Week of —';
+    var formatter = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+    return formatter.format(startDate) + ' → ' + formatter.format(endDate) + ' UTC';
+  }
+
+  function buildFunctionUrl(baseUrl, functionName, params) {
+    var url = new URL(baseUrl.replace(/\/$/, '') + '/functions/v1/' + functionName);
+    Object.keys(params || {}).forEach(function (key) {
+      var value = params[key];
+      if (value == null || value === '') return;
+      url.searchParams.set(key, String(value));
+    });
+    return url.toString();
+  }
+
+  async function fetchFunctionJson(baseUrl, anonKey, functionName, params) {
+    var url = buildFunctionUrl(baseUrl, functionName, params || {});
     var response = await fetch(url, {
       headers: {
         apikey: anonKey,
@@ -91,65 +155,50 @@
   function normalizeRow(row) {
     var playerName = row.vanity_name || row.player_name || row.display_name || row.name || row.username || 'Unknown Player';
     var wallet = row.wallet || row.wallet_address || row.wallet_addr || row.address || row.player_wallet || '';
-    var score = row.score;
-    if (score == null && row.total_waves_cleared != null) score = row.total_waves_cleared;
-    if (score == null && row.points != null) score = row.points;
     return {
       player_name: playerName,
       vanity_name: row.vanity_name || null,
       wallet: wallet,
-      score: score == null ? '—' : score,
       best_wave: row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0),
       runs: row.runs != null ? row.runs : (row.total_runs != null ? row.total_runs : 0),
+      total_waves_cleared: row.total_waves_cleared != null ? row.total_waves_cleared : (row.waves_cleared != null ? row.waves_cleared : 0),
       used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts),
-      dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : (row.burn_total != null ? row.burn_total : 0))) || 0
+      dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : 0)) || 0,
+      last_run_at: row.last_run_at || row.updated_at || null,
+      raffle_qualified: Number(row.total_waves_cleared != null ? row.total_waves_cleared : (row.waves_cleared != null ? row.waves_cleared : 0)) >= getDailyRaffleQualifiedWaveCount()
     };
   }
 
-  async function loadLeaderboardRows() {
-    var cfg = getSupabaseConfig();
-    if (!cfg.url || !cfg.anonKey) {
-      throw new Error('Missing Supabase URL or publishable key.');
+  function compareValues(aValue, bValue, direction) {
+    var factor = direction === 'asc' ? 1 : -1;
+    if (typeof aValue === 'number' || typeof bValue === 'number') {
+      return ((Number(aValue) || 0) - (Number(bValue) || 0)) * factor;
     }
-
-    try {
-      var functionRows = await fetchFunctionJson(cfg.url, cfg.anonKey, 'public-leaderboard');
-      if (Array.isArray(functionRows)) {
-        return functionRows.map(normalizeRow);
-      }
-      if (functionRows && Array.isArray(functionRows.rows)) {
-        return functionRows.rows.map(normalizeRow);
-      }
-    } catch (error) {
-      console.warn('[leaderboard-flyout] public-leaderboard fallback to rest', error);
+    if (typeof aValue === 'boolean' || typeof bValue === 'boolean') {
+      return ((aValue ? 1 : 0) - (bValue ? 1 : 0)) * factor;
     }
+    return String(aValue || '').localeCompare(String(bValue || ''), undefined, { sensitivity: 'base' }) * factor;
+  }
 
-    var attempts = [
-      { endpoint: 'public_run_leaderboard', select: '*' },
-      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared,used_wallet_heroes,last_run_at' },
-      { endpoint: 'players', select: 'wallet_address,vanity_name,display_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
-      { endpoint: 'players', select: 'wallet_address,display_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
-      { endpoint: 'players', select: 'wallet_address,vanity_name,best_wave,total_runs,total_waves_cleared,last_run_at' },
-      { endpoint: 'players', select: 'wallet_address,best_wave,total_runs,total_waves_cleared,last_run_at' },
-      { endpoint: 'leaderboard', select: 'player_name,wallet,score,best_wave,runs' }
+  function compareRows(a, b, sort) {
+    var key = sort.key || DEFAULT_SORT.key;
+    var direction = sort.direction || DEFAULT_SORT.direction;
+    var primary = compareValues(a[key], b[key], direction);
+    if (primary) return primary;
+    var tieBreakers = [
+      { key: 'best_wave', direction: 'desc' },
+      { key: 'runs', direction: 'desc' },
+      { key: 'dfk_gold_burned', direction: 'desc' },
+      { key: 'player_name', direction: 'asc' },
+      { key: 'wallet', direction: 'asc' }
     ];
-
-    var errors = [];
-    for (var i = 0; i < attempts.length; i += 1) {
-      try {
-        var rows = await fetchFromEndpoint(cfg.url, cfg.anonKey, attempts[i].endpoint, attempts[i].select);
-        if (Array.isArray(rows) && rows.length) {
-          return rows.map(normalizeRow);
-        }
-        if (Array.isArray(rows)) {
-          return [];
-        }
-      } catch (error) {
-        errors.push(error.message || String(error));
-      }
+    for (var i = 0; i < tieBreakers.length; i += 1) {
+      var tie = tieBreakers[i];
+      if (tie.key === key) continue;
+      var tieResult = compareValues(a[tie.key], b[tie.key], tie.direction);
+      if (tieResult) return tieResult;
     }
-
-    throw new Error(errors[0] || 'Unable to load leaderboard data.');
+    return 0;
   }
 
   function syncFlyoutSizing(rows) {
@@ -161,42 +210,132 @@
     flyout.classList.toggle('leaderboard-flyout-wide', !!needsWide);
   }
 
-  function truncateName(value) {
-    return String(value || '');
-  }
-
-  function renderRows(rows, sortKey) {
+  function renderRows(rows) {
     var tbody = el('leaderboardTableBody');
+    var raffleHeader = el('leaderboardRaffleHeader');
+    if (raffleHeader) raffleHeader.classList.toggle('hidden', !isDailyRaffleMode());
     if (!tbody) return;
-    var items = rows.slice().sort(SORTS[sortKey] || SORTS.best_wave);
+    var sort = getCurrentSort();
+    var items = rows.slice().sort(function (a, b) {
+      return compareRows(a, b, sort);
+    });
     syncFlyoutSizing(items);
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="leaderboard-empty">No leaderboard data found yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="leaderboard-empty">No leaderboard data found for this range.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (row, index) {
       var fullName = escapeHtml(row.player_name);
-      var shownName = escapeHtml(truncateName(row.player_name));
       var nftUsed = !!row.used_wallet_heroes;
+      var showRaffle = isDailyRaffleMode();
+      var raffleQualified = Number(row.total_waves_cleared || 0) >= getDailyRaffleQualifiedWaveCount();
       return '<tr>' +
         '<td class="leaderboard-rank">' + (index + 1) + '</td>' +
-        '<td class="leaderboard-name-cell" title="' + fullName + '">' + shownName + '</td>' +
+        '<td class="leaderboard-name-cell" title="' + fullName + '">' + fullName + '</td>' +
         '<td class="leaderboard-wallet-cell" title="' + escapeHtml(row.wallet) + '">' + escapeHtml(shortWallet(row.wallet)) + '</td>' +
         '<td class="leaderboard-wave-cell">' + escapeHtml(String(row.best_wave)) + '</td>' +
         '<td class="leaderboard-runs-cell">' + escapeHtml(String(row.runs)) + '</td>' +
         '<td class="leaderboard-burn-cell">' + escapeHtml(String(Math.round(Number(row.dfk_gold_burned) || 0).toLocaleString())) + '</td>' +
         '<td class="leaderboard-nft-cell ' + (nftUsed ? 'is-yes' : 'is-no') + '">' + (nftUsed ? 'Yes' : 'No') + '</td>' +
+        (showRaffle ? ('<td class="leaderboard-nft-cell ' + (raffleQualified ? 'is-yes' : 'is-no') + '">' + (raffleQualified ? 'Qualified' : (Math.max(0, getDailyRaffleQualifiedWaveCount() - Number(row.total_waves_cleared || 0)) + ' waves left')) + '</td>') : '') +
       '</tr>';
     }).join('');
   }
 
-  function updateSortButtons(sortKey) {
-    var byWave = el('leaderboardSortWave');
-    var byRuns = el('leaderboardSortRuns');
-    var byBurned = el('leaderboardSortBurned');
-    if (byWave) byWave.classList.toggle('active', sortKey === 'best_wave');
-    if (byRuns) byRuns.classList.toggle('active', sortKey === 'runs');
-    if (byBurned) byBurned.classList.toggle('active', sortKey === 'dfk_gold_burned');
+  function updateHeaderSortIndicators() {
+    var sort = getCurrentSort();
+    var headers = document.querySelectorAll('.leaderboard-sortable');
+    headers.forEach(function (header) {
+      var key = header.getAttribute('data-sort') || '';
+      var active = key === sort.key;
+      header.classList.toggle('is-active', active);
+      header.setAttribute('aria-sort', active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none');
+      var chevron = header.querySelector('.leaderboard-sort-chevron');
+      if (chevron) chevron.textContent = active ? (sort.direction === 'asc' ? '▴' : '▾') : '';
+    });
+  }
+
+  function updatePeriodButtons() {
+    var range = getCurrentRangeRequest();
+    var currentBtn = el('leaderboardCurrentWeekBtn');
+    var lastBtn = el('leaderboardLastWeekBtn');
+    var dayBtn = el('leaderboardCurrentDayBtn');
+    if (currentBtn) currentBtn.classList.toggle('active', range.mode === RANGE_MODES.current_week);
+    if (lastBtn) lastBtn.classList.toggle('active', range.mode === RANGE_MODES.last_week);
+    if (dayBtn) dayBtn.classList.toggle('active', range.mode === RANGE_MODES.current_day);
+  }
+
+  function updateDailyRaffleUi(meta) {
+    var header = el('leaderboardRaffleHeader');
+    var title = document.querySelector('.leaderboard-title');
+    var resetCopy = document.querySelector('.leaderboard-reset-copy');
+    var rangeCopy = el('leaderboardRangeCopy');
+    var showRaffle = isDailyRaffleMode();
+    if (header) header.classList.toggle('hidden', !showRaffle);
+    if (title) title.textContent = showRaffle ? 'Daily Raffle Leaderboard' : 'Leaderboard';
+    if (resetCopy) {
+      resetCopy.textContent = showRaffle
+        ? 'Tracks only the current UTC day. Players qualify for the daily raffle at 10 waves completed between 00:00 and 23:59 UTC.'
+        : 'Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.';
+    }
+    if (rangeCopy) {
+      rangeCopy.textContent = showRaffle
+        ? 'Today only, in UTC. Only players with activity in the current UTC day are shown. Qualification is 10 waves between 00:00 and 23:59 UTC.'
+        : 'Search a date range for the highest scores in that window. Daily raffle qualification is 10 waves completed during the current UTC day only.';
+    }
+  }
+
+  function updateRangeInputs() {
+    var range = getCurrentRangeRequest();
+    var startInput = el('leaderboardStartDate');
+    var endInput = el('leaderboardEndDate');
+    if (startInput && range.start) startInput.value = range.start;
+    if (endInput && range.end) endInput.value = range.end;
+  }
+
+  function updateRangeDisplay(meta) {
+    var display = el('leaderboardRangeDisplay');
+    if (!display) return;
+    var selected = meta && meta.selected_range ? meta.selected_range : null;
+    if (isDailyRaffleMode()) {
+      var today = getCurrentUtcDateOnly();
+      display.textContent = 'Daily raffle window: ' + today + ' UTC';
+      return;
+    }
+    if (!selected) {
+      display.textContent = 'Week of —';
+      return;
+    }
+    var label = formatRangeLabel(selected.start, selected.end);
+    if (selected.label) label = selected.label + ': ' + label;
+    display.textContent = label;
+  }
+
+  function buildLeaderboardParams() {
+    var range = getCurrentRangeRequest();
+    if (range.mode === RANGE_MODES.current_day) {
+      var today = getCurrentUtcDateOnly();
+      return { start: today, end: today, mode: RANGE_MODES.custom };
+    }
+    if (range.mode === RANGE_MODES.custom) {
+      return { start: range.start, end: range.end, mode: range.mode };
+    }
+    return { preset: range.mode };
+  }
+
+  async function loadLeaderboardRows() {
+    var cfg = getSupabaseConfig();
+    if (!cfg.url || !cfg.anonKey) {
+      throw new Error('Missing Supabase URL or publishable key.');
+    }
+    var response = await fetchFunctionJson(cfg.url, cfg.anonKey, 'public-leaderboard', buildLeaderboardParams());
+    var rows = [];
+    if (Array.isArray(response)) rows = response;
+    else if (response && Array.isArray(response.rows)) rows = response.rows;
+    return {
+      rows: rows.map(normalizeRow),
+      meta: response && response.meta ? response.meta : null
+    };
   }
 
   async function refreshLeaderboard(options) {
@@ -208,18 +347,36 @@
     }
     if (refreshBtn) refreshBtn.disabled = true;
     try {
-      var rows = await loadLeaderboardRows();
-      window.DFKLeaderboardRows = rows;
-      var currentSort = window.DFKLeaderboardSort || 'best_wave';
-      renderRows(rows, currentSort);
-      updateSortButtons(currentSort);
-      if (status) status.textContent = rows.length ? '' : 'No players on the board yet';
+      var payload = await loadLeaderboardRows();
+      if (isDailyRaffleMode()) {
+        payload.rows = (payload.rows || []).filter(function (row) {
+          return isWithinCurrentUtcDay(row && row.last_run_at);
+        });
+      }
+      window.DFKLeaderboardRows = payload.rows;
+      window.DFKLeaderboardMeta = payload.meta || null;
+      if (payload.meta && payload.meta.selected_range) {
+        var selectedRange = payload.meta.selected_range;
+        var rangeRequest = getCurrentRangeRequest();
+        rangeRequest.start = normalizeDateInputValue(selectedRange.start);
+        rangeRequest.end = normalizeDateInputValue(selectedRange.end);
+        window.DFKLeaderboardRangeRequest = rangeRequest;
+      }
+      renderRows(payload.rows);
+      updateHeaderSortIndicators();
+      updatePeriodButtons();
+      updateRangeInputs();
+      updateDailyRaffleUi(payload.meta);
+      updateRangeDisplay(payload.meta);
+      if (status) status.textContent = payload.rows.length ? '' : 'No players on the board yet for this range.';
     } catch (error) {
       if (status) {
         status.textContent = 'Leaderboard load failed. ' + (error && error.message ? error.message : '');
         status.classList.add('error');
       }
-      renderRows([], window.DFKLeaderboardSort || 'best_wave');
+      renderRows([]);
+      updateHeaderSortIndicators();
+      updateDailyRaffleUi(null);
       console.error('[leaderboard-flyout] load failed', error);
     } finally {
       if (refreshBtn) refreshBtn.disabled = false;
@@ -235,19 +392,68 @@
     backdrop.classList.toggle('hidden', !open);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     document.body.classList.toggle('leaderboard-open', !!open);
-    if (open) {
-      refreshLeaderboard({ silent: true });
+    if (open) refreshLeaderboard({ silent: true });
+  }
+
+  function setSort(key) {
+    var current = getCurrentSort();
+    if (current.key === key) {
+      current.direction = current.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      current.key = key;
+      current.direction = (key === 'player_name' || key === 'wallet') ? 'asc' : 'desc';
     }
+    window.DFKLeaderboardSort = current;
+    updateHeaderSortIndicators();
+    renderRows(window.DFKLeaderboardRows || []);
+  }
+
+  function setRange(mode, start, end) {
+    window.DFKLeaderboardRangeRequest = {
+      mode: mode,
+      start: normalizeDateInputValue(start),
+      end: normalizeDateInputValue(end)
+    };
+    updatePeriodButtons();
+    updateRangeInputs();
+  }
+
+  function applyCustomRange() {
+    var startInput = el('leaderboardStartDate');
+    var endInput = el('leaderboardEndDate');
+    var startValue = normalizeDateInputValue(startInput && startInput.value);
+    var endValue = normalizeDateInputValue(endInput && endInput.value);
+    var status = el('leaderboardStatus');
+    if (!startValue || !endValue) {
+      if (status) {
+        status.textContent = 'Choose both a start and end date.';
+        status.classList.add('error');
+      }
+      return;
+    }
+    var startDate = parseDateOnlyToUtc(startValue);
+    var endDate = parseDateOnlyToUtc(endValue);
+    if (!startDate || !endDate || startDate.getTime() > endDate.getTime()) {
+      if (status) {
+        status.textContent = 'Start date must be on or before end date.';
+        status.classList.add('error');
+      }
+      return;
+    }
+    if (status) status.classList.remove('error');
+    setRange(RANGE_MODES.custom, startValue, endValue);
+    refreshLeaderboard();
   }
 
   function bindEvents() {
     var openBtn = el('leaderboardFlyoutBtn');
     var closeBtn = el('leaderboardCloseBtn');
     var backdrop = el('leaderboardBackdrop');
-    var sortWave = el('leaderboardSortWave');
-    var sortRuns = el('leaderboardSortRuns');
-    var sortBurned = el('leaderboardSortBurned');
     var refreshBtn = el('leaderboardRefreshBtn');
+    var currentWeekBtn = el('leaderboardCurrentWeekBtn');
+    var lastWeekBtn = el('leaderboardLastWeekBtn');
+    var currentDayBtn = el('leaderboardCurrentDayBtn');
+    var applyRangeBtn = el('leaderboardApplyRangeBtn');
 
     if (openBtn) openBtn.addEventListener('click', function () { setOpenState(true); });
     if (closeBtn) closeBtn.addEventListener('click', function () { setOpenState(false); });
@@ -256,26 +462,32 @@
       if (event.key === 'Escape') setOpenState(false);
     });
 
-    if (sortWave) sortWave.addEventListener('click', function () {
-      window.DFKLeaderboardSort = 'best_wave';
-      updateSortButtons('best_wave');
-      renderRows(window.DFKLeaderboardRows || [], 'best_wave');
-    });
-
-    if (sortRuns) sortRuns.addEventListener('click', function () {
-      window.DFKLeaderboardSort = 'runs';
-      updateSortButtons('runs');
-      renderRows(window.DFKLeaderboardRows || [], 'runs');
-    });
-
-    if (sortBurned) sortBurned.addEventListener('click', function () {
-      window.DFKLeaderboardSort = 'dfk_gold_burned';
-      updateSortButtons('dfk_gold_burned');
-      renderRows(window.DFKLeaderboardRows || [], 'dfk_gold_burned');
-    });
-
-    if (refreshBtn) refreshBtn.addEventListener('click', function () {
+    if (refreshBtn) refreshBtn.addEventListener('click', function () { refreshLeaderboard(); });
+    if (currentWeekBtn) currentWeekBtn.addEventListener('click', function () {
+      setRange(RANGE_MODES.current_week, '', '');
       refreshLeaderboard();
+    });
+    if (lastWeekBtn) lastWeekBtn.addEventListener('click', function () {
+      setRange(RANGE_MODES.last_week, '', '');
+      refreshLeaderboard();
+    });
+    if (currentDayBtn) currentDayBtn.addEventListener('click', function () {
+      var today = getCurrentUtcDateOnly();
+      setRange(RANGE_MODES.current_day, today, today);
+      refreshLeaderboard();
+    });
+    if (applyRangeBtn) applyRangeBtn.addEventListener('click', applyCustomRange);
+
+    document.querySelectorAll('.leaderboard-sortable').forEach(function (header) {
+      var key = header.getAttribute('data-sort');
+      if (!key) return;
+      header.addEventListener('click', function () { setSort(key); });
+      header.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setSort(key);
+        }
+      });
     });
 
     window.addEventListener('dfk:leaderboard-refresh-requested', function () {
@@ -283,10 +495,23 @@
     });
   }
 
+  function initDefaultRange() {
+    var meta = window.DFKLeaderboardMeta && window.DFKLeaderboardMeta.current_week ? window.DFKLeaderboardMeta.current_week : null;
+    if (meta && meta.start && meta.end) {
+      setRange(RANGE_MODES.current_week, formatDateOnlyUtc(new Date(meta.start)), formatDateOnlyUtc(new Date(meta.end)));
+      return;
+    }
+    setRange(RANGE_MODES.current_week, '', '');
+  }
+
   function init() {
     window.DFKLeaderboardRows = [];
-    window.DFKLeaderboardSort = 'best_wave';
+    window.DFKLeaderboardMeta = null;
+    window.DFKLeaderboardSort = { key: DEFAULT_SORT.key, direction: DEFAULT_SORT.direction };
+    initDefaultRange();
     bindEvents();
+    updateHeaderSortIndicators();
+    updateDailyRaffleUi(null);
     refreshLeaderboard({ silent: true });
   }
 

@@ -1,0 +1,193 @@
+
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+function normalizeAddress(address: string | null | undefined) {
+  return String(address || '').trim().toLowerCase();
+}
+
+function normalizeOrigin(value: string | null | undefined) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try { return new URL(raw).origin.toLowerCase(); } catch { return ''; }
+}
+
+function requestOrigin(req: Request) {
+  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
+}
+
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function validateSessionContext(req: Request, session: Record<string, unknown>) {
+  const expectedOrigin = normalizeOrigin(String(session.session_origin || ''));
+  if (expectedOrigin) {
+    const actualOrigin = requestOrigin(req);
+    if (!actualOrigin || actualOrigin !== expectedOrigin) return json({ error: 'Session origin mismatch.' }, 401);
+  }
+  const expectedUserAgentHash = String(session.user_agent_hash || '').trim();
+  if (expectedUserAgentHash) {
+    const actualUserAgent = String(req.headers.get('user-agent') || '').trim();
+    if (!actualUserAgent) return json({ error: 'User agent missing for session.' }, 401);
+    const actualHash = await sha256Hex(actualUserAgent);
+    if (actualHash !== expectedUserAgentHash) return json({ error: 'Session device mismatch.' }, 401);
+  }
+  return null;
+}
+
+function createAdmin() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+function parseAmountValue(text: string) {
+  const match = String(text || '').match(/([\d.]+)/);
+  const value = Number(match?.[1] || 0);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+async function getWhitelistDecision(admin: ReturnType<typeof createAdmin>, walletAddress: string, claimType: 'daily_quest' | 'bounty', amountValue: number | null, claimDay: string) {
+  const { data: rule, error: ruleError } = await admin
+    .from('reward_claim_whitelist')
+    .select('wallet_address, is_active, auto_daily, auto_bounty, max_claim_amount, daily_cap, notes')
+    .eq('wallet_address', walletAddress)
+    .maybeSingle();
+  if (ruleError) throw ruleError;
+  if (!rule || !rule.is_active) return { autoApprove: false, note: '' };
+
+  const allowsType = claimType === 'daily_quest' ? !!rule.auto_daily : !!rule.auto_bounty;
+  if (!allowsType) return { autoApprove: false, note: String(rule.notes || '').trim() || '' };
+
+  const numericAmount = Number(amountValue || 0) || 0;
+  const maxClaimAmount = rule.max_claim_amount == null ? null : Number(rule.max_claim_amount);
+  if (maxClaimAmount != null && numericAmount > maxClaimAmount) {
+    return { autoApprove: false, note: 'Whitelist max-claim guard prevented auto-approval.' };
+  }
+
+  const dailyCap = rule.daily_cap == null ? null : Number(rule.daily_cap);
+  if (dailyCap != null) {
+    const { data: sameDayRows, error: sameDayError } = await admin
+      .from('reward_claim_requests')
+      .select('amount_value, status')
+      .eq('wallet_address', walletAddress)
+      .eq('claim_day', claimDay)
+      .in('status', ['approved', 'paid'])
+      .neq('claim_type', 'manual_adjustment');
+    if (sameDayError) throw sameDayError;
+    const usedToday = (sameDayRows || []).reduce((sum, row) => sum + (Number(row.amount_value || 0) || 0), 0);
+    if ((usedToday + numericAmount) > dailyCap) {
+      return { autoApprove: false, note: 'Whitelist daily cap prevented auto-approval.' };
+    }
+  }
+
+  const noteParts = ['Auto-approved by whitelist rule.'];
+  const notes = String(rule.notes || '').trim();
+  if (notes) noteParts.push(notes);
+  return { autoApprove: true, note: noteParts.join(' ') };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
+  try {
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) return json({ error: 'Enable run tracking before claiming a reward.' }, 401);
+
+    const admin = createAdmin();
+    const { data: session, error: sessionError } = await admin
+      .from('wallet_sessions')
+      .select('session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash')
+      .eq('session_token', token)
+      .single();
+    if (sessionError || !session) return json({ error: 'Session not found.' }, 401);
+    const contextError = await validateSessionContext(req, session as Record<string, unknown>);
+    if (contextError) return contextError;
+    if (session.revoked_at) return json({ error: 'Session revoked.' }, 401);
+    if (Date.now() >= new Date(session.expires_at).getTime()) return json({ error: 'Session expired.' }, 401);
+
+    const body = await req.json().catch(() => ({}));
+    const walletAddress = normalizeAddress(body.walletAddress as string);
+    if (!walletAddress || walletAddress !== normalizeAddress(session.wallet_address)) return json({ error: 'Wallet mismatch.' }, 401);
+
+    const claimType = String(body.claimType || '').trim().toLowerCase();
+    if (claimType !== 'daily_quest') return json({ error: 'Unsupported reward claim type.' }, 400);
+
+    const questId = String(body.questId || '').trim().toLowerCase();
+    const questName = String(body.questName || '').trim() || 'Daily quest';
+    const rewardText = String(body.rewardText || '').trim() || '1 Jewel';
+    const playerName = String(body.playerName || '').trim() || walletAddress;
+    if (!questId) return json({ error: 'Quest ID is required.' }, 400);
+
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const claimDay = dayStart.toISOString().slice(0, 10);
+
+    const { data: qualifyingRun, error: runError } = await admin
+      .from('runs')
+      .select('id, wave_reached, completed_at')
+      .eq('wallet_address', walletAddress)
+      .gte('completed_at', dayStart.toISOString())
+      .gt('wave_reached', 0)
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (runError) throw runError;
+    if (!qualifyingRun?.id) return json({ error: 'Complete at least one tracked run today before claiming a daily reward.' }, 409);
+
+    const amountValue = parseAmountValue(rewardText);
+    const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'daily_quest', amountValue, claimDay);
+
+    const requestKey = `daily_quest:${walletAddress}:${claimDay}:${questId}`;
+    const insertPayload = {
+      request_key: requestKey,
+      wallet_address: walletAddress,
+      claim_type: 'daily_quest',
+      status: whitelistDecision.autoApprove ? 'approved' : 'pending',
+      player_name_snapshot: playerName,
+      amount_text: rewardText,
+      amount_value: amountValue,
+      reward_currency: /jewel/i.test(rewardText) ? 'JEWEL' : (/avax/i.test(rewardText) ? 'AVAX' : null),
+      reason_text: questName,
+      source_ref: `quest:${questId}`,
+      run_id: qualifyingRun.id,
+      claim_day: claimDay,
+      approved_at: whitelistDecision.autoApprove ? new Date().toISOString() : null,
+      resolved_at: whitelistDecision.autoApprove ? new Date().toISOString() : null,
+      resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
+      admin_note: whitelistDecision.note || null,
+    };
+
+    const { data: inserted, error: insertError } = await admin
+      .from('reward_claim_requests')
+      .upsert(insertPayload, { onConflict: 'request_key' })
+      .select('id, status, requested_at')
+      .single();
+    if (insertError) throw insertError;
+
+    return json({
+      ok: true,
+      claimId: inserted?.id || null,
+      status: inserted?.status || 'pending',
+      message: whitelistDecision.autoApprove
+        ? `${questName} claim auto-approved for this whitelisted wallet. Manual payout is still required unless you add a secure payout signer.`
+        : `${questName} claim sent for payout review.`,
+    });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Failed to submit reward claim.' }, 500);
+  }
+});

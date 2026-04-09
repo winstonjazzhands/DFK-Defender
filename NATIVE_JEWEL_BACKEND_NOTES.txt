@@ -1,0 +1,19 @@
+This build switches JEWEL payments to native JEWEL on DFK Chain.
+
+Frontend:
+- Relic JEWEL swaps now use the same native wallet balance shown in the profile panel.
+- JEWEL payments are sent as native transfers to the treasury wallet.
+
+Backend updates included:
+- verify-dfk-token-payment now verifies native JEWEL transfers to the treasury wallet
+- create-dfk-token-session stores payment_asset='native_jewel'
+- treasury-summary-extended summarizes native JEWEL rows
+- added migration patch: supabase/migrations/20260408_native_jewel_support_patch.sql
+
+Deploy / migration order:
+1) Run supabase/migrations/20260408_native_jewel_support_patch.sql
+2) Redeploy:
+   - create-dfk-token-session
+   - verify-dfk-token-payment
+   - treasury-summary-extended
+3) Test a small native JEWEL payment end-to-end

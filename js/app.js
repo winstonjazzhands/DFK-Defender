@@ -3,7 +3,7 @@
 let lastTouchEnd = 0;
 
 document.addEventListener('touchend', (event) => {
-  const now = Date.now();
+  const now = Date.now( ); ctx.restore();
   if (now - lastTouchEnd <= 300) {
     event.preventDefault();
   }
@@ -12,17 +12,7 @@ document.addEventListener('touchend', (event) => {
 
 // build: v46.9.1.117
 
-function injectPlayButton(textEl) {
-  if (document.getElementById('introPlayBtn')) return;
-  const btn = document.createElement('button');
-  btn.id = 'introPlayBtn';
-  btn.textContent = 'Defend the Portal';
-  btn.style.marginTop = '20px';
-  btn.onclick = () => {
-    if (typeof finishStory === 'function') finishStory();
-  };
-  textEl.appendChild(btn);
-}
+function injectPlayButton(textEl) {}
 
 let hasClearedIntroTutorialGate = true;
 
@@ -60,40 +50,19 @@ function setBoardDim(active) {
 
 
 const STORY_SCREENS = [
-  { text: '"I know you put love in mini games but tbh it seems a joke" - Dragonflytales', duration: 5000 },
-  { text: `"I like you and all, but that game as I saw in the AMA is a mockery of DFK's greatness" - Maxgerin`, duration: 5000 },
-  { text: '"Still not playing it." - Cryptomeme420', duration: 5000 },
-  { text: '"Defend the portal, they’re coming!" the Druid screamed as cultists poured from voids hidden in the forest. So many voids, they must have been planning this for months. We never should have trusted the Dark Summoner. He said "Your sacrifice could stop the void forever" and we believed him. But every hero we gave only made him stronger and our defenses weaker. Every loss strengthened his ritual—the Dark Summoner had betrayed us from the start.', duration: 15000 },
-  { text: 'We weren’t fighting the darkness, we were feeding it', duration: 5000 },
-  { text: 'Now the truth is clear. He’s bending dark magic directly against Crystalvale—warping creatures and sending wave after wave to break the portal. If he completes his ritual we won’t have the strength to stop whatever he brings through from the void. You have a chance to hold the line. Choose your best five heroes. Make every wave cost him and you might survive long enough for help to arrive.', duration: 15000 },
-  { text: 'DFK DEFENDER', subtitle: 'Judgement Day', duration: 999999, noAnim: true, fieryFinal: true }
+  { text: 'The portal hummed like a wounded star as the Druid stood alone before it, exhausted and certain he could not hold. A curse screamed toward him, and only a desperate ward raised at the last instant kept him alive long enough to finish the cultist in front of him. For a moment, there was silence. Then the forest answered with something worse. Five hundred more cultists rounded the bend with the Dark Summoner cackling behind them, certain of victory. The Druid felt it then—not fear, but certainty. He could not hold the line against that many. Not with his strength spent, not with the portal already faltering behind him. He steadied himself anyway, because there was nothing else left to do.', duration: 20000 },
+  { text: 'Before he could step forward, a sharp whistle cut through the jeering. Arrows tore from the trees—magic and steel—dropping cultists before they reached him. The Druid turned as she slid in beside him, still firing, never slowing. She didn’t look at him. “Hold the line,” the Spellbow urged. As summoner underlings gathered to rip open a void for reinforcements, the Dragoon shattered the ritual with a volley of spear strikes. He drove forward in a blur, then broke off to save a fallen Wizard and Priest, planting himself between them and the charge. With a single command — FOLLOW ME — he pulled them into formation, and the Druid watched their magic sharpen under the force of his leadership.', duration: 20000 },
+  { text: 'Even that almost was not enough. A fresh mass of cultists surged forward, and the Druid braced for collapse. Then fear hit the battlefield before the next champion did. The Dreadknight thundered from the woods, smashing the lead brute apart with a gauntleted fist. He headbutted one attacker dead, lifted another by the throat, tossed him skyward, and carved him into pieces with a blur of cuts. When numbers swarmed him, one colossal greave smashed into the ground and sent cultists flying as if the earth itself had rejected them. He cut through the horde with such brutal ease that the Druid realized this kind of slaughter was routine to him. But after the line broke, the Dreadknight removed his helmet and, for one fatal moment, dropped his guard. The Dark Summoner struck from behind. The giant stiffened and fell.', duration: 20000 },
+  { text: 'Then the battlefield went calm. The Druid felt the haze lift and ran toward the fallen champion, only to stop as a small, glowing hand rested on his shoulder. The Sage had appeared beside him without a sound. She seemed far too slight for a battlefield like that — barefoot, radiant, a pristine rose in one hand — and yet when cultists rushed her, she raised the flower and the sky answered. Crimson petals descended in a cutting storm, shredding the attackers and holding the rest at bay until the horde broke and fled. Only then did she kneel beside the Dreadknight. His massive form dwarfed her, armor still hot and still humming with the strange magic that made it move like feather-light steel, yet she seemed untouched by the violence around her. Her small hand rested on his chest as she leaned close and whispered into the ear of a man nearly three times her size.', duration: 20000 },
+  { text: 'For a breath, nothing happened. Then the Dreadknight’s eyes snapped open. He rose like a man dragged back from the abyss and looked down at her. “You’ll never let me go, will you?” he asked. The Sage only smiled. “No, my old friend. Probably not.” The Druid let out the breath he had been holding. The four champions stood together at last — Druid, Spellbow, Dragoon, and Dreadknight — and for the first time that night, the darkness retreated.', duration: 20000 },
+  { text: 'DFK DEFENDER', subtitle: 'CHAMPIONS', duration: 999999, noAnim: true, fieryFinal: true }
 ];
 
 
-function injectPlayButtonIntoStory(textEl) {
-  try {
-    let btn = document.getElementById('introPlayBtn');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'introPlayBtn';
-      btn.type = 'button';
-      btn.textContent = 'Defend the Portal';
-      btn.style.marginTop = '18px';
-      btn.style.padding = '10px 20px';
-      btn.style.fontSize = '18px';
-      btn.style.cursor = 'pointer';
-      btn.addEventListener('click', () => {
-        try { finishStory(); } catch (error) {}
-      });
-    }
-    if (textEl && btn.parentNode !== textEl) {
-      textEl.appendChild(btn);
-    }
-  } catch (error) {}
-}
+function injectPlayButtonIntoStory(textEl) {}
 
 const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
-const STORY_MUSIC_START_SECONDS = 35;
+const STORY_MUSIC_START_SECONDS = 0;
 const STORY_MUSIC_VOLUME = 0.2;
 let storyMusic = null;
 let storyMusicVolume = STORY_MUSIC_VOLUME;
@@ -231,6 +200,8 @@ function playStorySequence() {
   const overlay = document.getElementById('storyOverlay');
   const textEl = document.getElementById('storyText');
   const skipBtn = document.getElementById('storySkipBtn');
+  const prevBtn = document.getElementById('storyPrevBtn');
+  const nextBtn = document.getElementById('storyNextBtn');
   const muteBtn = document.getElementById('storyMuteBtn');
   const volumeSlider = document.getElementById('storyVolumeSlider');
   const volumeValue = document.getElementById('storyVolumeValue');
@@ -245,7 +216,7 @@ function playStorySequence() {
     storyControlsActiveTimer = setTimeout(() => {
       controlsEl.classList.remove('story-controls-active');
       storyControlsActiveTimer = null;
-    }, 2200);
+    }, 100);
   }
 
   let index = 0;
@@ -257,10 +228,21 @@ function playStorySequence() {
     activeTimers = [];
   }
 
+  function queue(fn, ms) {
+    const id = setTimeout(fn, ms);
+    activeTimers.push(id);
+    return id;
+  }
+
   function syncStoryMusicControls() {
     if (volumeSlider) volumeSlider.value = String(Math.round(storyMusicVolume * 100));
     if (volumeValue) volumeValue.textContent = `${Math.round(storyMusicMuted ? 0 : storyMusicVolume * 100)}%`;
     if (muteBtn) muteBtn.textContent = storyMusicMuted ? 'Unmute Music' : 'Silence Music';
+  }
+
+  function syncStoryNavControls() {
+    if (prevBtn) prevBtn.disabled = index <= 0;
+    if (nextBtn) nextBtn.textContent = index >= STORY_SCREENS.length - 1 ? 'Finish' : 'Next';
   }
 
   function tryStartMusic(forceRestart = false) {
@@ -270,18 +252,12 @@ function playStorySequence() {
     startStoryMusic();
   }
 
-  let endedHandler = null;
-
   function finishStory() {
     if (cancelled) return;
     cancelled = true;
     clearStoryTimers();
 
     const audio = ensureStoryMusic();
-    if (audio && endedHandler) {
-      try { audio.removeEventListener('ended', endedHandler); } catch (error) {}
-      endedHandler = null;
-    }
     const startingVolume = audio ? Number(audio.volume || 0) : 0;
     let fadeStep = 0;
     const fadeSteps = 18;
@@ -307,7 +283,7 @@ function playStorySequence() {
       if (fadeStep >= fadeSteps) {
         clearInterval(fadeTimer);
         stopStoryMusic();
-textEl.classList.remove('visible');
+        textEl.classList.remove('visible');
         overlay.classList.add('hidden');
         try {
           document.body.classList.remove('intro-open');
@@ -321,29 +297,111 @@ textEl.classList.remove('visible');
         try {
           if (typeof window !== 'undefined') window.__dfkStartModePromptShown = true;
         } catch (error) {}
-        setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 120);
+        setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 100);
       }
     }, Math.round(fadeMs / fadeSteps));
   }
 
-  function queue(fn, ms) {
-    const id = setTimeout(fn, ms);
-    activeTimers.push(id);
-    return id;
+  function renderCurrentScreen() {
+    if (cancelled) return;
+    clearStoryTimers();
+    const screen = STORY_SCREENS[Math.max(0, Math.min(STORY_SCREENS.length - 1, index))];
+    try { const oldBtn = document.getElementById('introPlayBtn'); if (oldBtn) oldBtn.remove(); } catch (error) {}
+    renderStoryScreen(textEl, screen);
+
+    try {
+      if (screen && screen.text === 'DFK DEFENDER') {
+        textEl.classList.add('big-final');
+      } else {
+        textEl.classList.remove('big-final');
+      }
+      if (screen && screen.fieryFinal) {
+        textEl.classList.add('fiery-final');
+      } else {
+        textEl.classList.remove('fiery-final');
+      }
+    } catch (error) {}
+
+    try {
+      if (screen && screen.noAnim) {
+        textEl.style.animation = 'none';
+        textEl.style.transition = 'opacity 600ms ease, transform 600ms ease';
+        textEl.style.opacity = '1';
+        textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
+      } else {
+        textEl.style.animation = '';
+        textEl.style.transition = '';
+        textEl.style.opacity = '';
+        textEl.style.transform = '';
+      }
+    } catch (error) {}
+
+    try {
+      if (screen && screen.text === 'We weren’t fighting the darkness, we were feeding it') {
+        textEl.classList.add('story-one-line');
+      } else {
+        textEl.classList.remove('story-one-line');
+      }
+    } catch (error) {}
+
+    textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
+    textEl.classList.remove('visible');
+    void textEl.offsetWidth;
+
+    if (screen && screen.noAnim) {
+      textEl.style.animation = 'none';
+      textEl.style.opacity = '1';
+      textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
+      if (screen && screen.fieryFinal) {
+        let zoomStep = 0;
+        const zoomMax = 0.16;
+        const zoomTickMs = 140;
+        const approxDuration = Math.max(1, Number((ensureStoryMusic() && ensureStoryMusic().duration) || 45) - STORY_MUSIC_START_SECONDS);
+        const totalTicks = Math.max(1, Math.round((approxDuration * 1000) / zoomTickMs));
+        const zoomFrame = () => {
+          if (cancelled || index !== STORY_SCREENS.length - 1) return;
+          zoomStep += 1;
+          const zoomRatio = Math.min(1, zoomStep / totalTicks);
+          const scale = 1.01 + (zoomMax * zoomRatio);
+          try { textEl.style.transform = `scale(${scale.toFixed(4)})`; } catch (error) {}
+          queue(zoomFrame, zoomTickMs);
+        };
+        queue(zoomFrame, zoomTickMs);
+      }
+    } else {
+      textEl.classList.add('visible');
+    }
+
+    syncStoryNavControls();
   }
 
   overlay.classList.remove('hidden');
-syncStoryMusicControls();
-  const storyAudio = ensureStoryMusic();
-  if (storyAudio) {
-    endedHandler = () => { finishStory(); };
-    try { storyAudio.removeEventListener('ended', endedHandler); } catch (error) {}
-    storyAudio.addEventListener('ended', endedHandler, { once: true });
-  }
-  Promise.resolve().then(() => tryStartMusic());
+  syncStoryMusicControls();
+  syncStoryNavControls();
+  Promise.resolve().then(() => tryStartMusic(true));
 
   if (skipBtn) {
     skipBtn.onclick = () => { pulseStoryControls(); finishStory(); };
+  }
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      pulseStoryControls();
+      if (index > 0) {
+        index -= 1;
+        renderCurrentScreen();
+      }
+    };
+  }
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      pulseStoryControls();
+      if (index >= STORY_SCREENS.length - 1) {
+        finishStory();
+        return;
+      }
+      index += 1;
+      renderCurrentScreen();
+    };
   }
   if (muteBtn) {
     muteBtn.onclick = () => {
@@ -372,112 +430,33 @@ syncStoryMusicControls();
     volumeSlider.addEventListener('touchstart', pulseStoryControls, { passive: true });
     volumeSlider.addEventListener('focus', pulseStoryControls);
   }
-  if (muteBtn) {
-    muteBtn.addEventListener('pointerdown', pulseStoryControls, { passive: true });
-    muteBtn.addEventListener('touchstart', pulseStoryControls, { passive: true });
-    muteBtn.addEventListener('focus', pulseStoryControls);
-  }
-  if (skipBtn) {
-    skipBtn.addEventListener('pointerdown', pulseStoryControls, { passive: true });
-    skipBtn.addEventListener('touchstart', pulseStoryControls, { passive: true });
-    skipBtn.addEventListener('focus', pulseStoryControls);
-  }
-
-  function showNext() {
-    if (cancelled) return;
-    if (index >= STORY_SCREENS.length) {
-      return;
-    }
-
-    const screen = STORY_SCREENS[index];
-    const isFinalScreen = index === STORY_SCREENS.length - 1;
-    textEl.classList.remove('visible');
-
-    queue(() => {
-      if (cancelled) return;
-      try { const oldBtn = document.getElementById('introPlayBtn'); if (oldBtn) oldBtn.remove(); } catch (error) {}
-      try { const oldBtn = document.getElementById('introPlayBtn'); if (oldBtn) oldBtn.remove(); } catch (error) {}
-      renderStoryScreen(textEl, screen);
-      
-      
-      
-      try {
-        if (screen && screen.text === "DFK DEFENDER") {
-          textEl.classList.add('big-final');
-        } else {
-          textEl.classList.remove('big-final');
-        }
-        if (screen && screen.fieryFinal) {
-          textEl.classList.add('fiery-final');
-        } else {
-          textEl.classList.remove('fiery-final');
-        }
-      } catch (error) {}
-try {
-        if (screen && screen.noAnim) {
-          textEl.style.animation = 'none';
-          textEl.style.transition = 'opacity 600ms ease, transform 600ms ease';
-          textEl.style.opacity = '1';
-          textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
-        } else {
-          textEl.style.animation = '';
-          textEl.style.transition = '';
-          textEl.style.opacity = '';
-          textEl.style.transform = '';
-        }
-      } catch (error) {}
-try {
-        if (screen && screen.text === "We weren’t fighting the darkness, we were feeding it") {
-          textEl.classList.add('story-one-line');
-        } else {
-          textEl.classList.remove('story-one-line');
-        }
-      } catch (error) {}
-textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
-      textEl.classList.remove('visible');
-      void textEl.offsetWidth;
-      if (screen && screen.noAnim) {
-        textEl.style.animation = 'none';
-        textEl.style.opacity = '1';
-        textEl.style.transform = screen && screen.fieryFinal ? 'scale(1.01)' : 'scale(1)';
-        if (screen && screen.fieryFinal) {
-          let zoomStep = 0;
-          const zoomMax = 0.16;
-          const zoomTickMs = 140;
-          const approxDuration = Math.max(1, Number((ensureStoryMusic() && ensureStoryMusic().duration) || 45) - STORY_MUSIC_START_SECONDS);
-          const totalTicks = Math.max(1, Math.round((approxDuration * 1000) / zoomTickMs));
-          const zoomFrame = () => {
-            if (cancelled) return;
-            zoomStep += 1;
-            const zoomRatio = Math.min(1, zoomStep / totalTicks);
-            const scale = 1.01 + (zoomMax * zoomRatio);
-            try { textEl.style.transform = `scale(${scale.toFixed(4)})`; } catch (error) {}
-            queue(zoomFrame, zoomTickMs);
-          };
-          queue(zoomFrame, zoomTickMs);
-        }
-      } else {
-        textEl.classList.add('visible');
-      }
-
-      queue(() => {
-        if (cancelled) return;
-        if (isFinalScreen) { injectPlayButton(textEl);
-          return;
-        }
-        textEl.classList.remove('visible');
-        index += 1;
-        queue(showNext, 1200);
-      }, screen.duration);
-    }, 700);
-  }
+  [muteBtn, skipBtn, prevBtn, nextBtn].forEach((btn) => {
+    if (!btn) return;
+    btn.addEventListener('pointerdown', pulseStoryControls, { passive: true });
+    btn.addEventListener('touchstart', pulseStoryControls, { passive: true });
+    btn.addEventListener('focus', pulseStoryControls);
+  });
 
   document.addEventListener('keydown', function onStoryKey(event) {
-    if (!cancelled && event.key === 'Escape') {
-      finishStory();
-    }
     if (cancelled) {
       document.removeEventListener('keydown', onStoryKey);
+      return;
+    }
+    if (event.key === 'Escape') {
+      finishStory();
+    } else if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault();
+      if (index >= STORY_SCREENS.length - 1) finishStory();
+      else {
+        index += 1;
+        renderCurrentScreen();
+      }
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      if (index > 0) {
+        index -= 1;
+        renderCurrentScreen();
+      }
     }
   });
 
@@ -493,16 +472,7 @@ textEl.style.setProperty('--story-frame-duration', `${screen.duration}ms`);
     }
   }, true);
 
-  document.addEventListener('visibilitychange', function onStoryVisibilityChange() {
-    if (document.hidden && !cancelled) {
-      finishStory();
-    }
-    if (cancelled) {
-      document.removeEventListener('visibilitychange', onStoryVisibilityChange);
-    }
-  });
-
-  showNext();
+  renderCurrentScreen();
 }
 
 window.addEventListener('load', () => {
@@ -564,14 +534,14 @@ function getRandomTree(){
   const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const WIZARD_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
   const REDUCED_DAMAGE_GROWTH_FACTOR = 0.85;
-  const ARCHER_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
+  const ARCHER_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR * 1.03);
   const PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
   const ICE_AURA_BASE_SLOW = 0.12;
   const ICE_AURA_SLOW_PER_LEVEL = 0.004;
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v1.4.39d';
+const APP_VERSION = 'v1.4.39e';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -601,6 +571,14 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const BLINDING_LIGHT_TOTEM_LINGER_SECONDS = 5;
   const MULTI_SHOT_BASE_DAMAGE_BONUS = 4;
   const BIG_ENEMY_HP_MULTIPLIER = 1.25;
+  const GLOBAL_NON_BOSS_ENEMY_COUNT_MULTIPLIER = 0.46059375;
+  const GLOBAL_NON_BOSS_ENEMY_HP_MULTIPLIER = 1.452;
+  const GLOBAL_NON_BOSS_ENEMY_SPEED_MULTIPLIER = 0.90;
+  const GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER = 1.1025;
+  const GLOBAL_BIG_ENEMY_COUNT_MULTIPLIER = 0.85;
+  const GLOBAL_BIG_ENEMY_HP_MULTIPLIER = 1.15;
+  const GLOBAL_SKITTER_COUNT_MULTIPLIER = 0.425;
+  const GLOBAL_SKITTER_HP_MULTIPLIER = 1.30;
   const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
   const ENEMY_TILE_LIMITS = {
     boss: 9999,
@@ -609,7 +587,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     small: 10,
     skitter: 10,
   };
-  const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 28.125;
+  const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 42.1875;
   const EXPLODING_STATUE_RADIUS = 2;
   const EXPLODING_STATUE_DAMAGE_PERCENT = 0.11;
   const EXPLODING_STATUE_ANIMATION_MS = 3000;
@@ -617,12 +595,27 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ARCHER_PROJECTILE_SIZE_MULTIPLIER = 0.85;
   const STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER = 2.0;
   const GREEN_FIRE_GIF_PATH = 'assets/green-fire.gif';
+const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
+  const SPELLBOW_LIGHTNING_SHAFT_IMAGE_PATH = 'assets/lightning-shaft.png';
+  const SPELLBOW_A_LOT_OF_ARROWS_IMAGE_PATH = 'assets/spellbow-alot-of-arrows.png';
+  const SAGE_ROSE_PROJECTILE_IMAGE_PATH = 'assets/kiss-from-a-rose.png';
+  const SAGE_PETAL_STORM_IMAGE_PATH = 'assets/rose-petals.png';
   const RED_FIRE_GIF_PATH = 'assets/red-fire.gif';
   const PURPLE_FIRE_GIF_PATH = 'assets/purple-fire.gif';
   const FIREBALL_GIF_PATH = 'assets/fireball-flame-ball.png';
   const CANNONBALL_IMAGE_PATH = 'assets/cannonball.png';
+  const DRAGOON_SPEAR_IMAGE_PATH = 'assets/dragoon-spear.png';
+  const CHAMPION_AUTO_ABILITY_DELAY_MS = 2000;
+  const TOWER_ABILITY_CHAIN_DELAY_MS = 1500;
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
   const TORN_SOUL_BURN_RADIUS = 1;
+  const TORN_SOUL_DAMAGE_MULTIPLIER = 1.15;
+  const PURE_ENERGY_LEVEL = 100;
+  const PURE_ENERGY_DAMAGE_MULTIPLIER = 1.5;
+  const PURE_ENERGY_SPEED_MULTIPLIER = 1.1;
+  const PURE_ENERGY_BURN_DURATION_MULTIPLIER = 1.5;
+  const PURE_ENERGY_BURN_RADIUS_BONUS = 1;
+  const PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES = 3;
   const SATELLITE_UPGRADE_COST_MULTIPLIER = 1.5;
   const SATELLITE_DAMAGE_MULTIPLIER = 0.75;
   const SATELLITE_DISSIPATE_AFTER_WAVES = 13;
@@ -634,12 +627,19 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const WARRIOR_HP_GROWTH_PER_LEVEL = 1.053;
+  const WARRIOR_DAMAGE_GROWTH_PER_LEVEL = 1.05;
+  const WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL = 1 + ((WARRIOR_DAMAGE_GROWTH_PER_LEVEL - 1) * 0.75);
+  const DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL = 1.035251407835505;
+  const POST_WAVE100_ENEMY_COUNT_MULTIPLIER = 0.85;
+  const POST_WAVE100_ENEMY_HP_MULTIPLIER = 1.05;
+  const POST_WAVE100_ENEMY_SPEED_MULTIPLIER = 0.97;
   const BARRIER_REBUILD_COST = 120;
   const WAVE_REBUILD_INTERVAL = 15;
   const UPDATE_MS = 200;
   const WAVE_BREAK_SECONDS = 6;
   const RANDOM_OBSTACLE_COUNT = 9;
   const PLAYER_OBSTACLE_COUNT = 9;
+  const GLOBAL_HERO_DAMAGE_MULTIPLIER = 0.95;
 
   const TOWER_TEMPLATES = {
     warrior: {
@@ -736,13 +736,53 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       ],
       passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
     },
+    champion_dreadknight: {
+      name: 'Dreadknight', letter: 'DK', hp: 2400, damage: 120, attackInterval: 1.0, range: 1, autoAttack: true,
+      abilities: [
+        { key: 'champion_big_sword', name: 'Damn Big Sword', cooldown: 3 },
+        { key: 'champion_crush', name: 'Crush', cooldown: 10 },
+        { key: 'champion_gauntlet', name: 'Controlling the Field', cooldown: 0, passive: true },
+        { key: 'champion_dread', name: 'Dread', cooldown: 0, passive: true },
+      ],
+    },
+    champion_sage: {
+      name: 'Sage', letter: 'SAG', hp: 1850, damage: 95, attackInterval: 1.1, range: 3, autoAttack: true,
+      abilities: [
+        { key: 'champion_kiss_from_a_rose', name: 'Kiss From a Rose', cooldown: 5 },
+        { key: 'champion_storm', name: 'Petal Storm', cooldown: 30 },
+        { key: 'champion_live_forever', name: 'Live Forever', cooldown: 0, passive: true },
+        { key: 'champion_eye_contact', name: 'Battle Meditation', cooldown: 0, passive: true },
+      ],
+    },
+    champion_dragoon: {
+      name: 'Dragoon', letter: 'DRG', hp: 2100, damage: 105, attackInterval: 1.0, range: 2, autoAttack: true,
+      abilities: [
+        { key: 'champion_overpower', name: 'Overpower', cooldown: 5 },
+        { key: 'champion_leadership', name: 'Leadership', cooldown: 0, passive: true },
+        { key: 'champion_point', name: 'Point', cooldown: 5 },
+        { key: 'champion_battle_hardened', name: 'Battle Hardened', cooldown: 0, passive: true },
+      ],
+    },
+    champion_spellbow: {
+      name: 'Spellbow', letter: 'SPB', hp: 1550, damage: 78, attackInterval: 0.75, range: 99, autoAttack: true,
+      abilities: [
+        { key: 'champion_not_an_archer', name: 'Lightning Shaft', cooldown: 18 },
+        { key: 'champion_ok_maybe_archer', name: 'A Lot Of Arrows', cooldown: 25 },
+        { key: 'champion_speed', name: 'Speed', cooldown: 0, passive: true },
+        { key: 'champion_empower', name: 'Eagle Eye', cooldown: 0, passive: true },
+      ],
+    },
   };
 
+  Object.values(TOWER_TEMPLATES).forEach((template) => {
+    if (template && Number(template.damage || 0) > 0) template.damage *= GLOBAL_HERO_DAMAGE_MULTIPLIER;
+  });
+
   const ENEMY_TEMPLATES = {
-    grunt: { name: 'Grunt', hp: 142.5, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 5.5, typeClass: 'grunt' },
-    runner: { name: 'Runner', hp: 100, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 4.75, typeClass: 'runner' },
-    brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 19, typeClass: 'brute' },
-    skitter: { name: 'Skitter', hp: 24, damage: 6, moveInterval: 0.2492, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
+    grunt: { name: 'Grunt', hp: 188.1, damage: 12, moveInterval: 0.665, attackInterval: 1.2, jewel: 6, typeClass: 'grunt' },
+    runner: { name: 'Runner', hp: 132, damage: 10, moveInterval: 0.57, attackInterval: 1.0, jewel: 5, typeClass: 'runner' },
+    brute: { name: 'Brute', hp: 420, damage: 35, moveInterval: 0.95, attackInterval: 1.3, jewel: 21, typeClass: 'brute' },
+    skitter: { name: 'Skitter', hp: 41.184, damage: 6, moveInterval: 0.2492, attackInterval: 0.8, jewel: 2, typeClass: 'runner' },
   };
 
   const BOSSES = [
@@ -835,28 +875,28 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   ];
 
   const RELICS = [
-    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 100 Gold to fletch a nastier volley and increase Archer damage by 6%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.06 }) },
-    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 100 Gold to tighten the Archer kit and increase Archer attack speed by 5%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.05 }) },
-    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 100 Gold to sharpen the Wizard's spellwork and increase spell damage by 6%.", cost: 100, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.06 },
-    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 100 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 5%.", cost: 100, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.95 },
-    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 100 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 11%.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.11, healToMatchPercent: true }) },
-    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 100 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 100, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
+    { id: 'sharpened_arrows', name: 'Sharpened Arrows', desc: 'Spend 100 Gold to fletch a nastier volley and increase Archer damage by 6%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { damageMult: 1.06 }) },
+    { id: 'balanced_quiver', name: 'Balanced Quiver', desc: 'Spend 100 Gold to tighten the Archer kit and increase Archer attack speed by 5%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'archer', { speedMult: 1.05 }) },
+    { id: 'arcane_focus', name: 'Arcane Focus', desc: "Spend 100 Gold to sharpen the Wizard's spellwork and increase spell damage by 6%.", cost: 120, rarity: 'common', apply: game => game.modifiers.wizardSpellDamage *= 1.06 },
+    { id: 'mana_efficiency', name: 'Mana Efficiency', desc: "Spend 100 Gold to smooth out the Wizard's casting and reduce Wizard cooldowns by 5%.", cost: 120, rarity: 'common', apply: game => game.modifiers.wizardCooldown *= 0.95 },
+    { id: 'reinforced_armor', name: 'Reinforced Armor', desc: 'Spend 100 Gold to suit the Warrior in heavier plate and increase Warrior max HP by 11%.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.11, healToMatchPercent: true }) },
+    { id: 'battle_discipline', name: 'Battle Discipline', desc: 'Spend 100 Gold to drill the Warrior harder and make Warrior cooldowns recover 5% faster.', cost: 120, rarity: 'common', apply: game => game.modifiers.warriorCooldown *= 0.95 },
 { id: 'blade_dancer', name: 'Blade Dancer', desc: 'Spend 350 Gold to teach the Warrior blade dancing and reduce Whirlwind cooldown by 2 seconds.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.whirlwindCooldownAdjust += 2 },
-    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 100 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 100, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
+    { id: 'radiant_faith', name: 'Radiant Faith', desc: "Spend 100 Gold to deepen the Priest's devotion and increase Priest healing by 8%.", cost: 120, rarity: 'common', apply: game => game.modifiers.priestHealing *= 1.08 },
     { id: 'devotion', name: 'Devotion', desc: "Spend 300 Gold. The Priest studies the old ways and Prayer of Healing cooldown is reduced by 1 second.", cost: 300, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 1 },
-    { id: 'meditate', name: 'Meditate', desc: 'Spend 100 Gold and the Seer meditates on the future to gain 5% attack speed.', cost: 100, rarity: 'common', apply: game => buffTowerType(game, 'seer', { speedMult: 1.05 }) },
+    { id: 'meditate', name: 'Meditate', desc: 'Spend 100 Gold and the Seer meditates on the future to gain 5% attack speed.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'seer', { speedMult: 1.05 }) },
     { id: 'art_enjoyer', name: 'Art Enjoyer', desc: 'Spend 300 Gold to teach the Seer about art so Temporal Restoration also heals Statues.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.seerPassiveHealsStatues = true },
     { id: 'oracle', name: 'Oracle', desc: 'Spend 300 Gold to reduce all Seer damage to zero but increase Seer healing by 3x.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.seerDamageMultiplier *= 0; game.modifiers.seerHealMultiplier *= 3; } },
     { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
-    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 100, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
-    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 100, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
+    { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 120, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
+    { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 120, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
     { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
-    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 100 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 100, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
-    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 100 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 100, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
-    { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 100 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 100, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
-    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 100 Gold to pack the Statue with spite so it explodes on death for 11% of its max HP in 2 tiles.', cost: 100, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
-    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 100 Gold to patch the Statue back together and restore 13% of its health.', cost: 100, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
-    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 100 Gold to reinforce the portal and restore 11% of its health.', cost: 100, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
+    { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 100 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 120, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
+    { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 100 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 120, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
+    { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 100 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 120, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
+    { id: 'exploding_statue', name: 'Exploding Statue', desc: 'Spend 100 Gold to pack the Statue with spite so it explodes on death for 11% of its max HP in 2 tiles.', cost: 120, rarity: 'common', apply: game => game.modifiers.explodingStatue = true },
+    { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 100 Gold to patch the Statue back together and restore 13% of its health.', cost: 120, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
+    { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 100 Gold to reinforce the portal and restore 11% of its health.', cost: 120, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
     { id: 'fire_fiend', name: 'Fire Fiend', desc: 'Spend 200 Gold to feed the Wizard hotter fuel and make Fireball cooldown 1 second shorter.', cost: 200, rarity: 'rare', apply: game => game.modifiers.fireballCooldownAdjust += 1 },
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase his health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
     { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve himself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
@@ -903,6 +943,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     mobileModeBtn: document.getElementById('mobileModeBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
+    loreBtn: document.getElementById('loreBtn'),
     bountyBtn: document.getElementById('bountyBtn'),
     questsBtn: document.getElementById('questsBtn'),
     trackedRunsBtn: document.getElementById('trackedRunsBtn'),
@@ -971,10 +1012,19 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     seerIntroOkBtn: document.getElementById('seerIntroOkBtn'),
     avaxTreasuryPanel: document.getElementById('avaxTreasuryPanel'),
     avaxTreasuryPanelToggle: document.getElementById('avaxTreasuryPanelToggle'),
+    buttonsPanel: document.getElementById('buttonsPanel'),
+    buttonsPanelToggle: document.getElementById('buttonsPanelToggle'),
+    heroPlacementReminderModal: document.getElementById('heroPlacementReminderModal'),
+    heroPlacementReminderBody: document.getElementById('heroPlacementReminderBody'),
+    heroPlacementReminderOkBtn: document.getElementById('heroPlacementReminderOkBtn'),
+    heroPurchaseWaitingModal: document.getElementById('heroPurchaseWaitingModal'),
     walletPanel: document.getElementById('walletPanel'),
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
     addGoldBtn: document.getElementById('addGoldBtn'),
+    relicViewDfkgoldSwapBtn: document.getElementById('relicViewDfkgoldSwapBtn'),
+    relicViewJewelGoldSwapBtn: document.getElementById('relicViewJewelGoldSwapBtn'),
+    relicSwapStatus: document.getElementById('relicSwapStatus'),
     bankPanel: document.getElementById('bankPanel'),
     bankPanelBody: document.getElementById('bankPanelBody'),
     bankPanelToggle: document.getElementById('bankPanelToggle'),
@@ -1057,6 +1107,32 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     walletHeroBonusToggle: document.getElementById('walletHeroBonusToggle'),
     walletHeroBonusPanelBody: document.getElementById('walletHeroBonusPanelBody'),
     walletHeroBonusSummary: document.getElementById('walletHeroBonusSummary'),
+    championPanel: document.getElementById('championPanel'),
+    championPanelToggle: document.getElementById('championPanelToggle'),
+    championPanelBody: document.getElementById('championPanelBody'),
+    championPanelSummary: document.getElementById('championPanelSummary'),
+    championStatus: document.getElementById('championStatus'),
+    championBody: document.getElementById('championBody'),
+    refreshChampionsBtn: document.getElementById('refreshChampionsBtn'),
+    chooseChampionBtn: document.getElementById('chooseChampionBtn'),
+    deployChampionBtn: document.getElementById('deployChampionBtn'),
+    buyJewelGoldSwapBtn: document.getElementById('buyJewelGoldSwapBtn'),
+    buyJewelHeroHire1Btn: document.getElementById('buyJewelHeroHire1Btn'),
+    buyJewelHeroHire2Btn: document.getElementById('buyJewelHeroHire2Btn'),
+    buyJewelHeroHire3Btn: document.getElementById('buyJewelHeroHire3Btn'),
+    buyJewelHeroHire4Btn: document.getElementById('buyJewelHeroHire4Btn'),
+    buyJewelHeroHire5Btn: document.getElementById('buyJewelHeroHire5Btn'),
+    buyJewelHeroHire6Btn: document.getElementById('buyJewelHeroHire6Btn'),
+    jewelTradeStatus: document.getElementById('jewelTradeStatus'),
+    championModal: document.getElementById('championModal'),
+    championModalBody: document.getElementById('championModalBody'),
+    championConfirmBtn: document.getElementById('championConfirmBtn'),
+    championSkipBtn: document.getElementById('championSkipBtn'),
+    championLockModal: document.getElementById('championLockModal'),
+    championLockText: document.getElementById('championLockText'),
+    championLockCancelBtn: document.getElementById('championLockCancelBtn'),
+    championLockConfirmBtn: document.getElementById('championLockConfirmBtn'),
+    totalRunsDisplay: document.getElementById('totalRunsDisplay'),
     burnedGoldDisplay: document.getElementById('burnedGoldDisplay'),
   };
 
@@ -1124,6 +1200,18 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     walletHeroLoadError: '',
     walletHeroPanelCollapsed: true,
     placingWalletHeroId: null,
+    championRoster: [],
+    championPanelCollapsed: true,
+    selectedChampionKey: '',
+    selectedChampionHeroId: '',
+    selectedChampionConfirmed: false,
+    selectedChampionSnapshot: null,
+    championModalForceChoice: false,
+    championWaitAnchorWave: 0,
+    championDeployedTowerId: null,
+    championActiveUntilWave: 0,
+    championLockPending: false,
+    lastChampionPanelWaveRendered: -1,
     lastTick: 0,
     realLastTick: 0,
     virtualNow: 0,
@@ -1143,11 +1231,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     autoStartDelayMs: 15000,
     autoStartReadyAt: 0,
     autoStartToken: 0,
+    lastTopbarUiRefreshAt: 0,
+    lastSelectedPanelRefreshAt: 0,
+    lastMobileFitRefreshAt: 0,
     bonusHeroHireCharges: 0,
     placingHeroUsesBonus: false,
     rebuildingBarriers: false,
     barrierRefitCount: 0,
     bonusBarrierCount: 0,
+    portalMoveBarrierRefundUsed: false,
     milestoneBarrierOffer: null,
     milestoneBarrierOffersSeen: {},
     startingRelicClaimed: false,
@@ -1163,14 +1255,18 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     dfkGoldSwapOfferOpen: false,
     dfkGoldSwapOfferReason: '',
     dfkGoldSwapPending: false,
+    jewelTradePending: false,
+    pendingMilestonePurchase: null,
     dfkGoldBurnedTotal: 0,
     globalDfkGoldBurnedTotal: 0,
     globalDfkGoldBurnLeaderName: '',
     globalDfkGoldBurnLeaderWallet: '',
     globalDfkGoldBurnLeaderTotal: 0,
+    globalTrackedRunsTotal: 0,
     globalDfkGoldRefreshTimer: null,
     milestoneHeroOffer: null,
     milestoneHeroOffersSeen: {},
+    lastHeroPlacementReminderWave: 0,
     pendingMilestoneHeroPlacement: null,
     ownedRelics: [],
     foundRelics: [],
@@ -1274,7 +1370,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const BASE_PLAYER_BARRIER_COUNT = 9;
 
   function getTargetPlayerObstacleCount() {
-    return Math.max(0, BASE_PLAYER_BARRIER_COUNT + Math.max(0, Number(game.bonusBarrierCount || 0)));
+    return BASE_PLAYER_BARRIER_COUNT;
+  }
+
+  function getCurrentPlacedBarrierCount() {
+    return (game.grid || []).filter((tile) => tile && tile.type === 'playerObstacle').length;
+  }
+
+  function hasReachedPlayerBarrierCap() {
+    return getCurrentPlacedBarrierCount() >= BASE_PLAYER_BARRIER_COUNT;
   }
 
 
@@ -1516,17 +1620,41 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     if (els.questsModal && !els.questsModal.classList.contains('hidden')) renderDailyQuestsBoard();
   }
 
-  function claimDailyQuest(questId) {
-    const board = ensureDailyQuestBoard();
-    const quest = getQuestDefinitionById(questId);
-    if (!quest || isQuestClaimed(questId, board) || !isQuestComplete(quest, board)) return;
+
+async function claimDailyQuest(questId) {
+  const board = ensureDailyQuestBoard();
+  const quest = getQuestDefinitionById(questId);
+  if (!quest || isQuestClaimed(questId, board) || !isQuestComplete(quest, board)) return;
+  if (!canSubmitRewardClaims()) {
+    showBanner('Connect your wallet and enable run tracking to claim daily rewards.', 2600);
+    return;
+  }
+  board.claiming = true;
+  board.error = '';
+  renderDailyQuestsBoard();
+  try {
+    const result = await requestRewardClaim({
+      claimType: 'daily_quest',
+      walletAddress: getConnectedWalletAddress(),
+      questId: quest.id,
+      questName: quest.name,
+      rewardText: '1 Jewel',
+      playerName: getRewardClaimPlayerName(),
+    });
     board.claimed[questId] = true;
     persistDailyQuestBoard();
     awardPremiumJewels(1, `Daily quest: ${quest.name}`);
+    showBanner(result && result.message ? result.message : 'Daily reward claim submitted.', 2600);
+  } catch (error) {
+    board.error = error && error.message ? error.message : 'Daily reward claim failed.';
+    showBanner(board.error, 2600);
+  } finally {
+    board.claiming = false;
     renderDailyQuestsBoard();
   }
+}
 
-  function formatQuestResetCountdown(dateKey) {
+function formatQuestResetCountdown(dateKey) {
     const nextMidnight = new Date(`${dateKey}T00:00:00.000Z`).getTime() + 86400000;
     const diff = Math.max(0, nextMidnight - Date.now());
     const totalSeconds = Math.floor(diff / 1000);
@@ -1548,9 +1676,11 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       const claimed = isQuestClaimed(quest.id, board);
       const stateClass = claimed ? 'is-claimed' : (complete ? 'is-open' : 'is-locked');
       const stateLabel = claimed ? 'Claimed' : (complete ? 'Ready' : 'In Progress');
+      const canClaimRewards = canSubmitRewardClaims();
+      const claimDisabled = !complete || !canClaimRewards || board.claiming;
       const button = claimed
         ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
-        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${complete ? '' : 'disabled'}>${complete ? 'Claim 1 Jewel' : 'Complete Quest'}</button>`;
+        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${claimDisabled ? 'disabled' : ''}>${board.claiming ? 'Submitting…' : (complete ? 'Claim 1 Jewel' : 'Complete Quest')}</button>`;
       return `
         <article class="bounty-card ${stateClass} quest-card">
           <div class="bounty-card-top">
@@ -1574,6 +1704,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         </article>
       `;
     }).join('');
+    const rewardClaimBanner = !canSubmitRewardClaims()
+      ? '<div class="bounty-status-banner">Connect your wallet and enable run tracking to send daily reward claims to the backend.</div>'
+      : '<div class="bounty-status-banner">Claimed quests are also logged in the private rewards panel for payout review.</div>';
+    const errorBanner = board.error ? `<div class="bounty-status-banner is-error">${escapeHtml(board.error)}</div>` : '';
     els.questsBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
@@ -1582,6 +1716,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         </div>
         <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)}</div>
       </div>
+      ${rewardClaimBanner}
+      ${errorBanner}
       <div class="tracked-runs-hero-strip quests-summary-strip">
         <div>
           <div class="bounty-strip-kicker">Today's progress</div>
@@ -1789,6 +1925,248 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return getConnectedWalletChainId() === Number(window.DFK_AVAX_CHAIN_ID || 43114);
   }
 
+  function isConnectedWalletOnDfk() {
+    return getConnectedWalletChainId() === 53935;
+  }
+
+  const DFK_JEWEL_TOKEN_ADDRESS = '0xCCb93dABD71c8Dad03Fc4CE5559dC3D89F67a260';
+  const DFK_JEWEL_TREASURY_ADDRESS = '0x971bDACd04EF40141ddb6bA175d4f76665103c81';
+  const DFK_JEWEL_GOLD_SWAP_WEI = '1000000000000000000';
+  const DFK_JEWEL_EXTRA_HIRE_WEI = Object.freeze([
+    '3000000000000000000',
+    '5000000000000000000',
+    '7000000000000000000',
+    '10000000000000000000',
+    '10000000000000000000',
+    '10000000000000000000'
+  ]);
+
+  function getWalletProvider() {
+    const walletState = getWalletStateSnapshot();
+    return walletState && walletState.selectedProvider ? walletState.selectedProvider : (window.ethereum || null);
+  }
+
+  function toPaddedHexWord(value) {
+    return BigInt(String(value || '0')).toString(16).padStart(64, '0');
+  }
+
+  function formatJewelTokenAmount(amountWei) {
+    try {
+      const value = BigInt(String(amountWei || '0'));
+      const whole = value / 1000000000000000000n;
+      const frac = (value % 1000000000000000000n).toString().padStart(18, '0').slice(0, 3).replace(/0+$/, '');
+      return `${whole}${frac ? '.' + frac : ''}`;
+    } catch (_error) {
+      return '0';
+    }
+  }
+
+  function getWalletNativeJewelBalance() {
+    const walletState = getWalletStateSnapshot();
+    return Math.max(0, Number(walletState?.balance?.balance || 0));
+  }
+
+  function getWalletNativeJewelBalanceLabel() {
+    const walletState = getWalletStateSnapshot();
+    const symbol = String(walletState?.nativeSymbol || 'JEWEL');
+    const balance = getWalletNativeJewelBalance();
+    if (!Number.isFinite(balance)) return `0 ${symbol}`;
+    return `${balance.toLocaleString(undefined, { maximumFractionDigits: 3 })} ${symbol}`;
+  }
+
+  function weiToJewelNumber(amountWei) {
+    try {
+      return Number(BigInt(String(amountWei || '0'))) / 1e18;
+    } catch (_error) {
+      return 0;
+    }
+  }
+
+  function hasWalletJewelForWei(amountWei) {
+    return getWalletNativeJewelBalance() + 1e-9 >= weiToJewelNumber(amountWei);
+  }
+
+  async function refreshWalletJewelTokenBalance(options = {}) {
+    await refreshWalletEconomyDetails().catch(() => null);
+    updateJewelTradeUi();
+    updateRelicSwapUi();
+    if (!options.skipMilestoneRender && game.milestoneHeroOffer) renderMilestoneHeroOffer();
+    return getWalletNativeJewelBalance();
+  }
+
+  async function sendDfkJewelPayment(amountWei) {
+    const wallet = getWalletStateSnapshot();
+    const provider = getWalletProvider();
+    if (!wallet || !wallet.address || !provider || typeof provider.request !== 'function') throw new Error('Connect wallet first.');
+    if (!isConnectedWalletOnDfk()) throw new Error('Switch to DFK Chain first.');
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: wallet.address,
+        to: DFK_JEWEL_TREASURY_ADDRESS,
+        value: '0x' + BigInt(String(amountWei || '0')).toString(16),
+      }],
+    });
+    return { txHash, walletAddress: wallet.address };
+  }
+
+  function clearPendingMilestonePurchase() {
+    game.pendingMilestonePurchase = null;
+  }
+
+  function createPendingMilestonePurchase(kind, metadata = {}, amountWei = '0') {
+    const offer = metadata && metadata.wave ? { wave: Number(metadata.wave || 0), heroLevel: Number(metadata.heroLevel || 0) } : null;
+    const beforeWalletBalance = getWalletNativeJewelBalance();
+    game.pendingMilestonePurchase = {
+      kind: String(kind || ''),
+      heroType: metadata && metadata.heroType ? String(metadata.heroType) : '',
+      offer,
+      amountWei: String(amountWei || '0'),
+      beforeWalletBalance,
+      label: metadata && metadata.label ? String(metadata.label) : '',
+      startedAt: Date.now(),
+    };
+    return game.pendingMilestonePurchase;
+  }
+
+  async function recoverPendingMilestoneJewelHire() {
+    const pending = game.pendingMilestonePurchase;
+    if (!pending || pending.kind !== 'jewel_milestone_hero_hire') return false;
+    const heroType = String(pending.heroType || '');
+    const offer = pending.offer;
+    if (!heroType || !offer || !offer.wave || !offer.heroLevel) return false;
+    await refreshWalletJewelTokenBalance().catch(() => {});
+    const expectedSpend = weiToJewelNumber(pending.amountWei || '0');
+    const balanceDrop = Math.max(0, Number(pending.beforeWalletBalance || 0) - Number(getWalletNativeJewelBalance() || 0));
+    if (expectedSpend > 0 && balanceDrop + 1e-6 < Math.max(0, expectedSpend - 0.00001)) {
+      showBanner('No confirmed JEWEL payment detected yet. Refresh again after approving in the wallet.', 2600);
+      return false;
+    }
+    queueMilestoneReinforcement(heroType, offer, '');
+    finishMilestoneOffer(false);
+    clearPendingMilestonePurchase();
+    showBanner('Recovered your reinforcement after wallet confirmation. It is ready in the Hire menu.', 3200);
+    setInstruction(`Your reinforcement is ready in the Hire menu now. Place it whenever you are ready.`);
+    render();
+    return true;
+  }
+
+  async function performDfkJewelTrade(kind, amountWei, label, metadata = {}) {
+    if (game.jewelTradePending) throw new Error('A JEWEL trade is already pending.');
+    game.jewelTradePending = true;
+    if (kind === 'jewel_milestone_hero_hire') {
+      createPendingMilestonePurchase(kind, { ...metadata, label }, amountWei);
+    }
+    updateJewelTradeUi();
+    updateRelicSwapUi();
+    if (game.milestoneHeroOffer) renderMilestoneHeroOffer();
+    try {
+      const payment = await Promise.race([
+        sendDfkJewelPayment(String(amountWei || '0')),
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error('Wallet confirmation timed out. If you already approved it, use Refresh Wallet to recover the hero.')), 45000)),
+      ]);
+      log(`${label || kind} paid with native JEWEL. Tx: ${payment.txHash}`);
+      clearPendingMilestonePurchase();
+      return { txHash: payment.txHash, walletAddress: payment.walletAddress, kind, metadata };
+    } catch (error) {
+      throw error;
+    } finally {
+      game.jewelTradePending = false;
+      refreshWalletJewelTokenBalance().catch(() => {});
+      updateJewelTradeUi();
+      updateRelicSwapUi();
+      if (game.milestoneHeroOffer) renderMilestoneHeroOffer();
+    }
+  }
+
+  function updateJewelTradeUi() {
+    const connected = !!getConnectedWalletAddress();
+    const onDfk = isConnectedWalletOnDfk();
+    const disabled = game.jewelTradePending || !connected || !onDfk;
+    const status = !connected
+      ? 'Connect a wallet on DFK Chain to trade JEWEL.'
+      : (!onDfk
+        ? 'Switch to DFK Chain to trade JEWEL.'
+        : (game.jewelTradePending
+          ? 'Waiting for wallet confirmation…'
+          : `Wallet JEWEL: ${getWalletNativeJewelBalanceLabel()} · Trades send native JEWEL to treasury on DFK Chain.`));
+    if (els.jewelTradeStatus) els.jewelTradeStatus.textContent = status;
+    [els.buyJewelGoldSwapBtn, els.buyJewelHeroHire1Btn, els.buyJewelHeroHire2Btn, els.buyJewelHeroHire3Btn, els.buyJewelHeroHire4Btn, els.buyJewelHeroHire5Btn, els.buyJewelHeroHire6Btn].forEach((btn) => {
+      if (btn) btn.disabled = !!disabled;
+    });
+  }
+
+  function updateRelicSwapUi() {
+    const connected = !!getConnectedWalletAddress();
+    const onDfk = isConnectedWalletOnDfk();
+    const waiting = !!(game.dfkGoldSwapPending || game.jewelTradePending);
+    const status = !connected
+      ? 'Connect a wallet on DFK Chain to swap here.'
+      : (!onDfk ? 'Switch to DFK Chain to use wallet swaps here.' : (waiting ? 'Waiting for wallet confirmation…' : `Swap DFK Gold or JEWEL directly from the relic view. Wallet JEWEL: ${getWalletNativeJewelBalanceLabel()}`));
+    if (els.relicSwapStatus) els.relicSwapStatus.textContent = status;
+    if (els.relicViewDfkgoldSwapBtn) els.relicViewDfkgoldSwapBtn.disabled = !connected || !onDfk || waiting;
+    if (els.relicViewJewelGoldSwapBtn) els.relicViewJewelGoldSwapBtn.disabled = !connected || !onDfk || waiting || !hasWalletJewelForWei(DFK_JEWEL_GOLD_SWAP_WEI);
+  }
+
+  async function buyRelicViewJewelGoldSwap() {
+    return buyJewelGoldSwap();
+  }
+
+  async function buyRelicViewDfkgoldSwap() {
+    try {
+      if (els.addGoldBtn && typeof els.addGoldBtn.click === 'function') {
+        els.addGoldBtn.click();
+        return;
+      }
+      if (typeof maybeOpenDfkgoldSwapOffer === 'function') {
+        return maybeOpenDfkgoldSwapOffer('relic_view');
+      }
+      if (typeof openDfkgoldSwapOffer === 'function') {
+        return openDfkgoldSwapOffer('relic_view');
+      }
+      showBanner('DFK Gold swap flow is not wired here yet.', 1800);
+    } catch (error) {
+      showBanner(error && error.message ? error.message : 'DFK Gold swap failed.', 1800);
+    }
+  }
+
+  async function buyJewelGoldSwap() {
+    try {
+      await performDfkJewelTrade('jewel_gold_swap', DFK_JEWEL_GOLD_SWAP_WEI, '2000 Gold swap', {
+        goldAwarded: 2000,
+        paymentAsset: 'native_jewel',
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+      });
+      game.jewel = Math.max(0, Number(game.jewel || 0)) + 2000;
+      log('Traded 1 JEWEL for 2000 in-game Gold.');
+      showBanner('+2000 Gold from JEWEL trade', 2200);
+      render();
+    } catch (error) {
+      showBanner(error && error.message ? error.message : 'JEWEL trade failed.', 1800);
+    }
+  }
+
+  async function buyJewelExtraHero(slotIndex) {
+    const safeIndex = Math.max(0, Math.min(DFK_JEWEL_EXTRA_HIRE_WEI.length - 1, Number(slotIndex || 0)));
+    const priceWei = DFK_JEWEL_EXTRA_HIRE_WEI[safeIndex];
+    const priceLabel = ['3 JEWEL', '5 JEWEL', '7 JEWEL', '10 JEWEL', '10 JEWEL', '10 JEWEL'][safeIndex];
+    try {
+      await performDfkJewelTrade('jewel_extra_hero', priceWei, `${priceLabel} extra hero`, {
+        extraHeroCharge: 1,
+        paymentAsset: 'native_jewel',
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        slotIndex: safeIndex + 1,
+      });
+      game.bonusHeroHireCharges = Math.max(0, Number(game.bonusHeroHireCharges || 0)) + 1;
+      log(`Traded ${priceLabel} for 1 extra hero charge.`);
+      showBanner('+1 extra hero charge unlocked', 2200);
+      render();
+      maybeShowUnplacedHeroReminder(true);
+    } catch (error) {
+      showBanner(error && error.message ? error.message : 'JEWEL trade failed.', 1800);
+    }
+  }
+
   function getActiveCryptoRailState() {
     const rails = window.DFKCryptoRails;
     if (!rails || typeof rails.getActiveRunPayment !== 'function') return null;
@@ -1966,6 +2344,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
 
   function updateBurnedGoldDisplay() {
     const total = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
+    const totalRuns = Math.max(0, Number(game.globalTrackedRunsTotal || 0));
+    if (els.totalRunsDisplay) {
+      els.totalRunsDisplay.textContent = `Total tracked runs: ${totalRuns.toLocaleString()}`;
+    }
     if (els.burnedGoldDisplay) {
       els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
     }
@@ -2153,18 +2535,77 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return json || {};
   }
 
+  function findFirstNumericFieldDeep(value, fieldNames, depth = 0) {
+    if (!value || depth > 6) return null;
+    const names = Array.isArray(fieldNames) ? fieldNames : [];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = findFirstNumericFieldDeep(item, names, depth + 1);
+        if (found !== null && Number.isFinite(Number(found))) return Number(found);
+      }
+      return null;
+    }
+    if (typeof value !== 'object') return null;
+    for (const fieldName of names) {
+      if (Object.prototype.hasOwnProperty.call(value, fieldName) && Number.isFinite(Number(value[fieldName]))) {
+        return Number(value[fieldName]);
+      }
+    }
+    for (const nested of Object.values(value)) {
+      const found = findFirstNumericFieldDeep(nested, names, depth + 1);
+      if (found !== null && Number.isFinite(Number(found))) return Number(found);
+    }
+    return null;
+  }
+
+  function sumNumericFieldInArraysDeep(value, fieldNames, depth = 0) {
+    if (!value || depth > 6) return 0;
+    const names = Array.isArray(fieldNames) ? fieldNames : [];
+    let total = 0;
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object') {
+          for (const fieldName of names) {
+            if (Object.prototype.hasOwnProperty.call(item, fieldName) && Number.isFinite(Number(item[fieldName]))) {
+              total += Number(item[fieldName]);
+              break;
+            }
+          }
+        }
+        total += sumNumericFieldInArraysDeep(item, names, depth + 1);
+      }
+      return total;
+    }
+    if (typeof value !== 'object') return 0;
+    for (const nested of Object.values(value)) {
+      total += sumNumericFieldInArraysDeep(nested, names, depth + 1);
+    }
+    return total;
+  }
+
   async function fetchGlobalBurnedGoldTotal(force = false) {
     const nowMs = Date.now();
     if (!force && game.globalDfkGoldRefreshPending) return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
     game.globalDfkGoldRefreshPending = true;
     try {
       const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
-      const total = Math.max(0, Number((response && (response.global_dfk_gold_burned ?? response.globalDfkGoldBurned ?? response.global_burned_total)) || 0));
-      const burnLeader = response && (response.top_burner || response.topBurner || response.burn_leader || null);
+      const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
+      const total = Math.max(0, Number((payload && (payload.global_dfk_gold_burned ?? payload.globalDfkGoldBurned ?? payload.global_burned_total)) || 0));
+      const burnLeader = payload && (payload.top_burner || payload.topBurner || payload.burn_leader || null);
+      const aggregateRuns = findFirstNumericFieldDeep(
+        response,
+        ['total_runs', 'total_runs_since_april_1', 'total_runs_since_apr_1', 'tracked_runs_total', 'run_count', 'runs_count']
+      );
+      const summedRuns = sumNumericFieldInArraysDeep(
+        response,
+        ['total_runs', 'tracked_runs_total', 'run_count', 'runs_count']
+      );
+      const totalRuns = Math.max(0, Number(Math.max(Number(aggregateRuns || 0), Number(summedRuns || 0)) || 0));
       game.globalDfkGoldBurnedTotal = total;
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
+      game.globalTrackedRunsTotal = totalRuns;
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
       return total;
@@ -2188,8 +2629,12 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return Boolean(getConnectedWalletAddress() && hasDfkgoldForSwap());
   }
 
+  function shouldOfferJewelSwap() {
+    return Boolean(getConnectedWalletAddress() && isConnectedWalletOnDfk());
+  }
+
   function shouldOfferAnyPremiumSwap() {
-    return shouldOfferDfkgoldSwap() || shouldOfferAvaxSwap();
+    return shouldOfferDfkgoldSwap() || shouldOfferAvaxSwap() || shouldOfferJewelSwap();
   }
 
   function getAvailableRelicPool() {
@@ -2296,6 +2741,189 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     }
   }
 
+
+  function getMilestoneHeroJewelPriceIndex(offer) {
+    const wave = Math.max(0, Number(offer?.wave || 0));
+    if (wave <= 20) return 0;
+    if (wave <= 50) return 1;
+    if (wave <= 75) return 2;
+    if (wave <= 100) return 3;
+    if (wave <= 125) return 4;
+    return 5;
+  }
+
+  function getMilestoneHeroJewelPriceWei(offer) {
+    return DFK_JEWEL_EXTRA_HIRE_WEI[getMilestoneHeroJewelPriceIndex(offer)];
+  }
+
+  function getMilestoneHeroJewelPriceLabel(offer) {
+    return ['3 JEWEL', '5 JEWEL', '7 JEWEL', '10 JEWEL', '10 JEWEL', '10 JEWEL'][getMilestoneHeroJewelPriceIndex(offer)];
+  }
+
+  function ensureMilestonePaymentChoiceModalElements() {
+    let modal = document.getElementById('milestonePaymentChoiceModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'milestonePaymentChoiceModal';
+    modal.className = 'intro-modal hidden';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="intro-modal-card milestone-hero-offer-card panel" role="dialog" aria-modal="true" aria-labelledby="milestonePaymentChoiceTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Choose Payment Method</div>
+            <h2 id="milestonePaymentChoiceTitle">Jewel or Gold?</h2>
+          </div>
+          <button id="closeMilestonePaymentChoiceBtn" type="button" class="intro-close" aria-label="Close payment choice">×</button>
+        </div>
+        <div id="milestonePaymentChoiceBody" class="intro-body"></div>
+        <div id="milestonePaymentChoiceActions" class="intro-modal-footer milestone-hero-offer-actions"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#closeMilestonePaymentChoiceBtn')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      render();
+    });
+    return modal;
+  }
+
+
+  function setMilestonePaymentChoiceProcessing(_heroLabel) {
+    const modal = ensureMilestonePaymentChoiceModalElements();
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    render();
+  }
+
+  function setMilestoneHeroOfferProcessing(_heroLabel) {
+    if (!els.milestoneHeroOfferModal) return;
+    els.milestoneHeroOfferModal.classList.add('hidden');
+    els.milestoneHeroOfferModal.setAttribute('aria-hidden', 'true');
+    render();
+  }
+
+  function openMilestonePaymentChoiceModal(heroType) {
+    const offer = game.milestoneHeroOffer;
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return;
+    const modal = ensureMilestonePaymentChoiceModalElements();
+    const body = modal.querySelector('#milestonePaymentChoiceBody');
+    const actions = modal.querySelector('#milestonePaymentChoiceActions');
+    if (!body || !actions) return;
+    const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
+    const jewelWei = getMilestoneHeroJewelPriceWei(offer);
+    const jewelLabel = getMilestoneHeroJewelPriceLabel(offer);
+    const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(jewelWei);
+    body.innerHTML = `<p>Hire ${template.name} L${offer.heroLevel}. Choose how you want to pay.</p>
+      <p>${offer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}.</p>`;
+    actions.innerHTML = '';
+    if (goldAvailable) {
+      const goldBtn = document.createElement('button');
+      goldBtn.type = 'button';
+      goldBtn.className = 'small-action milestone-hero-offer-btn';
+      goldBtn.textContent = `Use ${offer.burnCost.toLocaleString()} DFK Gold`;
+      goldBtn.addEventListener('click', () => {
+        setMilestonePaymentChoiceProcessing(template.name);
+        beginMilestoneHeroHire(heroType, { preserveModal: true }).catch((error) => console.error(error));
+      });
+      actions.appendChild(goldBtn);
+    }
+    if (jewelAvailable) {
+      const jewelBtn = document.createElement('button');
+      jewelBtn.type = 'button';
+      jewelBtn.className = 'small-action milestone-hero-offer-btn';
+      jewelBtn.textContent = `Use ${jewelLabel}`;
+      jewelBtn.addEventListener('click', () => {
+        setMilestonePaymentChoiceProcessing(template.name);
+        beginMilestoneHeroHireJewel(heroType, { preserveModal: true }).catch((error) => console.error(error));
+      });
+      actions.appendChild(jewelBtn);
+    }
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'secondary small-action milestone-hero-offer-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    });
+    actions.appendChild(cancelBtn);
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  async function beginMilestoneHeroHireFlow(heroType) {
+    const offer = game.milestoneHeroOffer;
+    if (!offer) return;
+    const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
+    const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(offer));
+    if (goldAvailable && jewelAvailable) {
+      openMilestonePaymentChoiceModal(heroType);
+      return;
+    }
+    if (jewelAvailable) {
+      return beginMilestoneHeroHireJewel(heroType);
+    }
+    return beginMilestoneHeroHire(heroType);
+  }
+
+
+  
+
+  
+
+  function queueMilestoneReinforcement(heroType, offer, txHash = '') {
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return null;
+    game.pendingMilestoneHeroPlacement = {
+      wave: offer.wave,
+      heroType,
+      heroLevel: offer.heroLevel,
+      burnCost: 0,
+      txHash: String(txHash || ''),
+      queuedAt: Date.now(),
+    };
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
+    game.placingWalletHeroId = null;
+    setInstruction(`Your ${template.name} reinforcement is ready in the Hire menu now. Place it whenever you are ready.`);
+    render();
+    return game.pendingMilestoneHeroPlacement;
+  }
+
+  function showHeroPlacementReminder(heroLabel) {
+    if (!els.heroPlacementReminderModal || !els.heroPlacementReminderBody) return;
+    els.heroPlacementReminderBody.innerHTML = `<p>Place your ${heroLabel} on the gameboard.</p><p>If you closed the purchase window, your hero is already waiting in the Hire menu now.</p>`;
+    els.heroPlacementReminderModal.classList.remove('hidden');
+    els.heroPlacementReminderModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function getAvailableUnplacedHeroLabels() {
+    const labels = [];
+    if (game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType) {
+      const template = TOWER_TEMPLATES[game.pendingMilestoneHeroPlacement.heroType];
+      if (template) labels.push(template.name);
+    }
+    if (!game.pendingMilestoneHeroPlacement && Number(game.bonusHeroHireCharges || 0) > 0) {
+      labels.push(`${Math.max(0, Number(game.bonusHeroHireCharges || 0))} extra hero${Number(game.bonusHeroHireCharges || 0) === 1 ? '' : 'es'}`);
+    }
+    return labels;
+  }
+
+  function maybeShowUnplacedHeroReminder(force = false) {
+    const labels = getAvailableUnplacedHeroLabels();
+    const wave = Math.max(0, Number(game.waveNumber || 0));
+    if (!labels.length) return;
+    if (!force) {
+      if (wave <= 0 || wave % 5 !== 0 || game.lastHeroPlacementReminderWave === wave) return;
+      game.lastHeroPlacementReminderWave = wave;
+    }
+    showHeroPlacementReminder(labels[0]);
+  }
+
   function renderMilestoneHeroOffer() {
     const modal = els.milestoneHeroOfferModal;
     const body = els.milestoneHeroOfferBody;
@@ -2316,11 +2944,21 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     const useAvax = canUseAvaxRailsPurchases();
     const walletDfkgold = getWalletDfkgoldBalance();
     const hasWallet = !!getConnectedWalletAddress();
+    const jewelLabel = heroOffer ? getMilestoneHeroJewelPriceLabel(heroOffer) : '';
+    const jewelAvailable = !!(heroOffer && isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(heroOffer)));
+    const shouldAutoRefreshMilestoneWallet = !!(heroOffer && hasWallet && isConnectedWalletOnDfk());
+    const now = Date.now();
+    if (shouldAutoRefreshMilestoneWallet && !game.milestoneOfferAutoRefreshPending && (now - Number(game.milestoneOfferLastAutoRefreshAt || 0) >= 15000)) {
+      game.milestoneOfferAutoRefreshPending = true;
+      game.milestoneOfferLastAutoRefreshAt = now;
+      refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => {}).finally(() => {
+        game.milestoneOfferAutoRefreshPending = false;
+      });
+    }
     const sections = [];
     title.textContent = heroOffer ? `Reinforcements at Wave ${heroOffer.wave}` : `Barrier Bundle at Wave ${barrierOffer.wave}`;
     if (heroOffer) {
-      const purchaseLabel = useAvax ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : `${heroOffer.burnCost.toLocaleString()} DFK Gold`;
-      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${purchaseLabel}.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed.</p>`);
+      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
     }
     if (barrierOffer) {
       const barrierLabel = useAvax ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : `${barrierOffer.burnCost.toLocaleString()} DFK Gold`;
@@ -2330,26 +2968,87 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     actions.innerHTML = '';
     if (heroOffer) {
       const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+      const goldAvailable = walletDfkgold >= Number(heroOffer.burnCost || 0);
+      const canLaunchHire = hasWallet && (goldAvailable || jewelAvailable);
       for (const type of heroTypes) {
         const t = TOWER_TEMPLATES[type];
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'small-action milestone-hero-offer-btn';
-        btn.textContent = game.dfkGoldSwapPending ? 'Waiting…' : `${t.name} L${heroOffer.heroLevel}`;
-        btn.disabled = game.dfkGoldSwapPending || !hasWallet || (!useAvax && walletDfkgold < heroOffer.burnCost);
+        btn.textContent = (game.dfkGoldSwapPending || game.jewelTradePending) ? 'Waiting…' : `${t.name} L${heroOffer.heroLevel}`;
+        btn.disabled = !canLaunchHire || game.dfkGoldSwapPending || game.jewelTradePending;
         btn.title = '';
         btn.addEventListener('click', () => {
-          (useAvax ? beginMilestoneHeroHireAvax(type) : beginMilestoneHeroHire(type)).catch((error) => console.error(error));
+          beginMilestoneHeroHireFlow(type).catch((error) => console.error(error));
         });
         actions.appendChild(btn);
       }
       const note = document.createElement('div');
       note.className = 'milestone-hero-offer-note';
-      if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to burn DFK Gold for this hire.';
-      else if (game.dfkGoldSwapPending) note.textContent = 'Waiting for wallet confirmation…';
-      else if (!useAvax && walletDfkgold < heroOffer.burnCost) note.textContent = `Need ${heroOffer.burnCost.toLocaleString()} DFK Gold in the connected wallet.`;
-      else note.textContent = useAvax ? 'Duplicate reinforcements are allowed. Pick any hero below. The AVAX payment happens first, then you place the new hero on the board.' : 'Duplicate reinforcements are allowed. Pick any hero below. The burn happens first, then you place the new hero on the board.';
+      if (!hasWallet) note.textContent = 'Connect a wallet on DFK Chain to pay with DFK Gold or JEWEL for this hire.';
+      else if (game.dfkGoldSwapPending || game.jewelTradePending) note.textContent = 'Waiting for wallet confirmation…';
+      else if (walletDfkgold >= Number(heroOffer.burnCost || 0) && jewelAvailable) note.textContent = `Both payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or Gold?`;
+      else if (walletDfkgold >= Number(heroOffer.burnCost || 0)) note.textContent = `Only DFK Gold is ready right now, so picking a hero launches the DFK Gold transaction.`;
+      else if (jewelAvailable) note.textContent = `Only JEWEL is ready right now, so picking a hero launches the JEWEL transaction.`;
+      else note.textContent = `Need ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel} in the connected wallet.`;
       actions.appendChild(note);
+
+      if (hasWallet) {
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'secondary small-action milestone-hero-offer-btn';
+        refreshBtn.textContent = game.milestoneOfferWalletRefreshPending ? 'Refreshing…' : 'Refresh Wallet';
+        refreshBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
+        refreshBtn.addEventListener('click', async () => {
+          if (game.milestoneOfferWalletRefreshPending) return;
+          game.milestoneOfferWalletRefreshPending = true;
+          renderMilestoneHeroOffer();
+          try {
+            await refreshWalletEconomyDetails();
+            await refreshWalletJewelTokenBalance();
+            await recoverPendingMilestoneJewelHire().catch(() => false);
+          } finally {
+            game.milestoneOfferWalletRefreshPending = false;
+            renderMilestoneHeroOffer();
+          }
+        });
+        actions.appendChild(refreshBtn);
+
+        if (game.pendingMilestonePurchase && game.pendingMilestonePurchase.kind === 'jewel_milestone_hero_hire') {
+          const recoverBtn = document.createElement('button');
+          recoverBtn.type = 'button';
+          recoverBtn.className = 'secondary small-action milestone-hero-offer-btn';
+          recoverBtn.textContent = 'I Already Approved It';
+          recoverBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
+          recoverBtn.addEventListener('click', async () => {
+            if (game.milestoneOfferWalletRefreshPending) return;
+            game.milestoneOfferWalletRefreshPending = true;
+            renderMilestoneHeroOffer();
+            try {
+              await recoverPendingMilestoneJewelHire();
+            } finally {
+              game.milestoneOfferWalletRefreshPending = false;
+              renderMilestoneHeroOffer();
+            }
+          });
+          actions.appendChild(recoverBtn);
+
+          const cancelStuckBtn = document.createElement('button');
+          cancelStuckBtn.type = 'button';
+          cancelStuckBtn.className = 'secondary small-action milestone-hero-offer-btn';
+          cancelStuckBtn.textContent = 'Clear Stuck Waiting';
+          cancelStuckBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
+          cancelStuckBtn.addEventListener('click', () => {
+            game.jewelTradePending = false;
+            clearPendingMilestonePurchase();
+            showBanner('Cleared the stuck waiting state. No hero was granted.', 2600);
+            renderMilestoneHeroOffer();
+            updateJewelTradeUi();
+            updateRelicSwapUi();
+          });
+          actions.appendChild(cancelStuckBtn);
+        }
+      }
     }
     if (barrierOffer) {
       const barrierBtn = document.createElement('button');
@@ -2385,15 +3084,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
         pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${offer.barrierCount} more barriers…`,
       });
-      game.bonusBarrierCount = Math.max(0, Number(game.bonusBarrierCount || 0)) + Number(offer.barrierCount || 0);
+      game.bonusBarrierCount = 0;
       game.phase = SETUP_PHASES.OBSTACLES;
       els.startWaveBtn.disabled = true;
       finishMilestoneOffer(false);
-      setInstruction(`Place ${getTargetPlayerObstacleCount()} player obstacles. You just bought ${offer.barrierCount} more barriers for this run.`);
+      setInstruction(`Place ${getTargetPlayerObstacleCount()} player obstacles.`);
       log(`Barrier bundle unlocked at wave ${offer.wave}: +${offer.barrierCount} barriers after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
-      showBanner(`+${offer.barrierCount} barrier slots unlocked`, 2400);
+      showBanner(`Barrier cap remains ${BASE_PLAYER_BARRIER_COUNT}.`, 2400);
       render();
-    } catch (_error) {}
+    } catch (_error) {  }
   }
 
   async function beginMilestoneBarrierOfferAvax() {
@@ -2406,22 +3105,23 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
         powerupType: 'barrier_bundle',
         treasuryAddress: AVAX_TREASURY_ADDRESS,
       });
-      game.bonusBarrierCount = Math.max(0, Number(game.bonusBarrierCount || 0)) + Number(offer.barrierCount || 0);
+      game.bonusBarrierCount = 0;
       game.phase = SETUP_PHASES.OBSTACLES;
       els.startWaveBtn.disabled = true;
       finishMilestoneOffer(false);
-      setInstruction(`Place ${getTargetPlayerObstacleCount()} player obstacles. You just bought ${offer.barrierCount} more barriers for this run.`);
+      setInstruction(`Place ${getTargetPlayerObstacleCount()} player obstacles.`);
       log(`Barrier bundle unlocked at wave ${offer.wave}: +${offer.barrierCount} barriers after paying ${formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI)}.`);
-      showBanner(`+${offer.barrierCount} barrier slots unlocked`, 2400);
+      showBanner(`Barrier cap remains ${BASE_PLAYER_BARRIER_COUNT}.`, 2400);
       render();
-    } catch (_error) {}
+    } catch (_error) {  }
   }
 
-  async function beginMilestoneHeroHire(heroType) {
+  async function beginMilestoneHeroHire(heroType, options = {}) {
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
     try {
+      
       const result = await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
         pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${template.name} reinforcements…`,
       });
@@ -2438,40 +3138,65 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       game.placingSatelliteSourceId = null;
       game.placingWalletHeroId = null;
       log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
+      
+      
+      
       showBanner(`${template.name} reinforcements arrived. Place the level ${offer.heroLevel} hero.`, 2600);
       finishMilestoneOffer(false);
       setInstruction(`Place your new level ${offer.heroLevel} ${template.name}. The next wave will wait until you place it or restart.`);
       render();
-    } catch (_error) {}
+    } catch (_error) {  }
   }
 
-  async function beginMilestoneHeroHireAvax(heroType) {
+  async function beginMilestoneHeroHireJewel(heroType, options = {}) {
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
     try {
+      
+      const jewelWei = getMilestoneHeroJewelPriceWei(offer);
+      const jewelLabel = getMilestoneHeroJewelPriceLabel(offer);
+      const result = await performDfkJewelTrade('jewel_milestone_hero_hire', jewelWei, `${template.name} reinforcement`, {
+        wave: offer.wave,
+        heroType,
+        heroLevel: offer.heroLevel,
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        jewelPrice: jewelLabel,
+      });
+      queueMilestoneReinforcement(heroType, offer, result && result.txHash ? result.txHash : '');
+      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after paying ${jewelLabel}.`);
+      showBanner(`${template.name} reinforcement ready in the Hire menu.`, 2200);
+      finishMilestoneOffer(false);
+      if (options && options.preserveModal) {
+        setMilestonePaymentChoiceProcessing(template.name);
+      } else {
+        setMilestoneHeroOfferProcessing(template.name);
+      }
+      render();
+    } catch (_error) {}
+  }
+
+  async function beginMilestoneHeroHireAvax(heroType, options = {}) {
+    const offer = game.milestoneHeroOffer;
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return;
+    try {
+      
       const result = await performAvaxTreasuryPurchase('hero_hire', AVAX_MILESTONE_HERO_WEI, `${template.name} reinforcement`, {
         wave: offer.wave,
         heroType,
         heroLevel: offer.heroLevel,
         treasuryAddress: AVAX_TREASURY_ADDRESS,
       });
-      game.pendingMilestoneHeroPlacement = {
-        wave: offer.wave,
-        heroType,
-        heroLevel: offer.heroLevel,
-        burnCost: 0,
-        txHash: result && result.txHash ? result.txHash : '',
-      };
-      game.placingHeroType = heroType;
-      game.placingHeroCost = 0;
-      game.placingHeroUsesBonus = true;
-      game.placingSatelliteSourceId = null;
-      game.placingWalletHeroId = null;
+      queueMilestoneReinforcement(heroType, offer, result && result.txHash ? result.txHash : '');
       log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after paying ${formatAvaxValue(AVAX_MILESTONE_HERO_WEI)}.`);
-      showBanner(`${template.name} reinforcements arrived. Place the level ${offer.heroLevel} hero.`, 2600);
+      showBanner(`${template.name} reinforcement ready in the Hire menu.`, 2200);
       finishMilestoneOffer(false);
-      setInstruction(`Place your new level ${offer.heroLevel} ${template.name}. The next wave will wait until you place it or restart.`);
+      if (options && options.preserveModal) {
+        setMilestonePaymentChoiceProcessing(template.name);
+      } else {
+        setMilestoneHeroOfferProcessing(template.name);
+      }
       render();
     } catch (_error) {}
   }
@@ -2548,7 +3273,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       }
       await refreshWalletEconomyDetails();
       render();
-      return { txHash: tx.hashash, walletAddress, burnCost: safeBurnCost, defenderGoldAwarded: safeAward };
+      return { txHash: tx.hash, walletAddress, burnCost: safeBurnCost, defenderGoldAwarded: safeAward };
     } catch (error) {
       const message = error && error.message ? error.message : 'DFK Gold transaction failed.';
       showBanner(message, 2600);
@@ -2598,6 +3323,15 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   function canUseTestGoldGrant() {
     const address = getConnectedWalletAddress();
     return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address) && isRunTrackingEnabled());
+  }
+
+  function canUseChampionWaveOneOverride() {
+    const address = getConnectedWalletAddress();
+    return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address));
+  }
+
+  function getChampionRequiredWaitWaves() {
+    return canUseChampionWaveOneOverride() ? 0 : 20;
   }
 
   function canViewLiveDamageReport() {
@@ -2714,12 +3448,16 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
           x: owner.x,
           y: owner.y,
           totalDamage: 0,
+          totalHealing: 0,
+          totalAvoided: 0,
           methods: new Map(),
           satelliteCount: 0,
         });
       }
       const row = groups.get(key);
       row.totalDamage += Math.max(0, Number(tower.damageDealt || 0));
+      row.totalHealing += Math.max(0, Number(tower.healingDone || 0));
+      row.totalAvoided += Math.max(0, Number(tower.damageAvoided || 0));
       if (tower.isSatellite) row.satelliteCount += 1;
       for (const method of getTowerDamageMethodRows(tower)) {
         const methodKey = String(method.label || 'Other');
@@ -2731,6 +3469,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
       methodRows: Array.from(row.methods.entries()).map(([label, damage]) => ({ label, damage }))
         .filter(entry => entry.damage > 0)
         .sort((a, b) => b.damage - a.damage || a.label.localeCompare(b.label)),
+      supportRows: [
+        ...(row.totalHealing > 0 ? [{ label: 'Healing', damage: row.totalHealing }] : []),
+        ...(row.totalAvoided > 0 ? [{ label: 'Damage Avoided', damage: row.totalAvoided }] : []),
+      ],
     })).sort((a, b) => b.totalDamage - a.totalDamage || a.reportLabel.localeCompare(b.reportLabel));
   }
 
@@ -2739,25 +3481,39 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
     return !!tower && !!tower.isSoulSplit && Number(tower.level || 0) >= 40;
   }
 
+  function isPureEnergyArchon(tower) {
+    return isTornSoulArchon(tower) && Number(tower?.level || 0) >= PURE_ENERGY_LEVEL;
+  }
+
   function getTornSoulDamageMultiplier(tower) {
-    return isTornSoulArchon(tower) ? 0.375 : 0.5;
+    const base = isTornSoulArchon(tower) ? 0.375 : 0.5;
+    return isPureEnergyArchon(tower) ? (base * PURE_ENERGY_DAMAGE_MULTIPLIER) : base;
   }
 
   function getTornSoulExplosionMultiplier(tower) {
-    return isTornSoulArchon(tower) ? (SOUL_SPLIT_EXPLOSION_MULTIPLIER * (4 / 3)) : SOUL_SPLIT_EXPLOSION_MULTIPLIER;
+    const base = isTornSoulArchon(tower) ? (SOUL_SPLIT_EXPLOSION_MULTIPLIER * (4 / 3)) : SOUL_SPLIT_EXPLOSION_MULTIPLIER;
+    return isPureEnergyArchon(tower) ? (base * 1.25) : base;
+  }
+
+  function getTornSoulBurnDurationSeconds(tower) {
+    return TORN_SOUL_BURN_DURATION_SECONDS * (isPureEnergyArchon(tower) ? PURE_ENERGY_BURN_DURATION_MULTIPLIER : 1);
+  }
+
+  function getTornSoulBurnRadius(tower) {
+    return TORN_SOUL_BURN_RADIUS + (isPureEnergyArchon(tower) ? PURE_ENERGY_BURN_RADIUS_BONUS : 0);
   }
 
   function getTornSoulDisplayName(tower) {
+    if (isPureEnergyArchon(tower)) return 'PURE ENERGY';
     return isTornSoulArchon(tower) ? 'ARCHON' : 'TORN SOUL';
   }
 
   function normalizeTornSoulDamage(tower) {
-    if (!tower || (tower.type !== 'wizard_satellite' && tower.type !== 'torn_soul') || !tower.parent) return;
-    const parent = tower.parent;
-    const expectedDamage = Number((parent.baseDamage || parent.damage || 0) * getTornSoulDamageMultiplier(tower));
+    if (!tower || (tower.type !== 'wizard_satellite' && tower.type !== 'torn_soul')) return;
+    const expectedDamage = Number(getWizardBaseDamageForLevel(tower.level || 1) * getTornSoulDamageMultiplier(tower));
     if (Number.isFinite(expectedDamage) && expectedDamage > 0) {
       tower.damage = expectedDamage;
-      if ('baseDamage' in tower) tower.baseDamage = expectedDamage;
+      tower.baseDamage = expectedDamage;
     }
   }
 
@@ -2789,8 +3545,9 @@ function renderDamageReport() {
       const damage = Math.round(Math.max(0, Number(row.totalDamage || 0)));
       const expanded = isDamageReportTowerExpanded(row.id);
       const methods = row.methodRows || [];
+      const supports = row.supportRows || [];
       const satelliteNote = row.satelliteCount > 0 ? ` • Includes ${row.satelliteCount} satellite${row.satelliteCount === 1 ? '' : 's'}` : '';
-      const methodRows = expanded ? `
+      const breakdownRows = expanded ? `
         <div class="live-damage-report-methods">
           ${methods.length ? methods.map(method => `
             <div class="live-damage-report-method-row">
@@ -2798,6 +3555,12 @@ function renderDamageReport() {
               <div class="live-damage-report-method-value">${Math.round(method.damage).toLocaleString()}</div>
             </div>
           `).join('') : '<div class="live-damage-report-empty">No damage recorded yet.</div>'}
+          ${supports.length ? supports.map(method => `
+            <div class="live-damage-report-method-row">
+              <div class="live-damage-report-method-label">${method.label}</div>
+              <div class="live-damage-report-method-value">${Math.round(method.damage).toLocaleString()}</div>
+            </div>
+          `).join('') : ''}
         </div>
       ` : '';
       return `
@@ -2806,7 +3569,7 @@ function renderDamageReport() {
           <div class="live-damage-report-main">
             <div class="live-damage-report-name">${row.reportLabel}</div>
             <div class="live-damage-report-meta">${row.name} • Lvl ${row.level} • Tile ${row.x + 1},${row.y + 1}${satelliteNote} • Click for breakdown</div>
-            ${methodRows}
+            ${breakdownRows}
           </div>
           <div class="live-damage-report-value">${damage.toLocaleString()}</div>
         </button>
@@ -2943,7 +3706,9 @@ function renderDamageReport() {
       colorKey,
       text,
       smallText: !!options?.smallText,
-      until: now() + 360,
+      centerText: !!options?.centerText,
+      sizeMult: Number.isFinite(Number(options?.sizeMult)) ? Number(options.sizeMult) : 1,
+      until: now() + (Number.isFinite(Number(options?.duration)) ? Number(options.duration) : 360),
     };
   }
 
@@ -3105,6 +3870,7 @@ function renderDamageReport() {
     game.rebuildingBarriers = false;
     game.barrierRefitCount = 0;
     game.bonusBarrierCount = 0;
+    game.portalMoveBarrierRefundUsed = false;
     game.milestoneBarrierOffer = null;
     game.milestoneBarrierOffersSeen = {};
     game.startingRelicClaimed = false;
@@ -3124,6 +3890,14 @@ function renderDamageReport() {
     game.pendingMilestoneHeroPlacement = null;
     game.ownedRelics = [];
     game.foundRelics = [];
+    game.selectedChampionKey = '';
+    game.selectedChampionHeroId = '';
+    game.selectedChampionConfirmed = false;
+    game.selectedChampionSnapshot = null;
+    game.championSideExpandedHeroId = '';
+    game.championModalForceChoice = !!((game.championRoster || []).length);
+    game.championDeployedTowerId = null;
+    game.championActiveUntilWave = 0;
     syncPersistentKnownRelics();
     game.continueOfferUsed = false;
     game.continueOfferPending = false;
@@ -3447,6 +4221,7 @@ function renderDamageReport() {
 
   const BOUNTY_BOARD_FUNCTION = window.DFK_SUPABASE_BOUNTY_BOARD_FUNCTION || 'bounty-board';
   const CLAIM_BOUNTY_FUNCTION = window.DFK_SUPABASE_CLAIM_BOUNTY_FUNCTION || 'claim-bounty';
+  const REQUEST_REWARD_CLAIM_FUNCTION = window.DFK_SUPABASE_REQUEST_REWARD_CLAIM_FUNCTION || 'request-reward-claim';
 
   function getBountySupabaseConfig() {
     const url = window.DFK_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || '';
@@ -3490,6 +4265,23 @@ function renderDamageReport() {
     }
     return json || {};
   }
+
+function getRewardClaimPlayerName() {
+  const walletState = getWalletStateSnapshot();
+  const vanity = String(walletState?.vanityName || '').trim();
+  const profile = String(walletState?.profileName || '').trim();
+  const wallet = getConnectedWalletAddress();
+  return vanity || profile || wallet || 'Unknown player';
+}
+
+async function requestRewardClaim(payload = {}) {
+  return callBountyFunction(REQUEST_REWARD_CLAIM_FUNCTION, payload, true);
+}
+
+function canSubmitRewardClaims() {
+  return Boolean(getConnectedWalletAddress() && isRunTrackingEnabled());
+}
+
 
   function formatBountyCountdown(targetIso, nowIso) {
     const targetMs = new Date(targetIso || 0).getTime();
@@ -3779,7 +4571,7 @@ function renderDamageReport() {
     document.body.classList.remove('elite-wave-shake');
     void document.body.offsetWidth;
     document.body.classList.add('elite-wave-shake');
-    setTimeout(() => document.body.classList.remove('elite-wave-shake'), 550);
+    setTimeout(() => document.body.classList.remove('elite-wave-shake'), 100);
   }
 
   function openEliteWaveModal(plan) {
@@ -3798,9 +4590,11 @@ function renderDamageReport() {
   }
 
   function maybeShowEliteWaveWarning(plan) {
-    if (!plan?.elite || !els.eliteWaveModal) return;
-    if (game.eliteWarningAcknowledgedWave === plan.waveNumber) return;
-    openEliteWaveModal(plan);
+    if (!plan || !plan.elite) return;
+    const rarePool = RELICS.filter((relic) => relic && ['rare', 'legendary', 'mythic'].includes(String(relic.rarity || '').toLowerCase()));
+    const teaser = rarePool.length ? rarePool[Math.floor(Math.random() * rarePool.length)] : null;
+    const teaserLabel = teaser ? teaser.name : 'a rare or better relic';
+    showBanner(`Elite wave coming — scoop ${teaserLabel} for 1 Jewel?`, 3200);
   }
 
   function openKnownRelicsModal() {
@@ -4106,6 +4900,14 @@ function renderDamageReport() {
     archer: 'assets/hero_tile_archer.png',
     priest: 'assets/hero_tile_priest.png',
     pirate: 'assets/hero_tile_pirate.png',
+    dreadknight: 'assets/hero_tile_dreadknight.png',
+    sage: 'assets/hero_tile_sage.png',
+    dragoon: 'assets/hero_tile_dragoon.png',
+    spellbow: 'assets/hero_tile_spellbow.png',
+    champion_dreadknight: 'assets/hero_tile_dreadknight.png',
+    champion_sage: 'assets/hero_tile_sage.png',
+    champion_dragoon: 'assets/hero_tile_dragoon.png',
+    champion_spellbow: 'assets/hero_tile_spellbow.png',
   };
 
   const HERO_TILE_LABELS = {
@@ -4115,6 +4917,14 @@ function renderDamageReport() {
     archer: 'ARCHER',
     priest: 'PRIEST',
     pirate: 'PIRATE',
+    dreadknight: 'DREADKNIGHT',
+    sage: 'SAGE',
+    dragoon: 'DRAGOON',
+    spellbow: 'SPELLBOW',
+    champion_dreadknight: 'DREADKNIGHT',
+    champion_sage: 'SAGE',
+    champion_dragoon: 'DRAGOON',
+    champion_spellbow: 'SPELLBOW',
   };
 
 
@@ -4140,9 +4950,34 @@ function renderDamageReport() {
   });
   const DFK_CLASS_NAMES = Object.freeze({
     0: 'Warrior', 1: 'Knight', 2: 'Thief', 3: 'Archer', 4: 'Priest', 5: 'Wizard', 6: 'Monk', 7: 'Pirate',
-    16: 'Paladin', 17: 'DarkKnight', 18: 'Summoner', 19: 'Ninja', 20: 'Shapeshifter', 21: 'Bard', 24: 'Dragoon', 25: 'Sage', 28: 'DreadKnight'
+    8: 'Berserker', 9: 'Seer', 10: 'Legionnaire', 11: 'Scholar',
+    16: 'Paladin', 17: 'DarkKnight', 18: 'Summoner', 19: 'Ninja', 20: 'Shapeshifter', 21: 'Bard',
+    24: 'Dragoon', 25: 'Sage', 26: 'SpellBow', 28: 'DreadKnight'
   });
   const DFK_RARITY_NAMES = Object.freeze({ 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Legendary', 4: 'Mythic' });
+  const CHAMPION_DEFINITIONS = Object.freeze({
+    dreadknight: {
+      key: 'dreadknight', heroClass: 'DreadKnight', label: 'Dreadknight', towerType: 'champion_dreadknight',
+      summary: 'Massive melee bruiser. He hits everything around him and makes nearby enemies take extra damage.',
+      skills: ['Damn Big Sword — every 3s hits all enemies within 1 tile.', 'Crush — every 10s stomps enemies within 2 tiles, knocks them back 5 tiles toward the void, and has a 50% chance to stun.', 'Controlling the Field — enemies that pass through him are slowed by 50% for 10s.', 'Dread — enemies within 2 tiles take 25% increased damage.'],
+    },
+    sage: {
+      key: 'sage', heroClass: 'Sage', label: 'Sage', towerType: 'champion_sage',
+      summary: 'Caster support champion with brutal wave control and a one-time team resurrection. She glows with dangerous calm.',
+      skills: ['Kiss From A Rose — every 5s fires rose shards at up to 18 enemies within 3 tiles.', 'Petal Storm — every 30s sends crimson petal shockwaves blasting outward and punts enemies toward the map start.', 'Live Forever — once each deployment, fallen allies revive at full health and become invulnerable for 3s.', 'Battle Meditation — the Sage seems to glow, giving her allies confidence. Casters gain 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed.'],
+    },
+    dragoon: {
+      key: 'dragoon', heroClass: 'Dragoon', label: 'Dragoon', towerType: 'champion_dragoon',
+      summary: 'Frontline commander with knockback, buffs, and brutal single-target execution. He fights at the front and calls the line forward.',
+      skills: ['Overpower — every 5s blasts enemies within 2 tiles, knocks them 5 tiles toward the portal, and inspires nearby heroes for 4s and heals them for 3% health.', 'Leadership — passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.', 'Point — every 5s targets medium to large enemies before small ones and hurls a spear that kills them instantly. Bosses may be targeted, but instead take 15% of their starting health in damage.', 'Battle Hardened — enemies that pass through his tile deal 25% less damage.'],
+    },
+    spellbow: {
+      key: 'spellbow', heroClass: 'Spellbow', label: 'Spellbow', towerType: 'champion_spellbow',
+      summary: 'Hybrid caster/archer champion that machine-guns attacks and hard-controls big packs. She never respects normal range limits.',
+      skills: ['Lightning Shaft — every 18s fires 10 lightning infused arrows at enemies anywhere on the map. This skill has no range.', 'A Lot Of Arrows — every 25s unleashes 10 arrows into nearby targets one at a time. Each arrow deals 1.8x normal damage. This skill has no range.', 'Speed — she starts 25% faster than an Archer and can reach 0.2s attack intervals.', 'Eagle Eye — passive. Spellbow can hit enemies anywhere on the map with basic attacks and abilities. Spellbow saves abilities until enough enemies are on the map.'],
+    },
+  });
+  const CHAMPION_CLASS_LOOKUP = Object.freeze({ dreadknight: 'dreadknight', sage: 'sage', dragoon: 'dragoon', spellbow: 'spellbow' });
   const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
   const DFK_GOLD_CONTRACT_ADDRESS = '0x576C260513204392F0eC0bc865450872025CB1cA';
   const DFK_GOLD_DECIMALS = 3;
@@ -4294,7 +5129,9 @@ function renderDamageReport() {
 
   function getWalletHeroFallbackSources(heroLike) {
     const heroType = heroLike && heroLike.type ? heroLike.type : '';
+    const customPortraitUrl = heroLike && heroLike.customPortraitUrl ? String(heroLike.customPortraitUrl).trim() : '';
     return [
+      customPortraitUrl,
       getDefaultHeroImageForType(heroType),
     ].filter(Boolean);
   }
@@ -4334,6 +5171,17 @@ function renderDamageReport() {
     const primary = normalizeHeroMediaUrl(hero && hero.imageUrl ? hero.imageUrl : '');
     if (primary) return primary;
     return getDefaultHeroImageForType(hero && hero.type ? hero.type : '') || '';
+  }
+
+  function getChampionPortraitImage(heroLike, championKey = '') {
+    const explicitType = heroLike && heroLike.type ? String(heroLike.type).trim().toLowerCase() : '';
+    const explicitChampionType = heroLike && heroLike.towerType ? String(heroLike.towerType).trim().toLowerCase() : '';
+    return getDefaultHeroImageForType(explicitChampionType)
+      || getDefaultHeroImageForType(championKey ? `champion_${championKey}` : '')
+      || getDefaultHeroImageForType(championKey)
+      || getDefaultHeroImageForType(explicitType)
+      || getWalletHeroImage(heroLike)
+      || '';
   }
 
   function getDfKClassName(classId) {
@@ -4596,9 +5444,11 @@ function renderDamageReport() {
     if (els.walletHeroBonusSummary) {
       const rosterCount = Array.isArray(game.walletHeroRoster) ? game.walletHeroRoster.length : 0;
       const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
-      els.walletHeroBonusSummary.textContent = collapsed
-        ? (selectedCount ? `${selectedCount} selected • ${rosterCount} loaded` : (rosterCount ? `${rosterCount} loaded` : 'Closed'))
-        : (selectedCount ? `${selectedCount} selected` : 'Open');
+      els.walletHeroBonusSummary.textContent = game.walletHeroLoadPending
+        ? 'Searching for heroes and champions…'
+        : (collapsed
+            ? (selectedCount ? `${selectedCount} selected • ${rosterCount} loaded` : (rosterCount ? `${rosterCount} loaded` : 'Closed'))
+            : (selectedCount ? `${selectedCount} selected` : 'Open'));
     }
   }
 
@@ -4606,6 +5456,520 @@ function renderDamageReport() {
     const selectedId = game.selectedWalletHeroes ? game.selectedWalletHeroes[type] : null;
     if (!selectedId) return null;
     return (game.walletHeroRoster || []).find(hero => hero.type === type && String(hero.id) === String(selectedId)) || null;
+  }
+
+  function getChampionWavesWaited() {
+    const progressedWave = Math.max(0, Number(game.waveNumber || 0), Number(game.activeWaveBase || 0));
+    return Math.max(0, progressedWave - Number(game.championWaitAnchorWave || 0));
+  }
+
+  function getChampionTestRoster() {
+    if (!canUseChampionWaveOneOverride()) return [];
+    return [{
+      key: 'dreadknight',
+      hero: {
+        id: 'ADMIN-CHAMPION-DK',
+        level: 30,
+        chainName: 'Authorized',
+        className: 'DreadKnight',
+      },
+      definition: CHAMPION_DEFINITIONS.dreadknight,
+    }];
+  }
+
+  function getSelectedChampionRecord() {
+    const roster = Array.isArray(game.championRoster) ? game.championRoster : [];
+    const selectedHeroId = String(game.selectedChampionHeroId || '');
+    const snapshot = game.selectedChampionConfirmed && game.selectedChampionSnapshot && game.selectedChampionSnapshot.key === game.selectedChampionKey
+      ? game.selectedChampionSnapshot
+      : null;
+    const exact = roster.find((entry) => entry && entry.key === game.selectedChampionKey && String(entry.hero.id) === selectedHeroId);
+    if (exact) {
+      if (snapshot && String(snapshot.hero?.id || '') === String(exact.hero?.id || '') && Number(snapshot.hero?.level || 1) > Number(exact.hero?.level || 1)) {
+        return { ...exact, hero: { ...exact.hero, ...snapshot.hero, level: Number(snapshot.hero.level || exact.hero.level || 1) } };
+      }
+      return exact;
+    }
+    const byKey = roster.find((entry) => entry && entry.key === game.selectedChampionKey);
+    if (byKey) {
+      if (game.selectedChampionConfirmed && (!selectedHeroId || String(byKey.hero.id) !== selectedHeroId)) {
+        game.selectedChampionHeroId = String(byKey.hero.id);
+        game.selectedChampionSnapshot = { key: byKey.key, hero: { ...byKey.hero }, definition: byKey.definition };
+      }
+      if (snapshot && String(snapshot.hero?.id || '') === String(byKey.hero?.id || '') && Number(snapshot.hero?.level || 1) > Number(byKey.hero?.level || 1)) {
+        return { ...byKey, hero: { ...byKey.hero, ...snapshot.hero, level: Number(snapshot.hero.level || byKey.hero.level || 1) } };
+      }
+      return byKey;
+    }
+    if (snapshot) {
+      return snapshot;
+    }
+    return null;
+  }
+
+  function isCasterTowerType(type) {
+    return ['wizard', 'seer', 'priest', 'champion_sage', 'champion_spellbow'].includes(String(type || ''));
+  }
+
+  function hasLivingChampionOfType(type, excludeTowerId = null) {
+    return game.towers.some((tower) => tower && tower.hp > 0 && tower.type === type && tower.id !== excludeTowerId);
+  }
+
+  function hasSageChampionBuff(tower) {
+    return !!(tower && isCasterTowerType(tower.type) && hasLivingChampionOfType('champion_sage', tower.id));
+  }
+
+  function isMeleeHeroType(type) {
+    return ['warrior', 'champion_dreadknight', 'champion_dragoon'].includes(String(type || ''));
+  }
+
+  function hasSageChampionMeleeBuff(tower) {
+    return !!(tower && isMeleeHeroType(tower.type) && hasLivingChampionOfType('champion_sage', tower.id));
+  }
+
+  function hasDragoonLeadershipBuff(tower) {
+    return !!(tower && !isStatueTower(tower) && hasLivingChampionOfType('champion_dragoon'));
+  }
+
+  function hasDragoonOverpowerBuff(tower) {
+    return !!(tower && tower.buffs && tower.buffs.championOverpowerAura && tower.buffs.championOverpowerAura.until > now());
+  }
+
+  function getChampionPointTarget(sourceTower = null) {
+    const enemies = getPortalPriorityEnemies(Math.max(1, game.enemies.length || 1));
+    const inRange = sourceTower
+      ? enemies.filter((enemy) => enemy && enemy.hp > 0 && dist(sourceTower, enemy) <= 5)
+      : enemies;
+    const preferred = inRange.filter((enemy) => enemy && enemy.hp > 0 && (enemy.isBoss || enemy.typeClass !== 'runner'));
+    return preferred[0] || inRange[0] || null;
+  }
+
+  function knockbackEnemyTowardPortal(enemy, tiles = 1) {
+    if (!enemy || !Number.isFinite(Number(tiles)) || Number(tiles) <= 0) return false;
+    const current = now();
+    const knockbackTiles = Math.max(1, Math.round(Number(tiles) || 1));
+    let moved = false;
+    for (let i = 0; i < knockbackTiles; i += 1) {
+      const currentDistance = getPortalFlowDistance(enemy.x, enemy.y);
+      const step = adjacentTiles(enemy.x, enemy.y)
+        .filter((candidate) => canEnemyEnterIgnoringCrowd(candidate.x, candidate.y, enemy))
+        .map((candidate) => ({
+          ...candidate,
+          distance: getPortalFlowDistance(candidate.x, candidate.y),
+          crowdPenalty: getEnemyOccupancy(candidate.x, candidate.y, enemy?.id || null, getEnemyOccupancyClass(enemy)) * 0.08,
+        }))
+        .filter((candidate) => Number.isFinite(candidate.distance) && candidate.distance < currentDistance)
+        .sort((a, b) => (a.distance + a.crowdPenalty) - (b.distance + b.crowdPenalty))[0] || null;
+      if (!step) break;
+      updateEnemyFacingX(enemy, step.x);
+      enemy.prevX = enemy.x;
+      enemy.prevY = enemy.y;
+      enemy.x = step.x;
+      enemy.y = step.y;
+      enemy.moveStartedAt = current;
+      enemy.moveEndAt = current + Math.max(100, Math.round(getEnemyMoveMs(enemy) * 0.65));
+      enemy.attacking = false;
+      enemy.targetPath = [];
+      enemy.stuckAt = 0;
+      enemy.lastProgressAt = current;
+      moved = true;
+    }
+    if (moved) {
+      enemy.nextMoveAt = Math.max(enemy.nextMoveAt || 0, current + 500 + (knockbackTiles * 80));
+      enemy.nextAttackAt = Math.max(enemy.nextAttackAt || 0, current + 350 + (knockbackTiles * 50));
+      enemy.forcePortalUntil = Math.max(enemy.forcePortalUntil || 0, current + 900);
+    }
+    return moved;
+  }
+
+  function toTitleCaseWords(text) {
+    return String(text || '').replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+  }
+
+  function formatChampionSkillMarkup(skillText) {
+    const text = String(skillText || '').trim();
+    if (!text) return '';
+    const parts = text.split(/\s+[—-]\s+/);
+    const skillName = toTitleCaseWords(parts.shift() || '');
+    const detail = parts.join(' — ');
+    const safeName = escapeHtml(skillName);
+    const safeDetail = escapeHtml(detail);
+    return safeDetail ? `<strong>${safeName}</strong> — ${safeDetail}` : `<strong>${safeName}</strong>`;
+  }
+
+  function ensureChampionCollapsedPreview() {
+    if (!els.championPanel) return null;
+    let preview = document.getElementById('championCollapsedPreview');
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.id = 'championCollapsedPreview';
+      preview.className = 'champion-collapsed-preview hidden';
+      els.championPanel.appendChild(preview);
+    }
+    return preview;
+  }
+
+
+  function getChampionDeployPreview(waited) {
+    const safeWaited = Math.max(0, Number(waited || 0));
+    const required = getChampionRequiredWaitWaves();
+    if (safeWaited >= required) {
+      const duration = safeWaited >= 40 ? 24 : 12;
+      return { ready: true, text: `Ready to deploy • lasts ${duration} waves`, duration };
+    }
+    const remaining = Math.max(0, required - safeWaited);
+    return { ready: false, text: `${remaining} wave${remaining === 1 ? '' : 's'} until deploy`, duration: 0 };
+  }
+
+  function renderChampionCollapsedPreview() {
+    const preview = ensureChampionCollapsedPreview();
+    if (!preview) return;
+    const selected = getSelectedChampionRecord();
+    const shouldShow = !!(game.championPanelCollapsed && selected);
+    preview.classList.toggle('hidden', !shouldShow);
+    preview.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+    if (!shouldShow) {
+      preview.innerHTML = '';
+      return;
+    }
+    const hero = selected.hero || {};
+    const definition = selected.definition || {};
+    const waited = getChampionWavesWaited();
+    const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+    const placement = getChampionDeployPreview(waited);
+    const quickButton = game.selectedChampionConfirmed && !deployed
+      ? `<button id="championQuickDeployBtn" type="button" class="wallet-btn secondary champion-quick-deploy-btn"${placement.ready && !game.placingHeroType ? '' : ' disabled'}>${placement.ready ? 'Deploy now' : placement.text}</button>`
+      : '';
+    preview.innerHTML = `<div class="champion-collapsed-preview-card"><img class="champion-collapsed-preview-portrait" src="${getChampionPortraitImage(hero, definition.key || '')}" alt="${escapeHtml(definition.label || 'Champion')}"><div class="champion-collapsed-preview-meta"><div class="champion-collapsed-preview-class">${escapeHtml(definition.label || 'Champion')}</div><div class="champion-collapsed-preview-line">Lvl ${escapeHtml(String(hero.level || 1))}</div>${quickButton}</div></div>`;
+    const quickDeployBtn = document.getElementById('championQuickDeployBtn');
+    if (quickDeployBtn) {
+      quickDeployBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        beginChampionPlacement();
+      });
+    }
+  }
+
+  function setChampionPanelCollapsed(collapsed) {
+    game.championPanelCollapsed = !!collapsed;
+    if (els.championPanel) els.championPanel.classList.toggle('collapsed', !!collapsed);
+    if (els.championPanelToggle) els.championPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    if (els.championPanelSummary) {
+      const selected = getSelectedChampionRecord();
+      const waited = getChampionWavesWaited();
+      const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+      const placement = getChampionDeployPreview(waited);
+      els.championPanelSummary.textContent = game.walletHeroLoadPending
+        ? 'Searching for heroes and champions…'
+        : (collapsed
+            ? (selected
+                ? `${selected.definition.label}${deployed ? ` • Live thru ${game.championActiveUntilWave}` : (placement.ready ? ' • Ready' : '')}`
+                : ((game.championRoster || []).length ? `${game.championRoster.length} detected` : 'None detected'))
+            : (selected ? `${selected.definition.label} selected` : 'Pick a champion'));
+    }
+    renderChampionCollapsedPreview();
+  }
+
+  function getDetectedChampionRoster() {
+    const bestByChampionKey = new Map();
+    for (const hero of (game.allWalletHeroRoster || [])) {
+      const primaryClass = String(hero.className || '').trim().toLowerCase().replace(/\s+/g, '');
+      const key = CHAMPION_CLASS_LOOKUP[primaryClass] || '';
+      if (!key) continue;
+      const level = Math.max(1, Number(hero.level || 1));
+      const existing = bestByChampionKey.get(key);
+      const existingLevel = existing ? Math.max(1, Number(existing.hero.level || 1)) : -1;
+      const existingHeroId = existing ? Number(existing.hero.id || 0) : -1;
+      const heroId = Number(hero.id || 0);
+      if (!existing || level > existingLevel || (level === existingLevel && heroId > existingHeroId)) {
+        bestByChampionKey.set(key, { key, hero, definition: CHAMPION_DEFINITIONS[key] });
+      }
+    }
+    const roster = Array.from(bestByChampionKey.values());
+    if (!roster.length) roster.push(...getChampionTestRoster());
+    return roster.sort((a, b) => {
+      const levelDiff = Number(b.hero.level || 0) - Number(a.hero.level || 0);
+      if (levelDiff !== 0) return levelDiff;
+      return String(a.definition.label || '').localeCompare(String(b.definition.label || ''));
+    });
+  }
+
+  function updateChampionDetectionFromRoster() {
+    game.championRoster = getDetectedChampionRoster();
+    const selected = getSelectedChampionRecord();
+    if (selected && game.selectedChampionConfirmed) {
+      game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
+    }
+    if (!selected && game.championRoster.length) {
+      if (game.selectedChampionConfirmed && game.selectedChampionKey) {
+        const lockedMatch = game.championRoster.find((entry) => entry && entry.key === game.selectedChampionKey);
+        if (lockedMatch) {
+          game.selectedChampionHeroId = String(lockedMatch.hero.id);
+          game.selectedChampionSnapshot = { key: lockedMatch.key, hero: { ...lockedMatch.hero }, definition: lockedMatch.definition };
+        }
+      } else {
+        game.selectedChampionKey = game.championRoster[0].key;
+        game.selectedChampionHeroId = String(game.championRoster[0].hero.id);
+        if (!game.selectedChampionConfirmed) game.championModalForceChoice = true;
+      }
+    }
+    if (!game.championRoster.length && !game.selectedChampionConfirmed) {
+      game.selectedChampionKey = '';
+      game.selectedChampionHeroId = '';
+      game.selectedChampionConfirmed = false;
+      game.selectedChampionSnapshot = null;
+      game.championModalForceChoice = false;
+    }
+    renderChampionPanel();
+  }
+
+  function renderChampionCards(container, options = {}) {
+    if (!container) return;
+    const selected = getSelectedChampionRecord();
+    const roster = Array.isArray(game.championRoster) ? game.championRoster : [];
+    const visibleRoster = options.selectedOnly && selected ? [selected] : roster;
+    container.innerHTML = '';
+    const expandedHeroId = String(game.championSideExpandedHeroId || '');
+    for (const entry of visibleRoster) {
+      const hero = entry.hero;
+      const definition = entry.definition;
+      const heroId = String(hero.id);
+      const isSelected = selected && selected.key === entry.key && String(selected.hero.id) === heroId;
+      if (options.sideMenu) {
+        const isExpanded = expandedHeroId === heroId;
+        const card = document.createElement('div');
+        card.className = `champion-card champion-card-side${isSelected ? ' selected' : ''}${isExpanded ? ' expanded' : ''}`;
+        card.innerHTML = `<button type="button" class="champion-card-side-toggle champion-card-side-compact" aria-expanded="${isExpanded ? 'true' : 'false'}"><div class="champion-card-header champion-card-header-compact"><img class="champion-card-portrait champion-card-portrait-compact" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext champion-card-headtext-compact"><h3>${definition.label}</h3><div class="champion-card-meta champion-card-meta-compact"><span class="champion-chip">Lvl ${hero.level}</span></div></div></div></button>`;
+        const toggle = card.querySelector('.champion-card-side-toggle');
+        if (toggle) {
+          toggle.addEventListener('click', () => {
+            if (game.selectedChampionConfirmed) {
+              const locked = getSelectedChampionRecord();
+              showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+              return;
+            }
+            game.selectedChampionKey = entry.key;
+            game.selectedChampionHeroId = heroId;
+            if (!game.selectedChampionConfirmed) game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
+            game.championSideExpandedHeroId = isExpanded ? '' : heroId;
+            renderChampionPanel();
+          });
+        }
+        container.appendChild(card);
+        continue;
+      }
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = `champion-card${isSelected ? ' selected' : ''}`;
+      card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div></div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>`;
+      card.addEventListener('click', () => {
+        if (game.selectedChampionConfirmed) {
+          const locked = getSelectedChampionRecord();
+          showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+          return;
+        }
+        game.selectedChampionKey = entry.key;
+        game.selectedChampionHeroId = heroId;
+        if (!game.selectedChampionConfirmed) game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
+        renderChampionPanel();
+        if (options.inModal) showChampionModal(true);
+      });
+      container.appendChild(card);
+    }
+  }
+
+  function canChooseChampionNow() {
+    return Number(game.waveNumber || 0) === 0 && !game.runningWave;
+  }
+
+  function showChampionModal(forceOpen = false) {
+    if (!els.championModal || !(game.championRoster || []).length) return;
+    if (game.selectedChampionConfirmed) {
+      const selected = getSelectedChampionRecord();
+      showBanner(selected ? `${selected.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+      return;
+    }
+    if (!canChooseChampionNow()) {
+      showBanner('Choose your champion before the first wave starts.', 2000);
+      return;
+    }
+    renderChampionCards(els.championModalBody, { inModal: true });
+    els.championModal.classList.remove('hidden');
+    els.championModal.setAttribute('aria-hidden', 'false');
+    if (!forceOpen && !game.championModalForceChoice && game.selectedChampionConfirmed) return;
+  }
+
+  function hideChampionModal() {
+    if (!els.championModal) return;
+    els.championModal.classList.add('hidden');
+    els.championModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function cancelChampionModal() {
+    hideChampionModal();
+    if (requireChampionSelectionBeforeStart()) {
+      showBanner('Choose a champion before starting the run.', 1800);
+    }
+  }
+
+  function showChampionLockModal() {
+    const selected = getSelectedChampionRecord();
+    if (!selected || !els.championLockModal || !els.championLockText) return false;
+    els.championLockText.textContent = `Are you sure? ${selected.definition.label} will be your champion for this entire run.`;
+    els.championLockModal.classList.remove('hidden');
+    els.championLockModal.setAttribute('aria-hidden', 'false');
+    game.championLockPending = true;
+    return true;
+  }
+
+  function hideChampionLockModal() {
+    if (!els.championLockModal) return;
+    els.championLockModal.classList.add('hidden');
+    els.championLockModal.setAttribute('aria-hidden', 'true');
+    game.championLockPending = false;
+  }
+
+  function finalizeChampionConfirmation() {
+    const selected = getSelectedChampionRecord();
+    if (!selected) {
+      hideChampionLockModal();
+      showBanner('Pick a champion first.', 1600);
+      return false;
+    }
+    game.selectedChampionConfirmed = true;
+    game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
+    game.championModalForceChoice = false;
+    hideChampionLockModal();
+    hideChampionModal();
+    renderChampionPanel();
+    showBanner(`${selected.definition.label} locked in for this run.`, 1800);
+    return true;
+  }
+
+
+  function confirmSelectedChampion() {
+    const selected = getSelectedChampionRecord();
+    if (!selected) {
+      showBanner('Pick a champion first.', 1600);
+      return false;
+    }
+    if (!canChooseChampionNow()) {
+      showBanner('Champion selection must happen before the first wave starts.', 2000);
+      hideChampionModal();
+      return false;
+    }
+    if (game.selectedChampionConfirmed) {
+      showBanner(`${selected.definition.label} is already locked in for this run.`, 1800);
+      return true;
+    }
+    return showChampionLockModal();
+  }
+
+  function renderChampionPanel() {
+    game.lastChampionPanelWaveRendered = Number(game.waveNumber || 0);
+    if (!els.championPanel || !els.championStatus || !els.championBody) return;
+    const hasWallet = !!getConnectedWalletAddress();
+    els.championPanel.classList.toggle('hidden', !hasWallet);
+    els.championPanel.setAttribute('aria-hidden', hasWallet ? 'false' : 'true');
+    if (!hasWallet) {
+      els.championStatus.textContent = 'Connect a wallet to detect champion NFTs on DFK Chain and Metis.';
+      els.championBody.innerHTML = '';
+      renderChampionCollapsedPreview();
+      setChampionPanelCollapsed(!!game.championPanelCollapsed);
+      return;
+    }
+    if (game.walletHeroLoadPending) {
+      els.championStatus.textContent = 'Checking DFK Chain and Metis for champion NFTs…';
+    } else if (!(game.championRoster || []).length) {
+      els.championStatus.textContent = 'No champion NFTs detected on DFK Chain or Metis for this wallet.';
+    } else {
+      const selected = getSelectedChampionRecord();
+      const waited = getChampionWavesWaited();
+      const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+      const required = getChampionRequiredWaitWaves();
+      const ready = !deployed && waited >= required;
+      const duration = waited >= 40 ? 24 : 12;
+      const rosterLabel = canUseChampionWaveOneOverride() && !(game.allWalletHeroRoster || []).length
+        ? `${(game.championRoster || []).length} test champion${game.championRoster.length === 1 ? '' : 's'} available.`
+        : `${(game.championRoster || []).length} champion NFT${game.championRoster.length === 1 ? '' : 's'} detected.`;
+      els.championStatus.innerHTML = `${rosterLabel} ${deployed ? `Champion deployed through wave ${game.championActiveUntilWave}.` : `Waited ${waited} wave${waited === 1 ? '' : 's'}${ready ? ` • deploy now for ${duration} waves` : ` • deploy unlocks at ${required} waited wave${required === 1 ? '' : 's'}`}.`}`;
+    }
+    renderChampionCards(els.championBody, { sideMenu: true });
+    renderChampionCollapsedPreview();
+    if (els.chooseChampionBtn) {
+      const selected = getSelectedChampionRecord();
+      els.chooseChampionBtn.disabled = game.selectedChampionConfirmed;
+      els.chooseChampionBtn.textContent = game.selectedChampionConfirmed
+        ? ''
+        : '';
+    }
+    if (els.deployChampionBtn) {
+      const selected = getSelectedChampionRecord();
+      const waited = getChampionWavesWaited();
+      const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+      const required = getChampionRequiredWaitWaves();
+      const ready = waited >= required && !deployed;
+      els.deployChampionBtn.disabled = !selected || !game.selectedChampionConfirmed || deployed || waited < required || !!game.placingHeroType;
+      els.deployChampionBtn.textContent = 'Deploy';
+      els.deployChampionBtn.classList.toggle('hidden', !!game.championPanelCollapsed && ready);
+    }
+    setChampionPanelCollapsed(!!game.championPanelCollapsed);
+  }
+
+  function requireChampionSelectionBeforeStart() {
+    return !!((game.championRoster || []).length && !game.selectedChampionConfirmed && Number(game.waveNumber || 0) === 0);
+  }
+
+  function beginChampionPlacement() {
+    const selected = getSelectedChampionRecord();
+    const waited = getChampionWavesWaited();
+    if (!selected) {
+      showChampionModal(true);
+      return;
+    }
+    if (game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId)) {
+      showBanner('Champion is already on the field.', 1500);
+      return;
+    }
+    const required = getChampionRequiredWaitWaves();
+    if (waited < required) {
+      showBanner(`Champion deployment unlocks after ${required} waited wave${required === 1 ? '' : 's'}. Current wait: ${waited}.`, 1800);
+      return;
+    }
+    game.placingHeroType = selected.definition.towerType;
+    game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
+    game.placingWalletHeroId = null;
+    showBanner(`Place ${selected.definition.label} on any open tile. Champions ignore the normal hero cap.`, 2200);
+    render();
+  }
+
+  function retireChampionTower(reason = 'Champion retired to recover.') {
+    const tower = game.championDeployedTowerId ? game.towers.find((entry) => entry.id === game.championDeployedTowerId) : null;
+    if (tower) {
+      const tile = tileAt(tower.x, tower.y);
+      if (tile && tile.towerId === tower.id) tile.towerId = null;
+      if (game.selectedChampionSnapshot && String(game.selectedChampionSnapshot.hero?.id || '') === String(tower.walletHeroId || '')) game.selectedChampionSnapshot.hero.level = Math.max(Number(game.selectedChampionSnapshot.hero.level || 1), Number(tower.level || 1));
+      game.towers = game.towers.filter((entry) => entry.id !== tower.id);
+      if (game.selectedId === tower.id) game.selectedId = null;
+    }
+    if (game.championDeployedTowerId) {
+      game.championDeployedTowerId = null;
+      game.championActiveUntilWave = 0;
+      game.championWaitAnchorWave = Number(game.waveNumber || 0);
+      showBanner(reason, 1800);
+      renderChampionPanel();
+      render();
+    }
+  }
+
+  function maybeRetireChampionBetweenWaves() {
+    if (!game.championDeployedTowerId || !game.championActiveUntilWave) return;
+    if (Number(game.waveNumber || 0) >= Number(game.championActiveUntilWave || 0)) {
+      retireChampionTower(`Champion energy spent. They retired to recover until you wait another ${getChampionRequiredWaitWaves()} wave${getChampionRequiredWaitWaves() === 1 ? '' : 's'}.`);
+    }
   }
 
   function clearWalletHeroData() {
@@ -4621,7 +5985,13 @@ function renderDamageReport() {
     game.walletHeroLoadError = '';
     game.walletHeroPanelCollapsed = true;
     game.placingWalletHeroId = null;
+    game.championRoster = [];
+    game.selectedChampionKey = '';
+    game.selectedChampionHeroId = '';
+    game.selectedChampionConfirmed = false;
+    game.selectedChampionSnapshot = null;
     renderWalletHeroBonusPanel();
+    renderChampionPanel();
     renderHirePanel();
     renderTransferHeroesModal();
   }
@@ -4661,6 +6031,11 @@ function renderDamageReport() {
       damage: template.damage * multiplier,
       range: template.range,
     };
+  }
+
+  function getWizardBaseDamageForLevel(level) {
+    const safeLevel = Math.max(1, Number(level || 1));
+    return TOWER_TEMPLATES.wizard.damage * Math.pow(PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL, safeLevel - 1);
   }
 
   function normalizeArcherStats(tower, healToFull = false) {
@@ -4739,8 +6114,32 @@ function renderDamageReport() {
   }
 
 
+
+  const LORE_PAGES = [
+    {
+      title: 'Early March 2026 — The Portal is Attacked',
+      body: `
+        <div class="intro-section-card"><p>Defend the portal, they’re coming. Cultists poured from voids hidden in the forest, so many that it was clear the attack had been prepared for months. The Dark Summoner had promised sacrifice could stop the void forever, and Crystalvale believed him.</p></div>
+        <div class="intro-section-card"><p>But every hero given to that cause only made him stronger and left the defenders weaker. Every loss fed the ritual. The truth was finally clear: the Dark Summoner had betrayed them from the start.</p></div>
+        <div class="intro-section-card"><p>Now he bends dark magic directly against Crystalvale, warping creatures and sending wave after wave to break the portal. If the ritual is finished, whatever comes through next may be beyond stopping.</p><p>There is only one chance left now: hold the line, make every wave cost him, and survive long enough for help to arrive.</p></div>
+      `,
+    },
+    {
+      title: 'Early April 2026 — Champions Arrive in Vithraven',
+      body: `
+        <div class="intro-section-card"><p>The portal hummed like a wounded star as the Druid stood alone before it, exhausted and certain he could not hold. A curse screamed toward him, and only a desperate ward raised at the last instant kept him alive long enough to finish the cultist in front of him. For a moment, there was silence.</p><p>Then the forest answered with something worse. Five hundred more cultists rounded the bend with the Dark Summoner cackling behind them, certain of victory. The Druid felt it then—not fear, but certainty. He could not hold the line against that many. Not with his strength spent, not with the portal already faltering behind him. He steadied himself anyway, because there was nothing else left to do.</p></div>
+        <div class="intro-section-card"><p>Before he could step forward, a sharp whistle cut through the jeering. Arrows tore from the trees—magic and steel—dropping cultists before they reached him. The Druid turned as she slid in beside him, still firing, never slowing. She didn’t look at him. “Hold the line,” the Spellbow urged.</p><p>As summoner underlings gathered to rip open a void for reinforcements, the Dragoon shattered the ritual with a volley of spear strikes. He drove forward in a blur, then broke off to save a fallen Wizard and Priest, planting himself between them and the charge. With a single command — <span class="intro-highlight">FOLLOW ME</span> — he pulled them into formation, and the Druid watched their magic sharpen under the force of his leadership.</p></div>
+        <div class="intro-section-card"><p>Even that almost was not enough. A fresh mass of cultists surged forward, and the Druid braced for collapse.</p><p>Then fear hit the battlefield before the next champion did. The Dreadknight thundered from the woods, smashing the lead brute apart with a gauntleted fist. He headbutted one attacker dead, lifted another by the throat, tossed him skyward, and carved him into pieces with a blur of cuts. When numbers swarmed him, one colossal greave smashed into the ground and sent cultists flying as if the earth itself had rejected them. He cut through the horde with such brutal ease that the Druid realized this kind of slaughter was routine to him.</p><p>But after the line broke, the Dreadknight removed his helmet and, for one fatal moment, dropped his guard. The Dark Summoner struck from behind. The giant stiffened and fell.</p></div>
+        <div class="intro-section-card"><p>Then the battlefield went calm. The Druid felt the haze lift and ran toward the fallen champion, only to stop as a small, glowing hand rested on his shoulder. The Sage had appeared beside him without a sound. She seemed far too slight for a battlefield like that — barefoot, radiant, a pristine rose in one hand — and yet when cultists rushed her, she raised the flower and the sky answered. Crimson petals descended in a cutting storm, shredding the attackers and holding the rest at bay until the horde broke and fled.</p><p>Only then did she kneel beside the Dreadknight. His massive form dwarfed her, armor still hot and still humming with the strange magic that made it move like feather-light steel, yet she seemed untouched by the violence around her. Her small hand rested on his chest as she leaned close and whispered into the ear of a man nearly three times her size.</p></div>
+        <div class="intro-section-card"><p>For a breath, nothing happened. Then the Dreadknight’s eyes snapped open. He rose like a man dragged back from the abyss and looked down at her. “You’ll never let me go, will you?” he asked.</p><p>The Sage only smiled. “No, my old friend. Probably not.”</p><p>The Druid let out the breath he had been holding. The four champions stood together at last — Druid, Spellbow, Dragoon, and Dreadknight — and for the first time that night, the darkness retreated.</p></div>
+      `,
+    },
+  ];
+
   function getActiveGuidePages() {
-    return game.introSet === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+    if (game.introSet === 'heroes') return HERO_PAGES;
+    if (game.introSet === 'lore') return LORE_PAGES;
+    return INTRO_PAGES;
   }
 
   function renderIntroPage() {
@@ -4749,9 +6148,15 @@ function renderDamageReport() {
     const safeIndex = Math.max(0, Math.min(pages.length - 1, Number(game.introPageIndex || 0)));
     game.introPageIndex = safeIndex;
     const page = pages[safeIndex];
-    if (els.introKicker) els.introKicker.textContent = game.introSet === 'heroes' ? 'DFK Defense Hero Guide' : 'DFK Defense Briefing';
-    if (els.introTitle) els.introTitle.textContent = game.introSet === 'heroes' ? 'Meet the Heroes' : 'DFK Defender – Stand Against the Void';
-    els.introBody.innerHTML = `<h3 class="intro-page-heading">${page.title}</h3>${page.body}`;
+    if (els.introKicker) els.introKicker.textContent = game.introSet === 'heroes'
+      ? 'DFK Defense Hero Guide'
+      : (game.introSet === 'lore' ? 'DFK Defense Lore' : 'DFK Defense Briefing');
+    if (els.introTitle) els.introTitle.textContent = game.introSet === 'heroes'
+      ? 'Meet the Heroes'
+      : (game.introSet === 'lore' ? 'DFK DEFENDER LORE' : 'DFK Defender – Stand Against the Void');
+    els.introBody.innerHTML = game.introSet === 'lore'
+      ? `${page.body}`
+      : `<h3 class="intro-page-heading">${page.title}</h3>${page.body}`;
     if (els.introPageLabel) {
       els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
       els.introPageLabel.classList.remove('hidden');
@@ -4764,7 +6169,7 @@ function renderDamageReport() {
   }
 
   function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
-    const pages = setName === 'heroes' ? HERO_PAGES : INTRO_PAGES;
+    const pages = setName === 'heroes' ? HERO_PAGES : (setName === 'lore' ? LORE_PAGES : INTRO_PAGES);
     game.modalDismiss = null;
     game.introSet = setName;
     game.introPageIndex = Math.max(0, Math.min(pages.length - 1, Number(pageIndex || 0)));
@@ -4810,6 +6215,7 @@ function renderDamageReport() {
     if (els.jewelCount) els.jewelCount.textContent = goldText;
     if (els.mobileGoldCount) els.mobileGoldCount.textContent = goldText;
     if (els.waveCount) els.waveCount.textContent = `${game.waveNumber}`;
+    if ((game.championRoster || []).length && game.lastChampionPanelWaveRendered !== Number(game.waveNumber || 0)) renderChampionPanel();
     if (els.patternLabel) {
       els.patternLabel.textContent = game.nextWavePlan
         ? prettyPattern(game.nextWavePlan.pattern)
@@ -4847,7 +6253,7 @@ function renderDamageReport() {
   }
 
   function render() {
-    for (const tower of game.towers || []) normalizeArcherStats(tower);
+    for (const tower of game.towers || []) { normalizeArcherStats(tower); if (tower?.isSoulSplit) refreshPureEnergyState(tower); }
     syncStartWaveButtonState();
     renderGrid();
     renderSelection();
@@ -4861,6 +6267,84 @@ function renderDamageReport() {
     if (typeof renderMobileAbilityDock === 'function') renderMobileAbilityDock();
   }
 
+
+  function refreshPureEnergyState(tower) {
+    if (!tower || !tower.isSoulSplit) return false;
+    const shouldBePureEnergy = Number(tower.level || 0) >= PURE_ENERGY_LEVEL;
+    if (!shouldBePureEnergy) return false;
+    if (!tower.pureEnergyAwakened) {
+      const previousDamage = Number(tower.damage || 0);
+      const previousBaseDamage = Number(tower.baseDamage || previousDamage || 0);
+      tower.pureEnergyAwakened = true;
+      tower.level = Math.min(PURE_ENERGY_LEVEL, Number(tower.level || 0));
+      tower.pureEnergyDamageBonus = PURE_ENERGY_DAMAGE_MULTIPLIER;
+      tower.pureEnergySpeedBonus = PURE_ENERGY_SPEED_MULTIPLIER;
+      tower.damage = previousDamage * PURE_ENERGY_DAMAGE_MULTIPLIER;
+      tower.baseDamage = previousBaseDamage * PURE_ENERGY_DAMAGE_MULTIPLIER;
+      tower.pureEnergyBurnDurationBonus = PURE_ENERGY_BURN_DURATION_MULTIPLIER;
+      tower.pureEnergyBurnRadiusBonus = PURE_ENERGY_BURN_RADIUS_BONUS;
+      tower.basicCooldown = Math.max(120, Number(tower.basicCooldown || 0) / PURE_ENERGY_SPEED_MULTIPLIER);
+      tower.hp = Math.min(tower.hp, tower.maxHp);
+      normalizeTornSoulDamage(tower);
+      showBanner('PURE ENERGY awakened.', 2200);
+      log(`${tower.name} became PURE ENERGY.`);
+    }
+    return true;
+  }
+
+  function getActiveRelicSummaryForTower(tower) {
+    if (!tower || tower.type !== 'seer') return '';
+    const names = getOwnedRelicObjects()
+      .filter((relic) => relic && ['oracle', 'meditate', 'art_enjoyer', 'not_blind_never_was'].includes(String(relic.id || '')))
+      .map((relic) => relic.name);
+    return names.length ? names.join(', ') : 'None';
+  }
+
+  function getSelectionHeaderMarkup(tower) {
+    if (!tower) return '';
+    if (tower.isSatellite && tower.type === 'archer') {
+      const satelliteWavesRemaining = Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower));
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;"><span style="flex:1 1 auto;min-width:0;text-align:left;padding-left:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="flex:0 0 auto;margin-left:auto;text-align:right;padding-right:1px;white-space:nowrap;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`;
+    }
+    const baseLabel = tower.isSoulSplit ? getTornSoulDisplayName(tower) : tower.type.toUpperCase();
+    const safeLabel = escapeHtml(baseLabel);
+    const decoratedLabel = isPureEnergyArchon(tower)
+      ? `<span style="color:#ffffff;font-weight:800;letter-spacing:0.08em;text-shadow:0 0 10px rgba(255,255,255,0.95), 0 0 20px rgba(214,244,255,0.88), 0 0 34px rgba(214,244,255,0.72);">${safeLabel}</span>`
+      : safeLabel;
+    return `${decoratedLabel} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
+  }
+
+  function decoratePureEnergyText(text, tower) {
+    const raw = String(text || '');
+    if (!isPureEnergyArchon(tower)) return raw;
+    return raw.replace(/PURE ENERGY/g, '<span style="color:#ffffff;font-weight:800;letter-spacing:0.05em;text-shadow:0 0 10px rgba(255,255,255,0.95), 0 0 18px rgba(214,244,255,0.9), 0 0 28px rgba(214,244,255,0.7);">PURE ENERGY</span>');
+  }
+
+  function getPostWave100EnemyCountMultiplier(waveNumber) {
+    return Number(waveNumber || 0) > 100 ? POST_WAVE100_ENEMY_COUNT_MULTIPLIER : 1;
+  }
+
+  function getPostWave100EnemyHpMultiplier(waveNumber) {
+    return Number(waveNumber || 0) > 100 ? POST_WAVE100_ENEMY_HP_MULTIPLIER : 1;
+  }
+
+  function getPostWave100EnemyMoveIntervalMultiplier(waveNumber) {
+    return Number(waveNumber || 0) > 100 ? (1 / POST_WAVE100_ENEMY_SPEED_MULTIPLIER) : 1;
+  }
+
+  function updateHeroActionDisabledState() {
+    const pairs = [
+      [els.upgradeBtn, 'hero-action-disabled'],
+      [els.moveBtn, 'hero-action-disabled'],
+      [els.maxLevelBtn, 'hero-action-disabled'],
+      [els.mobileQuickUpgradeBtn, 'hero-action-disabled'],
+      [els.mobileQuickMoveBtn, 'hero-action-disabled'],
+    ];
+    for (const [btn, cls] of pairs) {
+      if (!btn) continue;
+      btn.classList.toggle(cls, !!btn.disabled);
+    }
+  }
 
   function applyTowerLevelStep(tower, nextLevel) {
     tower.level = nextLevel;
@@ -4888,7 +6372,13 @@ function renderDamageReport() {
       const hpRatio = tower.hp / tower.maxHp;
       tower.maxHp *= WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
-      tower.damage *= 1.05;
+      tower.damage *= (Number(game.waveNumber || 0) > 30 ? WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL : WARRIOR_DAMAGE_GROWTH_PER_LEVEL);
+      tower.basicCooldown /= 1.05;
+    } else if (tower.type === 'champion_dreadknight') {
+      const hpRatio = tower.hp / tower.maxHp;
+      tower.maxHp *= 1.065;
+      tower.hp = tower.maxHp * hpRatio;
+      tower.damage *= DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown /= 1.05;
     } else {
       const hpRatio = tower.hp / tower.maxHp;
@@ -4933,6 +6423,7 @@ function renderDamageReport() {
         : String(bestAvailable.id);
     }
     game.selectedWalletHeroes = nextSelection;
+    updateChampionDetectionFromRoster();
     renderWalletHeroBonusPanel();
     renderHirePanel();
     renderTransferHeroesModal();
@@ -5297,6 +6788,19 @@ function renderDamageReport() {
         small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
 
+        if (hasDragoonLeadershipBuff(tower)) {
+          const leadershipBadge = document.createElement('div');
+          leadershipBadge.className = 'tile-small tile-small-right tile-dragoon-lead-badge';
+          leadershipBadge.textContent = 'LEAD+';
+          tile.el.appendChild(leadershipBadge);
+        }
+        if (hasDragoonOverpowerBuff(tower)) {
+          tile.el.classList.add('tile-inspired-clean');
+        }
+        if (tower.type === 'champion_dragoon' && tower.buffs?.championOverpowerCommand) {
+          // Intentionally no extra orange command badge visual on the Dragoon tile.
+        }
+
         if (tower.isSatellite && tower.type === 'archer') {
           const wavesLeftBadge = document.createElement('div');
           wavesLeftBadge.className = 'tile-small tile-small-right tile-shadow-waves-badge';
@@ -5327,12 +6831,17 @@ function renderDamageReport() {
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
-          portrait.style.filter = isTornSoulArchon(tower)
-            ? 'grayscale(0.1) saturate(1.25) brightness(1.08) contrast(1.1)'
-            : 'grayscale(0.55) saturate(0.7) brightness(0.95) contrast(1.05)';
+          portrait.style.filter = isPureEnergyArchon(tower)
+            ? 'grayscale(0) saturate(0.18) brightness(1.85) contrast(1.18)'
+            : (isTornSoulArchon(tower)
+              ? 'grayscale(0.1) saturate(1.25) brightness(1.08) contrast(1.1)'
+              : 'grayscale(0.55) saturate(0.7) brightness(0.95) contrast(1.05)');
         }
         if (isTornSoulArchon(tower)) {
           tile.el.classList.add('tile-archon-sparkle');
+        }
+        if (isPureEnergyArchon(tower)) {
+          tile.el.classList.add('tile-pure-energy');
         }
         if (tower.isSatellite && tower.type === 'archer') {
           portrait.classList.add('tile-archer-shadow-hero');
@@ -5343,6 +6852,59 @@ function renderDamageReport() {
           portrait.classList.add('tile-ethereal-hero');
           portrait.style.setProperty('--ethereal-glow', (tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'rgba(161, 120, 255, 1)' : 'rgba(70, 255, 110, 1)');
         }
+        if (tower.type === 'seer' && !tower.isSatellite && game.modifiers.notBlindNeverWas) {
+          const eyeAura = document.createElement('div');
+          eyeAura.style.position = 'absolute';
+          eyeAura.style.inset = '9%';
+          eyeAura.style.borderRadius = '18px';
+          eyeAura.style.pointerEvents = 'none';
+          eyeAura.style.border = '1px solid rgba(205,120,255,0.8)';
+          eyeAura.style.background = 'radial-gradient(circle at 50% 48%, rgba(255,255,255,0.72) 0%, rgba(221,162,255,0.3) 18%, rgba(102,28,142,0.0) 54%)';
+          eyeAura.style.boxShadow = '0 0 14px rgba(204,118,255,0.55), inset 0 0 12px rgba(255,255,255,0.18)';
+          tile.el.appendChild(eyeAura);
+          const eyeSigil = document.createElement('div');
+          eyeSigil.textContent = 'EYE';
+          eyeSigil.style.position = 'absolute';
+          eyeSigil.style.left = '50%';
+          eyeSigil.style.top = '11%';
+          eyeSigil.style.transform = 'translateX(-50%)';
+          eyeSigil.style.fontSize = '9px';
+          eyeSigil.style.fontWeight = '800';
+          eyeSigil.style.letterSpacing = '0.12em';
+          eyeSigil.style.color = '#f9eaff';
+          eyeSigil.style.textShadow = '0 0 8px rgba(212,128,255,0.95), 0 0 14px rgba(255,255,255,0.55)';
+          eyeSigil.style.pointerEvents = 'none';
+          tile.el.appendChild(eyeSigil);
+        }
+        if (tower.type === 'warrior' && !tower.isSatellite && game.modifiers.paladin) {
+          const paladinAura = document.createElement('div');
+          paladinAura.style.position = 'absolute';
+          paladinAura.style.inset = '8%';
+          paladinAura.style.borderRadius = '18px';
+          paladinAura.style.pointerEvents = 'none';
+          paladinAura.style.border = '1px solid rgba(255,220,140,0.72)';
+          paladinAura.style.boxShadow = '0 0 14px rgba(255,218,120,0.48), inset 0 0 14px rgba(255,240,190,0.14)';
+          paladinAura.style.background = 'linear-gradient(180deg, rgba(255,240,190,0.18), rgba(255,220,120,0.02))';
+          tile.el.appendChild(paladinAura);
+          const paladinBadge = document.createElement('div');
+          paladinBadge.textContent = '✚';
+          paladinBadge.style.position = 'absolute';
+          paladinBadge.style.right = '8%';
+          paladinBadge.style.top = '8%';
+          paladinBadge.style.width = '18px';
+          paladinBadge.style.height = '18px';
+          paladinBadge.style.borderRadius = '999px';
+          paladinBadge.style.display = 'flex';
+          paladinBadge.style.alignItems = 'center';
+          paladinBadge.style.justifyContent = 'center';
+          paladinBadge.style.fontSize = '12px';
+          paladinBadge.style.fontWeight = '900';
+          paladinBadge.style.color = '#fff7d6';
+          paladinBadge.style.background = 'radial-gradient(circle at 35% 35%, rgba(255,249,214,0.96), rgba(220,174,68,0.88))';
+          paladinBadge.style.boxShadow = '0 0 10px rgba(255,220,120,0.85), 0 0 18px rgba(255,220,120,0.35)';
+          paladinBadge.style.pointerEvents = 'none';
+          tile.el.appendChild(paladinBadge);
+        }
         tile.el.appendChild(portrait);
 
         const heroLabel = document.createElement('div');
@@ -5351,7 +6913,10 @@ function renderDamageReport() {
         heroLabel.style.opacity = `${satelliteOpacity}`;
         if (tower.isSoulSplit) {
           heroLabel.classList.add('tile-torn-soul-label');
-          if (isTornSoulArchon(tower)) {
+          if (isPureEnergyArchon(tower)) {
+            heroLabel.style.color = '#ffffff';
+            heroLabel.style.textShadow = '0 0 12px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,0.95), 0 0 34px rgba(224,245,255,0.88)';
+          } else if (isTornSoulArchon(tower)) {
             heroLabel.style.color = '#f2e5ff';
             heroLabel.style.textShadow = '0 0 10px rgba(218,184,255,1), 0 0 18px rgba(168,124,255,0.85), 0 0 28px rgba(240,225,255,0.75)';
           } else {
@@ -5369,6 +6934,14 @@ function renderDamageReport() {
           heroLabel.style.setProperty('--ethereal-glow', (tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'rgba(161, 120, 255, 0.98)' : 'rgba(70, 255, 110, 0.98)');
         }
         tile.el.appendChild(heroLabel);
+
+        if (hasSageChampionBuff(tower) || hasSageChampionMeleeBuff(tower)) {
+          const sageBuffBadge = document.createElement('div');
+          sageBuffBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
+          sageBuffBadge.textContent = 'GLOW+';
+          sageBuffBadge.title = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage';
+          tile.el.appendChild(sageBuffBadge);
+        }
 
         const hpBar = document.createElement('div');
         hpBar.className = isStatueTower(tower) ? 'hp-bar statue-hp-bar' : 'hp-bar';
@@ -5420,7 +6993,7 @@ function renderDamageReport() {
         for (const [idx, ability] of tower.abilities.entries()) {
           const locked = !isAbilityUnlocked(tower, ability.key);
           const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
-          const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+          const remain = Math.max(0, (getTowerAbilityReadyAt(tower, ability.key) - now()) / 1000);
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = `tile-hover-skill-btn ${locked ? 'locked' : ''}`;
@@ -5461,7 +7034,10 @@ function renderDamageReport() {
         tile.el.appendChild(flash);
         if (tile.hitFlash.text) {
           const txt = document.createElement('div');
-          txt.className = `hit-text${tile.hitFlash.smallText ? ' hit-text-small' : ''}`;
+          txt.className = `hit-text${tile.hitFlash.smallText ? ' hit-text-small' : ''}${tile.hitFlash.centerText ? ' hit-text-center' : ''}`;
+          if (tile.hitFlash.sizeMult && tile.hitFlash.sizeMult !== 1) {
+            txt.style.fontSize = `calc(${tile.hitFlash.smallText ? 9 : 12}px * ${tile.hitFlash.sizeMult})`;
+          }
           txt.textContent = tile.hitFlash.text;
           tile.el.appendChild(txt);
         }
@@ -5582,7 +7158,7 @@ function renderDamageReport() {
   function nudgeMobileChrome() {
     if (!isLandscapeMobileUi()) return;
     window.setTimeout(() => {
-      try { window.scrollTo(0, 1); } catch (error) {}
+      try { window.scrollTo(0, 100); } catch (error) {}
     }, 120);
   }
 
@@ -5819,7 +7395,7 @@ function renderDamageReport() {
       holdTimer = setTimeout(() => {
         repeatTimer = setInterval(() => {
           if (!buttonEl.disabled) buttonEl.click();
-        }, 120);
+        }, 100);
       }, 350);
     };
     buttonEl.addEventListener('pointerdown', startHold);
@@ -5929,7 +7505,7 @@ function renderDamageReport() {
       if (clickedButton.id === 'mobileFuncMenuBtn' || clickedButton.id === 'mobileHeroMenuBtn' || clickedButton.id === 'mobileHireMenuBtn') return;
       window.setTimeout(() => {
         if (isLandscapeMobileUi()) closeMobileMenus();
-      }, 0);
+      }, 100);
     });
     scope.dataset.mobileAutocloseBound = 'true';
   }
@@ -6000,7 +7576,7 @@ function renderDamageReport() {
         btn.onclick = null;
         return;
       }
-      const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+      const remain = Math.max(0, (getTowerAbilityReadyAt(tower, ability.key) - now()) / 1000);
       const locked = !isAbilityUnlocked(tower, ability.key);
       const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
       const disabled = locked || remain > 0 || game.phase === SETUP_PHASES.GAME_OVER || (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key));
@@ -6089,7 +7665,7 @@ function renderDamageReport() {
     return tower.abilities.some((ability) => {
       if (!ability || ability.passive || ability.manualOnly) return false;
       if (!isAbilityUnlocked(tower, ability.key)) return false;
-      if ((tower.abilityReadyAt?.[ability.key] || 0) > now()) return false;
+      if (getTowerAbilityReadyAt(tower, ability.key) > now()) return false;
       if (tower.type === 'priest' && game.runningWave === false && !['swiftness'].includes(ability.key)) return false;
       return true;
     });
@@ -6141,16 +7717,12 @@ function renderDamageReport() {
       els.moveBtn.disabled = true;
       els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
       els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
+      updateHeroActionDisabledState();
       renderMobileAbilityDock();
       return;
     }
     const nextCost = getUpgradeCost(tower.level + 1, tower);
-    const satelliteWavesRemaining = tower.isSatellite && tower.type === 'archer'
-      ? Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower))
-      : null;
-    const selectedHeader = tower.isSatellite && tower.type === 'archer'
-      ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;"><span style="flex:1 1 auto;min-width:0;text-align:left;padding-left:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="flex:0 0 auto;margin-left:auto;text-align:right;padding-right:1px;white-space:nowrap;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`
-      : `${tower.isSoulSplit ? 'TORN SOUL' : tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
+    const selectedHeader = getSelectionHeaderMarkup(tower);
     if (tower.isSoulSplit) {
       els.selectedInfo.style.background = 'linear-gradient(135deg, rgba(88,88,96,0.92), rgba(58,50,78,0.94))';
       els.selectedInfo.style.borderColor = '#a8a8b8';
@@ -6171,13 +7743,14 @@ function renderDamageReport() {
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
-      Relics Owned: ${game.ownedRelics.length}
+      Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
-    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 2;
+    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
     els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
+    updateHeroActionDisabledState();
 
     els.abilitiesPanel.innerHTML = '';
     for (const ability of tower.abilities) {
@@ -6185,7 +7758,7 @@ function renderDamageReport() {
       const wrapper = document.createElement('div');
       wrapper.className = 'ability-row';
       const btn = document.createElement('button');
-      const remain = Math.max(0, (tower.abilityReadyAt[ability.key] - now()) / 1000);
+      const remain = Math.max(0, (getTowerAbilityReadyAt(tower, ability.key) - now()) / 1000);
       const locked = !isAbilityUnlocked(tower, ability.key);
       const unlockLevel = getAbilityUnlockLevel(tower, ability.key);
       btn.dataset.abilityKey = ability.key;
@@ -6236,7 +7809,7 @@ function renderDamageReport() {
     }
     const nextCost = getUpgradeCost(tower.level + 1, tower);
     els.selectedInfo.innerHTML = `
-      ${tower.type.toUpperCase()} • ${rarityForLevel(tower.level)} • Level ${tower.level}<br>
+      ${getSelectionHeaderMarkup(tower)}<br>
       HP: ${Math.round(tower.hp)} / ${Math.round(tower.maxHp)}<br>
       Damage: ${Math.round(tower.damage)}<br>
       Range: ${tower.range}<br>
@@ -6244,13 +7817,14 @@ function renderDamageReport() {
       Move Cooldown: ${Math.max(0, (tower.moveReadyAt - now()) / 1000).toFixed(1)}s<br>
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
-      Relics Owned: ${game.ownedRelics.length}
+      Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
-    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 2;
+    if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
     els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
+    updateHeroActionDisabledState();
     const rows = els.abilitiesPanel.querySelectorAll('.ability-row');
     rows.forEach(row => {
       const btn = row.querySelector('button[data-ability-key]');
@@ -6283,6 +7857,12 @@ function renderDamageReport() {
     return getStandardHeroBoardCount(includePendingPlacement) >= MAX_STANDARD_HEROES_ON_BOARD;
   }
 
+  function canAlwaysFieldOneWarrior() {
+    return !(game.towers || []).some((tower) => tower && !tower.isSatellite && tower.type === 'warrior')
+      && !(game.placingHeroType === 'warrior' && !game.placingSatelliteSourceId)
+      && !(game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === 'warrior');
+  }
+
   function isHeroTypeLocked(type, options = {}) {
     if (!type) return false;
     const includePendingPlacement = options.includePendingPlacement !== false;
@@ -6313,6 +7893,9 @@ function renderDamageReport() {
   function renderHirePanel() {
     els.hirePanel.innerHTML = '';
 
+    const pendingMilestonePlacement = game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType
+      ? { ...game.pendingMilestoneHeroPlacement }
+      : null;
     const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
     const reachedStandardHeroCap = hasReachedStandardHeroBoardCap(true);
     const suppressStartingWarriorHire = shouldHideWarriorHireDuringStartingPlacement();
@@ -6320,10 +7903,26 @@ function renderDamageReport() {
       if (type === 'warrior' && suppressStartingWarriorHire) return false;
       return !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true });
     });
-    const bonusAvailable = [];
+    const bonusAvailable = Number(game.bonusHeroHireCharges || 0) > 0 ? heroTypes.slice() : [];
     const cost = getNextHireCost(false);
     const canHireNow = !reachedStandardHeroCap && !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
+    const championSelected = getSelectedChampionRecord();
+    const championWaited = getChampionWavesWaited();
+    const championRequired = getChampionRequiredWaitWaves();
+    const championDeployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+    const championReady = !!(championSelected && game.selectedChampionConfirmed && !championDeployed && championWaited >= championRequired && !game.placingHeroType);
+
+    if (championReady) {
+      const championCard = document.createElement('div');
+      championCard.className = 'card hire-button-card';
+      const championBtn = document.createElement('button');
+      championBtn.textContent = `Deploy ${championSelected.definition.label}`;
+      championBtn.addEventListener('click', () => beginChampionPlacement());
+      championCard.appendChild(championBtn);
+      els.hirePanel.appendChild(championCard);
+    }
+
 
     function appendHireButton(type, usesBonus, forceDisabled = false) {
       const t = TOWER_TEMPLATES[type];
@@ -6332,24 +7931,53 @@ function renderDamageReport() {
       const btn = document.createElement('button');
       const pendingThisType = game.placingHeroType === type;
       const selectedWalletHero = !usesBonus ? getSelectedWalletHero(type) : null;
-      const effectiveCost = getWalletHeroPlacementCost(type, cost, usesBonus);
+      const effectiveCost = usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus);
       const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
+      const ignoreCapForType = !usesBonus && type === 'warrior' && canAlwaysFieldOneWarrior();
+      const blockedByCap = !ignoreCapForType && !usesBonus && reachedStandardHeroCap;
       btn.textContent = forceDisabled
         ? `${t.name} Hired`
         : pendingThisType
           ? `Placing… ${formatJewel(game.placingHeroCost)} Gold`
-          : reachedStandardHeroCap
+          : blockedByCap
             ? `${labelPrefix} ${t.name} (Cap Reached)`
-            : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''} (${formatJewel(effectiveCost)} Gold)`;
-      btn.disabled = forceDisabled || reachedStandardHeroCap || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
+            : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''}${usesBonus ? ' (Free)' : ` (${formatJewel(effectiveCost)} Gold)`}`;
+      btn.disabled = forceDisabled || blockedByCap || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
+      if (pendingMilestonePlacement && pendingMilestonePlacement.heroType === type) {
+        btn.textContent = pendingThisType
+          ? `Placing… ${t.name} L${Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1))} (Free)`
+          : `Place Reinforcement ${t.name} L${Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1))} (Free)`;
+        btn.disabled = forceDisabled || game.phase === SETUP_PHASES.GAME_OVER;
+      }
       if (!forceDisabled) {
         btn.addEventListener('click', () => {
           if (game.phase === SETUP_PHASES.GAME_OVER) return;
+          if (pendingMilestonePlacement && pendingMilestonePlacement.heroType === type) {
+            if (pendingThisType) {
+              game.placingHeroType = null;
+              game.placingHeroCost = 0;
+              game.placingHeroUsesBonus = false;
+              game.placingSatelliteSourceId = null;
+              game.placingWalletHeroId = null;
+              showBanner(`Reinforcement ${t.name} saved to the hero hire menu for later.`, 1500);
+              render();
+              return;
+            }
+            game.placingHeroType = type;
+            game.placingHeroCost = 0;
+            game.placingHeroUsesBonus = true;
+            game.placingSatelliteSourceId = null;
+            game.placingWalletHeroId = null;
+            log(`Select a tile to place your saved reinforcement ${t.name}.`);
+            showBanner(game.runningWave ? `Place saved ${t.name} reinforcement on any open tile` : `Place saved ${t.name} reinforcement on any open tile`, 1600);
+            render();
+            return;
+          }
           if (type === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
             showBanner('Your selected Warrior is your free starting Warrior. Place him during setup instead of hiring a second Warrior on wave 1.', 2200);
             return;
           }
-          if (hasReachedStandardHeroBoardCap(true)) {
+          if (!usesBonus && hasReachedStandardHeroBoardCap(true) && !(type === 'warrior' && canAlwaysFieldOneWarrior())) {
             showBanner(`You can only field ${MAX_STANDARD_HEROES_ON_BOARD} heroes until a milestone hire offer appears.`, 1800);
             return;
           }
@@ -6381,11 +8009,14 @@ function renderDamageReport() {
       els.hirePanel.appendChild(card);
     }
 
-    if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType) {
+    if (!normalAvailable.length && !bonusAvailable.length && !game.placingHeroType && !pendingMilestonePlacement) {
       heroTypes.forEach(type => appendHireButton(type, false, true));
       return;
     }
 
+    if (pendingMilestonePlacement && pendingMilestonePlacement.heroType && !normalAvailable.includes(pendingMilestonePlacement.heroType)) {
+      appendHireButton(pendingMilestonePlacement.heroType, true);
+    }
     for (const type of normalAvailable) appendHireButton(type, false);
     for (const type of bonusAvailable) appendHireButton(type, true);
   }
@@ -6468,6 +8099,30 @@ function renderDamageReport() {
       avaxBtn.addEventListener('click', () => { performAvaxGoldSwap().catch((error) => console.error(error)); });
       avaxCard.appendChild(avaxBtn);
       els.relicModalBody.appendChild(avaxCard);
+    }
+    if (swapOfferActive && shouldOfferJewelSwap()) {
+      const jewelCard = document.createElement('div');
+      jewelCard.className = 'card relic-choice-card dfkgold-swap-card';
+      const canSwapNow = !game.jewelTradePending && hasWalletJewelForWei(DFK_JEWEL_GOLD_SWAP_WEI);
+      jewelCard.innerHTML = `
+        <div class="relic-choice-rarity relic-rarity-mythic">JEWEL Swap</div>
+        <h4>Swap JEWEL for defender gold?</h4>
+        <p>1 JEWEL for 2,000 defender gold.</p>
+        <p class="gold">Wallet JEWEL: ${getWalletNativeJewelBalanceLabel()}</p>
+      `;
+      const jewelBtn = document.createElement('button');
+      jewelBtn.className = 'buy-btn';
+      jewelBtn.textContent = game.jewelTradePending ? 'Waiting…' : `Swap 1 JEWEL`;
+      jewelBtn.disabled = !canSwapNow;
+      jewelBtn.addEventListener('click', () => { buyJewelGoldSwap().catch((error) => console.error(error)); });
+      jewelCard.appendChild(jewelBtn);
+      if (!canSwapNow) {
+        const note = document.createElement('p');
+        note.className = 'dfkgold-swap-note';
+        note.textContent = `Need 1 JEWEL in the connected wallet.`;
+        jewelCard.appendChild(note);
+      }
+      els.relicModalBody.appendChild(jewelCard);
     }
 
     if (!isFreeStartingRelic || swapOfferActive) {
@@ -6738,10 +8393,23 @@ function renderDamageReport() {
         if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
         if (this.buffs.blizzardSlow) mult *= 0.5;
         if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.04;
-        return Math.max(0.30, this.basicCooldown / 1000 / mult);
+        if (hasSageChampionBuff(this)) mult *= 1.2;
+        if (hasDragoonLeadershipBuff(this)) mult *= 1.05;
+        if (isCasterTowerType(this.type) && hasLivingChampionOfType('champion_spellbow', this.id)) mult *= 1.1;
+        return Math.max(0.20, this.basicCooldown / 1000 / mult);
       },
     };
+    if (String(type).startsWith('champion_')) {
+      tower.isChampion = true;
+      tower.championKey = String(type).replace(/^champion_/, '');
+      tower.reportLabel = `${template.name} • Champion`;
+      tower.basicCooldown = Math.max(150, tower.basicCooldown * 0.5);
+      const selectedChampion = getSelectedChampionRecord();
+      tower.customPortraitUrl = selectedChampion?.hero ? getChampionPortraitImage(selectedChampion.hero, selectedChampion.definition?.key || tower.championKey || '') : '';
+    }
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
+    tower.abilityGlobalReadyAt = 0;
+    if (tower.isChampion) ensureChampionAutoAbilityState(tower);
     if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     return tower;
@@ -6775,6 +8443,7 @@ function renderDamageReport() {
       soul_split: 1,
       slow_totem: 1,
     };
+    if (String(abilityKey || '').startsWith('champion_')) return 1;
     if (explicit[abilityKey] != null) return explicit[abilityKey];
     const idx = getAbilityIndex(tower, abilityKey);
     if (idx < 0) return 1;
@@ -6802,7 +8471,9 @@ function renderDamageReport() {
 
   function getAbilityCooldownSeconds(tower, abilityKey) {
     const base = tower.template.abilities.find(a => a.key === abilityKey)?.cooldown || 5;
+    const leadershipReduction = hasDragoonLeadershipBuff(tower) ? 1 : 0;
     if (abilityKey === 'healing_aura') return 0;
+    if (String(abilityKey || '').startsWith('champion_')) return Math.max(0.5, base - leadershipReduction);
     let scaledBase = abilityKey === 'prayer_of_healing'
       ? Math.max(0.5, getPriestDivineSoldierPrayerCooldown(tower) - (game.modifiers.prayerCooldownAdjust || 0))
       : base;
@@ -6819,7 +8490,7 @@ function renderDamageReport() {
     if (abilityKey === 'kraken') finalCooldown += 1.5;
     if (abilityKey === 'starboard_cannons') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'multi_shot') finalCooldown = Math.max(0.5, finalCooldown - 1.5);
-    return finalCooldown;
+    return Math.max(0.5, finalCooldown - leadershipReduction);
   }
 
   function getUpgradeLevelCap() {
@@ -6833,6 +8504,7 @@ function renderDamageReport() {
 
   function canUpgradeTower(tower) {
     if (isStatueTower(tower)) return false;
+    if (isPureEnergyArchon(tower)) return false;
     const nextLevel = tower.level + 1;
     return nextLevel <= getUpgradeLevelCap() && game.jewel >= getUpgradeCost(nextLevel, tower);
   }
@@ -6886,7 +8558,7 @@ function renderDamageReport() {
       if (passiveEntry.key === 'frost_bolt' && !passiveEntry.locked && tower.level >= 15) {
         subtitle += `<div class="passive-active-note">Enhanced Aura Active: +1 range</div>`;
       }
-      passive.innerHTML = `<div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${passiveEntry.description}</p>`;
+      passive.innerHTML = `<div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${decoratePureEnergyText(passiveEntry.description, tower)}</p>`;
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest' || passiveEntry.key === 'soul_split' || passiveEntry.key === 'slow_totem') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
@@ -6987,16 +8659,16 @@ function renderDamageReport() {
       multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows. Cooldown: ${getAbilityCooldownSeconds(tower, 'multi_shot').toFixed(1)}s.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 5 enemies for ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.6 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.45 * powerMult)}, and ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.35 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place an Archer Shadow on any valid open tile. Archer Shadows start at half the level of the Archer who spawned them, rounded down, with a minimum of level 1. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.${game.modifiers.masterAssassin ? ' Master Assassin active: Archer Shadows never dissipate.' : ' Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.'}`,
+      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place an Archer Shadow. Level 100 Archers make newly created Archer Shadows last ${PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES} extra waves. Archer Shadow on any valid open tile. Archer Shadows start at half the level of the Archer who spawned them, rounded down, with a minimum of level 1. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.${game.modifiers.masterAssassin ? ' Master Assassin active: Archer Shadows never dissipate.' : ' Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.'}`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack. Burning enemies already slowed by chill or Ice Aura are slowed by an additional ${(FIREBOLT_BURN_ICE_AURA_SLOW_BONUS * 100).toFixed(0)}%.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
-      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${TORN_SOUL_BURN_DURATION_SECONDS}s in a 1-tile radius.${common}${scale}`,
+      soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. At level ${PURE_ENERGY_LEVEL}, the Archon becomes PURE ENERGY: +50% damage, +10% speed, no more leveling, ${Math.round((PURE_ENERGY_BURN_DURATION_MULTIPLIER - 1) * 100)}% longer burn duration, and wider detonation fire. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${getTornSoulBurnDurationSeconds(tower).toFixed(1)}s in a ${getTornSoulBurnRadius(tower)}-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'fireball').toFixed(1)}s.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every second.${common}${scale}`,
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
       chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10. Cooldown: ${getAbilityCooldownSeconds(tower, 'chrono_purge').toFixed(1)}s.${common}${scale}`,
-      evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage.${common}${scale}`,
+      evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage. Any attack that misses will show "MISS" on the Warrior or Statue.${common}${scale}`,
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Support Satellite. Every 10 cleared waves, the Priest gains 1 Blinding Light Totem charge. Place it on any open tile for ${BLINDING_LIGHT_TOTEM_DURATION_WAVES} waves. Enemies in the aura are slowed by ${(BLINDING_LIGHT_TOTEM_SLOW_PERCENT * 100).toFixed(0)}%, their attack speed is slowed by ${(BLINDING_LIGHT_TOTEM_ATTACK_SLOW_PERCENT * 100).toFixed(0)}%, and both effects linger for ${BLINDING_LIGHT_TOTEM_LINGER_SECONDS}s after leaving. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
@@ -7005,6 +8677,22 @@ function renderDamageReport() {
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: ${getAbilityCooldownSeconds(tower, 'warning_shot').toFixed(1)}s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'starboard_cannons').toFixed(1)}s.${common}${scale}`,
       kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Cooldown: ${getAbilityCooldownSeconds(tower, 'kraken').toFixed(1)}s.${stronger}${common}${scale}`,
+      champion_big_sword: `He swings Damn Big Sword through every enemy within 1 tile for ${Math.round(tower.damage * 1.25)} damage.${common}${scale}`,
+      champion_crush: `Stomps enemies within 2 tiles, knocks them back 5 tiles toward the void, and has a 50% chance to stun for 3s. Deals ${Math.round(tower.damage * 1.4)} damage.${common}${scale}`,
+      champion_gauntlet: `Passive. Enemies that pass through this champion are slowed by 50% for 10s.${common}${scale}`,
+      champion_dread: `Passive. Enemies within 2 tiles take 25% increased damage while Dreadknight is deployed.${common}${scale}`,
+      champion_kiss_from_a_rose: `She fires rose shards at up to 18 enemies within 3 tiles. Each shard deals ${Math.round(tower.damage * 0.85)} damage.${common}${scale}`,
+      champion_storm: `Petal Storm. Sends crimson petal shockwaves blasting out from the Sage, damaging enemies and punting them toward the map start. Deals ${Math.round(tower.damage * 2.6)} damage.${common}${scale}`,
+      champion_live_forever: `Passive. Once each deployment, she revives the first fallen ally at full health and makes them invulnerable for 3s.${common}${scale}`,
+      champion_eye_contact: `Passive. Battle Meditation: the Sage seems to glow, giving her allies confidence. Casters gain 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed.${common}${scale}`,
+      champion_overpower: `He blasts enemies within 2 tiles, knocks them 5 tiles toward the portal, and inspires nearby heroes for 2s. Deals ${Math.round(tower.damage * 2)} damage.${common}${scale}`,
+      champion_leadership: `Passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.${common}${scale}`,
+      champion_point: `He points past the smallest enemies and looks for medium to large targets first, throwing a spear that kills them instantly. Bosses may be targeted, but instead take 15% of their starting health in damage.${common}${scale}`,
+      champion_battle_hardened: `Passive. Enemies that pass through his tile deal 25% less damage.${common}${scale}`,
+      champion_not_an_archer: `Lightning Shaft: every 18s she fires 10 lightning infused arrows at enemies anywhere on the map. This skill has no range.${common}${scale}`,
+      champion_ok_maybe_archer: `A Lot Of Arrows: she unleashes 10 arrows into nearby targets one at a time. Each arrow deals ${Math.round(tower.damage * 1.8)} damage. This skill has no range.${common}${scale}`,
+      champion_speed: `Passive. She starts 25% faster than an Archer and can reach very fast attack intervals.${common}${scale}`,
+      champion_empower: `Passive. Eagle Eye: Spellbow can hit enemies anywhere on the map with basic attacks and abilities. Spellbow saves abilities until enough enemies are on the map.${common}${scale}`,
     };
     if (tower.type === 'pirate') {
       map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
@@ -7026,12 +8714,17 @@ function renderDamageReport() {
     const baseMarkup = 1.05 + (0.10 * Math.pow(levelProgress, 1.35));
     const curvedMarkup = 1 + ((baseMarkup - 1) * 1.15);
     const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
-    return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * 10) / 10;
+    const championMult = tower && (tower.isChampion || String(tower.type || '').startsWith('champion_')) ? 0.5 : 1;
+    return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * championMult * 10) / 10;
   }
 
   function upgradeTower(tower) {
     const nextLevel = tower.level + 1;
     const cost = getUpgradeCost(nextLevel, tower);
+    if (isPureEnergyArchon(tower)) {
+      showBanner('PURE ENERGY cannot level further.', 1500);
+      return;
+    }
     if (nextLevel > getUpgradeLevelCap()) {
       showBanner(`Level cap reached for this wave. Max level is ${getUpgradeLevelCap()}.`, 1500);
       return;
@@ -7039,11 +8732,14 @@ function renderDamageReport() {
     if (game.jewel < cost) return;
     game.jewel -= cost;
     applyTowerLevelStep(tower, nextLevel);
+    if (tower.isSoulSplit) normalizeTornSoulDamage(tower);
+    if (tower.isChampion && game.selectedChampionSnapshot && String(game.selectedChampionSnapshot.hero?.id || '') === String(tower.walletHeroId || '')) game.selectedChampionSnapshot.hero.level = Math.max(Number(game.selectedChampionSnapshot.hero.level || 1), Number(tower.level || 1));
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
     if (tower.isSoulSplit && tower.level === 40) {
       showBanner('Archon awakened.', 2200);
       log(`${tower.name} ascended into an Archon.`);
     }
+    if (tower.isSoulSplit && tower.level >= PURE_ENERGY_LEVEL) refreshPureEnergyState(tower);
     updateQuestMetric('upgrades', 1);
     render();
   }
@@ -7066,26 +8762,29 @@ function renderDamageReport() {
 
   function getSatelliteDissipateAfterWaves(tower) {
     if (tower && tower.isSatellite && tower.type === 'archer' && game.modifiers.masterAssassin) return Number.POSITIVE_INFINITY;
+    const bonus = Math.max(0, Number(tower?.extraLifetimeWaves || 0));
     if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
-      return GUEST_ARCHER_SHADOW_DISSIPATE_AFTER_WAVES;
+      return GUEST_ARCHER_SHADOW_DISSIPATE_AFTER_WAVES + bonus;
     }
-    return SATELLITE_DISSIPATE_AFTER_WAVES;
+    return SATELLITE_DISSIPATE_AFTER_WAVES + bonus;
   }
 
   function getSatelliteFadeStageOneWaves(tower) {
     if (tower && tower.isSatellite && tower.type === 'archer' && game.modifiers.masterAssassin) return Number.POSITIVE_INFINITY;
+    const bonus = Math.max(0, Number(tower?.extraLifetimeWaves || 0));
     if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
-      return GUEST_ARCHER_SHADOW_FADE_STAGE_ONE_WAVES;
+      return GUEST_ARCHER_SHADOW_FADE_STAGE_ONE_WAVES + Math.floor(bonus / 2);
     }
-    return SATELLITE_FADE_STAGE_ONE_WAVES;
+    return SATELLITE_FADE_STAGE_ONE_WAVES + Math.floor(bonus / 2);
   }
 
   function getSatelliteFadeStageTwoWaves(tower) {
     if (tower && tower.isSatellite && tower.type === 'archer' && game.modifiers.masterAssassin) return Number.POSITIVE_INFINITY;
+    const bonus = Math.max(0, Number(tower?.extraLifetimeWaves || 0));
     if (tower && tower.isSatellite && tower.type === 'archer' && game.difficultyProfile?.guestMode) {
-      return GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES;
+      return GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES + Math.max(1, Math.ceil(bonus * 0.75));
     }
-    return SATELLITE_FADE_STAGE_TWO_WAVES;
+    return SATELLITE_FADE_STAGE_TWO_WAVES + Math.max(1, Math.ceil(bonus * 0.75));
   }
 
   function getSatelliteVisualOpacity(tower) {
@@ -7390,7 +9089,7 @@ function renderDamageReport() {
         render();
         return;
       }
-    } else if (!isMilestonePlacement && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
+    } else if (!usesBonusHire && !isMilestonePlacement && !String(typeToPlace).startsWith('champion_') && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
       const heroName = TOWER_TEMPLATES[typeToPlace]?.name || 'That hero';
       showBanner(`${heroName} is already in this run.`, 1600);
       game.placingHeroType = null;
@@ -7437,6 +9136,17 @@ function renderDamageReport() {
       const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
       if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
     }
+    if (!isSatellitePlacement && tower.isChampion) {
+      const selectedChampion = getSelectedChampionRecord();
+      if (selectedChampion && selectedChampion.hero) {
+        tower.walletHeroId = String(selectedChampion.hero.id);
+        tower.walletHeroLevel = Math.max(1, Number(selectedChampion.hero.level || 1));
+        tower.customPortraitUrl = getChampionPortraitImage(selectedChampion.hero, selectedChampion.definition?.key || tower.championKey || '');
+        const targetLevel = Math.max(1, tower.walletHeroLevel);
+        for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) applyTowerLevelStep(tower, nextLevel);
+        tower.reportLabel = `${tower.name} • Champion Hero ${tower.walletHeroId}`;
+      }
+    }
     if (pendingMilestonePlacement) {
       const targetLevel = Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1));
       for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
@@ -7458,7 +9168,8 @@ function renderDamageReport() {
         tower.moveReadyAt = Number.POSITIVE_INFINITY;
         tower.isStatue = true;
       } else if (sourceTower.type === 'wizard') {
-        tower.damage = sourceTower.damage * 0.5;
+        tower.damage = TOWER_TEMPLATES.wizard.damage * 0.5;
+        tower.baseDamage = tower.damage;
         tower.range = sourceTower.range;
         tower.basicCooldown = sourceTower.basicCooldown;
         tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
@@ -7466,6 +9177,7 @@ function renderDamageReport() {
         tower.abilities = sourceTower.template.abilities.map(ability => ({ ...ability }));
         tower.abilityReadyAt = {};
         for (const ability of tower.abilities) tower.abilityReadyAt[ability.key] = 0;
+        tower.abilityGlobalReadyAt = 0;
         tower.isSoulSplit = true;
       } else {
         const shadowStartLevel = Math.max(1, Math.floor(Number(sourceTower.level || 1) / 2));
@@ -7479,12 +9191,22 @@ function renderDamageReport() {
       tower.satelliteOwnerId = sourceTower.id;
       tower.isSatellite = true;
       tower.summonedAtWave = Number(game.waveNumber || 0);
+      if (sourceTower.type === 'archer' && Number(sourceTower.level || 0) >= PURE_ENERGY_LEVEL) tower.extraLifetimeWaves = PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES;
       tower.name = sourceTower.type === 'archer' ? 'Archer Shadow' : (sourceTower.type === 'wizard' ? 'Torn Soul' : 'Statue');
       if (sourceTower.type === 'wizard') tower.reportLabel = `${sourceTower.reportLabel} • Torn Soul`;
     }
 
     normalizeArcherStats(tower);
+    if (tower.isSoulSplit) normalizeTornSoulDamage(tower);
     game.towers.push(tower);
+    if (tower.isChampion) {
+      const waited = getChampionWavesWaited();
+      tower.championDeployedAtWave = Number(game.waveNumber || 0);
+      tower.championAllowedDuration = waited >= 40 ? 24 : 12;
+      if (game.selectedChampionSnapshot && String(game.selectedChampionSnapshot.hero?.id || '') === String(tower.walletHeroId || '')) game.selectedChampionSnapshot.hero.level = Math.max(Number(game.selectedChampionSnapshot.hero.level || 1), Number(tower.level || 1));
+      game.championDeployedTowerId = tower.id;
+      game.championActiveUntilWave = Number(game.waveNumber || 0) + tower.championAllowedDuration - 1;
+    }
     tileAt(x, y).towerId = tower.id;
     if (isStatueTower(tower) && !placementKeepsEnemiesReachable(tower)) {
       tileAt(x, y).towerId = null;
@@ -7510,6 +9232,10 @@ function renderDamageReport() {
       log(`${placementVerb} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+      if (tower.isChampion) {
+        game.selectedChampionConfirmed = true;
+        log(`Champion deployed: ${tower.name} for ${tower.championAllowedDuration} waves after waiting ${getChampionWavesWaited()} waves.`);
+      }
       if (pendingMilestonePlacement) {
         game.pendingMilestoneHeroPlacement = null;
         game.countdownMs = 0;
@@ -7748,15 +9474,17 @@ function renderDamageReport() {
     if (!game) return;
     if (!game.groundBurnEffects) game.groundBurnEffects = [];
     const current = now();
-    const tiles = getTilesInManhattanRange(centerX, centerY, TORN_SOUL_BURN_RADIUS);
-    const until = current + (TORN_SOUL_BURN_DURATION_SECONDS * 1000);
+    const burnRadius = getTornSoulBurnRadius(sourceTower);
+    const burnDurationSeconds = getTornSoulBurnDurationSeconds(sourceTower);
+    const tiles = getTilesInManhattanRange(centerX, centerY, burnRadius);
+    const until = current + (burnDurationSeconds * 1000);
     game.groundBurnEffects.push({
       id: `ground-burn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       tiles,
       startedAt: current,
       until,
       nextTickAt: current + 1000,
-      tickDamage: Math.max(1, (Number(sourceTower?.damage || 0) || 0) * getTornSoulExplosionMultiplier(sourceTower) / TORN_SOUL_BURN_DURATION_SECONDS),
+      tickDamage: Math.max(1, (Number(sourceTower?.damage || 0) || 0) * getTornSoulExplosionMultiplier(sourceTower) / burnDurationSeconds),
       sourceTowerId: sourceTower?.id || null,
       imagePath: PURPLE_FIRE_GIF_PATH,
     });
@@ -7797,12 +9525,106 @@ function renderDamageReport() {
     })();
     if (occupantTower && occupantTower.isSoulSplit) {
       createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.75, 1800, PURPLE_FIRE_GIF_PATH);
-      createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, TORN_SOUL_BURN_RADIUS), 'wizard');
+      createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, getTornSoulBurnRadius(occupantTower)), 'wizard');
       damageEnemy(occupantTower, enemy, occupantTower.damage * getTornSoulExplosionMultiplier(occupantTower), `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: isTornSoulArchon(occupantTower) ? 'Archon Burst' : 'Torn Soul Burst' });
       igniteTornSoulBurn(occupantTower, occupantTower.x, occupantTower.y);
       removeTower(occupantTower, `${occupantTower.name} collapsed into shadow.`);
     }
     markProgress(`${enemy.name} moved.`);
+    return true;
+  }
+
+  function knockbackEnemy(enemy, tiles = 1) {
+    if (!enemy || !Number.isFinite(Number(tiles)) || Number(tiles) <= 0) return false;
+    const current = now();
+    const knockbackTiles = Math.max(1, Math.round(Number(tiles) || 1));
+    let moved = false;
+    let travelDx = Number.isFinite(Number(enemy.x)) && Number.isFinite(Number(enemy.prevX)) ? (Number(enemy.x) - Number(enemy.prevX)) : 0;
+    let travelDy = Number.isFinite(Number(enemy.y)) && Number.isFinite(Number(enemy.prevY)) ? (Number(enemy.y) - Number(enemy.prevY)) : 0;
+    for (let i = 0; i < knockbackTiles; i += 1) {
+      const currentDistance = getPortalFlowDistance(enemy.x, enemy.y);
+      const step = adjacentTiles(enemy.x, enemy.y)
+        .filter((candidate) => canEnemyEnterIgnoringCrowd(candidate.x, candidate.y, enemy))
+        .map((candidate) => {
+          const candidateDistance = getPortalFlowDistance(candidate.x, candidate.y);
+          const stepDx = Number(candidate.x) - Number(enemy.x);
+          const stepDy = Number(candidate.y) - Number(enemy.y);
+          const reverseTravelBonus = (travelDx || travelDy)
+            ? (((stepDx === -travelDx) && (stepDy === -travelDy)) ? 4.5 : (((stepDx * -travelDx) + (stepDy * -travelDy)) > 0 ? 1.7 : 0))
+            : 0;
+          const previousTileBonus = (enemy.prevX === candidate.x && enemy.prevY === candidate.y && !(enemy.prevX === enemy.x && enemy.prevY === enemy.y)) ? 5.5 : 0;
+          const distanceGain = Number.isFinite(candidateDistance) && Number.isFinite(currentDistance) ? (candidateDistance - currentDistance) : 0;
+          return {
+            ...candidate,
+            distance: candidateDistance,
+            score: previousTileBonus
+              + reverseTravelBonus
+              + (distanceGain * 1.5)
+              - (getEnemyOccupancy(candidate.x, candidate.y, enemy?.id || null, getEnemyOccupancyClass(enemy)) * 0.08),
+          };
+        })
+        .filter((candidate) => Number.isFinite(candidate.distance) && candidate.distance > currentDistance)
+        .sort((a, b) => b.score - a.score)[0] || null;
+      if (!step) break;
+      const fromX = enemy.x;
+      const fromY = enemy.y;
+      updateEnemyFacingX(enemy, step.x);
+      enemy.prevX = enemy.x;
+      enemy.prevY = enemy.y;
+      enemy.x = step.x;
+      enemy.y = step.y;
+      enemy.moveStartedAt = current;
+      enemy.moveEndAt = current + Math.max(100, Math.round(getEnemyMoveMs(enemy) * 0.65));
+      enemy.attacking = false;
+      enemy.targetPath = [];
+      enemy.stuckAt = 0;
+      enemy.lastProgressAt = current;
+      travelDx = Number(enemy.x) - Number(fromX);
+      travelDy = Number(enemy.y) - Number(fromY);
+      moved = true;
+    }
+    if (moved) {
+      enemy.nextMoveAt = Math.max(enemy.nextMoveAt || 0, current + 650 + (knockbackTiles * 120));
+      enemy.nextAttackAt = Math.max(enemy.nextAttackAt || 0, current + 500 + (knockbackTiles * 90));
+      enemy.forcePortalUntil = Math.max(enemy.forcePortalUntil || 0, current + 1200);
+    }
+    return moved;
+  }
+
+  function isEnemyHardControlled(enemy) {
+    return !!(enemy?.debuffs?.rooted || enemy?.debuffs?.stunned);
+  }
+
+  function tryApplyStun(enemy, seconds, chance = 1, data = {}) {
+    if (!enemy || seconds <= 0) return false;
+    if (Math.random() >= chance) return false;
+    const current = now();
+    applyDebuff(enemy, 'stunned', seconds, { ...data, appliedAt: current });
+    enemy.attacking = false;
+    enemy.nextMoveAt = Math.max(enemy.nextMoveAt || 0, current + (seconds * 1000));
+    enemy.nextAttackAt = Math.max(enemy.nextAttackAt || 0, current + (seconds * 1000));
+    return true;
+  }
+
+  function performChampionDreadknightCrush(tower, current = now()) {
+    if (!tower) return false;
+    const crushTargets = game.enemies
+      .filter((enemy) => chebyshevDist(enemy, tower) <= 2)
+      .sort((a, b) => getPortalFlowDistance(a.x, a.y) - getPortalFlowDistance(b.x, b.y))
+      .slice(0, 24);
+    if (!crushTargets.length) return false;
+    createSeismicWaveEffect(tower, { startedAt: current, durationMs: 860, maxRadiusTiles: 2 });
+    crushTargets.forEach((enemy) => {
+      damageEnemy(tower, enemy, tower.damage * 1.4, `${tower.name} crushed ${enemy.name}`, { key: 'champion_crush', label: 'Crush' });
+      const wasKnockedBack = knockbackEnemy(enemy, 5);
+      const wasStunned = tryApplyStun(enemy, 3, 0.5, { sourceTowerId: tower.id, sourceAbility: 'champion_crush' });
+      if (wasKnockedBack || wasStunned) {
+        enemy.attacking = false;
+        enemy.targetPath = [];
+        enemy.stuckAt = 0;
+      }
+    });
+    createTileFlashArea(getTilesInManhattanRange(tower.x, tower.y, 2), 'warrior');
     return true;
   }
 
@@ -7927,6 +9749,7 @@ function renderDamageReport() {
   function prepareNextWave() {
     // allow hiring during waves
 
+    maybeRetireChampionBetweenWaves();
     game.nextWavePlan = sanitizeWavePlan(buildWavePlan(game.waveNumber + 1));
     game.autoStartReadyAt = 0;
     const mutationText = game.nextWavePlan.mutation ? ` • Mutation: ${game.nextWavePlan.mutation.name}` : '';
@@ -7940,15 +9763,16 @@ function renderDamageReport() {
     updateTopbar();
       updateMobileBoardFit();
     render();
+    maybeShowUnplacedHeroReminder();
   }
 
   function buildWavePlan(waveNumber) {
     if (waveNumber % 5 === 0 && waveNumber >= 15) {
-      return { waveNumber, pattern: 'boss', mutation: null, enemies: buildBossWave(waveNumber), sizeMultiplier: 1, elite: isEliteWave(waveNumber), eliteConfig: getEliteWaveConfig(waveNumber) };
+      return { waveNumber, pattern: 'boss', mutation: null, enemies: buildBossWave(waveNumber), sizeMultiplier: 1.250, elite: isEliteWave(waveNumber), eliteConfig: getEliteWaveConfig(waveNumber) };
     }
 
     let mutation = null;
-    const wavePlan = { waveNumber, pattern: choosePattern(), mutation: null, enemies: [], sizeMultiplier: 1 };
+    const wavePlan = { waveNumber, pattern: choosePattern(), mutation: null, enemies: [], sizeMultiplier: 1.250 };
     if (waveNumber % 3 === 0) {
       mutation = chooseMutation();
       wavePlan.mutation = mutation;
@@ -8036,7 +9860,7 @@ function renderDamageReport() {
   }
 
   function getStandardWaveEnemyCount(waveNumber, sizeMultiplier = 1) {
-    const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber) * getWaveSpecificEnemyCountMultiplier(waveNumber);
+    const countMultiplier = sizeMultiplier * getPostWave15CountMultiplier(waveNumber) * getWaveSpecificEnemyCountMultiplier(waveNumber) * getPostWave100EnemyCountMultiplier(waveNumber);
     const earlyBossReplacementMult = (waveNumber === 5 || waveNumber === 10) ? 1.10 : 1;
     return Math.max(1, Math.round((6 + waveNumber * 2.3) * countMultiplier * 0.92 * earlyBossReplacementMult));
   }
@@ -8046,15 +9870,14 @@ function renderDamageReport() {
   }
 
   function hasPendingEliteFinalSpawn(waveNumber) {
-    const elite = getEliteWaveConfig(waveNumber);
-    return !!elite?.finalSkyTerror && game.eliteFinalSpawnReleasedWave !== waveNumber;
+    return false;
   }
 
   function createSkyTerrorEnemy(waveNumber) {
     const lane = BREACH_LANES[chooseLane()] || BREACH_LANES[LANE_NAMES[0]];
     const spawn = pickRandom(lane);
     const strongestBossHp = Math.max(...BOSSES.map(b => b.hp)) * BIG_ENEMY_HP_MULTIPLIER * getWaveHpMultiplier(waveNumber || 0);
-    const maxHp = strongestBossHp * 5 * 1.15;
+    const maxHp = strongestBossHp * 5 * 1.15 * getPostWave100EnemyHpMultiplier(waveNumber || 0);
     const enemy = {
       id: `e${game.nextEnemyId++}`,
       type: 'sky_terror',
@@ -8065,7 +9888,7 @@ function renderDamageReport() {
       maxHp,
       spawnMaxHp: maxHp,
       damage: 50,
-      moveInterval: 1.45,
+      moveInterval: 1.45 * getPostWave100EnemyMoveIntervalMultiplier(waveNumber || 0),
       attackInterval: 1.0,
       jewel: (900 * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + ((waveNumber || 0) > 15 ? 0.5 : 0),
       cssClass: 'boss',
@@ -8098,7 +9921,7 @@ function renderDamageReport() {
 
   function releaseEliteFinalSpawn(waveNumber) {
     const elite = getEliteWaveConfig(waveNumber);
-    if (!elite?.finalSkyTerror || game.eliteFinalSpawnReleasedWave === waveNumber) return false;
+    if (!elite?.finalSkyTerror || getFlyingTerrorCountForWave(waveNumber) > 0 || game.eliteFinalSpawnReleasedWave === waveNumber) return false;
     const enemy = createSkyTerrorEnemy(waveNumber);
     enemy.hp *= 1.25;
     enemy.maxHp *= 1.25;
@@ -8181,15 +10004,15 @@ function renderDamageReport() {
     const elite = getEliteWaveConfig(waveNumber);
     if (!elite) return enemies;
     if (elite.skitters) {
-      addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * (waveNumber > 20 ? 0.95 : 1))), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
+      addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * (waveNumber > 20 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
     }
     if (elite.extraBosses) {
-      addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1))), 700);
+      addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), 700);
     }
     return enemies;
   }
   function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
-    const baseCount = Math.max(1, Math.round(getStandardWaveEnemyCount(waveNumber, sizeMultiplier) * (isEliteWave(waveNumber) ? 1 : 0.95) * 0.8 * (waveNumber > 20 ? 0.95 : 1)));
+    const baseCount = Math.max(1, Math.round(getStandardWaveEnemyCount(waveNumber, sizeMultiplier) * (isEliteWave(waveNumber) ? 1 : 0.95) * 0.8 * (waveNumber > 20 ? 0.95 : 1) * GLOBAL_NON_BOSS_ENEMY_COUNT_MULTIPLIER));
     const enemies = [];
     if (pattern === 'lane') {
       const lane = chooseLane();
@@ -8212,19 +10035,55 @@ function renderDamageReport() {
     return applyWaveEnemyOverrides(waveNumber, enemies);
   }
 
+  function getFlyingTerrorCountForWave(waveNumber) {
+    if (waveNumber === 100) return 1;
+    if (waveNumber === 150) return 1;
+    if (waveNumber === 200) return 2;
+    if (waveNumber === 300) return 3;
+    return 0;
+  }
+
+  function addFlyingTerrorSupport(enemies, waveNumber, skyTerrorCount = 0) {
+    if (skyTerrorCount <= 0) return enemies;
+    const lastScheduledDelay = enemies.length ? Math.max(...enemies.map((enemy) => Number(enemy.delayMs || 0))) : 0;
+    const supportStartDelay = Math.max(4200, Math.round(lastScheduledDelay * 0.55));
+    for (let i = 0; i < 30; i += 1) {
+      enemies.push({
+        type: i % 4 === 0 ? 'runner' : 'grunt',
+        lane: pickRandom(LANE_NAMES),
+        delayMs: supportStartDelay + (i * 150),
+        flyingTerrorSupport: true,
+      });
+    }
+    for (let i = 0; i < 10; i += 1) {
+      enemies.push({
+        type: 'brute',
+        lane: pickRandom(LANE_NAMES),
+        delayMs: supportStartDelay + 900 + (i * 260),
+        flyingTerrorSupport: true,
+      });
+    }
+    return enemies;
+  }
+
   function buildBossWave(waveNumber) {
     const boss = BOSSES[(waveNumber / 5 - 1) % BOSSES.length];
     const lane = chooseLane();
-    const bossCount = Math.max(1, Math.round(getWaveBossOverrideCount(waveNumber, waveNumber >= 30 ? 2 : 1) * 0.8 * (waveNumber >= 15 ? 0.95 : 1)));
+    const bossCount = Math.max(1, Math.round(getWaveBossOverrideCount(waveNumber, waveNumber >= 30 ? 2 : 1) * 0.8 * (waveNumber >= 15 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber)));
     const enemies = [];
     for (let i = 0; i < bossCount; i += 1) {
       enemies.push({ bossId: boss.id, lane, delayMs: 100 + (i * 900) });
     }
+    const skyTerrorCount = getFlyingTerrorCountForWave(waveNumber);
+    for (let i = 0; i < skyTerrorCount; i += 1) {
+      enemies.push({ type: 'sky_terror', lane: chooseLane(), delayMs: 350 + (i * 1200), scriptedSkyTerror: true });
+    }
     const skitterMultiplier = waveNumber >= 30 ? 2 : 1.5;
-    const skitterCount = Math.max(5, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * skitterMultiplier * 0.8 * (waveNumber > 20 ? 0.95 : 1)));
+    const skitterCount = Math.max(3, Math.round(getStandardWaveEnemyCount(waveNumber, 1) * skitterMultiplier * 0.8 * (waveNumber > 20 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber) * GLOBAL_SKITTER_COUNT_MULTIPLIER));
     for (let i = 0; i < skitterCount; i += 1) {
       enemies.push({ type: 'skitter', lane, delayMs: 500 + (i * 120), bossWaveSkitter: true });
     }
+    if (skyTerrorCount > 0) addFlyingTerrorSupport(enemies, waveNumber, skyTerrorCount);
     return applyWaveEnemyOverrides(waveNumber, enemies);
   }
 
@@ -8239,7 +10098,7 @@ function renderDamageReport() {
       runnerChance = Math.min(0.9, runnerChance * 2.3);
     }
 
-    if (chance(bruteChance)) return 'brute';
+    if (chance(bruteChance * GLOBAL_BIG_ENEMY_COUNT_MULTIPLIER)) return 'brute';
     return chance(runnerChance) ? 'runner' : 'grunt';
   }
 
@@ -8682,6 +10541,8 @@ function renderDamageReport() {
       }
     }
     game.phase = SETUP_PHASES.GAME_OVER;
+    game.autoStartEnabled = false;
+    game.autoStartReadyAt = 0;
     game.runningWave = false;
     game.continueOfferPending = false;
     showFinalGameOverModal();
@@ -8703,8 +10564,13 @@ function renderDamageReport() {
       tower.template = TOWER_TEMPLATES[tower.type] || tower.template;
       tower.abilities = tower.template?.abilities || savedTower.abilities || [];
       tower.abilityReadyAt = { ...(savedTower.abilityReadyAt || {}) };
+      tower.abilityGlobalReadyAt = Math.max(0, Number(savedTower.abilityGlobalReadyAt || 0));
       for (const ability of tower.abilities) {
         if (!(ability.key in tower.abilityReadyAt)) tower.abilityReadyAt[ability.key] = 0;
+      }
+      if (tower.isChampion) {
+        tower.championAutoAbilityReadyAt = { ...(savedTower.championAutoAbilityReadyAt || {}) };
+        ensureChampionAutoAbilityState(tower);
       }
       if (!tower.damageByMethod) tower.damageByMethod = {};
       if (!tower.buffs) tower.buffs = {};
@@ -8807,6 +10673,12 @@ function renderDamageReport() {
   }
 
   function startWave() {
+    if (requireChampionSelectionBeforeStart()) {
+      game.championModalForceChoice = true;
+      showChampionModal(true);
+      showBanner('Choose a champion before the run begins.', 2200);
+      return;
+    }
     if (!game.nextWavePlan || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending || hasActiveMilestoneOffer()) return;
     if (getLiveWaveCount() >= MAX_LIVE_WAVES) return;
     game.autoStartReadyAt = 0;
@@ -8919,6 +10791,16 @@ function renderDamageReport() {
     if (plan.bossId) {
       const boss = BOSSES.find(b => b.id === plan.bossId);
       enemy = createBossEnemy(boss, plan.lane, sourceWaveNumber);
+    } else if (plan.type === 'sky_terror') {
+      enemy = createSkyTerrorEnemy(sourceWaveNumber);
+      if (plan.lane && BREACH_LANES[plan.lane]) {
+        const lane = BREACH_LANES[plan.lane];
+        const spawn = pickRandom(lane);
+        enemy.x = spawn.x;
+        enemy.y = spawn.y;
+        enemy.prevX = spawn.x;
+        enemy.prevY = spawn.y;
+      }
     } else {
       enemy = createEnemy(plan.type, plan.lane, sourceWaveNumber);
     }
@@ -8931,6 +10813,8 @@ function renderDamageReport() {
     const waveHpMultiplier = getWaveHpMultiplier(sourceWaveNumber);
     enemy.hp *= waveHpMultiplier * 1.25;
     enemy.maxHp *= waveHpMultiplier * 1.25;
+    if (!enemy.isBoss && enemy.typeClass === 'brute') { enemy.hp *= GLOBAL_BIG_ENEMY_HP_MULTIPLIER; enemy.maxHp *= GLOBAL_BIG_ENEMY_HP_MULTIPLIER; }
+    enemy.spawnMaxHp = enemy.maxHp;
     const eliteWaveHpMult = getEliteWaveConfig(sourceWaveNumber)?.hpMult || 1;
     if (eliteWaveHpMult !== 1) {
       enemy.hp *= eliteWaveHpMult;
@@ -9012,7 +10896,7 @@ function renderDamageReport() {
     const baseDamageMultiplier = getEnemyBaselineDamageMultiplier(type, false);
     const enemyHp = template.hp * baseHpMultiplier * (1 + Math.max(0, waveNumber - 1) * hpCurvePerWave) * earlyWaveMultiplier * postWave15StatMultiplier;
     const enemyDamage = template.damage * baseDamageMultiplier * (1 + Math.max(0, waveNumber - 1) * 0.08) * earlyWaveMultiplier * postWave15StatMultiplier * 0.95;
-    const finalEnemyHp = type === 'skitter' ? enemyHp * 1.15 : enemyHp;
+    const finalEnemyHp = ((type === 'skitter' ? enemyHp * 1.15 : enemyHp) * (type === 'skitter' ? GLOBAL_SKITTER_HP_MULTIPLIER : GLOBAL_NON_BOSS_ENEMY_HP_MULTIPLIER)) * getPostWave100EnemyHpMultiplier(waveNumber);
     const difficulty = game.difficultyProfile || createDifficultyProfileForRun({ connected: false });
     return {
       id: `e${game.nextEnemyId++}`,
@@ -9022,8 +10906,8 @@ function renderDamageReport() {
       y: spawn.y,
       hp: finalEnemyHp * difficulty.healthMult,
       maxHp: finalEnemyHp * difficulty.healthMult,
-      damage: enemyDamage * difficulty.damageMult,
-      moveInterval: (template.moveInterval / getEnemyWaveSpeedMultiplier(waveNumber)) / difficulty.speedMult,
+      damage: enemyDamage * difficulty.damageMult * GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER,
+      moveInterval: (((template.moveInterval / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult) / GLOBAL_NON_BOSS_ENEMY_SPEED_MULTIPLIER,
       attackInterval: template.attackInterval,
       jewel: ((template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: template.typeClass,
@@ -9061,10 +10945,10 @@ function renderDamageReport() {
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber),
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber),
+      hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber),
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber),
       damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(waveNumber),
-      moveInterval: ((boss.moveInterval * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) / difficulty.speedMult,
+      moveInterval: (((boss.moveInterval * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult,
       attackInterval: boss.attackInterval,
       jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: 'boss',
@@ -9336,6 +11220,7 @@ function renderDamageReport() {
     game.activeMutation = null;
     game.currentPattern = null;
     game.activeWavePlans = [];
+    game.waveNumber = finalWaveNumber;
     game.activeWaveBase = finalWaveNumber;
     for (const plan of clearedPlans) {
       applyWaveClearRewards(Number(plan.waveNumber || 0));
@@ -9458,13 +11343,90 @@ function renderDamageReport() {
     }
   }
 
+  function ensureChampionAutoAbilityState(tower, current = now()) {
+    if (!tower || !tower.isChampion) return;
+    if (!tower.championAutoAbilityReadyAt || typeof tower.championAutoAbilityReadyAt !== 'object') tower.championAutoAbilityReadyAt = {};
+    for (const ability of (tower.abilities || [])) {
+      if (!ability || ability.passive) continue;
+      const key = ability.key;
+      const cooldownReadyAt = Number(tower.abilityReadyAt?.[key] || 0);
+      const existing = Number(tower.championAutoAbilityReadyAt[key] || 0);
+      if (!existing) {
+        tower.championAutoAbilityReadyAt[key] = Math.max(current + CHAMPION_AUTO_ABILITY_DELAY_MS, cooldownReadyAt + CHAMPION_AUTO_ABILITY_DELAY_MS);
+        continue;
+      }
+      if (existing < cooldownReadyAt + CHAMPION_AUTO_ABILITY_DELAY_MS) {
+        tower.championAutoAbilityReadyAt[key] = cooldownReadyAt + CHAMPION_AUTO_ABILITY_DELAY_MS;
+      }
+    }
+  }
+
+  function setChampionAutoAbilityCooldown(tower, abilityKey, current, cooldownSeconds) {
+    if (!tower || !tower.isChampion || !abilityKey) return;
+    if (!tower.abilityReadyAt || typeof tower.abilityReadyAt !== 'object') tower.abilityReadyAt = {};
+    if (!tower.championAutoAbilityReadyAt || typeof tower.championAutoAbilityReadyAt !== 'object') tower.championAutoAbilityReadyAt = {};
+    const readyAt = current + (Number(cooldownSeconds || 0) * 1000);
+    tower.abilityReadyAt[abilityKey] = readyAt;
+    tower.abilityGlobalReadyAt = current + TOWER_ABILITY_CHAIN_DELAY_MS;
+    tower.championAutoAbilityReadyAt[abilityKey] = readyAt + CHAMPION_AUTO_ABILITY_DELAY_MS;
+  }
+
+  function getTowerAbilityGlobalReadyAt(tower) {
+    return Math.max(0, Number(tower?.abilityGlobalReadyAt || 0));
+  }
+
+  function getTowerAbilityReadyAt(tower, abilityKey) {
+    const cooldownReadyAt = Math.max(0, Number(tower?.abilityReadyAt?.[abilityKey] || 0));
+    return Math.max(cooldownReadyAt, getTowerAbilityGlobalReadyAt(tower));
+  }
+
+  function performChampionSageKissFromARose(tower, current = now()) {
+    if (!tower) return false;
+    const roseTargets = game.enemies.filter((enemy) => dist(enemy, tower) <= 3).slice(0, 18);
+    if (!roseTargets.length) return false;
+    roseTargets.forEach((enemy, index) => {
+      const volleyIndex = Math.floor(index / 3);
+      const withinVolleyIndex = index % 3;
+      const shotStartedAt = current + (volleyIndex * 150) + (withinVolleyIndex * 30);
+      const projectileMeta = createRoseProjectileEffect(tower, enemy, {
+        startedAt: shotStartedAt,
+        durationMs: 575,
+      });
+      if (projectileMeta) {
+        createExplosionEffect(enemy.x, enemy.y, 'sage', 0.7, 300, SAGE_ROSE_PROJECTILE_IMAGE_PATH, 'sage-rose-burst', [{ x: enemy.x, y: enemy.y }], { startedAt: projectileMeta.arrivalAt - 35 });
+      }
+      damageEnemy(tower, enemy, tower.damage * 0.85, `${tower.name} shredded ${enemy.name}`, { key: 'champion_kiss_from_a_rose', label: 'Kiss From A Rose' });
+    });
+    return true;
+  }
+
+  function performChampionSagePetalStorm(tower, current = now()) {
+    if (!tower) return false;
+    const stormTargets = game.enemies.filter((enemy) => dist(enemy, tower) <= 3.5).slice(0, 18);
+    if (!stormTargets.length) return false;
+    createProjectileEffect({
+      kind: 'sage-petal-storm',
+      centerTileX: tower.x,
+      centerTileY: tower.y,
+      imagePath: SAGE_PETAL_STORM_IMAGE_PATH,
+      startedAt: current,
+      durationMs: 1180,
+      until: current + 1180,
+    });
+    stormTargets.forEach((enemy) => {
+      damageEnemy(tower, enemy, tower.damage * 2, `${tower.name} petal-stormed ${enemy.name}`, { key: 'champion_storm', label: 'Petal Storm' });
+      knockbackEnemy(enemy, 4);
+    });
+    return true;
+  }
+
   function tryAutoCastMobileAbility(tower, current) {
     if (!game.mobileMode || game.phase === SETUP_PHASES.GAME_OVER) return false;
-    const autoDelayMs = 6000;
+    const autoDelayMs = tower && tower.isChampion ? 3000 : 6000;
     for (const ability of tower.abilities) {
       if (ability.passive) continue;
       if (!isAbilityUnlocked(tower, ability.key)) continue;
-      const readyAt = tower.abilityReadyAt[ability.key] || 0;
+      const readyAt = getTowerAbilityReadyAt(tower, ability.key);
       if (current < readyAt + autoDelayMs) continue;
       if (castAbility(tower, ability.key, { silent: true, auto: true })) return true;
     }
@@ -9496,11 +11458,27 @@ function renderDamageReport() {
         let healedAny = false;
         for (const ally of allies) {
           const before = Number(ally.hp || 0);
-          healTower(ally, Math.max(1, ally.maxHp * healPercent), null);
+          healTower(ally, Math.max(1, ally.maxHp * healPercent), null, { sourceTowerId: tower.id });
           if (ally.hp > before) healedAny = true;
         }
         if (healedAny) createTileFlashArea([{ x: tower.x, y: tower.y }], 'seer');
         tower.seerHealTickAt = current + SEER_PASSIVE_HEAL_INTERVAL_MS;
+      }
+    }
+
+    if (tower.isChampion && tower.hp > 0) {
+      ensureChampionAutoAbilityState(tower, current);
+      const nextChampionHealAt = tower.championHealAt || 0;
+      if (current >= nextChampionHealAt) {
+        healTower(tower, tower.maxHp * 0.02, null);
+        tower.championHealAt = current + 1000;
+      }
+      if (tower.type === 'champion_dreadknight') {
+        const enemies = game.enemies.filter((enemy) => dist(enemy, tower) <= 2);
+        for (const enemy of enemies) applyDebuff(enemy, 'championDread', 1.2, { percent: 0.25 });
+      }
+      if (tower.type === 'champion_sage') {
+        tower.championReviveAvailable = tower.championReviveAvailable !== false;
       }
     }
 
@@ -9535,11 +11513,20 @@ function renderDamageReport() {
       }
       return;
     }
-    const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+    const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight')
+      ? nearestEnemyForWarrior(tower)
+      : (tower.type === 'champion_spellbow'
+        ? (getPortalPriorityEnemies(1)[0] || null)
+        : nearestEnemyInRange(tower, tower.range));
     if (!target) return;
     let damage = tower.damage;
     if (tower.type === 'seer') damage *= getSeerDamageMultiplier();
+    if (tower.type === 'champion_sage') damage *= 1.25;
+    if (tower.type === 'champion_spellbow') damage *= 1.2;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
+    if (hasSageChampionBuff(tower)) damage *= 1.2;
+    if (hasSageChampionMeleeBuff(tower)) damage *= 1.1;
+    if (isCasterTowerType(tower.type) && hasLivingChampionOfType('champion_spellbow', tower.id)) damage *= 1.1;
     if (target.debuffs.eagle_nest) damage += 2;
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
     tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
@@ -9552,7 +11539,155 @@ function renderDamageReport() {
       applyDebuff(target, 'bleed', 10, { damagePercent: 0.03, percent: 0.05, nextTickAt: now() + 1000, sourceTowerId: tower.id });
       showBanner('Bloody Bastard: Bloody Bastard');
     }
+    if (tower.type === 'champion_dreadknight') {
+      const bigSwordReady = getTowerAbilityReadyAt(tower, 'champion_big_sword');
+      const bigSwordAutoReady = tower.championAutoAbilityReadyAt?.champion_big_sword || 0;
+      if (current >= bigSwordReady && current >= bigSwordAutoReady) {
+        createDreadknightSwordOverpowerEffect(tower, {
+          imagePath: BIG_ASS_SWORD_IMAGE_PATH,
+          startedAt: current,
+          durationMs: 1375,
+        });
+        for (const enemy of game.enemies.filter((enemy) => chebyshevDist(enemy, tower) <= 1).slice(0, 12)) {
+          damageEnemy(tower, enemy, tower.damage * 1.1, `${tower.name} cleaved ${enemy.name}`, { key: 'champion_big_sword', label: 'Damn Big Sword' });
+        }
+        setChampionAutoAbilityCooldown(tower, 'champion_big_sword', current, getAbilityCooldownSeconds(tower, 'champion_big_sword'));
+        return;
+      }
+      const crushReady = getTowerAbilityReadyAt(tower, 'champion_crush');
+      const crushAutoReady = tower.championAutoAbilityReadyAt?.champion_crush || 0;
+      if (current >= crushReady && current >= crushAutoReady) {
+        const castCrush = performChampionDreadknightCrush(tower, current);
+        if (castCrush) {
+          setChampionAutoAbilityCooldown(tower, 'champion_crush', current, getAbilityCooldownSeconds(tower, 'champion_crush'));
+          return;
+        }
+      }
+    } else if (tower.type === 'champion_sage') {
+      const roseReady = getTowerAbilityReadyAt(tower, 'champion_kiss_from_a_rose');
+      const roseAutoReady = tower.championAutoAbilityReadyAt?.champion_kiss_from_a_rose || 0;
+      if (current >= roseReady && current >= roseAutoReady) {
+        const castRose = performChampionSageKissFromARose(tower, current);
+        if (castRose) {
+          setChampionAutoAbilityCooldown(tower, 'champion_kiss_from_a_rose', current, getAbilityCooldownSeconds(tower, 'champion_kiss_from_a_rose'));
+          return;
+        }
+      }
+      const stormReady = getTowerAbilityReadyAt(tower, 'champion_storm');
+      const stormAutoReady = tower.championAutoAbilityReadyAt?.champion_storm || 0;
+      if (current >= stormReady && current >= stormAutoReady) {
+        createProjectileEffect({
+          kind: 'sage-petal-storm',
+          centerTileX: tower.x,
+          centerTileY: tower.y,
+          imagePath: SAGE_PETAL_STORM_IMAGE_PATH,
+          startedAt: current,
+          durationMs: 1700,
+          until: current + 1700,
+        });
+        for (const enemy of game.enemies.slice(0, 20)) {
+          damageEnemy(tower, enemy, tower.damage * 2, `${tower.name} petal-stormed ${enemy.name}`, { key: 'champion_storm', label: 'Petal Storm' });
+          enemy.progress = Math.max(0, Number(enemy.progress || 0) - 6);
+        }
+        setChampionAutoAbilityCooldown(tower, 'champion_storm', current, getAbilityCooldownSeconds(tower, 'champion_storm'));
+        return;
+      }
+    } else if (tower.type === 'champion_dragoon') {
+      for (const ally of game.towers.filter((ally) => !isStatueTower(ally))) {
+        applyBuff(ally, 'championLeadershipAura', 1.2, { badgeText: 'LEAD' });
+      }
+      const overpowerReady = getTowerAbilityReadyAt(tower, 'champion_overpower');
+      const overpowerAutoReady = tower.championAutoAbilityReadyAt?.champion_overpower || 0;
+      if (current >= overpowerReady && current >= overpowerAutoReady) {
+        const inspiredAllies = game.towers.filter((ally) => ally.id !== tower.id && !isStatueTower(ally) && dist(ally, tower) <= 2);
+        for (const ally of inspiredAllies) {
+          applyBuff(ally, 'championOverpowerAura', 4, { badgeText: 'GLORY' });
+          healTower(ally, Math.max(1, Number(ally.maxHp || 0) * 0.03), null);
+        }
+        if (inspiredAllies.length) {
+          applyBuff(tower, 'championOverpowerCommand', 4, { badgeText: 'LEAD' });
+        }
+        createDragoonOverpowerSpinEffect(tower, {
+          startedAt: current,
+          durationMs: 900,
+        });
+        const overpowerTargets = game.enemies.filter((enemy) => chebyshevDist(enemy, tower) <= 2).slice(0, 8);
+        overpowerTargets.forEach((enemy) => {
+          damageEnemy(tower, enemy, tower.damage * 2, `${tower.name} overpowered ${enemy.name}`, { key: 'champion_overpower', label: 'Overpower', suppressAttackLine: true });
+          knockbackEnemy(enemy, 5);
+        });
+        setChampionAutoAbilityCooldown(tower, 'champion_overpower', current, getAbilityCooldownSeconds(tower, 'champion_overpower'));
+        return;
+      }
+      const pointReady = getTowerAbilityReadyAt(tower, 'champion_point');
+      const pointAutoReady = tower.championAutoAbilityReadyAt?.champion_point || 0;
+      if (current >= pointReady && current >= pointAutoReady) {
+        const victim = getChampionPointTarget(tower);
+        if (victim) {
+          createDragoonSpearProjectileEffect(tower, victim, {
+            startedAt: current,
+            durationMs: 450,
+            sizeMultiplier: 0.8372,
+            angleOffset: 150,
+          });
+          damageEnemy(tower, victim, victim.isBoss ? (Number(victim.maxHp || victim.hp || 0) * 0.15) : (victim.hp + 1), `${tower.name} pointed at ${victim.name}`, { key: 'champion_point', label: 'Point', suppressAttackLine: true });
+        }
+        setChampionAutoAbilityCooldown(tower, 'champion_point', current, getAbilityCooldownSeconds(tower, 'champion_point'));
+        return;
+      }
+    } else if (tower.type === 'champion_spellbow') {
+      if (game.waveStartTime && (Date.now() - game.waveStartTime) < 20000) return;
+      const holdAbilitiesForEagleEye = shouldSpellbowHoldAbilities();
+      const missileReady = getTowerAbilityReadyAt(tower, 'champion_not_an_archer');
+      const missileAutoReady = tower.championAutoAbilityReadyAt?.champion_not_an_archer || 0;
+      if (!holdAbilitiesForEagleEye && current >= missileReady && current >= missileAutoReady) {
+        const lightningTargets = getPortalPriorityEnemies(10);
+        lightningTargets.forEach((enemy, index) => {
+          const launchDelayMs = index * 120;
+          const travelDurationMs = 635;
+          createSpellbowProjectileEffect(tower, enemy, {
+            kind: 'spellbow-lightning-shaft',
+            imagePath: SPELLBOW_LIGHTNING_SHAFT_IMAGE_PATH,
+            startedAt: current + launchDelayMs,
+            durationMs: travelDurationMs,
+            sizeMultiplier: 0.5037,
+          });
+          setTimeout(() => {
+            damageEnemy(tower, enemy, tower.damage * 1.0, `${tower.name} lightning-hit ${enemy.name}`, { key: 'champion_not_an_archer', label: 'Lightning Shaft', suppressAttackLine: true });
+            applyDebuff(enemy, 'rooted', 2.5, {});
+          }, launchDelayMs + travelDurationMs);
+        });
+        setChampionAutoAbilityCooldown(tower, 'champion_not_an_archer', current, getAbilityCooldownSeconds(tower, 'champion_not_an_archer'));
+        return;
+      }
+      const arrowReady = getTowerAbilityReadyAt(tower, 'champion_ok_maybe_archer');
+      const arrowAutoReady = tower.championAutoAbilityReadyAt?.champion_ok_maybe_archer || 0;
+      if (!holdAbilitiesForEagleEye && current >= arrowReady && current >= arrowAutoReady) {
+        const arrows = getPortalPriorityEnemies(10);
+        arrows.forEach((enemy, index) => {
+          const launchDelayMs = index * 120;
+          const travelDurationMs = 635;
+          createSpellbowProjectileEffect(tower, enemy, {
+            kind: 'spellbow-a-lot-of-arrows',
+            imagePath: SPELLBOW_A_LOT_OF_ARROWS_IMAGE_PATH,
+            startedAt: current + launchDelayMs,
+            durationMs: travelDurationMs,
+            sizeMultiplier: 0.4312,
+          });
+          setTimeout(() => {
+            damageEnemy(tower, enemy, tower.damage * 1.8, `${tower.name} arrow-hit ${enemy.name}`, { key: 'champion_ok_maybe_archer', label: 'A Lot Of Arrows', suppressAttackLine: true });
+          }, launchDelayMs + travelDurationMs);
+        });
+        setChampionAutoAbilityCooldown(tower, 'champion_ok_maybe_archer', current, getAbilityCooldownSeconds(tower, 'champion_ok_maybe_archer'));
+        return;
+      }
+    }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
+  }
+
+  function shouldSpellbowHoldAbilities() {
+    const activeEnemies = game.enemies.filter((enemy) => enemy && enemy.hp > 0).length;
+    return activeEnemies <= 10;
   }
 
   function applyDaggerTrainingContact(enemy) {
@@ -9606,10 +11741,10 @@ function renderDamageReport() {
       if (now() >= tickAt) {
         const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
         const auraHeal = 2 * tower.level;
-        auraTargets.forEach(target => healTower(target, auraHeal, null));
+        auraTargets.forEach(target => healTower(target, auraHeal, null, { sourceTowerId: tower.id }));
         if (game.modifiers.sacredSculpting) {
           const statueTargets = game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
-          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true }));
+          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true, sourceTowerId: tower.id }));
         }
         tower.auraTickAt = now() + 1000;
       }
@@ -9622,10 +11757,10 @@ function renderDamageReport() {
     const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
     const statueTarget = statueTargets.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
     if (target && (!statueTarget || (target.hp / target.maxHp) <= (statueTarget.hp / statueTarget.maxHp))) {
-      healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`);
+      healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`, { sourceTowerId: tower.id });
       createTowerLine(tower, target, 'priest');
     } else if (statueTarget) {
-      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.3, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true });
+      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.3, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true, sourceTowerId: tower.id });
       createTowerLine(tower, statueTarget, 'priest');
     }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
@@ -9673,6 +11808,20 @@ function renderDamageReport() {
     return moved;
   }
 
+  function getPortalPriorityEnemies(limit = 1) {
+    return game.enemies
+      .filter((enemy) => enemy && enemy.hp > 0)
+      .slice()
+      .sort((a, b) => {
+        const portalDelta = portalDistance(a) - portalDistance(b);
+        if (portalDelta !== 0) return portalDelta;
+        const progressDelta = Number(b.progress || 0) - Number(a.progress || 0);
+        if (progressDelta !== 0) return progressDelta;
+        return Number(a.id || 0) - Number(b.id || 0);
+      })
+      .slice(0, Math.max(1, Number(limit || 1)));
+  }
+
   function nearestEnemyInRange(tower, range) {
     const enemies = game.enemies.filter(e => dist(tower, e) <= range);
     if (!enemies.length) return null;
@@ -9699,13 +11848,26 @@ function renderDamageReport() {
     const statues = game.towers
       .filter(t => isStatueTower(t) && t.hp > 0)
       .slice()
-      .sort((a, b) => dist(enemy, a) - dist(enemy, b));
+      .sort((a, b) => (dist(enemy, a) * 0.8) - (dist(enemy, b) * 0.8));
+    const forceStatueForBrute = !!enemy && !enemy.isBoss && enemy.typeClass === 'brute';
     for (const statue of statues) {
       if (dist(enemy, statue) <= 1) return { tower: statue, attackNow: true, path: null };
       const adj = getTowerApproachTiles(statue);
       if (!adj.length) continue;
-      const statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj, { enemy, avoidBacktrack: false, softCrowd: true });
+      let statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj, {
+        enemy,
+        avoidBacktrack: !forceStatueForBrute,
+        softCrowd: false,
+      });
+      if ((!statuePath || statuePath.length <= 1) && forceStatueForBrute) {
+        statuePath = pathfind({ x: enemy.x, y: enemy.y }, adj, {
+          enemy,
+          avoidBacktrack: false,
+          softCrowd: true,
+        });
+      }
       if (statuePath && statuePath.length > 1) return { tower: statue, attackNow: false, path: statuePath };
+      if (forceStatueForBrute) return { tower: statue, attackNow: false, path: null, forceHold: true };
     }
     return null;
   }
@@ -9802,12 +11964,12 @@ function renderDamageReport() {
       }
       let attackPortalNow = portalTargets.some(t => Math.abs(t.x - enemy.x) <= 1 && Math.abs(t.y - enemy.y) <= 1);
       let movedThisTick = false;
-      if (!attackPortalNow && current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+      if (!attackPortalNow && current >= enemy.nextMoveAt && !isEnemyHardControlled(enemy)) {
         const nextStep = getFlyingPortalStep(enemy);
         if (nextStep) movedThisTick = moveFlyingEnemyToStep(enemy, nextStep, current);
         attackPortalNow = portalTargets.some(t => Math.abs(t.x - enemy.x) <= 1 && Math.abs(t.y - enemy.y) <= 1);
       }
-      if (attackPortalNow) {
+      if (attackPortalNow && !enemy.debuffs.stunned) {
         enemy.attacking = true;
         enemy.stuckAt = 0;
         if (current >= enemy.nextAttackAt) {
@@ -9817,7 +11979,7 @@ function renderDamageReport() {
           log(`${enemy.name} hit the portal for ${Math.round(enemy.damage)}.`);
           enemy.nextAttackAt = current + (enemy.attackInterval * (1 + getBlindingLightAttackSlowPercent(enemy))) * 1000;
         }
-      } else if (!movedThisTick && !enemy.debuffs.rooted) {
+      } else if (!movedThisTick && !isEnemyHardControlled(enemy)) {
         if (!enemy.stuckAt) enemy.stuckAt = current;
       } else {
         enemy.stuckAt = 0;
@@ -9851,17 +12013,20 @@ function renderDamageReport() {
     const forcePortal = enemy.forcePortalUntil && current < enemy.forcePortalUntil;
 
     const statuePlan = getPreferredStatueTarget(enemy);
+    const forceStatueForBrute = !!enemy && !enemy.isBoss && enemy.typeClass === 'brute';
     if (statuePlan?.tower) {
       navMode = 'statue';
       if (statuePlan.attackNow) {
         attackTarget = statuePlan.tower;
       } else {
         navTargets = getTowerApproachTiles(statuePlan.tower);
+        if (statuePlan.path && statuePlan.path.length > 1) enemy.targetPath = statuePlan.path;
       }
       enemy.tauntedTo = null;
       enemy.tauntUntil = 0;
+      enemy.forcePortalUntil = 0;
       enemy.aggroTargetId = statuePlan.tower.id;
-    } else if (!forcePortal && enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
+    } else if (!forceStatueForBrute && !forcePortal && enemy.tauntedTo && current < enemy.tauntUntil && game.towers.some(t => t.id === enemy.tauntedTo.id)) {
       navMode = 'taunt';
       const tauntTarget = enemy.tauntedTo;
       if (dist(enemy, tauntTarget) <= 1) {
@@ -9898,10 +12063,10 @@ function renderDamageReport() {
       }
     } else {
       enemy.navMode = navMode;
-      enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : 550);
+      enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : (navMode === 'statue' ? 660 : 550));
     }
 
-    if (!attackTarget && current >= enemy.nextMoveAt && !enemy.debuffs.rooted) {
+    if (!attackTarget && current >= enemy.nextMoveAt && !isEnemyHardControlled(enemy)) {
       let nextStep = null;
       if (navMode === 'portal') {
         nextStep = getPortalFlowStep(enemy);
@@ -9912,7 +12077,7 @@ function renderDamageReport() {
           nextStep = path[1];
         }
       }
-      if (!nextStep && !attackTarget) {
+      if (!nextStep && !attackTarget && !forceStatueForBrute) {
         const warriorPlan = getReachableWarriorPlan(enemy);
         if (warriorPlan?.attackNow) {
           attackTarget = warriorPlan.warrior;
@@ -9936,7 +12101,7 @@ function renderDamageReport() {
       attackTarget = { portal: true };
     }
 
-    if (attackTarget) {
+    if (attackTarget && !enemy.debuffs.stunned) {
       enemy.attacking = true;
       enemy.stuckAt = 0;
       if (current >= enemy.nextAttackAt) {
@@ -9958,7 +12123,7 @@ function renderDamageReport() {
         }
         enemy.nextAttackAt = current + (enemy.attackInterval * (1 + getBlindingLightAttackSlowPercent(enemy))) * 1000;
       }
-    } else if (!movedThisTick && !enemy.debuffs.rooted) {
+    } else if (!movedThisTick && !isEnemyHardControlled(enemy)) {
       if (!enemy.stuckAt) enemy.stuckAt = current;
       if (current - enemy.stuckAt >= 900) {
         tryResolveEnemyStall(enemy, current);
@@ -9991,7 +12156,7 @@ function renderDamageReport() {
       if (current < tickAt) continue;
       enemy.ringOfFireTicks[wiz.id] = current + 1000;
       const burnDamage = Math.max(1, wiz.damage * 0.10 * game.modifiers.wizardSpellDamage);
-      damageEnemy(wiz, enemy, burnDamage, `${wiz.name} scorched ${enemy.name}`, { key: 'ring_of_fire', label: 'Ring of Fire', ignoreMiss: true });
+      damageEnemy(wiz, enemy, burnDamage * TORN_SOUL_DAMAGE_MULTIPLIER, `${wiz.name} scorched ${enemy.name}`, { key: 'ring_of_fire', label: 'Ring of Fire', ignoreMiss: true });
       createTileFlashArea([{ x: enemy.x, y: enemy.y }], 'wizard');
     }
   }
@@ -10142,7 +12307,7 @@ function renderDamageReport() {
       durationMs,
       startedAt,
       imagePath: FIREBALL_GIF_PATH,
-      sizeMultiplier: 0.62,
+      sizeMultiplier: 0.8912,
       opacityFloor: 0.68,
       opacityDrop: 0.12,
       filter: 'drop-shadow(0 0 18px rgba(255, 140, 40, 0.98))',
@@ -10151,6 +12316,179 @@ function renderDamageReport() {
       trailSteps: 3,
     });
     return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+  }
+
+  function createRoseProjectileEffect(sourceTower, target, opts = {}) {
+    if (!sourceTower || !target) return null;
+    const from = getTowerPixelCenter(sourceTower);
+    let to = null;
+    if (typeof target.x === 'number' && typeof target.y === 'number' && typeof target.hp === 'number') {
+      to = getEnemyPixelCenter(target);
+    } else if (typeof target.x === 'number' && typeof target.y === 'number') {
+      const tilePos = getTilePixelPosition(target.x, target.y);
+      to = {
+        x: tilePos.left + (tilePos.width / 2),
+        y: tilePos.top + (tilePos.height / 2),
+      };
+    }
+    if (!to) return null;
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 380;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    createProjectileEffect({
+      kind: 'sage-rose-projectile',
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs,
+      startedAt,
+      imagePath: SAGE_ROSE_PROJECTILE_IMAGE_PATH,
+      sizeMultiplier: 0.4887,
+      opacityFloor: 0.98,
+      opacityDrop: 0.04,
+      filter: 'drop-shadow(0 0 18px rgba(255, 90, 130, 0.92))',
+      rotationSpeed: 360,
+      pulseAmount: 0.06,
+      trailSteps: 6,
+      trailSpreadPx: 18,
+      trailStepBacktrack: 0.07,
+      windDriftAmplitudePx: 10,
+      windDriftCycles: 1.15,
+      windDriftPhase: ((from.x + from.y + to.x + to.y) % 360) * (Math.PI / 180),
+    });
+    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+  }
+
+
+  function createSpellbowProjectileEffect(sourceTower, target, opts = {}) {
+    if (!sourceTower || !target) return null;
+    const from = getTowerPixelCenter(sourceTower);
+    let to = null;
+    if (typeof target.x === 'number' && typeof target.y === 'number' && typeof target.hp === 'number') {
+      to = getEnemyPixelCenter(target);
+    } else if (typeof target.x === 'number' && typeof target.y === 'number') {
+      const tilePos = getTilePixelPosition(target.x, target.y);
+      to = {
+        x: tilePos.left + (tilePos.width / 2),
+        y: tilePos.top + (tilePos.height / 2),
+      };
+    }
+    if (!to) return null;
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 155;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const kind = opts.kind || 'spellbow-a-lot-of-arrows';
+    const imagePath = opts.imagePath || (kind === 'spellbow-lightning-shaft' ? SPELLBOW_LIGHTNING_SHAFT_IMAGE_PATH : SPELLBOW_A_LOT_OF_ARROWS_IMAGE_PATH);
+    const sizeMultiplier = Number.isFinite(Number(opts.sizeMultiplier)) ? Number(opts.sizeMultiplier) : (kind === 'spellbow-lightning-shaft' ? 0.28 : 0.23);
+    createProjectileEffect({
+      kind,
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs,
+      startedAt,
+      imagePath,
+      sizeMultiplier,
+      opacityFloor: 1,
+      opacityDrop: 0,
+      filter: kind === 'spellbow-lightning-shaft'
+        ? 'drop-shadow(0 0 12px rgba(255, 235, 120, 0.98))'
+        : 'drop-shadow(0 0 8px rgba(240, 220, 120, 0.9))',
+      alignToPath: true,
+      angleOffset: kind === 'spellbow-lightning-shaft' ? 90 : 0,
+      trailSteps: 0,
+      pulseAmount: 0,
+      rotationSpeed: 0,
+    });
+    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+  }
+
+  function createDragoonSpearProjectileEffect(sourceTower, target, opts = {}) {
+    if (!sourceTower || !target) return null;
+    const from = getTowerPixelCenter(sourceTower);
+    let to = null;
+    if (typeof target.x === 'number' && typeof target.y === 'number' && typeof target.hp === 'number') {
+      to = getEnemyPixelCenter(target);
+    } else if (typeof target.x === 'number' && typeof target.y === 'number') {
+      const tilePos = getTilePixelPosition(target.x, target.y);
+      to = {
+        x: tilePos.left + (tilePos.width / 2),
+        y: tilePos.top + (tilePos.height / 2),
+      };
+    }
+    if (!to) return null;
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 416;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    createProjectileEffect({
+      kind: 'dragoon-spear',
+      fromX: from.x,
+      fromY: from.y,
+      toX: to.x,
+      toY: to.y,
+      durationMs,
+      startedAt,
+      imagePath: opts.imagePath || DRAGOON_SPEAR_IMAGE_PATH,
+      sizeMultiplier: Number.isFinite(Number(opts.sizeMultiplier)) ? Number(opts.sizeMultiplier) : 0.52,
+      opacityFloor: 1,
+      opacityDrop: 0,
+      filter: 'drop-shadow(0 0 8px rgba(210, 235, 255, 0.9))',
+      alignToPath: true,
+      angleOffset: Number.isFinite(Number(opts.angleOffset)) ? Number(opts.angleOffset) : 150,
+      trailSteps: 0,
+      pulseAmount: 0,
+      rotationSpeed: 0,
+    });
+    return { targetX: to.x, targetY: to.y, startedAt, durationMs, arrivalAt: startedAt + durationMs };
+  }
+
+  function createDragoonOverpowerSpinEffect(sourceTower, opts = {}) {
+    if (!sourceTower) return null;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 1300;
+    createProjectileEffect({
+      kind: 'dragoon-overpower-spin',
+      centerTileX: sourceTower.x,
+      centerTileY: sourceTower.y,
+      startedAt,
+      durationMs,
+      until: startedAt + durationMs,
+      imagePath: opts.imagePath || DRAGOON_SPEAR_IMAGE_PATH,
+      opacityFloor: 1,
+    });
+    return { startedAt, durationMs, until: startedAt + durationMs };
+  }
+
+  function createDreadknightSwordOverpowerEffect(sourceTower, opts = {}) {
+    if (!sourceTower) return null;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 1300;
+    createProjectileEffect({
+      kind: 'dreadknight-big-sword-overpower',
+      centerTileX: sourceTower.x,
+      centerTileY: sourceTower.y,
+      startedAt,
+      durationMs,
+      until: startedAt + durationMs,
+      imagePath: opts.imagePath || BIG_ASS_SWORD_IMAGE_PATH,
+      opacityFloor: 1,
+    });
+    return { startedAt, durationMs, until: startedAt + durationMs };
+  }
+
+  function createSeismicWaveEffect(sourceTower, opts = {}) {
+    if (!sourceTower) return null;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 820;
+    createProjectileEffect({
+      kind: 'dreadknight-seismic-wave',
+      centerTileX: sourceTower.x,
+      centerTileY: sourceTower.y,
+      startedAt,
+      durationMs,
+      until: startedAt + durationMs,
+      maxRadiusTiles: Number.isFinite(Number(opts.maxRadiusTiles)) ? Number(opts.maxRadiusTiles) : 2,
+    });
+    return { startedAt, durationMs, until: startedAt + durationMs };
   }
 
   function createCannonballProjectileEffect(sourceTower, target, opts = {}) {
@@ -10178,7 +12516,7 @@ function renderDamageReport() {
       durationMs,
       startedAt,
       imagePath: CANNONBALL_IMAGE_PATH,
-      sizeMultiplier: 0.48,
+      sizeMultiplier: 0.69,
       opacityFloor: 0.82,
       opacityDrop: 0.08,
       filter: 'drop-shadow(0 0 10px rgba(40, 20, 0, 0.75))',
@@ -10325,6 +12663,14 @@ function renderDamageReport() {
     return { x: px + offset.x, y: py + offset.y };
   }
 
+  function getEnemyRenderSizeMultiplier(enemy) {
+    if (!enemy || enemy.isBoss || enemy.type === 'boss') return 1;
+    if (enemy.typeClass === 'brute') return 0.75;
+    return 1;
+  }
+
+
+
   function renderEnemyLayer() {
     if (!els.enemyLayer) return;
     els.enemyLayer.innerHTML = '';
@@ -10346,15 +12692,228 @@ function renderDamageReport() {
     for (const effect of game.projectileEffects) {
       if (current < (effect.startedAt || 0)) continue;
       const progress = Math.max(0, Math.min(1, (current - effect.startedAt) / Math.max(1, effect.durationMs || ARCHER_PROJECTILE_ANIMATION_MS)));
-      const usesArcProjectileStyle = effect.kind === 'wizard-fireball' || effect.kind === 'pirate-cannonball';
+      if (effect.kind === 'sage-petal-storm') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        if (!centerPos) continue;
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const baseTile = Math.max(centerPos.width, centerPos.height);
+        const layerCount = 3;
+        for (let waveIndex = 0; waveIndex < layerCount; waveIndex += 1) {
+          const waveDelay = waveIndex * 0.18;
+          const waveProgress = Math.max(0, Math.min(1, (progress - waveDelay) / Math.max(0.18, 1 - waveDelay)));
+          if (waveProgress <= 0) continue;
+          const eased = 1 - Math.pow(1 - waveProgress, 2);
+          const radius = baseTile * (0.48 + (waveIndex * 0.22) + (1.55 * eased));
+          const spriteSize = baseTile * (0.86 + (waveIndex * 0.14) + (1.16 * eased));
+          const alpha = Math.max(0, 0.76 - (waveProgress * 0.36) - (waveIndex * 0.07));
+          const petalCount = 7 + waveIndex;
+          for (let petalIndex = 0; petalIndex < petalCount; petalIndex += 1) {
+            const angleDeg = ((360 / petalCount) * petalIndex) + (waveIndex * 10) + (progress * 62);
+            const angle = angleDeg * (Math.PI / 180);
+            const drift = Math.sin((progress * Math.PI * 2) + petalIndex) * (baseTile * 0.05);
+            const x = centerX + (Math.cos(angle) * (radius + drift));
+            const y = centerY + (Math.sin(angle) * ((radius * 0.72) + drift));
+            const sprite = document.createElement('img');
+            sprite.className = 'projectile-effect projectile-effect-sage-petal-storm';
+            sprite.src = effect.imagePath || SAGE_PETAL_STORM_IMAGE_PATH;
+            sprite.alt = '';
+            sprite.draggable = false;
+            sprite.style.position = 'absolute';
+            sprite.style.pointerEvents = 'none';
+            sprite.style.left = `${x}px`;
+            sprite.style.top = `${y}px`;
+            sprite.style.width = `${spriteSize}px`;
+            sprite.style.height = `${spriteSize}px`;
+            sprite.style.transform = `translate(-50%, -50%) rotate(${angleDeg + (waveProgress * 120)}deg)`;
+            sprite.style.transformOrigin = '50% 50%';
+            sprite.style.opacity = `${alpha}`;
+            sprite.style.mixBlendMode = 'screen';
+            sprite.style.filter = `drop-shadow(0 0 ${8 + (waveIndex * 2)}px rgba(255, 70, 110, 0.4)) saturate(1.08)`;
+            (els.enemyLayer || els.grid).appendChild(sprite);
+          }
+        }
+        const coreBurst = document.createElement('img');
+        coreBurst.src = effect.imagePath || SAGE_PETAL_STORM_IMAGE_PATH;
+        coreBurst.alt = '';
+        coreBurst.draggable = false;
+        coreBurst.style.position = 'absolute';
+        coreBurst.style.pointerEvents = 'none';
+        coreBurst.style.left = `${centerX}px`;
+        coreBurst.style.top = `${centerY}px`;
+        coreBurst.style.width = `${baseTile * (0.62 + (progress * 0.22))}px`;
+        coreBurst.style.height = `${baseTile * (0.62 + (progress * 0.22))}px`;
+        coreBurst.style.transform = `translate(-50%, -50%) rotate(${progress * 96}deg)`;
+        coreBurst.style.opacity = `${Math.max(0, 0.28 - (progress * 0.10))}`;
+        coreBurst.style.mixBlendMode = 'screen';
+        coreBurst.style.filter = 'drop-shadow(0 0 14px rgba(255, 92, 130, 0.5))';
+        (els.enemyLayer || els.grid).appendChild(coreBurst);
+        continue;
+      }
+      if (effect.kind === 'dreadknight-seismic-wave') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const maxRadiusTiles = Math.max(1, Number(effect.maxRadiusTiles || 2));
+        const tileSize = Math.max(centerPos.width, centerPos.height);
+        const primaryRadius = tileSize * (0.55 + (progress * maxRadiusTiles));
+        const secondaryProgress = Math.max(0, Math.min(1, (progress - 0.16) / 0.84));
+        const secondaryRadius = tileSize * (0.45 + (secondaryProgress * Math.max(0.75, maxRadiusTiles - 0.25)));
+        const shockwaves = [
+          { radius: primaryRadius, alpha: Math.max(0, 0.56 - (progress * 0.42)), width: Math.max(4, Math.round(tileSize * 0.08)) },
+          { radius: secondaryRadius, alpha: secondaryProgress > 0 ? Math.max(0, 0.34 - (secondaryProgress * 0.28)) : 0, width: Math.max(2, Math.round(tileSize * 0.05)) },
+        ];
+        shockwaves.forEach((wave) => {
+          if (wave.alpha <= 0 || wave.radius <= 0) return;
+          const ring = document.createElement('div');
+          ring.className = 'projectile-effect projectile-effect-seismic-wave';
+          ring.style.position = 'absolute';
+          ring.style.pointerEvents = 'none';
+          ring.style.boxSizing = 'border-box';
+          ring.style.left = `${centerX - wave.radius}px`;
+          ring.style.top = `${centerY - wave.radius}px`;
+          ring.style.width = `${wave.radius * 2}px`;
+          ring.style.height = `${wave.radius * 2}px`;
+          ring.style.borderRadius = '50%';
+          ring.style.border = `${wave.width}px solid rgba(225, 244, 255, ${wave.alpha.toFixed(3)})`;
+          ring.style.background = `radial-gradient(circle, rgba(255,255,255,${(wave.alpha * 0.34).toFixed(3)}) 0%, rgba(185,225,255,${(wave.alpha * 0.18).toFixed(3)}) 38%, rgba(90,160,220,0) 72%)`;
+          ring.style.filter = `drop-shadow(0 0 ${Math.max(8, Math.round(tileSize * 0.22))}px rgba(180, 228, 255, ${Math.min(0.55, wave.alpha + 0.08).toFixed(3)}))`;
+          els.enemyLayer.appendChild(ring);
+        });
+        const core = document.createElement('div');
+        core.className = 'projectile-effect projectile-effect-seismic-core';
+        core.style.position = 'absolute';
+        core.style.pointerEvents = 'none';
+        core.style.left = `${centerX - (tileSize * 0.35)}px`;
+        core.style.top = `${centerY - (tileSize * 0.35)}px`;
+        core.style.width = `${tileSize * 0.7}px`;
+        core.style.height = `${tileSize * 0.7}px`;
+        core.style.borderRadius = '50%';
+        core.style.opacity = `${Math.max(0.12, 0.4 - (progress * 0.22))}`;
+        core.style.background = 'radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(178,220,255,0.2) 48%, rgba(178,220,255,0) 78%)';
+        core.style.filter = 'blur(2px)';
+        els.enemyLayer.appendChild(core);
+        continue;
+      }
+
+      if (effect.kind === 'dragoon-overpower-spin' || effect.kind === 'dreadknight-big-sword-overpower') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        if (!centerPos) continue;
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const sprite = document.createElement('img');
+        const isDreadknightSword = effect.kind === 'dreadknight-big-sword-overpower';
+        const startAngle = isDreadknightSword ? -90 : 225;
+        const endAngle = isDreadknightSword ? 270 : 45;
+        const angle = startAngle + ((endAngle - startAngle) * progress);
+        sprite.className = `projectile-effect ${isDreadknightSword ? 'projectile-effect-big-sword' : 'projectile-effect-dragoon-overpower'}`;
+        sprite.src = effect.imagePath || (isDreadknightSword ? BIG_ASS_SWORD_IMAGE_PATH : DRAGOON_SPEAR_IMAGE_PATH);
+        sprite.alt = '';
+        sprite.draggable = false;
+        sprite.style.position = 'absolute';
+        sprite.style.pointerEvents = 'none';
+        sprite.style.left = `${centerX}px`;
+        sprite.style.top = `${centerY}px`;
+        sprite.style.width = `${Math.max(isDreadknightSword ? 38 : 34, centerPos.width * (isDreadknightSword ? 1.05 : 1.05))}px`;
+        sprite.style.height = `${Math.max(isDreadknightSword ? 86 : 74, centerPos.height * (isDreadknightSword ? 1.9 : 1.55))}px`;
+        sprite.style.transformOrigin = isDreadknightSword ? '89% 95%' : '90% 14%';
+        sprite.style.transform = isDreadknightSword
+          ? `translate(-89%, -95%) rotate(${angle}deg)`
+          : `translate(-90%, -14%) rotate(${angle}deg)`;
+        sprite.style.opacity = `${Math.max(0.98, Number(effect.opacityFloor || 1))}`;
+        sprite.style.filter = isDreadknightSword
+          ? 'drop-shadow(0 0 8px rgba(255,255,255,0.6))'
+          : 'drop-shadow(0 0 8px rgba(215,235,255,0.72))';
+        (els.enemyLayer || els.grid).appendChild(sprite);
+        continue;
+      }
+
+      if (effect.kind === 'champion-big-sword-slash') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        if (!centerPos) continue;
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const phaseProgress = progress < 0.5 ? (progress / 0.5) : ((progress - 0.5) / 0.5);
+        const direction = progress < 0.5 ? -1 : 1;
+        const swingSpeedMult = Math.max(0.1, Number(effect.swingSpeedMult || 1));
+        const slowedPhaseProgress = 1 - Math.pow(1 - phaseProgress, 1 / swingSpeedMult);
+        const windupEnd = 0.24;
+        const slashEnd = 0.82;
+        let pathT = 0;
+        let angle = 0;
+        let x = centerX;
+        let y = centerY;
+        if (slowedPhaseProgress <= windupEnd) {
+          const t = slowedPhaseProgress / windupEnd;
+          const eased = 1 - Math.pow(1 - t, 2);
+          x = centerX - (direction * centerPos.width * (0.035 * eased));
+          y = centerY - (centerPos.height * (0.12 + (0.11 * eased)));
+          angle = (direction < 0 ? 22 : -22) + ((direction < 0 ? -34 : 34) * eased);
+        } else if (slowedPhaseProgress <= slashEnd) {
+          const t = (slowedPhaseProgress - windupEnd) / (slashEnd - windupEnd);
+          const eased = 1 - Math.pow(1 - t, 3);
+          pathT = eased;
+          x = centerX + (direction * centerPos.width * (0.025 + (0.50 * eased)));
+          y = centerY - (centerPos.height * 0.26) + (centerPos.height * 0.80 * eased);
+          angle = (direction < 0 ? -12 : 12) + ((direction < 0 ? -118 : 118) * eased);
+        } else {
+          const t = (slowedPhaseProgress - slashEnd) / (1 - slashEnd);
+          const eased = 1 - Math.pow(1 - t, 2);
+          pathT = 1;
+          x = centerX + (direction * centerPos.width * (0.53 + (0.03 * eased)));
+          y = centerY + (centerPos.height * (0.46 + (0.03 * eased)));
+          angle = (direction < 0 ? -130 : 130) + ((direction < 0 ? -10 : 10) * eased);
+        }
+        const sprite = document.createElement('img');
+        sprite.className = 'projectile-effect projectile-effect-big-sword';
+        sprite.src = effect.imagePath || BIG_ASS_SWORD_IMAGE_PATH;
+        sprite.alt = '';
+        sprite.draggable = false;
+        sprite.style.position = 'absolute';
+        sprite.style.pointerEvents = 'none';
+        sprite.style.left = `${x}px`;
+        sprite.style.top = `${y}px`;
+        sprite.style.width = `${Math.max(36, centerPos.width * 1.00725)}px`; // 15% smaller, keep readable
+        sprite.style.height = `${Math.max(60, centerPos.height * 1.89975)}px`; // 15% smaller, keep readable
+        sprite.style.transformOrigin = '89% 95%'; // anchor near bottom-right handle
+        sprite.style.transform = `translate(-89%, -95%) rotate(${angle}deg)`;
+        sprite.style.opacity = `${Math.max(0.999, Number(effect.opacityFloor || 1))}`;
+        sprite.style.filter = `drop-shadow(0 0 ${8 + (pathT * 2)}px rgba(255,255,255,0.56))`;
+        (els.enemyLayer || els.grid).appendChild(sprite);
+        continue;
+      }
+      const usesArcProjectileStyle = effect.kind === 'wizard-fireball' || effect.kind === 'pirate-cannonball' || effect.kind === 'sage-rose-projectile';
+      const usesSpellbowProjectileStyle = effect.kind === 'spellbow-lightning-shaft' || effect.kind === 'spellbow-a-lot-of-arrows';
       const easedProgress = usesArcProjectileStyle
         ? (1 - Math.pow(1 - progress, 3))
-        : progress;
-      const x = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * easedProgress);
-      const y = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * easedProgress);
+        : (usesSpellbowProjectileStyle
+          ? (progress < 0.78
+            ? (1 - Math.pow(1 - (progress / 0.78), 2.1)) * 0.9
+            : (0.9 + (((progress - 0.78) / 0.22) * 0.1)))
+          : progress);
+      const dx = (effect.toX || 0) - (effect.fromX || 0);
+      const dy = (effect.toY || 0) - (effect.fromY || 0);
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const normalX = -dy / distance;
+      const normalY = dx / distance;
+      const windDriftAmplitudePx = effect.kind === 'sage-rose-projectile' && Number.isFinite(Number(effect.windDriftAmplitudePx))
+        ? Number(effect.windDriftAmplitudePx)
+        : 0;
+      const windDriftCycles = effect.kind === 'sage-rose-projectile' && Number.isFinite(Number(effect.windDriftCycles))
+        ? Number(effect.windDriftCycles)
+        : 0;
+      const windDriftPhase = effect.kind === 'sage-rose-projectile' && Number.isFinite(Number(effect.windDriftPhase))
+        ? Number(effect.windDriftPhase)
+        : 0;
+      const windDriftStrength = effect.kind === 'sage-rose-projectile'
+        ? Math.sin((easedProgress * Math.PI * 2 * windDriftCycles) + windDriftPhase) * windDriftAmplitudePx * Math.sin(easedProgress * Math.PI)
+        : 0;
+      const x = (effect.fromX || 0) + (dx * easedProgress) + (normalX * windDriftStrength);
+      const y = (effect.fromY || 0) + (dy * easedProgress) + (normalY * windDriftStrength);
       const sampleSize = game.grid?.[0]?.el?.offsetWidth || 36;
       const effectSizeMultiplier = Number.isFinite(Number(effect.sizeMultiplier)) ? Number(effect.sizeMultiplier) : ARCHER_PROJECTILE_SIZE_MULTIPLIER;
-      const baseSize = Math.max(18, sampleSize * effectSizeMultiplier);
+      const minProjectileSize = usesSpellbowProjectileStyle ? 26 : 18;
+      const baseSize = Math.max(minProjectileSize, sampleSize * effectSizeMultiplier);
       const pulseAmount = Number.isFinite(Number(effect.pulseAmount)) ? Number(effect.pulseAmount) : 0;
       const pulseScale = usesArcProjectileStyle
         ? (1 + (Math.sin((current - effect.startedAt) / 38) * pulseAmount))
@@ -10363,28 +12922,41 @@ function renderDamageReport() {
       const opacityFloor = Number.isFinite(Number(effect.opacityFloor)) ? Number(effect.opacityFloor) : 0.35;
       const opacityDrop = Number.isFinite(Number(effect.opacityDrop)) ? Number(effect.opacityDrop) : 0.45;
       const rotationSpeed = Number.isFinite(Number(effect.rotationSpeed)) ? Number(effect.rotationSpeed) : 0;
+      const pathAngle = (Math.atan2(dy, dx) * 180 / Math.PI);
       const rotation = usesArcProjectileStyle
         ? (((current - effect.startedAt) / rotationSpeed) % 360)
-        : 0;
+        : (usesSpellbowProjectileStyle ? (pathAngle + Number(effect.angleOffset || 0)) : 0);
       const trailSteps = usesArcProjectileStyle
         ? Math.max(0, Math.round(Number(effect.trailSteps) || 0))
         : 0;
 
       for (let trailIndex = trailSteps; trailIndex >= 0; trailIndex -= 1) {
         const trailFactor = trailSteps > 0 ? (trailIndex / Math.max(1, trailSteps)) : 0;
+        const trailBacktrack = Number.isFinite(Number(effect.trailStepBacktrack)) ? Number(effect.trailStepBacktrack) : 0.08;
         const trailProgress = usesArcProjectileStyle
-          ? Math.max(0, easedProgress - (0.08 * trailIndex))
+          ? Math.max(0, easedProgress - (trailBacktrack * trailIndex))
           : easedProgress;
-        const trailX = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * trailProgress);
-        const trailY = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * trailProgress);
+        const trailBaseX = (effect.fromX || 0) + (((effect.toX || 0) - (effect.fromX || 0)) * trailProgress);
+        const trailBaseY = (effect.fromY || 0) + (((effect.toY || 0) - (effect.fromY || 0)) * trailProgress);
+        const trailDx = (effect.toX || 0) - (effect.fromX || 0);
+        const trailDy = (effect.toY || 0) - (effect.fromY || 0);
+        const trailDistance = Math.max(1, Math.hypot(trailDx, trailDy));
+        const normalX = -trailDy / trailDistance;
+        const normalY = trailDx / trailDistance;
+        const trailSpreadPx = usesArcProjectileStyle ? (Number.isFinite(Number(effect.trailSpreadPx)) ? Number(effect.trailSpreadPx) : 0) : 0;
+        const centeredTrailIndex = trailIndex - (trailSteps / 2);
+        const spreadWeight = trailSteps > 0 ? (centeredTrailIndex / Math.max(1, trailSteps / 2)) : 0;
+        const trailX = trailBaseX + (normalX * trailSpreadPx * spreadWeight);
+        const trailY = trailBaseY + (normalY * trailSpreadPx * spreadWeight);
         const sprite = document.createElement('img');
         sprite.src = effect.imagePath || GREEN_FIRE_GIF_PATH;
+        if (usesSpellbowProjectileStyle) sprite.className = 'projectile-effect projectile-effect-spellbow';
         sprite.alt = '';
         sprite.setAttribute('aria-hidden', 'true');
         sprite.style.position = 'absolute';
         const trailSize = usesArcProjectileStyle
           ? (size * (1 - (0.08 * trailIndex)))
-          : size;
+          : (usesSpellbowProjectileStyle ? (size * (trailIndex === 0 ? 1 : 0.82)) : size);
         sprite.style.left = `${trailX - (trailSize / 2)}px`;
         sprite.style.top = `${trailY - (trailSize / 2)}px`;
         sprite.style.width = `${trailSize}px`;
@@ -10393,16 +12965,18 @@ function renderDamageReport() {
         const baseOpacity = Math.max(opacityFloor, 1 - (progress * opacityDrop));
         const finalOpacity = usesArcProjectileStyle
           ? Math.max(0.12, baseOpacity * (trailIndex === 0 ? 1 : (0.45 - (0.08 * (trailSteps - trailIndex)))))
-          : baseOpacity;
+          : (usesSpellbowProjectileStyle ? 1 : baseOpacity);
         sprite.style.opacity = `${finalOpacity}`;
         sprite.style.filter = effect.kind === 'wizard-fireball'
           ? `drop-shadow(0 0 ${14 + (trailFactor * 8)}px rgba(255, 138, 32, 0.98))`
           : (effect.kind === 'pirate-cannonball'
             ? `drop-shadow(0 0 ${8 + (trailFactor * 4)}px rgba(60, 35, 12, 0.72))`
-            : (effect.filter || 'drop-shadow(0 0 8px rgba(140,255,170,0.95))'));
+            : (usesSpellbowProjectileStyle
+              ? `drop-shadow(0 0 4px rgba(255,255,255,0.98)) drop-shadow(0 0 10px rgba(255,235,120,0.96)) drop-shadow(0 0 16px rgba(255,235,120,0.72))`
+              : (effect.filter || 'drop-shadow(0 0 8px rgba(140,255,170,0.95))')));
         sprite.style.transform = usesArcProjectileStyle
           ? `rotate(${rotation + (trailIndex * 14)}deg)`
-          : 'none';
+          : (usesSpellbowProjectileStyle ? `rotate(${rotation}deg)` : 'none');
         els.enemyLayer.appendChild(sprite);
       }
     }
@@ -10418,8 +12992,8 @@ function renderDamageReport() {
       const radiusPx = baseRadiusPx + ((finalRadiusPx - baseRadiusPx) * progress);
       const alpha = Math.max(0, 0.55 - (progress * 0.45));
 
-      if (effect.kind === 'statue-red-fire' || effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst') {
-        const effectTiles = (effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst') && Array.isArray(effect.effectTiles) && effect.effectTiles.length
+      if (effect.kind === 'statue-red-fire' || effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst' || effect.kind === 'sage-rose-burst') {
+        const effectTiles = (effect.kind === 'fireball-orange-burst' || effect.kind === 'pirate-cannonball-burst' || effect.kind === 'sage-rose-burst') && Array.isArray(effect.effectTiles) && effect.effectTiles.length
           ? effect.effectTiles
           : [{ x: effect.x, y: effect.y }];
         for (const tile of effectTiles) {
@@ -10430,7 +13004,9 @@ function renderDamageReport() {
             ? 0.8
             : (effect.kind === 'pirate-cannonball-burst'
               ? 0.55
-              : (effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER));
+              : (effect.kind === 'sage-rose-burst'
+                ? 0.78
+                : (effect.kind === 'skitter-red-fire' ? (STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER * 0.5) : STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER)));
           const spriteSize = Math.max(tilePos.width, tilePos.height) * spriteSizeMultiplier;
           const sprite = document.createElement('img');
           sprite.src = effect.imagePath || RED_FIRE_GIF_PATH;
@@ -10447,7 +13023,9 @@ function renderDamageReport() {
             ? 'drop-shadow(0 0 10px rgba(255,110,30,0.95))'
             : (effect.kind === 'pirate-cannonball-burst'
               ? 'drop-shadow(0 0 10px rgba(60,35,12,0.8))'
-              : 'drop-shadow(0 0 14px rgba(255,80,40,0.95))');
+              : (effect.kind === 'sage-rose-burst'
+                ? 'drop-shadow(0 0 16px rgba(255,80,120,0.82))'
+                : 'drop-shadow(0 0 14px rgba(255,80,40,0.95))'));
           els.enemyLayer.appendChild(sprite);
         }
       }
@@ -10794,7 +13372,12 @@ function renderDamageReport() {
       if (towerCanPullAggro && canEnemyAggroTower(enemy, sourceTower) && (!enemy.aggroTargetId || enemy.threat[sourceTower.id] > currentThreat * 2.4) && towerDistance <= portalBiasDistance) {
         enemy.aggroTargetId = sourceTower.id;
       }
-      createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
+      if (!damageMethod?.suppressAttackLine) {
+        const isBasicAttackVisual = !damageMethod?.key || damageMethod?.key === 'basic_attack';
+        if (!isBasicAttackVisual || Math.random() < 0.5) {
+          createAttackLine(sourceTower, enemy, heroColorKey(sourceTower.type));
+        }
+      }
       createHitFlash(enemy.x, enemy.y, heroColorKey(sourceTower.type), `-${Math.round(damage)}`);
       markProgress(`${sourceTower.name} damaged ${enemy.name}.`);
     } else {
@@ -10805,11 +13388,15 @@ function renderDamageReport() {
 
   function damageTower(gameState, tower, amount, message, attacker = null) {
     let damage = amount;
+    if (attacker) {
+      const dragoon = (gameState.towers || []).find((entry) => entry && entry.type === 'champion_dragoon' && entry.hp > 0 && entry.x === attacker.x && entry.y === attacker.y);
+      if (dragoon) damage *= 0.75;
+    }
     const warriorOrStatue = tower && (tower.type === 'warrior' || isStatueTower(tower));
     if (warriorOrStatue && hasUnlockedSeerEvasion() && Math.random() < SEER_EVASION_CHANCE) {
-      const missX = attacker && Number.isFinite(attacker.x) ? attacker.x : tower.x;
-      const missY = attacker && Number.isFinite(attacker.y) ? attacker.y : tower.y;
-      createHitFlash(missX, missY, 'seer', 'MISS', { smallText: true });
+      createHitFlash(tower.x, tower.y, 'seer', 'MISS', { centerText: true, sizeMult: 1.25, duration: 500 });
+      const seerSource = (gameState.towers || []).find((entry) => entry && entry.type === 'seer' && entry.hp > 0);
+      if (seerSource) seerSource.damageAvoided = Math.max(0, Number(seerSource.damageAvoided || 0)) + Math.max(0, Number(damage || 0));
       if (message && chance(0.2)) log(`${tower.name} evaded the attack.`);
       return 0;
     }
@@ -10817,6 +13404,15 @@ function renderDamageReport() {
       damage *= 0.93;
     }
     tower.hp -= damage;
+    if (tower.hp <= 0) {
+      const sage = (gameState.towers || []).find((entry) => entry && entry.type === 'champion_sage' && entry.hp > 0 && entry.championReviveAvailable !== false && entry.id !== tower.id);
+      if (sage) {
+        sage.championReviveAvailable = false;
+        tower.hp = tower.maxHp;
+        applyBuff(tower, 'championSageShield', 3, {});
+        showBanner('Sage passive: Live Forever', 1800);
+      }
+    }
     markProgress(`${tower.name} took damage.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(damage)}.`);
     return damage;
@@ -10825,9 +13421,17 @@ function renderDamageReport() {
   function healTower(tower, amount, message, options = null) {
     const allowStatue = !!(options && options.allowStatue);
     if (isStatueTower(tower) && !allowStatue) return;
+    const beforeHp = Number(tower.hp || 0);
     tower.hp = Math.min(tower.maxHp, tower.hp + amount);
+    const healed = Math.max(0, Number(tower.hp || 0) - beforeHp);
+    const sourceTowerId = options && options.sourceTowerId ? options.sourceTowerId : null;
+    if (sourceTowerId) {
+      const sourceTower = getTowerById(sourceTowerId);
+      if (sourceTower) sourceTower.healingDone = Math.max(0, Number(sourceTower.healingDone || 0)) + healed;
+    }
     markProgress(`${tower.name} was healed.`);
-    if (message && chance(0.2)) log(`${message} for ${Math.round(amount)}.`);
+    if (message && chance(0.2)) log(`${message} for ${Math.round(healed)}.`);
+    return healed;
   }
 
   function applyBuff(unit, keyName, seconds, data) {
@@ -10981,7 +13585,7 @@ function renderDamageReport() {
 
   function castAbility(tower, abilityKey, opts = {}) {
     if (!isAbilityUnlocked(tower, abilityKey)) return;
-    const readyAt = tower.abilityReadyAt[abilityKey] || 0;
+    const readyAt = getTowerAbilityReadyAt(tower, abilityKey);
     if (now() < readyAt) return;
     const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
     const ctx = { game, tower };
@@ -11043,7 +13647,7 @@ function renderDamageReport() {
         return false;
       },
       firebolt() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const fireboltDamage = (42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage;
         const sameTileTargets = game.enemies.filter(e => e.x === target.x && e.y === target.y).slice(0, 2);
@@ -11063,7 +13667,7 @@ function renderDamageReport() {
         return false;
       },
       fireball() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
         const impactedTiles = [];
@@ -11089,7 +13693,7 @@ function renderDamageReport() {
             .length;
           const projectileMeta = createFireballProjectileEffect(tower, tile, {
             startedAt: rowStartAt + (withinRowIndex * withinRowDelayMs),
-            durationMs: 460,
+            durationMs: 560,
           });
           if (projectileMeta) {
             createExplosionEffect(tile.x, tile.y, 'wizard', 0.65, 420, FIREBALL_GIF_PATH, 'fireball-orange-burst', [{ x: tile.x, y: tile.y }], { startedAt: projectileMeta.arrivalAt - 70 });
@@ -11103,7 +13707,7 @@ function renderDamageReport() {
         return true;
       },
       frost_lance() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         let dmg = 99 * powerMult * game.modifiers.wizardSpellDamage;
         if (getEnemySlowPercent(target) > 0) dmg *= 2;
@@ -11127,7 +13731,7 @@ function renderDamageReport() {
             fromY: from.y,
             toX: tilePos.left + (tilePos.width / 2),
             toY: tilePos.top + (tilePos.height / 2),
-            durationMs: 450,
+            durationMs: 550,
             imagePath: 'assets/rock.png',
           });
           const tileEnemies = game.enemies
@@ -11170,8 +13774,8 @@ function renderDamageReport() {
           : [];
         if (!allies.length && !statues.length) return false;
         const healAmount = getPrayerOfHealingAmount(tower);
-        allies.forEach(a => { healTower(a, healAmount, null); createTowerLine(tower, a, 'priest'); });
-        statues.forEach(a => { healTower(a, healAmount * 0.3, null, { allowStatue: true }); createTowerLine(tower, a, 'priest'); });
+        allies.forEach(a => { healTower(a, healAmount, null, { sourceTowerId: tower.id }); createTowerLine(tower, a, 'priest'); });
+        statues.forEach(a => { healTower(a, healAmount * 0.3, null, { allowStatue: true, sourceTowerId: tower.id }); createTowerLine(tower, a, 'priest'); });
         return true;
       },
       slow_totem() {
@@ -11194,7 +13798,7 @@ function renderDamageReport() {
         return true;
       },
       warning_shot() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 2);
         if (!targets.length) return false;
@@ -11208,7 +13812,7 @@ function renderDamageReport() {
         return true;
       },
       starboard_cannons() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const shots = 4 + game.modifiers.extraCannons;
         const visualShots = Math.max(1, shots - 2);
@@ -11240,7 +13844,7 @@ function renderDamageReport() {
 
               const projectileMeta = createCannonballProjectileEffect(tower, tile, {
                 startedAt: shotStartedAt + (j * 22),
-                durationMs: 420 + (j * 10),
+                durationMs: 520 + (j * 10),
               });
               if (projectileMeta) {
                 createExplosionEffect(tile.x, tile.y, 'pirate', 0.5, 240, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: tile.x, y: tile.y }], { startedAt: projectileMeta.arrivalAt - 45 });
@@ -11251,7 +13855,7 @@ function renderDamageReport() {
           if (shouldRenderVisual && !visualTiles.length) {
             const fallbackMeta = createCannonballProjectileEffect(tower, chosen, {
               startedAt: shotStartedAt,
-              durationMs: 420,
+              durationMs: 520,
             });
             if (fallbackMeta) {
               createExplosionEffect(chosen.x, chosen.y, 'pirate', 0.5, 240, CANNONBALL_IMAGE_PATH, 'pirate-cannonball-burst', [{ x: chosen.x, y: chosen.y }], { startedAt: fallbackMeta.arrivalAt - 45 });
@@ -11264,7 +13868,7 @@ function renderDamageReport() {
         return true;
       },
       kraken() {
-        const target = tower.type === 'warrior' ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
+        const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight') ? nearestEnemyForWarrior(tower) : nearestEnemyInRange(tower, tower.range);
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 4);
         targets.forEach(e => applyDebuff(e, 'kraken', KRAKEN_DURATION_SECONDS, { damage: KRAKEN_BASE_DAMAGE * powerMult, percent: KRAKEN_SLOW_PERCENT, nextTickAt: now() + 1000, sourceTowerId: tower.id }));
@@ -11282,6 +13886,7 @@ function renderDamageReport() {
     if ((tower.type === 'wizard' || tower.type === 'wizard_satellite' || tower.type === 'seer')) mult *= game.modifiers.wizardCooldown;
     if (tower.type === 'warrior') mult *= game.modifiers.warriorCooldown;
     tower.abilityReadyAt[abilityKey] = now() + cooldown * 1000 * mult;
+    tower.abilityGlobalReadyAt = now() + TOWER_ABILITY_CHAIN_DELAY_MS;
     if (!opts.auto) log(`${tower.name} used ${abilityKey.replaceAll('_', ' ')}.`);
     render();
     return true;
@@ -11401,6 +14006,12 @@ function renderDamageReport() {
   });
 
   els.startWaveBtn.addEventListener('click', () => {
+    if (requireChampionSelectionBeforeStart()) {
+      game.championModalForceChoice = true;
+      showChampionModal(true);
+      showBanner('CHAMPIONS DETECTED — choose one before the run begins.', 2200);
+      return;
+    }
     if (buyableWaveStart()) startWave();
   });
   els.autoStartBtn?.addEventListener('click', () => {
@@ -11439,14 +14050,56 @@ function renderDamageReport() {
   });
 
   els.refreshWalletHeroesBtn?.addEventListener('click', () => { loadWalletHeroes(true).catch((error) => { console.error(error); }); });
+  els.championPanelToggle?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const opening = Boolean(game.championPanelCollapsed);
+    if (opening) setWalletHeroPanelCollapsed(true);
+    setChampionPanelCollapsed(!opening);
+  });
+  els.championConfirmBtn?.addEventListener('click', () => {
+    confirmSelectedChampion();
+  });
+  els.championLockCancelBtn?.addEventListener('click', () => {
+    hideChampionLockModal();
+  });
+  els.championLockConfirmBtn?.addEventListener('click', () => {
+    finalizeChampionConfirmation();
+  });
+  els.chooseChampionBtn?.addEventListener('click', () => {
+    if (game.selectedChampionConfirmed) {
+      const selected = getSelectedChampionRecord();
+      showBanner(selected ? `${selected.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+      return;
+    }
+    if (!canChooseChampionNow()) {
+      showBanner('Champion selection must happen before the first wave starts.', 2000);
+      return;
+    }
+    showChampionModal(true);
+  });
+  els.deployChampionBtn?.addEventListener('click', () => {
+    beginChampionPlacement();
+  });
+  els.championSkipBtn?.addEventListener('click', () => {
+    cancelChampionModal();
+  });
   els.walletHeroBonusToggle?.addEventListener('click', () => {
-    setWalletHeroPanelCollapsed(!(game.walletHeroPanelCollapsed !== false));
+    const opening = game.walletHeroPanelCollapsed !== false;
+    if (opening) setChampionPanelCollapsed(true);
+    setWalletHeroPanelCollapsed(!opening);
   });
   renderWalletHeroBonusPanel();
   renderTransferHeroesModal();
   window.addEventListener('dfk-defense:bank-balance', (event) => {
     syncPremiumJewelsFromSettledBank(event.detail || null);
+    refreshWalletJewelTokenBalance().catch(() => {});
+    updateJewelTradeUi();
+    updateRelicSwapUi();
+    updateRelicSwapUi();
   });
+  window.addEventListener('dfk-defense:wallet-state', () => { updateJewelTradeUi(); updateRelicSwapUi(); });
+  window.addEventListener('dfk-defense:tracking-state', () => { updateJewelTradeUi(); updateRelicSwapUi(); });
   els.speedToggleBtn?.addEventListener('click', () => {
     setPlayMode('easy');
   });
@@ -11458,6 +14111,9 @@ function renderDamageReport() {
   });
   els.introBtn?.addEventListener('click', () => {
     openIntroModal(game.introPageIndex || 0, 'intro');
+  });
+  els.loreBtn?.addEventListener('click', () => {
+    openIntroModal(0, 'lore');
   });
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
@@ -11474,6 +14130,12 @@ function renderDamageReport() {
   els.transferHeroesBtn?.addEventListener('click', () => {
     openTransferHeroesModal();
   });
+  els.buyJewelGoldSwapBtn?.addEventListener('click', buyJewelGoldSwap);
+  els.buyJewelHeroHire1Btn?.addEventListener('click', () => buyJewelExtraHero(0));
+  els.buyJewelHeroHire2Btn?.addEventListener('click', () => buyJewelExtraHero(1));
+  els.buyJewelHeroHire3Btn?.addEventListener('click', () => buyJewelExtraHero(2));
+  els.relicViewDfkgoldSwapBtn?.addEventListener('click', buyRelicViewDfkgoldSwap);
+  els.relicViewJewelGoldSwapBtn?.addEventListener('click', buyRelicViewJewelGoldSwap);
   els.mobileMenuOverlay?.addEventListener('click', closeMobileMenus);
   els.mobileBarToggleBtn?.addEventListener('click', toggleMobileBarCollapsed);
   els.mobileFuncMenuBtn?.addEventListener('click', () => toggleMobileMenu('func'));
@@ -11593,7 +14255,7 @@ function renderDamageReport() {
   els.questsBody?.addEventListener('click', (event) => {
     const claimBtn = event.target instanceof Element ? event.target.closest('[data-quest-id]') : null;
     if (!claimBtn) return;
-    claimDailyQuest(claimBtn.getAttribute('data-quest-id') || '');
+    claimDailyQuest(claimBtn.getAttribute('data-quest-id') || '').catch(() => {});
   });
   els.closeKnownRelicsBtn?.addEventListener('click', closeKnownRelicsModal);
   els.closeTransferHeroesBtn?.addEventListener('click', closeTransferHeroesModal);
@@ -11627,6 +14289,17 @@ function renderDamageReport() {
     if (els.bankPanelToggle) els.bankPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
 
+  els.heroPlacementReminderOkBtn?.addEventListener('click', () => {
+    if (els.heroPlacementReminderModal) {
+      els.heroPlacementReminderModal.classList.add('hidden');
+      els.heroPlacementReminderModal.setAttribute('aria-hidden', 'true');
+    }
+  });
+  els.buttonsPanelToggle?.addEventListener('click', () => {
+    const collapsed = els.buttonsPanel?.classList.toggle('collapsed');
+    if (els.buttonsPanelToggle) els.buttonsPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
+
   els.avaxTreasuryPanelToggle?.addEventListener('click', () => {
     const collapsed = els.avaxTreasuryPanel?.classList.toggle('collapsed');
     if (els.avaxTreasuryPanelToggle) els.avaxTreasuryPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -11657,11 +14330,14 @@ function renderDamageReport() {
       closeAnnouncementModal();
       return;
     }
-    if (game.introPageIndex < INTRO_PAGES.length - 1) {
+    const pages = getActiveGuidePages();
+    if (game.introPageIndex < pages.length - 1) {
       game.introPageIndex += 1;
       renderIntroPage();
-    } else {
+    } else if (game.introSet === 'intro') {
       openStartModeModal();
+    } else {
+      closeIntroModal();
     }
   });
   els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
@@ -11697,13 +14373,21 @@ function renderDamageReport() {
     game.virtualNow += realDelta * game.timeScale;
     try {
       update();
-      // Keep the battlefield/top bar live without rebuilding the control panel every frame.
-      // Rebuilding buttons on every animation frame can interrupt click events before they fire.
+      // Keep the battlefield live every frame, but throttle heavier UI refreshes.
       renderGrid();
       renderEnemyLayer();
-      refreshSelectedPanelLive();
-      updateTopbar();
-      updateMobileBoardFit();
+      if (!game.lastSelectedPanelRefreshAt || (realNow - game.lastSelectedPanelRefreshAt) >= 120) {
+        refreshSelectedPanelLive();
+        game.lastSelectedPanelRefreshAt = realNow;
+      }
+      if (!game.lastTopbarUiRefreshAt || (realNow - game.lastTopbarUiRefreshAt) >= 150) {
+        updateTopbar();
+        game.lastTopbarUiRefreshAt = realNow;
+      }
+      if (!game.lastMobileFitRefreshAt || (realNow - game.lastMobileFitRefreshAt) >= 250) {
+        updateMobileBoardFit();
+        game.lastMobileFitRefreshAt = realNow;
+      }
     } catch (error) {
       showCrashReport('runtime', error);
       return;
@@ -11812,6 +14496,9 @@ function renderDamageReport() {
   });
 
   refreshWalletEconomyDetails().catch(() => {});
+  refreshWalletJewelTokenBalance().catch(() => {});
+  updateJewelTradeUi();
+  updateRelicSwapUi();
   startGlobalBurnedGoldRefreshLoop();
   startPendingDfkgoldBurnQueueLoop();
   document.addEventListener('keydown', (event) => {
@@ -11822,7 +14509,8 @@ function renderDamageReport() {
       return;
     }
     if (!game.introOpen) return;
-    if (event.key === 'ArrowRight' && game.introPageIndex < INTRO_PAGES.length - 1) {
+    const pages = getActiveGuidePages();
+    if (event.key === 'ArrowRight' && game.introPageIndex < pages.length - 1) {
       game.introPageIndex += 1;
       renderIntroPage();
     } else if (event.key === 'ArrowLeft' && game.introPageIndex > 0) {
@@ -11881,7 +14569,7 @@ function renderDamageReport() {
   }
 })();
 
-setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {} }, 500);
+setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {} }, 100);
 
 
 
@@ -11916,5 +14604,5 @@ setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {}
   } else {
     hook();
   }
-  setTimeout(hook, 250);
+  setTimeout(hook, 100);
 })();

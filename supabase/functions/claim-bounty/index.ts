@@ -72,6 +72,46 @@ function createAdmin() {
   );
 }
 
+
+async function getWhitelistDecision(admin: ReturnType<typeof createAdmin>, walletAddress: string, claimType: 'daily_quest' | 'bounty', amountValue: number | null, claimDay: string) {
+  const { data: rule, error: ruleError } = await admin
+    .from('reward_claim_whitelist')
+    .select('wallet_address, is_active, auto_daily, auto_bounty, max_claim_amount, daily_cap, notes')
+    .eq('wallet_address', walletAddress)
+    .maybeSingle();
+  if (ruleError) throw ruleError;
+  if (!rule || !rule.is_active) return { autoApprove: false, note: '' };
+
+  const allowsType = claimType === 'daily_quest' ? !!rule.auto_daily : !!rule.auto_bounty;
+  if (!allowsType) return { autoApprove: false, note: String(rule.notes || '').trim() || '' };
+
+  const numericAmount = Number(amountValue || 0) || 0;
+  const maxClaimAmount = rule.max_claim_amount == null ? null : Number(rule.max_claim_amount);
+  if (maxClaimAmount != null && numericAmount > maxClaimAmount) {
+    return { autoApprove: false, note: 'Whitelist max-claim guard prevented auto-approval.' };
+  }
+
+  const dailyCap = rule.daily_cap == null ? null : Number(rule.daily_cap);
+  if (dailyCap != null) {
+    const { data: sameDayRows, error: sameDayError } = await admin
+      .from('reward_claim_requests')
+      .select('amount_value, status')
+      .eq('wallet_address', walletAddress)
+      .eq('claim_day', claimDay)
+      .in('status', ['approved', 'paid']);
+    if (sameDayError) throw sameDayError;
+    const usedToday = (sameDayRows || []).reduce((sum, row) => sum + (Number(row.amount_value || 0) || 0), 0);
+    if ((usedToday + numericAmount) > dailyCap) {
+      return { autoApprove: false, note: 'Whitelist daily cap prevented auto-approval.' };
+    }
+  }
+
+  const noteParts = ['Auto-approved by whitelist rule.'];
+  const notes = String(rule.notes || '').trim();
+  if (notes) noteParts.push(notes);
+  return { autoApprove: true, note: noteParts.join(' ') };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
@@ -168,6 +208,35 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+
+const rewardAmountText = String(active.reward_text || '').trim() || 'Reward pending';
+const claimDay = new Date(now.toISOString().slice(0, 10)).toISOString().slice(0,10);
+const amountValue = Number((rewardAmountText.match(/([\d.]+)/) || [])[1] || 0) || null;
+const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'bounty', amountValue, claimDay);
+const requestKey = `bounty:${String(active.id)}`;
+const rewardInsert = {
+  request_key: requestKey,
+  wallet_address: walletAddress,
+  claim_type: 'bounty',
+  status: whitelistDecision.autoApprove ? 'approved' : 'pending',
+  player_name_snapshot: claimedByName,
+  amount_text: rewardAmountText,
+  amount_value: amountValue,
+  reward_currency: /avax/i.test(rewardAmountText) ? 'AVAX' : (/jewel/i.test(rewardAmountText) || /\bJ\b/i.test(rewardAmountText) ? 'JEWEL' : null),
+  reason_text: active.title,
+  source_ref: `bounty:${String(active.id)}`,
+  run_id: qualifyingRun.id,
+  claim_day: claimDay,
+  approved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
+  resolved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
+  resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
+  admin_note: whitelistDecision.note || null,
+};
+const { error: rewardRequestError } = await admin
+  .from('reward_claim_requests')
+  .upsert(rewardInsert, { onConflict: 'request_key', ignoreDuplicates: false });
+if (rewardRequestError) throw rewardRequestError;
+
     let nextRevealAt: string | null = null;
     if (nextBounty?.id) {
       const revealAt = new Date(now.getTime() + Number(active.unlock_delay_hours || 24) * 60 * 60 * 1000).toISOString();
@@ -185,7 +254,9 @@ Deno.serve(async (req) => {
       claimedBountyId: active.id,
       title: active.title,
       nextRevealAt,
-      message: `${claimedByName} claimed ${active.title}.`,
+      message: whitelistDecision.autoApprove
+        ? `${claimedByName} claimed ${active.title}. Claim auto-approved for this whitelisted wallet. Manual payout is still required unless you add a secure payout signer.`
+        : `${claimedByName} claimed ${active.title}.`,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Failed to claim bounty.' }, 500);

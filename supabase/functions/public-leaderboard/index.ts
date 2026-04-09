@@ -8,6 +8,13 @@ const corsHeaders = {
 
 type PlayerRow = Record<string, unknown>;
 type RunRow = Record<string, unknown>;
+type BurnRow = Record<string, unknown>;
+
+type RangeWindow = {
+  label: string;
+  start: string;
+  end: string;
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return json({ ok: true }, 200);
@@ -17,42 +24,23 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createAdmin();
+    const url = new URL(req.url);
+    const rangeSelection = resolveRequestedRange(url);
     const players = await fetchPlayers(admin);
-    const runs = await fetchRunUsage(admin);
+    const runs = await fetchRunsForRange(admin, rangeSelection.selectedRange);
     const usedMap = buildUsedWalletHeroesMap(runs);
-    const burnRows = await fetchBurnRows(admin);
+    const burnRows = await fetchBurnRowsForRange(admin, rangeSelection.selectedRange);
     const burnSummary = buildBurnSummary(burnRows, runs);
-    const globalDfkGoldBurned = burnSummary.total;
-
-    const rows = players.map((player) => ({
-      wallet_address: player.wallet_address || '',
-      wallet: player.wallet_address || '',
-      vanity_name: player.vanity_name || null,
-      display_name: player.vanity_name || player.display_name || player.wallet_address || 'Unknown Player',
-      player_name: player.vanity_name || player.display_name || player.wallet_address || 'Unknown Player',
-      used_wallet_heroes: Boolean(player.used_wallet_heroes) || Boolean(usedMap.get(normalizeAddress(player.wallet_address))),
-      best_wave: sanitizeInt(player.best_wave),
-      total_runs: sanitizeInt(player.total_runs),
-      runs: sanitizeInt(player.total_runs),
-      total_waves_cleared: sanitizeInt(player.total_waves_cleared),
-      last_run_at: player.last_run_at || null,
-      updated_at: player.updated_at || null,
-      dfk_gold_burned: Number((burnSummary.byWallet.get(normalizeAddress(player.wallet_address)) || 0).toFixed(3)),
-    })).sort((a, b) => {
-      return sanitizeInt(b.best_wave) - sanitizeInt(a.best_wave)
-        || sanitizeInt(b.total_waves_cleared) - sanitizeInt(a.total_waves_cleared)
-        || String(b.updated_at || '').localeCompare(String(a.updated_at || ''))
-        || String(a.wallet_address || '').localeCompare(String(b.wallet_address || ''));
-    });
+    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet);
 
     if (burnSummary.topBurner) {
-      const matchedRow = rows.find((row) => normalizeAddress(row.wallet_address) === burnSummary.topBurner.wallet_address);
+      const matchedRow = rows.find((row) => normalizeAddress(row.wallet_address) === burnSummary.topBurner?.wallet_address);
       if (matchedRow) burnSummary.topBurner.display_name = String(matchedRow.display_name || burnSummary.topBurner.wallet_address);
     }
 
     return json({
       rows,
-      global_dfk_gold_burned: globalDfkGoldBurned,
+      global_dfk_gold_burned: burnSummary.total,
       top_burner: burnSummary.topBurner ? {
         wallet_address: burnSummary.topBurner.wallet_address,
         wallet: burnSummary.topBurner.wallet_address,
@@ -60,12 +48,86 @@ Deno.serve(async (req) => {
         player_name: burnSummary.topBurner.display_name,
         dfk_gold_burned: burnSummary.topBurner.total,
       } : null,
+      meta: {
+        preset: rangeSelection.preset,
+        selected_range: rangeSelection.selectedRange,
+        current_week: rangeSelection.currentWeek,
+        last_week: rangeSelection.lastWeek,
+      },
     }, 200);
   } catch (error) {
     console.error('public-leaderboard failed', normalizeError(error));
     return json({ error: normalizeError(error).message || 'Leaderboard load failed.' }, 500);
   }
 });
+
+function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map<string, boolean>, burnByWallet: Map<string, number>) {
+  const playerByWallet = new Map<string, PlayerRow>();
+  for (const player of players || []) {
+    const wallet = normalizeAddress(player.wallet_address);
+    if (wallet) playerByWallet.set(wallet, player);
+  }
+
+  const aggregates = new Map<string, {
+    wallet_address: string;
+    best_wave: number;
+    runs: number;
+    total_waves_cleared: number;
+    used_wallet_heroes: boolean;
+    last_run_at: string | null;
+    updated_at: string | null;
+  }>();
+
+  for (const row of runs || []) {
+    const wallet = normalizeAddress(row.wallet_address);
+    if (!wallet) continue;
+    const completedAt = parseTimestamp(row.completed_at ?? row.created_at ?? row.run_started_at ?? null);
+    const current = aggregates.get(wallet) || {
+      wallet_address: wallet,
+      best_wave: 0,
+      runs: 0,
+      total_waves_cleared: 0,
+      used_wallet_heroes: false,
+      last_run_at: null,
+      updated_at: null,
+    };
+    current.best_wave = Math.max(current.best_wave, sanitizeInt(row.wave_reached));
+    current.runs += 1;
+    current.total_waves_cleared += sanitizeInt(row.waves_cleared);
+    current.used_wallet_heroes = current.used_wallet_heroes || Boolean(usedMap.get(wallet));
+    if (completedAt) {
+      const iso = completedAt.toISOString();
+      if (!current.last_run_at || iso > current.last_run_at) current.last_run_at = iso;
+      if (!current.updated_at || iso > current.updated_at) current.updated_at = iso;
+    }
+    aggregates.set(wallet, current);
+  }
+
+  return Array.from(aggregates.values()).map((aggregate) => {
+    const player = playerByWallet.get(aggregate.wallet_address) || {};
+    return {
+      wallet_address: aggregate.wallet_address,
+      wallet: aggregate.wallet_address,
+      vanity_name: player.vanity_name || null,
+      display_name: player.vanity_name || player.display_name || aggregate.wallet_address || 'Unknown Player',
+      player_name: player.vanity_name || player.display_name || aggregate.wallet_address || 'Unknown Player',
+      used_wallet_heroes: Boolean(player.used_wallet_heroes) || aggregate.used_wallet_heroes,
+      best_wave: aggregate.best_wave,
+      total_runs: aggregate.runs,
+      runs: aggregate.runs,
+      total_waves_cleared: aggregate.total_waves_cleared,
+      last_run_at: aggregate.last_run_at,
+      updated_at: aggregate.updated_at,
+      dfk_gold_burned: Number((burnByWallet.get(aggregate.wallet_address) || 0).toFixed(3)),
+    };
+  }).sort((a, b) => {
+    return sanitizeInt(b.best_wave) - sanitizeInt(a.best_wave)
+      || sanitizeInt(b.total_waves_cleared) - sanitizeInt(a.total_waves_cleared)
+      || sanitizeInt(b.runs) - sanitizeInt(a.runs)
+      || String(b.updated_at || '').localeCompare(String(a.updated_at || ''))
+      || String(a.wallet_address || '').localeCompare(String(b.wallet_address || ''));
+  });
+}
 
 async function fetchPlayers(admin: SupabaseClient) {
   const selectVariants = [
@@ -86,17 +148,21 @@ async function fetchPlayers(admin: SupabaseClient) {
   throw lastError || new Error('Players query failed.');
 }
 
-async function fetchRunUsage(admin: SupabaseClient) {
+async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
   const selectVariants = [
-    'wallet_address, stats_json, heroes_json',
-    'wallet_address, stats_json',
-    'wallet_address, heroes_json',
-    'wallet_address',
+    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
   ];
 
   let lastError: unknown = null;
   for (const columns of selectVariants) {
-    const { data, error } = await admin.from('runs').select(columns);
+    const { data, error } = await admin
+      .from('runs')
+      .select(columns)
+      .gte('completed_at', range.start)
+      .lt('completed_at', nextUtcDay(range.end));
     if (!error) return (Array.isArray(data) ? data : []) as RunRow[];
     lastError = error;
     if (isMissingColumnError(error)) continue;
@@ -134,15 +200,14 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
   return map;
 }
 
-function buildBurnSummary(burnRows: Array<Record<string, unknown>>, runs: RunRow[]) {
+function buildBurnSummary(burnRows: BurnRow[], runs: RunRow[]) {
   const byWallet = new Map<string, number>();
   let total = 0;
 
   if (Array.isArray(burnRows) && burnRows.length) {
     for (const row of burnRows) {
-      const burn = row as Record<string, unknown>;
-      const wallet = normalizeAddress(burn.wallet_address ?? burn.wallet ?? burn.address ?? '');
-      const amount = sanitizeNumber(burn.burn_amount ?? burn.amount ?? 0);
+      const wallet = normalizeAddress(row.wallet_address ?? row.wallet ?? row.address ?? '');
+      const amount = sanitizeNumber(row.burn_amount ?? row.amount ?? 0);
       if (amount <= 0) continue;
       total += amount;
       if (wallet) byWallet.set(wallet, sanitizeNumber((byWallet.get(wallet) || 0) + amount));
@@ -170,28 +235,101 @@ function buildBurnSummary(burnRows: Array<Record<string, unknown>>, runs: RunRow
   return { byWallet, total: Number(total.toFixed(3)), topBurner };
 }
 
-async function fetchBurnRows(admin: SupabaseClient) {
+async function fetchBurnRowsForRange(admin: SupabaseClient, range: RangeWindow) {
   const selectVariants = [
-    'wallet_address, burn_amount',
-    'wallet_address, amount',
-    'wallet_address, tx_hash, burn_amount',
-    'wallet_address, tx_hash, amount',
-    'wallet_address, tx_hash, burn_amount, amount',
-    'burn_amount',
-    'amount',
-    'tx_hash, burn_amount',
-    'tx_hash, amount',
-    'tx_hash, burn_amount, amount',
+    'wallet_address, burn_amount, confirmed_at',
+    'wallet_address, amount, confirmed_at',
+    'wallet_address, tx_hash, burn_amount, confirmed_at',
+    'wallet_address, tx_hash, amount, confirmed_at',
+    'wallet_address, tx_hash, burn_amount, amount, confirmed_at',
   ];
 
   for (const columns of selectVariants) {
-    const { data, error } = await admin.from('dfk_gold_burns').select(columns);
-    if (!error) return (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
+    const { data, error } = await admin
+      .from('dfk_gold_burns')
+      .select(columns)
+      .gte('confirmed_at', range.start)
+      .lt('confirmed_at', nextUtcDay(range.end));
+    if (!error) return (Array.isArray(data) ? data : []) as BurnRow[];
     if (isMissingColumnError(error) || isMissingRelationError(error)) continue;
     throw error;
   }
 
   return [];
+}
+
+function resolveRequestedRange(url: URL) {
+  const currentWeek = getUtcWeekRange(0);
+  const lastWeek = getUtcWeekRange(-1);
+  const presetParam = String(url.searchParams.get('preset') || '').trim().toLowerCase();
+  const modeParam = String(url.searchParams.get('mode') || '').trim().toLowerCase();
+  const startParam = normalizeDateOnly(url.searchParams.get('start'));
+  const endParam = normalizeDateOnly(url.searchParams.get('end'));
+
+  let selectedRange = currentWeek;
+  let preset = 'current_week';
+
+  if ((presetParam === 'last_week' || modeParam === 'last_week')) {
+    selectedRange = lastWeek;
+    preset = 'last_week';
+  } else if (startParam && endParam) {
+    const startDate = parseDateOnly(startParam);
+    const endDate = parseDateOnly(endParam);
+    if (!startDate || !endDate || startDate.getTime() > endDate.getTime()) {
+      throw new Error('Invalid leaderboard date range.');
+    }
+    selectedRange = {
+      label: 'Custom Range',
+      start: startParam,
+      end: endParam,
+    };
+    preset = 'custom';
+  }
+
+  return { preset, selectedRange, currentWeek, lastWeek };
+}
+
+function getUtcWeekRange(weekOffset: number): RangeWindow {
+  const now = new Date();
+  const utcDay = now.getUTCDay();
+  const daysSinceMonday = (utcDay + 6) % 7;
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday + (weekOffset * 7), 0, 0, 0, 0));
+  const sunday = new Date(monday.getTime() + (6 * 24 * 60 * 60 * 1000));
+  return {
+    label: weekOffset === 0 ? 'This Week' : 'Last Week',
+    start: formatDateOnly(monday),
+    end: formatDateOnly(sunday),
+  };
+}
+
+function normalizeDateOnly(value: string | null) {
+  const text = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+}
+
+function parseDateOnly(value: string) {
+  const normalized = normalizeDateOnly(value);
+  if (!normalized) return null;
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function nextUtcDay(dateOnly: string) {
+  const parsed = parseDateOnly(dateOnly);
+  if (!parsed) return dateOnly;
+  const next = new Date(parsed.getTime() + (24 * 60 * 60 * 1000));
+  return next.toISOString();
+}
+
+function parseTimestamp(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function normalizeAddress(address: unknown) {
@@ -220,28 +358,27 @@ function isMissingRelationError(error: unknown) {
   return message.includes('relation') && message.includes('does not exist');
 }
 
-function createAdmin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-}
-
 function normalizeError(error: unknown) {
-  if (error && typeof error === 'object') {
-    const row = error as Record<string, unknown>;
-    return {
-      message: String(row.message || 'Leaderboard load failed.'),
-      code: row.code ?? null,
-      details: row.details ?? null,
-      hint: row.hint ?? null,
-      name: row.name ?? null,
-    };
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
   }
-  return { message: String(error || 'Leaderboard load failed.'), code: null, details: null, hint: null, name: null };
+  return { message: String(error || 'Unknown error') };
 }
 
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+function createAdmin() {
+  const url = Deno.env.get('SUPABASE_URL');
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !serviceRole) throw new Error('Missing Supabase environment configuration.');
+  return createClient(url, serviceRole, { auth: { persistSession: false } });
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
 }
