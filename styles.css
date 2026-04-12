@@ -8210,6 +8210,10 @@ body.story-active #startModeModal.modal-primed-under-intro button {
 }
 
 .champion-modal-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: rgba(20,24,34,0.72); border: 1px solid rgba(255,255,255,0.12); color: #f4e8c4; font-size: 13px; line-height: 1.45; }
+#championModal { z-index: 21050; pointer-events: auto; }
+#championModal .intro-modal-card { pointer-events: auto; }
+#championLockModal { z-index: 21060; pointer-events: auto; }
+#championLockModal .intro-modal-card { pointer-events: auto; }
 
 
 .champion-collapsed-preview-card{align-items:flex-start;}
@@ -8428,4 +8432,270 @@ body.story-active #startModeModal.modal-primed-under-intro button {
     --desktop-right-panel: 132px;
     --tile-gap: 4px;
   }
+}
+
+
+.reward-claims-admin-subtitle{font-weight:700;margin:8px 0 10px;color:#f2e7b5;letter-spacing:.02em}
+.reward-claims-admin-whitelist{margin:0 0 16px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(0,0,0,.18)}
+.reward-claims-admin-whitelist-form{display:grid;grid-template-columns:minmax(260px,2fr) repeat(3,max-content) minmax(120px,1fr) minmax(120px,1fr) minmax(180px,1.5fr) max-content;gap:8px;align-items:center}
+.reward-claims-input{min-height:36px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(15,18,28,.7);color:#fff;padding:8px 10px}
+.reward-claims-check{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.reward-claims-admin-whitelist-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.reward-claim-whitelist-row{display:grid;grid-template-columns:minmax(260px,2fr) repeat(4,max-content) minmax(140px,1fr) minmax(140px,1fr) minmax(180px,1.5fr) max-content;gap:8px;align-items:center;padding:10px;border-radius:10px;background:rgba(255,255,255,.05)}
+.reward-claim-whitelist-pill{padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px}
+.reward-claim-whitelist-pill.is-on{background:rgba(66,184,131,.22)}
+.reward-claim-whitelist-pill.is-off{background:rgba(255,255,255,.06);opacity:.75}
+.reward-claim-whitelist-wallet{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.reward-claim-whitelist-notes{font-size:12px;opacity:.9}
+.reward-claim-whitelist-actions{display:flex;gap:6px;justify-content:flex-end}
+@media (max-width: 1200px){.reward-claims-admin-whitelist-form,.reward-claim-whitelist-row{grid-template-columns:1fr 1fr}.reward-claims-check{white-space:normal}}
+
+
+.treasury-flyout {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: min(1240px, 98vw) !important;
+  z-index: 100050 !important;
+}
+
+#treasuryFlyoutBackdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100049 !important;
+}
+
+.treasury-flyout-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 6px;
+}
+
+.treasury-flyout .reward-claims-admin {
+  margin-top: 8px;
+}
+
+.treasury-flyout .wallet-profile-balance,
+.treasury-flyout .wallet-tracking-summary {
+  flex: 0 0 auto;
+}
+
+.menu-resource-strip{
+  margin:0 0 12px 0;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(157,126,28,.55);
+  background:linear-gradient(180deg, rgba(51,38,103,.9), rgba(31,24,68,.92));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.menu-resource-row{
+  color:#f0de71;
+  font-weight:700;
+  line-height:1.35;
+  font-size:14px;
+}
+.menu-resource-row + .menu-resource-row{
+  margin-top:4px;
+}
+.menu-resource-label{
+  color:#f0de71;
+}
+.jewel-received-lightwindow-backdrop{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(10,7,20,.62);
+  backdrop-filter:blur(4px);
+  z-index:10060;
+}
+.jewel-received-lightwindow{
+  width:min(520px, calc(100vw - 36px));
+  padding:18px 18px 16px;
+  border-radius:18px;
+  border:1px solid rgba(181,145,37,.9);
+  background:linear-gradient(180deg, rgba(87,64,10,.97), rgba(42,28,8,.97));
+  box-shadow:0 20px 50px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,240,180,.12);
+  color:#f4ead2;
+  text-align:center;
+}
+.jewel-received-kicker{
+  font-size:13px;
+  letter-spacing:.08em;
+  color:#e4cf82;
+  margin-bottom:10px;
+}
+.jewel-received-title{
+  font-size:32px;
+  font-weight:800;
+  line-height:1.1;
+  color:#fff3bf;
+  margin-bottom:10px;
+}
+.jewel-received-copy{
+  font-size:15px;
+  color:#f2e7c1;
+  opacity:.92;
+  margin-bottom:16px;
+}
+.jewel-received-close{
+  min-width:148px;
+  padding:10px 18px;
+  border-radius:12px;
+  border:1px solid rgba(213,180,74,.9);
+  background:linear-gradient(180deg, rgba(158,121,20,.95), rgba(115,85,12,.95));
+  color:#fff7d0;
+  font-weight:800;
+  cursor:pointer;
+}
+
+#walletPanelToggle .wallet-panel-title-row{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+}
+#walletPanelToggle .wallet-status{
+  white-space:nowrap;
+  font-size:0.5rem;
+  line-height:1.05;
+}
+#walletJewelBalance,
+#walletDfkgoldBalance{
+  display:none !important;
+}
+.wallet-top-balances{
+  display:grid;
+  gap:4px;
+  margin:0 0 12px 0;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(157,126,28,.55);
+  background:linear-gradient(180deg, rgba(51,38,103,.9), rgba(31,24,68,.92));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.wallet-top-balance{
+  color:#f0de71;
+  font-weight:700;
+  line-height:1.35;
+  font-size:14px;
+}
+
+#buttonsPanel .wallet-status{ display:none !important; }
+.buttons-panel-body{
+  display:grid;
+  gap:8px;
+}
+.modal-top-toggle{
+  display:flex;
+  gap:8px;
+  margin:0 0 12px 0;
+}
+.modal-top-toggle.compact{
+  margin-bottom:10px;
+}
+.modal-top-toggle-btn{
+  flex:1 1 0;
+  min-height:34px;
+  padding:0 12px;
+  border-radius:10px;
+  border:1px solid rgba(213,180,74,.4);
+  background:linear-gradient(180deg, rgba(37,31,62,.9), rgba(20,17,34,.94));
+  color:#eadcb7;
+  font-size:0.82rem;
+  font-weight:800;
+  cursor:pointer;
+}
+.modal-top-toggle-btn.active{
+  background:linear-gradient(180deg, rgba(135,104,18,.98), rgba(92,68,10,.98));
+  color:#fff6cf;
+}
+.quests-modal-card,
+.bounty-modal-card{
+  max-width:min(1080px, calc(100vw - 28px));
+}
+.quests-body,
+.bounty-body{
+  display:grid;
+  gap:10px;
+}
+.quests-grid,
+.bounty-grid{
+  gap:10px;
+}
+.quest-card{
+  min-height:180px;
+  padding:12px !important;
+}
+.bounty-card{
+  min-height:158px;
+  padding:12px;
+}
+.quest-progress-row{
+  gap:6px;
+  margin-bottom:8px;
+}
+.quest-title,
+.quest-name,
+.bounty-title{
+  font-size:0.92rem;
+}
+.quest-card .quest-progress-text,
+.bounty-card .bounty-detail,
+.bounty-card .bounty-meta,
+.bounty-card .bounty-eligibility,
+.bounty-card .bounty-claimant{
+  font-size:0.78rem;
+  line-height:1.3;
+}
+.bounty-card .bounty-tier-label,
+.bounty-card .bounty-reward-pill,
+.bounty-card .bounty-state-chip,
+.quest-card .quest-tier-label,
+.quest-card .quest-reward-pill,
+.quest-card .quest-state-pill{
+  font-size:11px;
+}
+.bounty-card .small-action,
+.quest-card .small-action,
+.quest-card button,
+.bounty-card button{
+  min-height:34px;
+  font-size:0.78rem;
+}
+
+.wallet-top-balance-small{
+  font-size:12px;
+  font-weight:700;
+  color:#d9d7c8;
+}
+
+#walletTrackingSummary{display:none !important;}
+
+.wallet-top-balance-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.wallet-top-refresh{
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+  border-radius:10px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  flex:0 0 auto;
+}
+.wallet-top-refresh:disabled{
+  opacity:.7;
+  cursor:not-allowed;
 }

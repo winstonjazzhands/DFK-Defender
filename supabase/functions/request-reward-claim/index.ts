@@ -1,5 +1,5 @@
-
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { isAutoJewelPayoutConfigured, tryAutoPayJewelClaim } from '../_shared/reward-payout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,6 +153,25 @@ Deno.serve(async (req) => {
     const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'daily_quest', amountValue, claimDay);
 
     const requestKey = `daily_quest:${walletAddress}:${claimDay}:${questId}`;
+    const { data: existingClaim, error: existingError } = await admin
+      .from('reward_claim_requests')
+      .select('id, status, tx_hash, paid_at, reward_currency, amount_value, amount_text, wallet_address, admin_note, approved_at, resolved_at, resolved_by_wallet, failure_reason')
+      .eq('request_key', requestKey)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existingClaim?.id) {
+      return json({
+        ok: true,
+        claimId: existingClaim.id,
+        status: existingClaim.status || 'pending',
+        txHash: existingClaim.tx_hash || null,
+        message: (existingClaim.status === 'paid' || existingClaim.tx_hash)
+          ? `${questName} was already paid from treasury.`
+          : `${questName} was already submitted earlier today.`,
+      });
+    }
+
+    const nowIso = new Date().toISOString();
     const insertPayload = {
       request_key: requestKey,
       wallet_address: walletAddress,
@@ -166,26 +185,61 @@ Deno.serve(async (req) => {
       source_ref: `quest:${questId}`,
       run_id: qualifyingRun.id,
       claim_day: claimDay,
-      approved_at: whitelistDecision.autoApprove ? new Date().toISOString() : null,
-      resolved_at: whitelistDecision.autoApprove ? new Date().toISOString() : null,
+      approved_at: whitelistDecision.autoApprove ? nowIso : null,
+      resolved_at: whitelistDecision.autoApprove ? nowIso : null,
       resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
       admin_note: whitelistDecision.note || null,
     };
 
     const { data: inserted, error: insertError } = await admin
       .from('reward_claim_requests')
-      .upsert(insertPayload, { onConflict: 'request_key' })
-      .select('id, status, requested_at')
+      .insert(insertPayload)
+      .select('id, status, requested_at, tx_hash, paid_at, reward_currency, amount_value, amount_text, wallet_address, admin_note, approved_at, resolved_at, resolved_by_wallet, failure_reason')
       .single();
     if (insertError) throw insertError;
+
+    let status = inserted?.status || 'pending';
+    let txHash = inserted?.tx_hash || null;
+    let message = whitelistDecision.autoApprove
+      ? `${questName} claim auto-approved for this whitelisted wallet.`
+      : `${questName} claim sent for payout review.`;
+
+    if (whitelistDecision.autoApprove && inserted?.id) {
+      const payoutResult = await tryAutoPayJewelClaim(admin, {
+        id: inserted.id,
+        wallet_address: inserted.wallet_address || walletAddress,
+        status: inserted.status,
+        amount_value: inserted.amount_value,
+        reward_currency: inserted.reward_currency,
+        amount_text: inserted.amount_text,
+        admin_note: inserted.admin_note,
+        approved_at: inserted.approved_at,
+        resolved_at: inserted.resolved_at,
+        resolved_by_wallet: inserted.resolved_by_wallet,
+        tx_hash: inserted.tx_hash,
+        paid_at: inserted.paid_at,
+        failure_reason: inserted.failure_reason,
+      });
+      if (payoutResult.paid) {
+        status = 'paid';
+        txHash = payoutResult.txHash || null;
+        message = `${questName} paid automatically from treasury.`;
+      } else if (payoutResult.attempted) {
+        status = 'approved';
+        message = `${questName} auto-approved, but treasury payout failed and needs review: ${payoutResult.message}`;
+      } else if (isAutoJewelPayoutConfigured()) {
+        message = `${questName} auto-approved. ${payoutResult.message}`;
+      } else {
+        message = `${questName} auto-approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable automatic JEWEL payouts.`;
+      }
+    }
 
     return json({
       ok: true,
       claimId: inserted?.id || null,
-      status: inserted?.status || 'pending',
-      message: whitelistDecision.autoApprove
-        ? `${questName} claim auto-approved for this whitelisted wallet. Manual payout is still required unless you add a secure payout signer.`
-        : `${questName} claim sent for payout review.`,
+      status,
+      txHash,
+      message,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Failed to submit reward claim.' }, 500);

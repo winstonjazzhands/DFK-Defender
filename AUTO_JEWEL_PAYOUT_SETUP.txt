@@ -1,0 +1,65 @@
+Automatic JEWEL payout wiring
+=============================
+
+This build can auto-pay approved JEWEL reward claims directly from the treasury wallet on DFK Chain.
+
+What changed
+------------
+- request-reward-claim now attempts an automatic JEWEL token payout when a whitelisted daily quest claim is auto-approved.
+- claim-bounty now attempts an automatic JEWEL token payout when a whitelisted bounty claim is auto-approved.
+- repeated submissions no longer overwrite an already-paid reward request.
+- successful payouts update reward_claim_requests with:
+  - status = paid
+  - paid_at
+  - tx_hash
+  - failure_reason cleared
+- failed payout attempts keep the claim approved and store failure_reason for review.
+
+Required Supabase secret
+------------------------
+Set ONE of these secrets to the treasury wallet private key:
+- TREASURY_PRIVATE_KEY
+- DFK_TREASURY_PRIVATE_KEY
+
+The private key must match TREASURY_ADDRESS exactly or payouts will fail.
+
+Recommended secrets / envs
+--------------------------
+- DFK_RPC_URL
+- TREASURY_ADDRESS
+- TREASURY_PRIVATE_KEY
+
+Deploy
+------
+Redeploy these functions after setting the secret:
+- request-reward-claim
+- claim-bounty
+
+Example commands:
+  npx supabase secrets set TREASURY_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+  npx supabase functions deploy request-reward-claim --no-verify-jwt
+  npx supabase functions deploy claim-bounty --no-verify-jwt
+
+How payout works
+----------------
+- Wallet submits a reward claim.
+- Whitelist rules decide whether the claim is auto-approved.
+- If auto-approved AND the reward currency is JEWEL AND the treasury signer secret exists:
+  - the function sends native JEWEL from treasury to the player's wallet
+  - waits for the receipt
+  - marks the request paid with tx_hash
+- If the chain send fails:
+  - the request stays approved
+  - failure_reason is stored for manual follow-up
+
+Important
+---------
+- This pays JEWEL as a native transfer on DFK Chain.
+- The treasury wallet must hold enough native JEWEL for payouts and enough gas to submit the transaction.
+- Unsupported currencies stay approved for manual review.
+
+
+Private key format notes:
+- Paste the raw MetaMask private key, not the recovery phrase.
+- 64 hex characters without 0x is OK; the function now normalizes that to 0x-prefixed format.
+- Do not wrap the key in quotes.

@@ -225,3 +225,78 @@ set
   required_wave = excluded.required_wave,
   detail = excluded.detail,
   unlock_delay_hours = excluded.unlock_delay_hours;
+
+
+create table if not exists public.reward_claim_whitelist (
+  wallet_address text primary key references public.players(wallet_address) on delete cascade,
+  is_active boolean not null default true,
+  auto_daily boolean not null default false,
+  auto_bounty boolean not null default false,
+  max_claim_amount numeric(20,8),
+  daily_cap numeric(20,8),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint reward_claim_whitelist_wallet_lowercase check (wallet_address = lower(wallet_address))
+);
+
+create table if not exists public.reward_claim_requests (
+  id uuid primary key default gen_random_uuid(),
+  request_key text not null unique,
+  wallet_address text not null references public.players(wallet_address) on delete cascade,
+  claim_type text not null,
+  status text not null default 'pending',
+  player_name_snapshot text,
+  amount_text text,
+  amount_value numeric(20,8),
+  reward_currency text,
+  reason_text text,
+  source_ref text,
+  run_id uuid references public.runs(id) on delete set null,
+  claim_day date,
+  requested_at timestamptz not null default now(),
+  approved_at timestamptz,
+  paid_at timestamptz,
+  resolved_at timestamptz,
+  resolved_by_wallet text,
+  admin_note text,
+  tx_hash text,
+  failure_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint reward_claim_requests_wallet_lowercase check (wallet_address = lower(wallet_address)),
+  constraint reward_claim_requests_status_valid check (status in ('pending','approved','rejected','paid'))
+);
+
+create index if not exists idx_reward_claim_requests_wallet_day on public.reward_claim_requests (wallet_address, claim_day desc);
+create index if not exists idx_reward_claim_requests_status on public.reward_claim_requests (status, requested_at desc);
+create index if not exists idx_reward_claim_requests_run on public.reward_claim_requests (run_id);
+
+alter table public.reward_claim_whitelist enable row level security;
+alter table public.reward_claim_requests enable row level security;
+
+drop trigger if exists trg_reward_claim_whitelist_updated_at on public.reward_claim_whitelist;
+create trigger trg_reward_claim_whitelist_updated_at
+before update on public.reward_claim_whitelist
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_reward_claim_requests_updated_at on public.reward_claim_requests;
+create trigger trg_reward_claim_requests_updated_at
+before update on public.reward_claim_requests
+for each row execute function public.set_updated_at();
+
+drop policy if exists "reward_claim_whitelist_read_none" on public.reward_claim_whitelist;
+create policy "reward_claim_whitelist_read_none"
+  on public.reward_claim_whitelist
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+drop policy if exists "reward_claim_requests_read_none" on public.reward_claim_requests;
+create policy "reward_claim_requests_read_none"
+  on public.reward_claim_requests
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);

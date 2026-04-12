@@ -52,10 +52,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const session = await requireTreasurySession(req, admin);
     const walletAddress = normalizeAddress(body.walletAddress || session.wallet_address);
-    const treasuryAddress = normalizeAddress(Deno.env.get('DFK_AVAX_TREASURY_ADDRESS') || '0x971bdacd04ef40141ddb6ba175d4f76665103c81');
+    const treasuryAddress = normalizeAddress(Deno.env.get('DFK_AVAX_TREASURY_ADDRESS') || '0xab45288409900be5ef23c19726a30c28268495ad');
+    const privateAdminWallets = (Deno.env.get('DFK_PRIVATE_ADMIN_WALLETS') || `${treasuryAddress},0x971bdacd04ef40141ddb6ba175d4f76665103c81`)
+      .split(',')
+      .map((value) => normalizeAddress(value))
+      .filter(Boolean);
     if (!walletAddress) return json({ error: 'walletAddress is required.' }, 400);
     if (walletAddress !== normalizeAddress(session.wallet_address)) return json({ error: 'Wallet mismatch.' }, 401);
-    if (walletAddress !== treasuryAddress) return json({ error: 'Treasury access only.' }, 403);
+    if (!privateAdminWallets.includes(walletAddress)) return json({ error: 'Treasury access only.' }, 403);
 
     const { data: rows, error } = await admin
       .from('crypto_payment_sessions')

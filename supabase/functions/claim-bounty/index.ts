@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { isAutoJewelPayoutConfigured, tryAutoPayJewelClaim } from '../_shared/reward-payout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,6 @@ function json(payload: unknown, status = 200) {
 function normalizeAddress(address: string | null | undefined) {
   return String(address || '').trim().toLowerCase();
 }
-
 
 function normalizeOrigin(value: string | null | undefined) {
   const raw = String(value || '').trim();
@@ -71,7 +71,6 @@ function createAdmin() {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
-
 
 async function getWhitelistDecision(admin: ReturnType<typeof createAdmin>, walletAddress: string, claimType: 'daily_quest' | 'bounty', amountValue: number | null, claimDay: string) {
   const { data: rule, error: ruleError } = await admin
@@ -188,6 +187,31 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const claimedByName = cleanName(player?.vanity_name) || cleanName(player?.display_name) || walletAddress;
 
+    const rewardAmountText = String(active.reward_text || '').trim() || 'Reward pending';
+    const claimDay = now.toISOString().slice(0, 10);
+    const amountValue = Number((rewardAmountText.match(/([\d.]+)/) || [])[1] || 0) || null;
+    const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'bounty', amountValue, claimDay);
+    const requestKey = `bounty:${String(active.id)}`;
+
+    const { data: existingClaim, error: existingError } = await admin
+      .from('reward_claim_requests')
+      .select('id, status, tx_hash, paid_at, reward_currency, amount_value, amount_text, wallet_address, admin_note, approved_at, resolved_at, resolved_by_wallet, failure_reason')
+      .eq('request_key', requestKey)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existingClaim?.id) {
+      return json({
+        ok: true,
+        claimedBountyId: active.id,
+        title: active.title,
+        status: existingClaim.status || 'pending',
+        txHash: existingClaim.tx_hash || null,
+        message: (existingClaim.status === 'paid' || existingClaim.tx_hash)
+          ? `${claimedByName} already received the payout for ${active.title}.`
+          : `${claimedByName} already claimed ${active.title}.`,
+      });
+    }
+
     const { error: claimError } = await admin
       .from('bounties')
       .update({
@@ -208,34 +232,30 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-
-const rewardAmountText = String(active.reward_text || '').trim() || 'Reward pending';
-const claimDay = new Date(now.toISOString().slice(0, 10)).toISOString().slice(0,10);
-const amountValue = Number((rewardAmountText.match(/([\d.]+)/) || [])[1] || 0) || null;
-const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'bounty', amountValue, claimDay);
-const requestKey = `bounty:${String(active.id)}`;
-const rewardInsert = {
-  request_key: requestKey,
-  wallet_address: walletAddress,
-  claim_type: 'bounty',
-  status: whitelistDecision.autoApprove ? 'approved' : 'pending',
-  player_name_snapshot: claimedByName,
-  amount_text: rewardAmountText,
-  amount_value: amountValue,
-  reward_currency: /avax/i.test(rewardAmountText) ? 'AVAX' : (/jewel/i.test(rewardAmountText) || /\bJ\b/i.test(rewardAmountText) ? 'JEWEL' : null),
-  reason_text: active.title,
-  source_ref: `bounty:${String(active.id)}`,
-  run_id: qualifyingRun.id,
-  claim_day: claimDay,
-  approved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
-  resolved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
-  resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
-  admin_note: whitelistDecision.note || null,
-};
-const { error: rewardRequestError } = await admin
-  .from('reward_claim_requests')
-  .upsert(rewardInsert, { onConflict: 'request_key', ignoreDuplicates: false });
-if (rewardRequestError) throw rewardRequestError;
+    const rewardInsert = {
+      request_key: requestKey,
+      wallet_address: walletAddress,
+      claim_type: 'bounty',
+      status: whitelistDecision.autoApprove ? 'approved' : 'pending',
+      player_name_snapshot: claimedByName,
+      amount_text: rewardAmountText,
+      amount_value: amountValue,
+      reward_currency: /avax/i.test(rewardAmountText) ? 'AVAX' : (/jewel/i.test(rewardAmountText) || /\bJ\b/i.test(rewardAmountText) ? 'JEWEL' : null),
+      reason_text: active.title,
+      source_ref: `bounty:${String(active.id)}`,
+      run_id: qualifyingRun.id,
+      claim_day: claimDay,
+      approved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
+      resolved_at: whitelistDecision.autoApprove ? now.toISOString() : null,
+      resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
+      admin_note: whitelistDecision.note || null,
+    };
+    const { data: insertedClaim, error: rewardRequestError } = await admin
+      .from('reward_claim_requests')
+      .insert(rewardInsert)
+      .select('id, status, tx_hash, paid_at, reward_currency, amount_value, amount_text, wallet_address, admin_note, approved_at, resolved_at, resolved_by_wallet, failure_reason')
+      .single();
+    if (rewardRequestError) throw rewardRequestError;
 
     let nextRevealAt: string | null = null;
     if (nextBounty?.id) {
@@ -249,14 +269,50 @@ if (rewardRequestError) throw rewardRequestError;
       if (nextError) throw nextError;
     }
 
+    let status = insertedClaim?.status || 'pending';
+    let txHash = insertedClaim?.tx_hash || null;
+    let message = whitelistDecision.autoApprove
+      ? `${claimedByName} claimed ${active.title}. Claim auto-approved for this whitelisted wallet.`
+      : `${claimedByName} claimed ${active.title}.`;
+
+    if (whitelistDecision.autoApprove && insertedClaim?.id) {
+      const payoutResult = await tryAutoPayJewelClaim(admin, {
+        id: insertedClaim.id,
+        wallet_address: insertedClaim.wallet_address || walletAddress,
+        status: insertedClaim.status,
+        amount_value: insertedClaim.amount_value,
+        reward_currency: insertedClaim.reward_currency,
+        amount_text: insertedClaim.amount_text,
+        admin_note: insertedClaim.admin_note,
+        approved_at: insertedClaim.approved_at,
+        resolved_at: insertedClaim.resolved_at,
+        resolved_by_wallet: insertedClaim.resolved_by_wallet,
+        tx_hash: insertedClaim.tx_hash,
+        paid_at: insertedClaim.paid_at,
+        failure_reason: insertedClaim.failure_reason,
+      });
+      if (payoutResult.paid) {
+        status = 'paid';
+        txHash = payoutResult.txHash || null;
+        message = `${claimedByName} claimed ${active.title} and treasury paid it automatically.`;
+      } else if (payoutResult.attempted) {
+        status = 'approved';
+        message = `${claimedByName} claimed ${active.title}. Auto-approved, but treasury payout failed and needs review: ${payoutResult.message}`;
+      } else if (isAutoJewelPayoutConfigured()) {
+        message = `${claimedByName} claimed ${active.title}. Auto-approved. ${payoutResult.message}`;
+      } else {
+        message = `${claimedByName} claimed ${active.title}. Auto-approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable automatic JEWEL payouts.`;
+      }
+    }
+
     return json({
       ok: true,
       claimedBountyId: active.id,
       title: active.title,
       nextRevealAt,
-      message: whitelistDecision.autoApprove
-        ? `${claimedByName} claimed ${active.title}. Claim auto-approved for this whitelisted wallet. Manual payout is still required unless you add a secure payout signer.`
-        : `${claimedByName} claimed ${active.title}.`,
+      status,
+      txHash,
+      message,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Failed to claim bounty.' }, 500);

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BUILD_VERSION = 'v10.2.3';
+  const BUILD_VERSION = 'v10.2.4';
 
   const CONFIG = Object.freeze({
     chainId: Number(window.DFK_AVAX_CHAIN_ID || 43114),
@@ -17,7 +17,10 @@
     consumeRunFunction: window.DFK_SUPABASE_AVAX_CONSUME_RUN_FUNCTION || 'avax-consume-run',
     treasurySummaryFunction: window.DFK_SUPABASE_AVAX_TREASURY_SUMMARY_FUNCTION || 'avax-treasury-summary',
     rewardClaimsAdminFunction: window.DFK_SUPABASE_REWARD_CLAIMS_ADMIN_FUNCTION || 'reward-claims-admin',
-    treasuryAddress: window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81',
+    treasuryAddress: window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad',
+    privateAdminWallets: (Array.isArray(window.DFK_PRIVATE_ADMIN_WALLETS) && window.DFK_PRIVATE_ADMIN_WALLETS.length
+      ? window.DFK_PRIVATE_ADMIN_WALLETS
+      : ['0xab45288409900be5ef23c19726a30c28268495ad', '0x971bdacd04ef40141ddb6ba175d4f76665103c81']).map((address) => String(address || '').trim().toLowerCase()).filter(Boolean),
     runPriceWei: String(window.DFK_AVAX_RUN_PRICE_WEI || '2000000000000000'),
     bundleGames: Number(window.DFK_AVAX_BUNDLE_GAMES || 100),
     freeWeb3Runs: window.DFK_AVAX_FREE_WEB3_RUNS !== false,
@@ -41,6 +44,8 @@
     rewardClaims: null,
     rewardClaimsLoading: false,
     rewardClaimsError: '',
+    rewardWhitelistSaving: false,
+    treasuryFlyoutOpen: false,
   };
   const ui = {};
 
@@ -76,7 +81,8 @@
   }
 
   function isTreasuryWallet(address) {
-    return !!normalizeAddress(address) && normalizeAddress(address) === normalizeAddress(CONFIG.treasuryAddress);
+    const normalized = normalizeAddress(address);
+    return !!normalized && (normalizeAddress(CONFIG.treasuryAddress) === normalized || CONFIG.privateAdminWallets.includes(normalized));
   }
 
   function formatShortAvaxFromWei(wei) {
@@ -84,6 +90,45 @@
     return full === '--' ? '--' : full.replace(/\s+AVAX$/, '');
   }
 
+  function formatJewelFromWei(wei) {
+    try {
+      const value = BigInt(String(wei || '0'));
+      const whole = value / 1000000000000000000n;
+      const frac = (value % 1000000000000000000n).toString().padStart(18, '0').slice(0, 3).replace(/0+$/, '');
+      return `${whole}${frac ? '.' + frac : ''} Jewel`;
+    } catch (_error) {
+      return '--';
+    }
+  }
+
+  function shortWallet(address) {
+    const value = String(address || '').trim();
+    return value ? `${value.slice(0, 8)}…${value.slice(-6)}` : '--';
+  }
+
+  function parseOptionalNumber(value) {
+    const raw = String(value == null ? '' : value).trim();
+    if (!raw) return null;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function setWhitelistFormFromItem(item) {
+    const walletInput = qs('rewardWhitelistWalletInput');
+    const activeInput = qs('rewardWhitelistActiveInput');
+    const dailyInput = qs('rewardWhitelistDailyInput');
+    const bountyInput = qs('rewardWhitelistBountyInput');
+    const maxClaimInput = qs('rewardWhitelistMaxClaimInput');
+    const dailyCapInput = qs('rewardWhitelistDailyCapInput');
+    const notesInput = qs('rewardWhitelistNotesInput');
+    if (walletInput) walletInput.value = String(item && item.walletAddress || '');
+    if (activeInput) activeInput.checked = !!(item && item.isActive);
+    if (dailyInput) dailyInput.checked = !!(item && item.autoDaily);
+    if (bountyInput) bountyInput.checked = !!(item && item.autoBounty);
+    if (maxClaimInput) maxClaimInput.value = item && item.maxClaimAmount != null ? String(item.maxClaimAmount) : '';
+    if (dailyCapInput) dailyCapInput.value = item && item.dailyCap != null ? String(item.dailyCap) : '';
+    if (notesInput) notesInput.value = String(item && item.notes || '');
+  }
 
 function renderRewardClaimsAdmin() {
   const section = qs('rewardClaimsAdminSection');
@@ -92,6 +137,7 @@ function renderRewardClaimsAdmin() {
   const refreshBtn = qs('refreshRewardClaimsBtn');
   const wallet = getWallet();
   const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
+  syncTreasuryFlyoutUi();
   if (section) {
     section.classList.toggle('hidden', !visible);
     section.setAttribute('aria-hidden', visible ? 'false' : 'true');
@@ -108,14 +154,37 @@ function renderRewardClaimsAdmin() {
     bodyEl.innerHTML = `<div class="bounty-status-banner is-error">${state.rewardClaimsError}</div>`;
     return;
   }
-  const data = state.rewardClaims || { pendingCount: 0, pendingTotalsByCurrency: {}, items: [] };
-  const pendingCount = Number(data.pendingCount || 0);
-  const items = Array.isArray(data.items) ? data.items : [];
-  if (statusEl) statusEl.textContent = `Pending claims: ${pendingCount} · Showing ${items.length}`;
-  if (!items.length) {
-    bodyEl.innerHTML = '<div class="reward-claims-admin-empty">No reward claims yet.</div>';
-    return;
+  const data = state.rewardClaims || { pendingCount: 0, completedCount: 0, pendingTotalsByCurrency: {}, items: [], pendingItems: [], completedItems: [], whitelistItems: [], spendItems: [] };
+  const pendingItems = Array.isArray(data.pendingItems) ? data.pendingItems : [];
+  const completedItems = Array.isArray(data.completedItems) ? data.completedItems : [];
+  const whitelistItems = Array.isArray(data.whitelistItems) ? data.whitelistItems : [];
+  const spendItems = Array.isArray(data.spendItems) ? data.spendItems : [];
+  const pendingCount = Number(data.pendingCount != null ? data.pendingCount : pendingItems.length || 0);
+  const completedCount = Number(data.completedCount != null ? data.completedCount : completedItems.length || 0);
+  if (statusEl) statusEl.textContent = `Pending claims: ${pendingCount} · Completed: ${completedCount} · Whitelisted wallets: ${whitelistItems.length}`;
+  const whitelistListEl = qs('rewardClaimsWhitelistList');
+  const saveWhitelistBtn = qs('saveRewardWhitelistBtn');
+  if (saveWhitelistBtn) saveWhitelistBtn.disabled = !!state.rewardClaimsLoading || !!state.rewardWhitelistSaving;
+  if (whitelistListEl) {
+    whitelistListEl.innerHTML = whitelistItems.length ? whitelistItems.map((item) => `
+      <div class="reward-claim-whitelist-row">
+        <div>
+          <div class="reward-claim-whitelist-wallet">${escapeHtml(shortWallet(item.walletAddress))}</div>
+          <div class="reward-claim-whitelist-notes mono">${escapeHtml(item.walletAddress || '')}</div>
+        </div>
+        <div class="reward-claim-whitelist-pill ${item.isActive ? 'is-on' : 'is-off'}">${item.isActive ? 'Active' : 'Inactive'}</div>
+        <div class="reward-claim-whitelist-pill ${item.autoDaily ? 'is-on' : 'is-off'}">Daily ${item.autoDaily ? 'On' : 'Off'}</div>
+        <div class="reward-claim-whitelist-pill ${item.autoBounty ? 'is-on' : 'is-off'}">Bounty ${item.autoBounty ? 'On' : 'Off'}</div>
+        <div class="reward-claim-whitelist-pill">Max ${item.maxClaimAmount != null ? escapeHtml(String(item.maxClaimAmount)) : '—'}</div>
+        <div class="reward-claim-whitelist-pill">Cap ${item.dailyCap != null ? escapeHtml(String(item.dailyCap)) : '—'}</div>
+        <div class="reward-claim-whitelist-notes">${escapeHtml(item.notes || '') || 'No notes'}</div>
+        <div class="reward-claim-whitelist-actions">
+          <button class="reward-claim-action-btn" data-whitelist-action="edit" data-whitelist-wallet="${escapeHtml(item.walletAddress || '')}">Edit</button>
+          <button class="reward-claim-action-btn is-danger" data-whitelist-action="delete" data-whitelist-wallet="${escapeHtml(item.walletAddress || '')}">Delete</button>
+        </div>
+      </div>`).join('') : '<div class="reward-claims-admin-empty">No wallets whitelisted yet.</div>';
   }
+
   const totals = data && data.pendingTotalsByCurrency && typeof data.pendingTotalsByCurrency === 'object'
     ? Object.entries(data.pendingTotalsByCurrency)
         .map(([currency, value]) => ({ currency: String(currency || '').trim() || 'OTHER', value: Number(value || 0) || 0 }))
@@ -124,42 +193,42 @@ function renderRewardClaimsAdmin() {
   const totalsMarkup = totals.length
     ? `<div class="reward-claims-admin-summary">${totals.map((entry) => `<div class="reward-claims-pill"><span class="reward-claims-pill-label">Pending ${entry.currency}</span><span class="reward-claims-pill-value">${entry.value}</span></div>`).join('')}</div>`
     : '';
-  bodyEl.innerHTML = `${totalsMarkup}${items.map((item) => {
+
+  const renderClaimCard = (item, completed = false) => {
     const status = String(item.status || 'pending').toLowerCase();
     const type = String(item.claimTypeLabel || item.claimType || 'Reward').trim();
     const amount = String(item.amountText || '--').trim();
     const walletText = String(item.walletAddress || '').trim();
-    const player = String(item.playerName || walletText || 'Unknown player').trim();
-    const reason = String(item.reason || item.title || '').trim();
-    const when = String(item.requestedAtLabel || item.requestedAt || '').trim();
+    const player = escapeHtml(String(item.playerName || walletText || 'Unknown player').trim());
+    const reason = escapeHtml(String(item.reason || item.title || '').trim() || '--');
+    const requested = escapeHtml(String(item.requestedAtLabel || item.requestedAt || '').trim() || '--');
     const sourceRef = String(item.sourceRef || '').trim();
     const claimDay = String(item.claimDay || '').trim();
     const adminNote = String(item.adminNote || '').trim();
+    const resolvedLabel = String(item.paidAtLabel || item.resolvedAtLabel || item.approvedAtLabel || '').trim();
     const whitelistLabel = item.whitelist && item.whitelist.isActive
       ? `<div class="reward-claim-whitelist-badge">Whitelist${item.whitelist.autoDaily || item.whitelist.autoBounty ? ' · Auto' : ''}</div>`
       : '';
-    const actions = `
-      <div class="reward-claim-actions">
-        ${status === 'pending' ? `<button class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve</button><button class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button>` : ''}
-        ${status !== 'paid' ? `<button class="reward-claim-action-btn is-good" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}
-      </div>
-    `;
+    const actions = completed
+      ? `<div class="reward-claim-actions">${status !== 'paid' ? `<button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Send Now</button><button class="reward-claim-action-btn" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}</div>`
+      : `<div class="reward-claim-actions"><button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Approve &amp; Send</button><button class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve Only</button><button class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button></div>`;
     return `
       <article class="reward-claim-card is-${status}">
         <div class="reward-claim-card-top">
           <div>
-            <div class="reward-claim-card-title">${type}</div>${whitelistLabel}
-            <div class="reward-claim-card-status status-${status}">${String(status).toUpperCase()}</div>
+            <div class="reward-claim-card-title">${escapeHtml(type)}</div>${whitelistLabel}
+            <div class="reward-claim-card-status status-${status}">${escapeHtml(String(status).toUpperCase())}</div>
           </div>
-          <div class="reward-claim-card-amount">${amount}</div>
+          <div class="reward-claim-card-amount">${escapeHtml(amount)}</div>
         </div>
         <div class="reward-claim-card-grid">
           <div><span class="reward-claim-label">Player</span><div class="reward-claim-value">${player}</div></div>
-          <div><span class="reward-claim-label">Wallet</span><div class="reward-claim-value mono">${walletText}</div></div>
-          <div><span class="reward-claim-label">For</span><div class="reward-claim-value">${reason || '--'}</div></div>
-          <div><span class="reward-claim-label">Requested</span><div class="reward-claim-value">${when || '--'}</div></div>
-          ${claimDay ? `<div><span class="reward-claim-label">Claim day</span><div class="reward-claim-value">${claimDay}</div></div>` : ''}
-          ${sourceRef ? `<div><span class="reward-claim-label">Source</span><div class="reward-claim-value mono">${sourceRef}</div></div>` : ''}
+          <div><span class="reward-claim-label">Wallet</span><div class="reward-claim-value mono">${escapeHtml(walletText)}</div></div>
+          <div><span class="reward-claim-label">For</span><div class="reward-claim-value">${reason}</div></div>
+          <div><span class="reward-claim-label">Requested</span><div class="reward-claim-value">${requested}</div></div>
+          ${claimDay ? `<div><span class="reward-claim-label">Claim day</span><div class="reward-claim-value">${escapeHtml(claimDay)}</div></div>` : ''}
+          ${sourceRef ? `<div><span class="reward-claim-label">Source</span><div class="reward-claim-value mono">${escapeHtml(sourceRef)}</div></div>` : ''}
+          ${resolvedLabel ? `<div><span class="reward-claim-label">Completed</span><div class="reward-claim-value">${escapeHtml(resolvedLabel)}</div></div>` : ''}
           ${adminNote ? `<div class="reward-claim-admin-note"><span class="reward-claim-label">Admin note</span><div class="reward-claim-value">${escapeHtml(adminNote)}</div></div>` : ''}
           ${item.txHash ? `<div><span class="reward-claim-label">Tx Hash</span><div class="reward-claim-value mono">${escapeHtml(item.txHash)}</div></div>` : ''}
           ${item.failureReason ? `<div class="reward-claim-admin-note"><span class="reward-claim-label">Failure</span><div class="reward-claim-value">${escapeHtml(item.failureReason)}</div></div>` : ''}
@@ -167,7 +236,86 @@ function renderRewardClaimsAdmin() {
         ${actions}
       </article>
     `;
-  }).join('')}`;
+  };
+
+  const pendingMarkup = pendingItems.length
+    ? pendingItems.map((item) => renderClaimCard(item, false)).join('')
+    : '<div class="reward-claims-admin-empty">No pending withdrawals.</div>';
+  const completedMarkup = completedItems.length
+    ? completedItems.map((item) => renderClaimCard(item, true)).join('')
+    : '<div class="reward-claims-admin-empty">No completed withdrawals yet.</div>';
+  const spendMarkup = spendItems.length
+    ? `<div class="reward-claim-spend-list">${spendItems.map((item) => `
+      <div class="reward-claim-whitelist-row reward-spend-row">
+        <div>
+          <div class="reward-claim-whitelist-wallet">${escapeHtml(String(item.playerName || shortWallet(item.walletAddress || '') || 'Unknown player'))}</div>
+          <div class="reward-claim-whitelist-notes mono">${escapeHtml(item.walletAddress || '')}</div>
+        </div>
+        <div class="reward-claim-whitelist-pill">JEWEL ${escapeHtml(formatJewelFromWei(item.jewelSpentWei || '0'))}</div>
+        <div class="reward-claim-whitelist-pill">DFK Gold ${escapeHtml(String(Math.round(Number(item.dfkGoldBurned || 0)).toLocaleString()))}</div>
+        <div class="reward-claim-whitelist-pill">JEWEL tx ${escapeHtml(String(Number(item.jewelSpendCount || 0)))}</div>
+        <div class="reward-claim-whitelist-pill">Gold burns ${escapeHtml(String(Number(item.dfkGoldBurnCount || 0)))}</div>
+        <div class="reward-claim-whitelist-notes">${escapeHtml(item.lastActivityAtLabel || 'No activity time')}</div>
+      </div>`).join('')}</div>`
+    : '<div class="reward-claims-admin-empty">No JEWEL or DFK Gold spend data yet.</div>';
+
+  bodyEl.innerHTML = `${totalsMarkup}
+    <div class="reward-claims-admin-group">
+      <div class="reward-claims-admin-subtitle">Pending withdrawals</div>
+      ${pendingMarkup}
+    </div>
+    <div class="reward-claims-admin-group">
+      <div class="reward-claims-admin-subtitle">Completed withdrawals</div>
+      ${completedMarkup}
+    </div>
+    <div class="reward-claims-admin-group">
+      <div class="reward-claims-admin-subtitle">Player spend list</div>
+      <div class="wallet-tracking-summary">JEWEL spent and DFK Gold burned by wallet.</div>
+      ${spendMarkup}
+    </div>`;
+}
+
+
+function hoistTreasuryFlyoutToBody() {
+  const panel = qs('avaxTreasuryPanel');
+  const backdrop = qs('treasuryFlyoutBackdrop');
+  const body = document.body;
+  if (panel && body && panel.parentElement !== body) body.appendChild(panel);
+  if (backdrop && body && backdrop.parentElement !== body) body.appendChild(backdrop);
+}
+
+function syncTreasuryFlyoutUi() {
+  const panel = qs('avaxTreasuryPanel');
+  const backdrop = qs('treasuryFlyoutBackdrop');
+  const button = qs('treasuryFlyoutBtn');
+  const wallet = getWallet();
+  const allowed = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
+  if (!allowed) state.treasuryFlyoutOpen = false;
+  const open = !!(allowed && state.treasuryFlyoutOpen);
+  if (button) {
+    button.classList.toggle('hidden', !allowed);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  if (panel) {
+    panel.classList.toggle('open', open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  if (backdrop) {
+    backdrop.classList.toggle('hidden', !open);
+    backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+}
+
+function openTreasuryFlyout() {
+  const wallet = getWallet();
+  if (!(wallet && wallet.address && isTreasuryWallet(wallet.address))) return;
+  state.treasuryFlyoutOpen = true;
+  syncTreasuryFlyoutUi();
+}
+
+function closeTreasuryFlyout() {
+  state.treasuryFlyoutOpen = false;
+  syncTreasuryFlyoutUi();
 }
 
 function updateTreasuryUi() {
@@ -179,10 +327,7 @@ function updateTreasuryUi() {
   const statusEl = qs('avaxTreasuryStatus');
   const wallet = getWallet();
   const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
-  if (panel) {
-    panel.classList.toggle('hidden', !visible);
-    panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
-  }
+  syncTreasuryFlyoutUi();
   if (!visible) {
     renderRewardClaimsAdmin();
     return;
@@ -446,16 +591,20 @@ function loadCachedBalance() {
   }
 
 
-  async function updateRewardClaimStatus(claimId, nextStatus) {
+  async function updateRewardClaimStatus(claimId, nextStatus, mode = 'status') {
     const wallet = getWallet();
     if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
-    const adminNote = window.prompt(`Optional admin note for ${nextStatus}:`, '') || '';
+    const adminNote = window.prompt(`Optional admin note for ${mode === 'approve_and_pay' ? 'approve and send' : nextStatus}:`, '') || '';
     let txHash = '';
-    if (nextStatus === 'paid') txHash = window.prompt('Optional payout transaction hash:', '') || '';
     state.rewardClaimsLoading = true;
     updateTreasuryUi();
     try {
-      await callFunction(CONFIG.rewardClaimsAdminFunction, {
+      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, mode === 'approve_and_pay' ? {
+        walletAddress: wallet.address,
+        action: 'approve_and_pay',
+        claimId,
+        adminNote,
+      } : {
         walletAddress: wallet.address,
         action: 'update_status',
         claimId,
@@ -463,9 +612,67 @@ function loadCachedBalance() {
         adminNote,
         txHash,
       });
+      if (response && response.txHash) {
+        setStatus(`Treasury payout sent: ${shortHash(response.txHash)}`, 'good');
+      } else if (response && response.message) {
+        setStatus(`Treasury: ${response.message}`, response.status === 'paid' ? 'good' : 'warn');
+      }
+      try {
+        if (window.refreshTopMenuData) window.refreshTopMenuData();
+        else if (window.DFKDefenseWallet && typeof window.DFKDefenseWallet.refreshWalletDetails === 'function') window.DFKDefenseWallet.refreshWalletDetails().catch(() => null);
+      } catch (_error) {}
       await refreshRewardClaimsAdmin();
     } finally {
       state.rewardClaimsLoading = false;
+      updateTreasuryUi();
+    }
+  }
+
+  async function saveRewardWhitelist() {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
+    const targetWallet = normalizeAddress(qs('rewardWhitelistWalletInput') && qs('rewardWhitelistWalletInput').value);
+    if (!targetWallet) throw new Error('Wallet address is required.');
+    state.rewardWhitelistSaving = true;
+    updateTreasuryUi();
+    try {
+      await callFunction(CONFIG.rewardClaimsAdminFunction, {
+        walletAddress: wallet.address,
+        action: 'whitelist_upsert',
+        targetWallet,
+        isActive: !!(qs('rewardWhitelistActiveInput') && qs('rewardWhitelistActiveInput').checked),
+        autoDaily: !!(qs('rewardWhitelistDailyInput') && qs('rewardWhitelistDailyInput').checked),
+        autoBounty: !!(qs('rewardWhitelistBountyInput') && qs('rewardWhitelistBountyInput').checked),
+        maxClaimAmount: parseOptionalNumber(qs('rewardWhitelistMaxClaimInput') && qs('rewardWhitelistMaxClaimInput').value),
+        dailyCap: parseOptionalNumber(qs('rewardWhitelistDailyCapInput') && qs('rewardWhitelistDailyCapInput').value),
+        notes: String(qs('rewardWhitelistNotesInput') && qs('rewardWhitelistNotesInput').value || '').trim(),
+      });
+      await refreshRewardClaimsAdmin();
+    } finally {
+      state.rewardWhitelistSaving = false;
+      updateTreasuryUi();
+    }
+  }
+
+  async function deleteRewardWhitelist(targetWallet) {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
+    if (!targetWallet) throw new Error('Wallet address is required.');
+    if (!window.confirm(`Delete whitelist entry for ${targetWallet}?`)) return;
+    state.rewardWhitelistSaving = true;
+    updateTreasuryUi();
+    try {
+      await callFunction(CONFIG.rewardClaimsAdminFunction, {
+        walletAddress: wallet.address,
+        action: 'whitelist_delete',
+        targetWallet,
+      });
+      if (normalizeAddress(qs('rewardWhitelistWalletInput') && qs('rewardWhitelistWalletInput').value) === normalizeAddress(targetWallet)) {
+        setWhitelistFormFromItem(null);
+      }
+      await refreshRewardClaimsAdmin();
+    } finally {
+      state.rewardWhitelistSaving = false;
       updateTreasuryUi();
     }
   }
@@ -483,7 +690,7 @@ function loadCachedBalance() {
     state.rewardClaimsError = '';
     updateTreasuryUi();
     try {
-      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 30 });
+      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100 });
       state.rewardClaims = response || { pendingCount: 0, items: [] };
       return state.rewardClaims;
     } catch (error) {
@@ -902,8 +1109,34 @@ function loadCachedBalance() {
     }
     if (goldBtn) goldBtn.addEventListener('click', () => buyPowerUp('gold_crate').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
     if (patchBtn) patchBtn.addEventListener('click', () => buyPowerUp('portal_patch').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
+    hoistTreasuryFlyoutToBody();
     const refreshClaimsBtn = qs('refreshRewardClaimsBtn');
     if (refreshClaimsBtn) refreshClaimsBtn.addEventListener('click', () => refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); }));
+    const treasuryFlyoutBtn = qs('treasuryFlyoutBtn');
+    if (treasuryFlyoutBtn) treasuryFlyoutBtn.addEventListener('click', () => { if (state.treasuryFlyoutOpen) closeTreasuryFlyout(); else openTreasuryFlyout(); });
+    const treasuryFlyoutCloseBtn = qs('avaxTreasuryPanelCloseBtn');
+    if (treasuryFlyoutCloseBtn) treasuryFlyoutCloseBtn.addEventListener('click', closeTreasuryFlyout);
+    const treasuryFlyoutBackdrop = qs('treasuryFlyoutBackdrop');
+    if (treasuryFlyoutBackdrop) treasuryFlyoutBackdrop.addEventListener('click', closeTreasuryFlyout);
+    const saveWhitelistBtn = qs('saveRewardWhitelistBtn');
+    if (saveWhitelistBtn) saveWhitelistBtn.addEventListener('click', () => saveRewardWhitelist().catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to save whitelist.'}`, 'bad'); updateTreasuryUi(); }));
+    const whitelistList = qs('rewardClaimsWhitelistList');
+    if (whitelistList) whitelistList.addEventListener('click', (event) => {
+      const button = event.target && event.target.closest ? event.target.closest('[data-whitelist-action]') : null;
+      if (!button) return;
+      const targetWallet = String(button.getAttribute('data-whitelist-wallet') || '').trim();
+      const action = String(button.getAttribute('data-whitelist-action') || '').trim().toLowerCase();
+      if (!targetWallet || !action) return;
+      const whitelistItems = Array.isArray(state.rewardClaims && state.rewardClaims.whitelistItems) ? state.rewardClaims.whitelistItems : [];
+      const item = whitelistItems.find((entry) => normalizeAddress(entry.walletAddress) === normalizeAddress(targetWallet)) || null;
+      if (action === 'edit') {
+        setWhitelistFormFromItem(item);
+        return;
+      }
+      if (action === 'delete') {
+        deleteRewardWhitelist(targetWallet).catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to delete whitelist.'}`, 'bad'); updateTreasuryUi(); });
+      }
+    });
     const rewardClaimsBody = qs('rewardClaimsAdminBody');
     if (rewardClaimsBody) rewardClaimsBody.addEventListener('click', (event) => {
       const button = event.target && event.target.closest ? event.target.closest('[data-claim-action]') : null;
@@ -911,10 +1144,14 @@ function loadCachedBalance() {
       const claimId = String(button.getAttribute('data-claim-id') || '').trim();
       const action = String(button.getAttribute('data-claim-action') || '').trim().toLowerCase();
       if (!claimId || !action) return;
+      if (action === 'approve_and_pay') {
+        updateRewardClaimStatus(claimId, 'approved', 'approve_and_pay').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to approve and send reward claim.'}`, 'bad'); updateTreasuryUi(); });
+        return;
+      }
       const map = { approve: 'approved', reject: 'rejected', paid: 'paid' };
       const nextStatus = map[action];
       if (!nextStatus) return;
-      updateRewardClaimStatus(claimId, nextStatus).catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to update reward claim.'}`, 'bad'); updateTreasuryUi(); });
+      updateRewardClaimStatus(claimId, nextStatus, 'status').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to update reward claim.'}`, 'bad'); updateTreasuryUi(); });
     });
   }
 

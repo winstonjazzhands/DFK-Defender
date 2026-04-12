@@ -238,15 +238,17 @@
 <div class="runlog-header" id="runLogHeader">
 <button aria-label="Collapse run log" aria-pressed="false" class="runlog-inline-toggle" id="runLogToggleBtn" onclick="return window.DFKToggleRunLog &amp;&amp; window.DFKToggleRunLog(event)" title="Collapse run log" type="button">▸</button>
 </div>
-<div aria-hidden="true" class="wallet-panel panel-lite collapsed hidden" id="avaxTreasuryPanel">
-<button aria-controls="avaxTreasuryPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="avaxTreasuryPanelToggle" type="button">
-<span class="wallet-panel-title-row">
-<span class="meta-title" id="avaxTreasuryPanelTitle">Treasury View</span>
-<span class="wallet-status wallet-good" id="avaxTreasuryStatus">Private</span>
-</span>
-<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
-</button>
-<div class="wallet-panel-body" id="avaxTreasuryPanelBody">
+<aside aria-hidden="true" class="leaderboard-flyout leaderboard-flyout-wide treasury-flyout panel" id="avaxTreasuryPanel">
+<div class="leaderboard-flyout-header leaderboard-flyout-header-compact treasury-flyout-header">
+<div>
+<div class="leaderboard-kicker">Private treasury admin</div>
+<h2 class="leaderboard-title leaderboard-title-compact">Treasury View</h2>
+<div class="leaderboard-reset-copy" id="avaxTreasuryStatus">Private</div>
+<div class="leaderboard-reset-copy">Private treasury summary, whitelist controls, and reward payout review.</div>
+</div>
+<button aria-label="Close treasury view" class="leaderboard-close" id="avaxTreasuryPanelCloseBtn" type="button">×</button>
+</div>
+<div class="treasury-flyout-scroll" id="avaxTreasuryPanelBody">
 <div class="wallet-profile-balance" id="avaxTreasuryTotal">Treasury Earned: --</div>
 <div class="wallet-tracking-summary" id="avaxTreasuryToday">Today: --</div>
 <div class="wallet-tracking-summary" id="avaxTreasuryBreakdown">Bundles: -- · Gold swaps: -- · Hero hires: --</div>
@@ -259,27 +261,51 @@
 </div>
 <button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshRewardClaimsBtn" type="button">Refresh claims</button>
 </div>
+<div class="reward-claims-admin-whitelist" id="rewardClaimsWhitelistSection">
+<div class="reward-claims-admin-subtitle">Withdrawal Whitelist</div>
+<div class="reward-claims-admin-whitelist-form">
+<input class="reward-claims-input mono" id="rewardWhitelistWalletInput" placeholder="Wallet address" type="text"/>
+<label class="reward-claims-check"><input id="rewardWhitelistActiveInput" checked="" type="checkbox"/> Active</label>
+<label class="reward-claims-check"><input id="rewardWhitelistDailyInput" type="checkbox"/> Daily quests</label>
+<label class="reward-claims-check"><input id="rewardWhitelistBountyInput" type="checkbox"/> Bounties</label>
+<input class="reward-claims-input" id="rewardWhitelistMaxClaimInput" min="0" placeholder="Max claim amount" step="0.01" type="number"/>
+<input class="reward-claims-input" id="rewardWhitelistDailyCapInput" min="0" placeholder="Daily cap" step="0.01" type="number"/>
+<input class="reward-claims-input" id="rewardWhitelistNotesInput" maxlength="160" placeholder="Notes" type="text"/>
+<button class="wallet-btn secondary" id="saveRewardWhitelistBtn" type="button">Save Wallet</button>
+</div>
+<div class="reward-claims-admin-whitelist-list" id="rewardClaimsWhitelistList"></div>
+</div>
 <div class="reward-claims-admin-body" id="rewardClaimsAdminBody"></div>
 </div>
 </div>
-</div><div class="wallet-panel panel-lite collapsed" id="buttonsPanel">
+</aside>
+<div class="wallet-top-balances" id="walletTopBalances">
+<div class="wallet-top-balance-row">
+<div class="wallet-top-balance" id="walletTopJewelBalance">JEWEL: --</div>
+<button class="wallet-top-refresh" id="walletTopRefreshBtn" type="button">Refresh</button>
+</div>
+<div class="wallet-top-balance" id="walletTopDfkgoldBalance">DFK Gold: --</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopClaimedToday">Claimed today: 0 Jewel</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopResetTimer">Reset timer: --</div>
+</div>
+<div class="wallet-panel panel-lite collapsed" id="buttonsPanel">
 <button aria-controls="buttonsPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="buttonsPanelToggle" type="button">
 <span class="wallet-panel-title-row">
-<span class="meta-title">Buttons</span>
-<span class="wallet-status">Menu</span>
+<span class="meta-title">Tools</span>
 </span>
 <span aria-hidden="true" class="wallet-panel-chevron">▾</span>
 </button>
 <div class="wallet-panel-body buttons-panel-body" id="buttonsPanelBody">
-<button class="intro-toggle" id="introBtn" type="button">📖 Learn More / Instructions</button>
-<button class="intro-toggle secondary-guide lore-toggle" id="loreBtn" type="button">📜 Lore</button>
-<button aria-controls="leaderboardFlyout" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide" id="leaderboardFlyoutBtn" type="button">📊 Leaderboard</button>
-<button class="menu-btn" id="playIntroAgainBtn" type="button">Play Intro Again</button>
-<button class="intro-toggle secondary-guide bounty-toggle" id="bountyBtn" type="button">🏆 Bounty Board</button>
-<button class="intro-toggle secondary-guide quests-toggle" id="questsBtn" type="button">✅ Daily Quests</button>
-<button class="intro-toggle secondary-guide tracked-runs-toggle" id="trackedRunsBtn" type="button">📜 Tracked Runs</button>
+<button class="intro-toggle secondary-guide quests-toggle" id="questsBtn" type="button">✅ Dailies / Bounties</button>
 <button class="intro-toggle secondary-guide known-relics-toggle" id="knownRelicsBtn" type="button">🧿 Known Relics</button>
+<button aria-controls="leaderboardFlyout" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide" id="leaderboardFlyoutBtn" type="button">📊 Leaderboard</button>
+<button class="intro-toggle secondary-guide" id="introBtn" type="button">📖 Lore / Learn more</button>
+<button class="intro-toggle secondary-guide tracked-runs-toggle" id="trackedRunsBtn" type="button">📜 Tracked Runs</button>
 <button class="intro-toggle secondary-guide transfer-heroes-toggle" id="transferHeroesBtn" type="button">📦 Transfer Heroes</button>
+<button aria-controls="avaxTreasuryPanel" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide hidden" id="treasuryFlyoutBtn" type="button">🏦 Treasury View</button>
+<button class="intro-toggle secondary-guide lore-toggle hidden" id="loreBtn" type="button">📜 Lore</button>
+<button class="intro-toggle secondary-guide bounty-toggle hidden" id="bountyBtn" type="button">🏆 Bounty Board</button>
 </div>
 </div>
 <div class="wallet-panel panel-lite collapsed" id="walletPanel">
@@ -292,8 +318,8 @@
 </button>
 <div class="wallet-panel-body" id="walletPanelBody">
 <div class="wallet-profile-name" id="walletProfileName">In-game Name: --</div>
-<div class="wallet-profile-balance" id="walletJewelBalance">Wallet JEWEL: --</div>
-<div class="wallet-profile-balance" id="walletDfkgoldBalance">Wallet DFK Gold: --</div>
+<div class="wallet-profile-balance" id="walletJewelBalance">JEWEL: --</div>
+<div class="wallet-profile-balance" id="walletDfkgoldBalance">DFK Gold: --</div>
 <div class="wallet-address" id="walletAddress">No wallet connected.</div>
 <div class="wallet-tracking-status" id="walletTrackingStatus">Run Tracking: Not connected</div>
 <div class="wallet-tracking-summary" id="walletTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
@@ -484,7 +510,7 @@
 </div>
 <button aria-label="Close intro" class="intro-close" id="closeIntroBtn" type="button">×</button>
 </div>
-<div class="intro-body" id="introBody"></div>
+<div class="modal-top-toggle" id="guideModeToggle"><button class="modal-top-toggle-btn active" id="guideIntroToggleBtn" type="button">Learn more</button><button class="modal-top-toggle-btn" id="guideLoreToggleBtn" type="button">Lore</button></div><div class="intro-body" id="introBody"></div>
 <div class="intro-modal-footer">
 <button class="secondary small-action" id="introPrevBtn" type="button">← Back</button>
 <div class="intro-page-label" id="introPageLabel">Page 1 / 6</div>
@@ -623,7 +649,7 @@
 </div>
 <button aria-label="Close daily quests" class="intro-close" id="closeQuestsBtn" type="button">×</button>
 </div>
-<div class="intro-body quests-body" id="questsBody"></div>
+<div class="modal-top-toggle compact" id="questModeToggle"><button class="modal-top-toggle-btn active" id="questDailyToggleBtn" type="button">Dailies</button><button class="modal-top-toggle-btn" id="questBountyToggleBtn" type="button">Bounties</button></div><div class="intro-body quests-body" id="questsBody"></div>
 </div>
 </div>
 <div aria-hidden="true" class="intro-modal tracked-runs-modal hidden" id="trackedRunsModal">
@@ -771,6 +797,7 @@
 </button>
 </div>
 
+<div aria-hidden="true" class="leaderboard-backdrop hidden" id="treasuryFlyoutBackdrop"></div>
 <div aria-hidden="true" class="leaderboard-backdrop hidden" id="leaderboardBackdrop"></div>
 <aside aria-hidden="false" class="leaderboard-flyout panel" id="leaderboardFlyout">
 <div class="leaderboard-flyout-header leaderboard-flyout-header-compact">

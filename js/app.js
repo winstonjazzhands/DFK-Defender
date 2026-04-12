@@ -517,12 +517,15 @@ function getRandomTree(){
     mythic: { label: 'Mythic', className: 'relic-rarity-mythic', color: '#d06dff' },
   };
   const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
+  const PRIVATE_ADMIN_WALLETS = Object.freeze((Array.isArray(window.DFK_PRIVATE_ADMIN_WALLETS) && window.DFK_PRIVATE_ADMIN_WALLETS.length
+    ? window.DFK_PRIVATE_ADMIN_WALLETS
+    : ['0xab45288409900be5ef23c19726a30c28268495ad', '0x971bdacd04ef40141ddb6ba175d4f76665103c81', '0xbA42e89b2f69C68E79898ba73D9A4Eb13D25c70e']).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
   const TEST_GOLD_ADMIN_WALLETS = Object.freeze((Array.isArray(window.DFK_TEST_GOLD_WALLETS) && window.DFK_TEST_GOLD_WALLETS.length
     ? window.DFK_TEST_GOLD_WALLETS
-    : ['0x971bDACd04EF40141ddb6bA175d4f76665103c81']).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
+    : PRIVATE_ADMIN_WALLETS).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
   const LIVE_DAMAGE_REPORT_WALLETS = Object.freeze((Array.isArray(window.DFK_LIVE_DAMAGE_REPORT_WALLETS) && window.DFK_LIVE_DAMAGE_REPORT_WALLETS.length
     ? window.DFK_LIVE_DAMAGE_REPORT_WALLETS
-    : ['0x971bDACd04EF40141ddb6bA175d4f76665103c81']).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
+    : PRIVATE_ADMIN_WALLETS).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
   const TEST_GOLD_GRANT_AMOUNT = 10000;
   const HIRE_COSTS = [25, 50, 88, 138];
   const MAX_STANDARD_HEROES_ON_BOARD = 5;
@@ -541,7 +544,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v1.4.39e';
+const APP_VERSION = 'v1.4.40';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -604,7 +607,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const PURPLE_FIRE_GIF_PATH = 'assets/purple-fire.gif';
   const FIREBALL_GIF_PATH = 'assets/fireball-flame-ball.png';
   const CANNONBALL_IMAGE_PATH = 'assets/cannonball.png';
-  const DRAGOON_SPEAR_IMAGE_PATH = 'assets/dragoon-spear.png';
+  const DRAGOON_SPEAR_SWING_IMAGE_PATH = 'assets/swinging-dragoon-spear.png';
+  const DRAGOON_SPEAR_THROW_IMAGE_PATH = 'assets/throwing-dragoon-spear.png';
   const CHAMPION_AUTO_ABILITY_DELAY_MS = 2000;
   const TOWER_ABILITY_CHAIN_DELAY_MS = 1500;
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
@@ -646,7 +650,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       name: 'Warrior',
       letter: 'WAR',
       hp: 1240,
-      damage: 56.5,
+      damage: 54.5,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
@@ -886,7 +890,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'devotion', name: 'Devotion', desc: "Spend 300 Gold. The Priest studies the old ways and Prayer of Healing cooldown is reduced by 1 second.", cost: 300, rarity: 'legendary', apply: game => game.modifiers.prayerCooldownAdjust += 1 },
     { id: 'meditate', name: 'Meditate', desc: 'Spend 100 Gold and the Seer meditates on the future to gain 5% attack speed.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'seer', { speedMult: 1.05 }) },
     { id: 'art_enjoyer', name: 'Art Enjoyer', desc: 'Spend 300 Gold to teach the Seer about art so Temporal Restoration also heals Statues.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.seerPassiveHealsStatues = true },
-    { id: 'oracle', name: 'Oracle', desc: 'Spend 300 Gold to reduce all Seer damage to zero but increase Seer healing by 3x.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.seerDamageMultiplier *= 0; game.modifiers.seerHealMultiplier *= 3; } },
+    { id: 'oracle', name: 'Oracle', desc: 'Spend 300 Gold to reduce all Seer damage to zero but increase Seer healing by 2x.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.seerDamageMultiplier *= 0; game.modifiers.seerHealMultiplier *= 2; } },
     { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
     { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 120, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
     { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 120, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
@@ -957,6 +961,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     questsModal: document.getElementById('questsModal'),
     questsBody: document.getElementById('questsBody'),
     closeQuestsBtn: document.getElementById('closeQuestsBtn'),
+    guideIntroToggleBtn: document.getElementById('guideIntroToggleBtn'),
+    guideLoreToggleBtn: document.getElementById('guideLoreToggleBtn'),
+    questDailyToggleBtn: document.getElementById('questDailyToggleBtn'),
+    questBountyToggleBtn: document.getElementById('questBountyToggleBtn'),
     trackedRunsModal: document.getElementById('trackedRunsModal'),
     trackedRunsBody: document.getElementById('trackedRunsBody'),
     closeTrackedRunsBtn: document.getElementById('closeTrackedRunsBtn'),
@@ -1197,6 +1205,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletHeroExpandedTypes: {},
     walletHeroSearch: {},
     walletHeroLoadPending: false,
+    walletHeroAutoLoadedKey: '',
     walletHeroLoadError: '',
     walletHeroPanelCollapsed: true,
     placingWalletHeroId: null,
@@ -1410,6 +1419,13 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
 
 
   const DAILY_QUEST_GOAL_MULTIPLIER = 5.625;
+  const DAILY_QUEST_BOARD_VERSION = 2;
+  const DAILY_QUEST_TIER_CONFIG = Object.freeze({
+    free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', goalMultiplier: 0.5, count: 3, unlocksRewardedQuests: true, tierLabel: 'Unlock Quest' }),
+    standard: Object.freeze({ rewardJewel: 1, rewardText: '1 Jewel', goalMultiplier: 1.5, count: 2, requiresFreeCompletion: true, tierLabel: 'Daily Quest' }),
+    elite: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', goalMultiplier: 3, count: 1, requiresFreeCompletion: true, tierLabel: 'Elite Quest' }),
+    bounty: Object.freeze({ rewardJewel: 20, rewardText: '20 Jewel', goalMultiplier: 30, count: 3, requiresFreeCompletion: true, sequentialUnlock: true, tierLabel: 'Bounty' }),
+  });
   const BASE_DAILY_QUEST_POOL = [
     { id: 'kill_50', name: 'Cull the Weak', description: 'Kill 50 enemies.', metric: 'killsTotal', goal: 50 },
     { id: 'kill_100', name: 'Field Clearer', description: 'Kill 100 enemies.', metric: 'killsTotal', goal: 100 },
@@ -1453,6 +1469,12 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'boss_waves_2', name: 'Brace for Impact', description: 'Clear 2 boss waves.', metric: 'bossWavesCleared', goal: 2 },
   ];
 
+  const DAILY_QUEST_TIER_SOURCE_IDS = Object.freeze({
+    free: Object.freeze(['kill_50', 'small_40', 'medium_20', 'large_8', 'skitter_5', 'boss_1', 'damage_10k', 'gold_800', 'spend_600', 'relics_1', 'heroes_3', 'upgrades_4', 'satellites_1', 'waves_10', 'wave_peak_10']),
+    standard: Object.freeze(['kill_100', 'kill_200', 'small_80', 'medium_40', 'large_15', 'skitter_12', 'damage_25k', 'gold_1800', 'spend_1400', 'relics_2', 'heroes_6', 'upgrades_10', 'satellites_3', 'waves_20', 'wave_peak_20', 'runs_2', 'boss_waves_2']),
+    elite: Object.freeze(['kill_350', 'boss_3', 'damage_50k', 'gold_3200', 'spend_2600', 'waves_35', 'wave_peak_30', 'runs_4']),
+  });
+
   function formatQuestGoal(value) {
     return Number(value || 0).toLocaleString('en-US');
   }
@@ -1480,17 +1502,51 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     }
   }
 
-  const DAILY_QUEST_POOL = BASE_DAILY_QUEST_POOL.map((quest) => {
-    const scaledGoal = Math.max(1, Math.ceil(Number(quest.goal || 0) * DAILY_QUEST_GOAL_MULTIPLIER));
-    return {
-      ...quest,
-      goal: scaledGoal,
-      description: buildDailyQuestDescription(quest, scaledGoal),
-    };
+  const DAILY_QUEST_BASE_MAP = Object.freeze(BASE_DAILY_QUEST_POOL.reduce((map, quest) => {
+    map[quest.id] = { ...quest };
+    return map;
+  }, {}));
+
+  function buildDailyQuestTierPool(tierKey) {
+    const tierMeta = DAILY_QUEST_TIER_CONFIG[tierKey];
+    const sourceIds = DAILY_QUEST_TIER_SOURCE_IDS[tierKey] || [];
+    return sourceIds.map((sourceId) => {
+      const quest = DAILY_QUEST_BASE_MAP[sourceId];
+      if (!quest) return null;
+      const scaledGoal = Math.max(1, Math.ceil(Number(quest.goal || 0) * DAILY_QUEST_GOAL_MULTIPLIER * Number(tierMeta.goalMultiplier || 1)));
+      return {
+        ...quest,
+        id: `${tierKey}:${quest.id}`,
+        sourceId: quest.id,
+        tierKey,
+        tierLabel: tierMeta.tierLabel,
+        rewardJewel: Number(tierMeta.rewardJewel || 0),
+        rewardText: tierMeta.rewardText,
+        goal: scaledGoal,
+        description: buildDailyQuestDescription(quest, scaledGoal),
+        requiresFreeCompletion: !!tierMeta.requiresFreeCompletion,
+        unlocksRewardedQuests: !!tierMeta.unlocksRewardedQuests,
+      };
+    }).filter(Boolean);
+  }
+
+  const DAILY_QUEST_TIER_POOLS = Object.freeze({
+    free: Object.freeze(buildDailyQuestTierPool('free')),
+    standard: Object.freeze(buildDailyQuestTierPool('standard')),
+    elite: Object.freeze(buildDailyQuestTierPool('elite')),
+    bounty: Object.freeze(buildDailyQuestTierPool('bounty')),
   });
 
+  const DAILY_QUEST_POOL = Object.freeze([
+    ...DAILY_QUEST_TIER_POOLS.free,
+    ...DAILY_QUEST_TIER_POOLS.standard,
+    ...DAILY_QUEST_TIER_POOLS.elite,
+    ...DAILY_QUEST_TIER_POOLS.bounty,
+  ]);
+
   function getQuestDefinitionById(id) {
-    return DAILY_QUEST_POOL.find((quest) => quest.id === id) || null;
+    const normalizedId = typeof id === 'object' && id ? String(id.id || '') : String(id || '');
+    return DAILY_QUEST_POOL.find((quest) => quest.id === normalizedId) || null;
   }
 
   function getDailyQuestDateKey() {
@@ -1502,7 +1558,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
   function getDailyQuestStorageKey(playerKey, dateKey) {
-    return `dfkDefenderDailyQuests:${playerKey}:${dateKey}`;
+    return `dfkDefenderDailyQuests:v${DAILY_QUEST_BOARD_VERSION}:${playerKey}:${dateKey}`;
   }
 
   function createEmptyDailyQuestMetrics() {
@@ -1542,14 +1598,25 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
   function pickDailyQuestIds(playerKey, dateKey) {
-    const rng = seededRandom(`${playerKey}:${dateKey}:daily-quests`);
-    const pool = DAILY_QUEST_POOL.map((quest) => quest.id);
-    const selected = [];
-    while (selected.length < Math.min(5, pool.length)) {
-      const index = Math.floor(rng() * pool.length);
-      selected.push(pool.splice(index, 1)[0]);
+    const seedBase = `${playerKey}:${dateKey}`;
+    const result = [];
+    const tierEntries = [
+      ['free', DAILY_QUEST_TIER_CONFIG.free.count],
+      ['standard', DAILY_QUEST_TIER_CONFIG.standard.count],
+      ['elite', DAILY_QUEST_TIER_CONFIG.elite.count],
+      ['bounty', DAILY_QUEST_TIER_CONFIG.bounty.count],
+    ];
+    for (const [tierKey, count] of tierEntries) {
+      const pool = Array.isArray(DAILY_QUEST_TIER_POOLS[tierKey]) ? DAILY_QUEST_TIER_POOLS[tierKey].slice() : [];
+      for (let i = 0; i < count && pool.length; i += 1) {
+        const roll = seededRandom(`${seedBase}:${tierKey}:${i}`)();
+        const idx = Math.floor(roll * pool.length) % pool.length;
+        const pickedQuest = pool.splice(idx, 1)[0];
+        const pickedId = pickedQuest && typeof pickedQuest === 'object' ? String(pickedQuest.id || '') : String(pickedQuest || '');
+        if (pickedId) result.push(pickedId);
+      }
     }
-    return selected;
+    return result;
   }
 
   function persistDailyQuestBoard() {
@@ -1579,7 +1646,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     board.error = '';
     board.playerKey = playerKey;
     board.dateKey = dateKey;
-    board.questIds = Array.isArray(stored?.questIds) && stored.questIds.length ? stored.questIds.slice(0, 5) : pickDailyQuestIds(playerKey, dateKey);
+    board.questIds = Array.isArray(stored?.questIds) && stored.questIds.length
+      ? stored.questIds.map((entry) => typeof entry === 'object' && entry ? String(entry.id || '') : String(entry || '')).filter(Boolean).slice(0, 9)
+      : pickDailyQuestIds(playerKey, dateKey);
     board.progress = stored && typeof stored.progress === 'object' && stored.progress ? stored.progress : {};
     board.claimed = stored && typeof stored.claimed === 'object' && stored.claimed ? stored.claimed : {};
     board.metrics = { ...createEmptyDailyQuestMetrics(), ...(stored?.metrics || {}) };
@@ -1593,6 +1662,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
   function getQuestProgressValue(quest, board = ensureDailyQuestBoard()) {
+    if (!quest) return 0;
+    if (!isQuestUnlocked(quest, board)) {
+      return Math.max(0, Number(board.progress?.[quest.id] || 0) || 0);
+    }
     const progressValue = Number(board.progress?.[quest.id] ?? board.metrics?.[quest.metric] ?? 0) || 0;
     return Math.max(0, progressValue);
   }
@@ -1605,6 +1678,30 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     return Boolean(board.claimed && board.claimed[questId]);
   }
 
+  function areFreeDailyQuestsComplete(board = ensureDailyQuestBoard()) {
+    return getActiveDailyQuests().filter((quest) => quest.tierKey === 'free').every((quest) => isQuestComplete(quest, board));
+  }
+
+  function getTierQuestIndex(quest, board = ensureDailyQuestBoard()) {
+    const quests = getActiveDailyQuests().filter((item) => item && item.tierKey === quest?.tierKey);
+    return quests.findIndex((item) => item.id === quest?.id);
+  }
+
+  function arePriorSequentialQuestsClaimedOrComplete(quest, board = ensureDailyQuestBoard()) {
+    if (!quest || !quest.sequentialUnlock) return true;
+    const quests = getActiveDailyQuests().filter((item) => item && item.tierKey === quest.tierKey);
+    const idx = quests.findIndex((item) => item.id === quest.id);
+    if (idx <= 0) return true;
+    return quests.slice(0, idx).every((item) => isQuestClaimed(item.id, board) || isQuestComplete(item, board));
+  }
+
+  function isQuestUnlocked(quest, board = ensureDailyQuestBoard()) {
+    if (!quest) return true;
+    if (quest.requiresFreeCompletion && !areFreeDailyQuestsComplete(board)) return false;
+    if (quest.sequentialUnlock && !arePriorSequentialQuestsClaimedOrComplete(quest, board)) return false;
+    return true;
+  }
+
   function updateQuestMetric(metric, amount, mode = 'add') {
     const board = ensureDailyQuestBoard();
     if (!metric || !board.metrics) return;
@@ -1614,6 +1711,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     board.metrics[metric] = nextValue;
     for (const quest of getActiveDailyQuests()) {
       if (quest.metric !== metric) continue;
+      if (!isQuestUnlocked(quest, board)) continue;
       board.progress[quest.id] = Math.max(Number(board.progress[quest.id] || 0), nextValue);
     }
     persistDailyQuestBoard();
@@ -1621,10 +1719,78 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
 
+
+  function getSecondsUntilDailyQuestReset() {
+    const now = new Date();
+    const nextUtc = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0, 0, 0, 0
+    ));
+    return Math.max(0, Math.floor((nextUtc.getTime() - now.getTime()) / 1000));
+  }
+
+  function formatDailyQuestResetCountdown(totalSeconds) {
+    const seconds = Math.max(0, Number(totalSeconds || 0));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  }
+
+  function getClaimedDailyQuestJewelTotal(board = ensureDailyQuestBoard()) {
+    return getActiveDailyQuests().reduce((sum, quest) => {
+      if (!quest || !isQuestClaimed(quest.id, board)) return sum;
+      return sum + Math.max(0, Number(quest.rewardJewel || 0));
+    }, 0);
+  }
+
+async function waitForRewardClaimPayout(claimPayload, initialResult = null, options = {}) {
+  const immediateTxHash = String(initialResult && initialResult.txHash || '').trim();
+  const immediateStatus = String(initialResult && initialResult.status || '').trim().toLowerCase();
+  if (immediateTxHash || immediateStatus === 'paid') return initialResult || null;
+  if (immediateStatus && immediateStatus !== 'approved') return initialResult || null;
+  const pollCount = Math.max(1, Number(options.pollCount || 3));
+  const pollDelayMs = Math.max(250, Number(options.pollDelayMs || 900));
+  for (let attempt = 0; attempt < pollCount; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, pollDelayMs));
+    try {
+      const latest = await requestRewardClaim(claimPayload);
+      const latestTxHash = String(latest && latest.txHash || '').trim();
+      const latestStatus = String(latest && latest.status || '').trim().toLowerCase();
+      if (latestTxHash || latestStatus === 'paid') return latest;
+      if (latestStatus && latestStatus !== 'approved') return latest;
+    } catch (error) {
+      const text = String(error && error.message || '').toLowerCase();
+      if (text.includes('401') || text.includes('unauthorized') || text.includes('session')) {
+        return initialResult || null;
+      }
+    }
+  }
+  return initialResult || null;
+}
+
 async function claimDailyQuest(questId) {
   const board = ensureDailyQuestBoard();
   const quest = getQuestDefinitionById(questId);
-  if (!quest || isQuestClaimed(questId, board) || !isQuestComplete(quest, board)) return;
+  if (!quest || isQuestClaimed(questId, board) || !isQuestUnlocked(quest, board) || !isQuestComplete(quest, board)) return;
+  const claimedJewelTotal = getClaimedDailyQuestJewelTotal(board);
+  const rewardJewel = Math.max(0, Number(quest.rewardJewel || 0));
+  if (rewardJewel > 0 && claimedJewelTotal + rewardJewel > 6) {
+    const resetText = formatDailyQuestResetCountdown(getSecondsUntilDailyQuestReset());
+    const capMessage = `it looks like you already claimed your daily quest rewards, they will reset with new quests in ${resetText} and you can complete and claim more then.`;
+    board.error = capMessage;
+    if (typeof showBanner === 'function') showBanner(capMessage, 4200);
+    renderDailyQuestsBoard();
+    return;
+  }
+  if (Number(quest.rewardJewel || 0) <= 0) {
+    board.claimed[questId] = true;
+    persistDailyQuestBoard();
+    renderDailyQuestsBoard();
+    showBanner(`${quest.name} completed. Higher-value daily quests are now closer to unlocking.`, 2600);
+    return;
+  }
   if (!canSubmitRewardClaims()) {
     showBanner('Connect your wallet and enable run tracking to claim daily rewards.', 2600);
     return;
@@ -1633,18 +1799,30 @@ async function claimDailyQuest(questId) {
   board.error = '';
   renderDailyQuestsBoard();
   try {
-    const result = await requestRewardClaim({
+    const claimPayload = {
       claimType: 'daily_quest',
       walletAddress: getConnectedWalletAddress(),
       questId: quest.id,
       questName: quest.name,
-      rewardText: '1 Jewel',
+      rewardText: quest.rewardText || '1 Jewel',
       playerName: getRewardClaimPlayerName(),
-    });
+    };
+    const result = await requestRewardClaim(claimPayload);
     board.claimed[questId] = true;
     persistDailyQuestBoard();
-    awardPremiumJewels(1, `Daily quest: ${quest.name}`);
-    showBanner(result && result.message ? result.message : 'Daily reward claim submitted.', 2600);
+    if (Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
+    const payoutResult = await waitForRewardClaimPayout(claimPayload, result);
+    if (payoutResult && (String(payoutResult.status || '').toLowerCase() === 'paid' || String(payoutResult.txHash || '').trim())) {
+      refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
+      if (typeof refreshTopMenuData === 'function') refreshTopMenuData({ includeRunBalance: false });
+      showRewardPayoutNotice({
+        txHash: payoutResult.txHash,
+        rewardText: quest.rewardText || '1 Jewel',
+        reasonText: quest.name,
+      });
+    } else {
+      showBanner(result && result.message ? result.message : 'Daily reward claim submitted.', 2600);
+    }
   } catch (error) {
     board.error = error && error.message ? error.message : 'Daily reward claim failed.';
     showBanner(board.error, 2600);
@@ -1652,6 +1830,141 @@ async function claimDailyQuest(questId) {
     board.claiming = false;
     renderDailyQuestsBoard();
   }
+}
+
+
+function getRewardPayoutExplorerBase() {
+  const base = String(window.DFK_DFKCHAIN_EXPLORER_URL || 'https://subnets.avax.network/defi-kingdoms').trim();
+  return base.replace(/\/$/, '');
+}
+
+function shortenHash(value, lead = 10, tail = 8) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  if (text.length <= lead + tail + 3) return text;
+  return `${text.slice(0, lead)}...${text.slice(-tail)}`;
+}
+
+function ensureRewardPayoutNoticeModal() {
+  let modal = document.getElementById('rewardPayoutNoticeModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'rewardPayoutNoticeModal';
+  modal.className = 'intro-modal hidden';
+  modal.setAttribute('aria-hidden', 'true');
+  modal.innerHTML = `
+    <div class="intro-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="rewardPayoutNoticeTitle">
+      <div class="intro-modal-header">
+        <div>
+          <div class="intro-kicker">Treasury Update</div>
+          <h2 id="rewardPayoutNoticeTitle">Reward Sent</h2>
+        </div>
+        <button type="button" class="intro-close" id="closeRewardPayoutNoticeBtn" aria-label="Close">×</button>
+      </div>
+      <div class="intro-body" id="rewardPayoutNoticeBody"></div>
+      <div class="intro-modal-footer start-mode-modal-footer" id="rewardPayoutNoticeActions"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#closeRewardPayoutNoticeBtn')?.addEventListener('click', () => hideRewardPayoutNoticeModal());
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) hideRewardPayoutNoticeModal();
+  });
+  return modal;
+}
+
+function hideRewardPayoutNoticeModal() {
+  const modal = document.getElementById('rewardPayoutNoticeModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  syncIntroOpenClassFromVisibleModals();
+}
+
+function hasVisibleIntroStyleModal() {
+  const ids = [
+    'introModal',
+    'questsModal',
+    'trackedRunsModal',
+    'bountyModal',
+    'knownRelicsModal',
+    'continueOfferModal',
+    'guestConnectConfirmModal',
+    'seerIntroModal',
+    'startModeModal',
+    'championModal',
+    'championLockModal',
+    'rewardPayoutNoticeModal',
+  ];
+  return ids.some((id) => {
+    const el = document.getElementById(id);
+    return !!(el && !el.classList.contains('hidden') && el.getAttribute('aria-hidden') !== 'true');
+  });
+}
+
+function syncIntroOpenClassFromVisibleModals() {
+  const hasVisibleModal = hasVisibleIntroStyleModal();
+  game.introOpen = hasVisibleModal;
+  document.body.classList.toggle('intro-open', hasVisibleModal);
+  syncStatusOverlayVisibility(hasVisibleModal);
+  if (!hasVisibleModal) showStatusOverlay();
+}
+
+function showRewardPayoutNotice(details = {}) {
+  const txHash = String(details.txHash || '').trim();
+  if (!txHash) return;
+  const modal = ensureRewardPayoutNoticeModal();
+  const titleEl = modal.querySelector('#rewardPayoutNoticeTitle');
+  const bodyEl = modal.querySelector('#rewardPayoutNoticeBody');
+  const actionsEl = modal.querySelector('#rewardPayoutNoticeActions');
+  const rewardText = String(details.rewardText || '1 Jewel').trim() || '1 Jewel';
+  const reasonText = String(details.reasonText || 'Quest reward').trim() || 'Quest reward';
+  const explorerBase = getRewardPayoutExplorerBase();
+  const txUrl = `${explorerBase}/tx/${txHash}`;
+  if (titleEl) titleEl.textContent = 'Reward Sent';
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <p class="champion-modal-note" style="margin:0 0 12px;">${escapeHtml(rewardText)} was sent from treasury for ${escapeHtml(reasonText)}.</p>
+      <div class="reward-claim-card is-paid" style="margin:0;">
+        <div class="reward-claim-card-grid">
+          <div><span class="reward-claim-label">Status</span><div class="reward-claim-value">Paid</div></div>
+          <div><span class="reward-claim-label">Amount</span><div class="reward-claim-value">${escapeHtml(rewardText)}</div></div>
+          <div style="grid-column:1 / -1;"><span class="reward-claim-label">Tx Hash</span><div class="reward-claim-value mono">${escapeHtml(txHash)}</div></div>
+        </div>
+      </div>`;
+  }
+  if (actionsEl) {
+    actionsEl.innerHTML = '';
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'secondary small-action';
+    copyBtn.textContent = 'Copy Tx Hash';
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(txHash);
+          copyBtn.textContent = 'Copied';
+          window.setTimeout(() => { copyBtn.textContent = 'Copy Tx Hash'; }, 1400);
+        }
+      } catch (_error) {}
+    });
+    const openBtn = document.createElement('a');
+    openBtn.className = 'small-action';
+    openBtn.href = txUrl;
+    openBtn.target = '_blank';
+    openBtn.rel = 'noopener noreferrer';
+    openBtn.textContent = `Open ${shortenHash(txHash, 8, 6)}`;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'secondary small-action';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => hideRewardPayoutNoticeModal());
+    actionsEl.append(copyBtn, openBtn, closeBtn);
+  }
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  game.introOpen = true;
+  document.body.classList.add('intro-open');
+  syncStatusOverlayVisibility(true);
 }
 
 function formatQuestResetCountdown(dateKey) {
@@ -1672,33 +1985,38 @@ function formatQuestResetCountdown(dateKey) {
     const claimedCount = quests.filter((quest) => isQuestClaimed(quest.id, board)).length;
     const cards = quests.map((quest, index) => {
       const progress = getQuestProgressValue(quest, board);
-      const complete = isQuestComplete(quest, board);
+      const unlocked = isQuestUnlocked(quest, board);
+      const complete = unlocked && isQuestComplete(quest, board);
       const claimed = isQuestClaimed(quest.id, board);
       const stateClass = claimed ? 'is-claimed' : (complete ? 'is-open' : 'is-locked');
-      const stateLabel = claimed ? 'Claimed' : (complete ? 'Ready' : 'In Progress');
-      const canClaimRewards = canSubmitRewardClaims();
-      const claimDisabled = !complete || !canClaimRewards || board.claiming;
+      const stateLabel = claimed ? 'Claimed' : (complete ? 'Ready' : (unlocked ? 'In Progress' : 'Locked'));
+      const rewardValue = Number(quest.rewardJewel || 0);
+      const canClaimRewards = rewardValue <= 0 ? true : canSubmitRewardClaims();
+      const claimDisabled = !unlocked || !complete || !canClaimRewards || board.claiming;
+      const rewardText = quest.rewardText || '1 Jewel';
+      const readyButtonText = rewardValue <= 0 ? 'Complete Unlock Quest' : `Claim ${rewardText}`;
       const button = claimed
         ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
-        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${claimDisabled ? 'disabled' : ''}>${board.claiming ? 'Submitting…' : (complete ? 'Claim 1 Jewel' : 'Complete Quest')}</button>`;
+        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${claimDisabled ? 'disabled' : ''}>${board.claiming ? 'Submitting…' : (complete ? readyButtonText : (unlocked ? 'Complete Quest' : 'Finish all 0 Jewel quests'))}</button>`;
       return `
         <article class="bounty-card ${stateClass} quest-card">
           <div class="bounty-card-top">
             <div class="bounty-tier-wrap">
-              <div class="bounty-tier-label">Daily Quest</div>
+              <div class="bounty-tier-label">${escapeHtml(quest.tierLabel || 'Daily Quest')}</div>
               <div class="bounty-tier-index">${index + 1}</div>
             </div>
-            <div class="bounty-reward-pill ${stateClass}">1 Jewel</div>
+            <div class="bounty-reward-pill ${stateClass}">${escapeHtml(rewardText)}</div>
           </div>
           <h3 class="bounty-card-title">${escapeHtml(quest.name)}</h3>
           <p class="bounty-card-copy">${escapeHtml(quest.description)}</p>
+          ${unlocked ? '' : '<div class="bounty-status-banner">Complete all 3 zero-jewel unlock quests before this one can start.</div>'}
           <div class="quest-progress-row">
             <div class="quest-progress-track"><span style="width:${Math.max(0, Math.min(100, (progress / quest.goal) * 100))}%"></span></div>
-            <div class="quest-progress-text">${Math.min(progress, quest.goal)} / ${quest.goal}</div>
+            <div class="quest-progress-text">${unlocked ? `${Math.min(progress, quest.goal)} / ${quest.goal}` : `Locked · ${quest.goal}`}</div>
           </div>
           <div class="bounty-card-footer">
             <span class="bounty-state-chip ${stateClass}">${stateLabel}</span>
-            <span class="bounty-chain-note">Progress carries all day for this player.</span>
+            <span class="bounty-chain-note">${unlocked ? 'Progress carries all day for this player.' : 'Higher-value quests stay locked until all 0 Jewel quests are done.'}</span>
           </div>
           ${button}
         </article>
@@ -1711,8 +2029,8 @@ function formatQuestResetCountdown(dateKey) {
     els.questsBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
-          <div class="bounty-strip-kicker">Five random quests roll every UTC day</div>
-          <p class="bounty-strip-copy">More than one quest can complete in the same wave. Quests refresh daily and each one pays 1 Jewel.</p>
+          <div class="bounty-strip-kicker">Six daily quests roll every UTC day</div>
+          <p class="bounty-strip-copy">You get 3 easy 0 Jewel unlock quests, 2 harder 1 Jewel quests, and 1 elite 2 Jewel quest. Finish all three 0 Jewel quests before the reward quests can begin.</p>
         </div>
         <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)}</div>
       </div>
@@ -1721,7 +2039,7 @@ function formatQuestResetCountdown(dateKey) {
       <div class="tracked-runs-hero-strip quests-summary-strip">
         <div>
           <div class="bounty-strip-kicker">Today's progress</div>
-          <p class="bounty-strip-copy">${claimedCount}/5 claimed • ${completedCount}/5 completed • Player: ${escapeHtml(board.playerKey)}</p>
+          <p class="bounty-strip-copy">${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed • Player: ${escapeHtml(board.playerKey)} • 3x 0 Jewel · 2x 1 Jewel · 1x 2 Jewel</p>
         </div>
         <div class="bounty-strip-badge">${board.dateKey}</div>
       </div>
@@ -1734,16 +2052,24 @@ function formatQuestResetCountdown(dateKey) {
       clearTimeout(game.statusOverlayTimeout);
       game.statusOverlayTimeout = null;
     }
-    /* closeIntroModal suppressed at sequence end */
-    closeBountyModal();
+    if (els.introModal) {
+      els.introModal.classList.add('hidden');
+      els.introModal.setAttribute('aria-hidden', 'true');
+    }
     closeTrackedRunsModal();
     closeKnownRelicsModal();
     game.modalDismiss = null;
+    game.questBoardView = 'quests';
     ensureDailyQuestBoard(true);
     renderDailyQuestsBoard();
+    updateQuestBoardToggle();
     game.introOpen = true;
     syncStatusOverlayVisibility(true);
     document.body.classList.add('intro-open');
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
     if (els.questsModal) {
       els.questsModal.classList.remove('hidden');
       els.questsModal.setAttribute('aria-hidden', 'false');
@@ -1751,9 +2077,14 @@ function formatQuestResetCountdown(dateKey) {
   }
 
   function closeQuestsModal() {
+    stopBountyCountdownTick();
     if (els.questsModal) {
       els.questsModal.classList.add('hidden');
       els.questsModal.setAttribute('aria-hidden', 'true');
+    }
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
     }
     game.introOpen = false;
     document.body.classList.remove('intro-open');
@@ -1930,7 +2261,7 @@ function formatQuestResetCountdown(dateKey) {
   }
 
   const DFK_JEWEL_TOKEN_ADDRESS = '0xCCb93dABD71c8Dad03Fc4CE5559dC3D89F67a260';
-  const DFK_JEWEL_TREASURY_ADDRESS = '0x971bDACd04EF40141ddb6bA175d4f76665103c81';
+  const DFK_JEWEL_TREASURY_ADDRESS = '0xab45288409900be5ef23c19726a30c28268495ad';
   const DFK_JEWEL_GOLD_SWAP_WEI = '1000000000000000000';
   const DFK_JEWEL_EXTRA_HIRE_WEI = Object.freeze([
     '3000000000000000000',
@@ -1993,6 +2324,8 @@ function formatQuestResetCountdown(dateKey) {
     if (!options.skipMilestoneRender && game.milestoneHeroOffer) renderMilestoneHeroOffer();
     return getWalletNativeJewelBalance();
   }
+
+  window.refreshWalletJewelTokenBalance = refreshWalletJewelTokenBalance;
 
   async function sendDfkJewelPayment(amountWei) {
     const wallet = getWalletStateSnapshot();
@@ -3015,24 +3348,6 @@ function formatQuestResetCountdown(dateKey) {
         actions.appendChild(refreshBtn);
 
         if (game.pendingMilestonePurchase && game.pendingMilestonePurchase.kind === 'jewel_milestone_hero_hire') {
-          const recoverBtn = document.createElement('button');
-          recoverBtn.type = 'button';
-          recoverBtn.className = 'secondary small-action milestone-hero-offer-btn';
-          recoverBtn.textContent = 'I Already Approved It';
-          recoverBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
-          recoverBtn.addEventListener('click', async () => {
-            if (game.milestoneOfferWalletRefreshPending) return;
-            game.milestoneOfferWalletRefreshPending = true;
-            renderMilestoneHeroOffer();
-            try {
-              await recoverPendingMilestoneJewelHire();
-            } finally {
-              game.milestoneOfferWalletRefreshPending = false;
-              renderMilestoneHeroOffer();
-            }
-          });
-          actions.appendChild(recoverBtn);
-
           const cancelStuckBtn = document.createElement('button');
           cancelStuckBtn.type = 'button';
           cancelStuckBtn.className = 'secondary small-action milestone-hero-offer-btn';
@@ -4249,7 +4564,9 @@ function renderDamageReport() {
       'Content-Type': 'application/json',
       apikey: key,
     };
-    if (!readOnlyBoardRequest && token) headers.Authorization = `Bearer ${token}`;
+    if (!readOnlyBoardRequest && token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     const response = await fetch(endpoint, readOnlyBoardRequest ? {
       method: 'GET',
@@ -4424,14 +4741,15 @@ function canSubmitRewardClaims() {
   }
 
   function renderBountyBoard() {
-    if (!els.bountyBody) return;
+    const bountyTargetBody = (game.questBoardView === 'bounty' && els.questsBody) ? els.questsBody : els.bountyBody;
+    if (!bountyTargetBody) return;
     const state = game.bountyBoard || {};
     if (state.loading && !state.entries.length) {
-      els.bountyBody.innerHTML = '<div class="bounty-status-banner">Loading bounty board…</div>';
+      bountyTargetBody.innerHTML = '<div class="bounty-status-banner">Loading bounty board…</div>';
       return;
     }
     if (state.error && !state.entries.length) {
-      els.bountyBody.innerHTML = `<div class="bounty-status-banner is-error">${state.error}</div>`;
+      bountyTargetBody.innerHTML = `<div class="bounty-status-banner is-error">${state.error}</div>`;
       return;
     }
     const cards = (state.entries || []).map((entry, index) => {
@@ -4479,7 +4797,7 @@ function canSubmitRewardClaims() {
     const nextRevealText = state.nextRevealAt
       ? `Next reveal in ${formatBountyCountdown(state.nextRevealAt, new Date().toISOString())}`
       : 'Current bounty is live';
-    els.bountyBody.innerHTML = `
+    bountyTargetBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
           <div class="bounty-strip-kicker">Community challenge ladder</div>
@@ -4640,17 +4958,25 @@ function canSubmitRewardClaims() {
       clearTimeout(game.statusOverlayTimeout);
       game.statusOverlayTimeout = null;
     }
-    closeIntroModal();
-    closeQuestsModal();
+    if (els.introModal) {
+      els.introModal.classList.add('hidden');
+      els.introModal.setAttribute('aria-hidden', 'true');
+    }
+    game.questBoardView = 'bounty';
+    if (els.bountyModal) {
+      els.bountyModal.classList.add('hidden');
+      els.bountyModal.setAttribute('aria-hidden', 'true');
+    }
     renderBountyBoard();
     refreshBountyBoard().catch(() => {});
     startBountyCountdownTick();
+    updateQuestBoardToggle();
     game.introOpen = true;
     syncStatusOverlayVisibility(true);
     document.body.classList.add('intro-open');
-    if (els.bountyModal) {
-      els.bountyModal.classList.remove('hidden');
-      els.bountyModal.setAttribute('aria-hidden', 'false');
+    if (els.questsModal) {
+      els.questsModal.classList.remove('hidden');
+      els.questsModal.setAttribute('aria-hidden', 'false');
     }
   }
 
@@ -4987,7 +5313,7 @@ function canSubmitRewardClaims() {
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
   const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '1000000000000000');
   const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || AVAX_MILESTONE_HERO_WEI || '1000000000000000');
-  const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0x971bDACd04EF40141ddb6bA175d4f76665103c81').trim().toLowerCase();
+  const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad').trim().toLowerCase();
   const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
   const MILESTONE_HERO_OFFER_COSTS = Object.freeze({
     25: 100000,
@@ -5365,7 +5691,7 @@ function canSubmitRewardClaims() {
       els.transferHeroesModal.classList.remove('hidden');
       els.transferHeroesModal.setAttribute('aria-hidden', 'false');
     }
-    if (getConnectedWalletAddress() && (!Array.isArray(game.allWalletHeroRoster) || !game.allWalletHeroRoster.length) && !game.walletHeroLoadPending) {
+    if (getConnectedWalletAddress() && (!Array.isArray(game.allWalletHeroRoster) || !game.allWalletHeroRoster.length) && !game.walletHeroLoadPending && !game.walletHeroAutoLoadedKey) {
       loadWalletHeroes(true).catch((error) => console.error(error));
     }
     clampTransferHeroPage();
@@ -5763,7 +6089,9 @@ function canSubmitRewardClaims() {
       card.type = 'button';
       card.className = `champion-card${isSelected ? ' selected' : ''}`;
       card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div></div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>`;
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         if (game.selectedChampionConfirmed) {
           const locked = getSelectedChampionRecord();
           showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
@@ -5773,7 +6101,9 @@ function canSubmitRewardClaims() {
         game.selectedChampionHeroId = heroId;
         if (!game.selectedChampionConfirmed) game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
         renderChampionPanel();
-        if (options.inModal) showChampionModal(true);
+        if (options.inModal && els.championModalBody) {
+          renderChampionCards(els.championModalBody, { inModal: true });
+        }
       });
       container.appendChild(card);
     }
@@ -5794,7 +6124,26 @@ function canSubmitRewardClaims() {
       showBanner('Choose your champion before the first wave starts.', 2000);
       return;
     }
+    try {
+      hideRewardPayoutNoticeModal();
+      closeIntroModal();
+      closeBountyModal();
+      closeQuestsModal();
+      closeTrackedRunsModal();
+      closeKnownRelicsModal();
+      closeContinueOfferModal();
+      closeGuestConnectConfirmModal({ preserveIntroState: true });
+      closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
+      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+    } catch (_error) {}
     renderChampionCards(els.championModalBody, { inModal: true });
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    els.championModal.style.zIndex = '21050';
+    els.championModal.style.pointerEvents = 'auto';
+    const championCard = els.championModal.querySelector('.intro-modal-card');
+    if (championCard) championCard.style.pointerEvents = 'auto';
     els.championModal.classList.remove('hidden');
     els.championModal.setAttribute('aria-hidden', 'false');
     if (!forceOpen && !game.championModalForceChoice && game.selectedChampionConfirmed) return;
@@ -5804,6 +6153,7 @@ function canSubmitRewardClaims() {
     if (!els.championModal) return;
     els.championModal.classList.add('hidden');
     els.championModal.setAttribute('aria-hidden', 'true');
+    syncIntroOpenClassFromVisibleModals();
   }
 
   function cancelChampionModal() {
@@ -5817,6 +6167,13 @@ function canSubmitRewardClaims() {
     const selected = getSelectedChampionRecord();
     if (!selected || !els.championLockModal || !els.championLockText) return false;
     els.championLockText.textContent = `Are you sure? ${selected.definition.label} will be your champion for this entire run.`;
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    els.championLockModal.style.zIndex = '21060';
+    els.championLockModal.style.pointerEvents = 'auto';
+    const lockCard = els.championLockModal.querySelector('.intro-modal-card');
+    if (lockCard) lockCard.style.pointerEvents = 'auto';
     els.championLockModal.classList.remove('hidden');
     els.championLockModal.setAttribute('aria-hidden', 'false');
     game.championLockPending = true;
@@ -5828,6 +6185,7 @@ function canSubmitRewardClaims() {
     els.championLockModal.classList.add('hidden');
     els.championLockModal.setAttribute('aria-hidden', 'true');
     game.championLockPending = false;
+    syncIntroOpenClassFromVisibleModals();
   }
 
   function finalizeChampionConfirmation() {
@@ -5982,6 +6340,7 @@ function canSubmitRewardClaims() {
     game.walletHeroExpandedTypes = {};
     game.walletHeroSearch = {};
     game.walletHeroLoadPending = false;
+    game.walletHeroAutoLoadedKey = '';
     game.walletHeroLoadError = '';
     game.walletHeroPanelCollapsed = true;
     game.placingWalletHeroId = null;
@@ -6142,6 +6501,22 @@ function canSubmitRewardClaims() {
     return INTRO_PAGES;
   }
 
+
+  function updateGuideModeToggle() {
+    if (els.guideIntroToggleBtn) els.guideIntroToggleBtn.classList.toggle('active', game.introSet !== 'lore');
+    if (els.guideLoreToggleBtn) els.guideLoreToggleBtn.classList.toggle('active', game.introSet === 'lore');
+  }
+
+  function updateQuestBoardToggle() {
+    const bountyMode = game.questBoardView === 'bounty';
+    if (els.questDailyToggleBtn) els.questDailyToggleBtn.classList.toggle('active', !bountyMode);
+    if (els.questBountyToggleBtn) els.questBountyToggleBtn.classList.toggle('active', bountyMode);
+    const questsTitle = document.getElementById('questsTitle');
+    if (questsTitle) questsTitle.textContent = bountyMode ? 'Bounties' : 'Dailies / Bounties';
+    const questsKicker = document.querySelector('#questsModal .intro-kicker');
+    if (questsKicker) questsKicker.textContent = bountyMode ? 'DFK Defender Bounties' : 'DFK Defender Daily Rewards';
+  }
+
   function renderIntroPage() {
     if (!els.introBody) return;
     const pages = getActiveGuidePages();
@@ -6161,6 +6536,7 @@ function canSubmitRewardClaims() {
       els.introPageLabel.textContent = `Page ${game.introPageIndex + 1} / ${pages.length}`;
       els.introPageLabel.classList.remove('hidden');
     }
+    updateGuideModeToggle();
     if (els.introPrevBtn) els.introPrevBtn.disabled = game.introPageIndex <= 0;
     if (els.introNextBtn) {
       els.introNextBtn.disabled = false;
@@ -6436,7 +6812,9 @@ function canSubmitRewardClaims() {
       clearWalletHeroData();
       return;
     }
-    if (game.walletHeroLoadPending && !force) return;
+    if (game.walletHeroLoadPending) return;
+    const currentAutoLoadKey = `${String(address || '').toLowerCase()}::${Number(getConnectedWalletChainId() || 0)}`;
+    if (!force && game.walletHeroAutoLoadedKey === currentAutoLoadKey) return;
     game.walletHeroLoadPending = true;
     game.walletHeroLoadError = '';
     renderWalletHeroBonusPanel();
@@ -6593,6 +6971,7 @@ function canSubmitRewardClaims() {
       }
 
       commitWalletHeroRoster(heroesByKey);
+      game.walletHeroAutoLoadedKey = `${String(address || '').toLowerCase()}::${Number(getConnectedWalletChainId() || 0)}`;
       if (!game.walletHeroRoster.length && chainErrors.length) {
         game.walletHeroLoadError = `Hero chain read failed: ${chainErrors.join(' and ')}`;
       }
@@ -8650,7 +9029,7 @@ function canSubmitRewardClaims() {
     const d = ((tower.type === 'wizard_satellite' || tower.type === 'torn_soul') ? tower.damage * 0.5 : tower.damage);
     const hp = tower.maxHp;
     const map = {
-      gladiator_strike: `Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(d * 2.3)} bonus damage and heals ${Math.round(hp * 0.05)} HP. This passive unlocks at level 1 and is always on.${scale}`,
+      gladiator_strike: `Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(((Number(tower.baseDamage || TOWER_TEMPLATES.warrior.damage || 0) * 2.3) + Math.max(0, (d * 2.3) - (Number(tower.baseDamage || TOWER_TEMPLATES.warrior.damage || 0) * 2.3)) * 0.85))} bonus damage and heals ${Math.round(((Number(TOWER_TEMPLATES.warrior.hp || 0) * 0.05) + Math.max(0, (hp * 0.05) - (Number(TOWER_TEMPLATES.warrior.hp || 0) * 0.05)) * 0.75))} HP. This passive unlocks at level 1 and is always on.${scale}`,
       new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals 2.5x the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 11% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${game.modifiers.whirlwindCooldownAdjust ? `<br><strong>Blade Dancer active:</strong> cooldown reduced by ${game.modifiers.whirlwindCooldownAdjust.toFixed(1)}s.` : ''}${scale}`,
       shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
@@ -8731,6 +9110,7 @@ function canSubmitRewardClaims() {
     }
     if (game.jewel < cost) return;
     game.jewel -= cost;
+    updateQuestMetric('goldSpent', cost);
     applyTowerLevelStep(tower, nextLevel);
     if (tower.isSoulSplit) normalizeTornSoulDamage(tower);
     if (tower.isChampion && game.selectedChampionSnapshot && String(game.selectedChampionSnapshot.hero?.id || '') === String(tower.walletHeroId || '')) game.selectedChampionSnapshot.hero.level = Math.max(Number(game.selectedChampionSnapshot.hero.level || 1), Number(tower.level || 1));
@@ -11309,7 +11689,10 @@ function canSubmitRewardClaims() {
     const isFreeStartingRelic = game.startingRelicPending;
     const freeRelic = isRelicFree(relic, isFreeStartingRelic);
     if (!freeRelic && game.jewel < relic.cost) return;
-    if (!freeRelic) game.jewel -= relic.cost;
+    if (!freeRelic) {
+      game.jewel -= relic.cost;
+      updateQuestMetric('goldSpent', relic.cost);
+    }
     if (!game.ownedRelics.includes(relic.id)) game.ownedRelics.push(relic.id);
     markRelicsFound([relic]);
     updateQuestMetric('relicsBought', 1);
@@ -11458,7 +11841,7 @@ function canSubmitRewardClaims() {
         let healedAny = false;
         for (const ally of allies) {
           const before = Number(ally.hp || 0);
-          healTower(ally, Math.max(1, ally.maxHp * healPercent), null, { sourceTowerId: tower.id });
+          healTower(ally, Math.max(1, ally.maxHp * healPercent), null, { sourceTowerId: tower.id, allowStatue: isStatueTower(ally) });
           if (ally.hp > before) healedAny = true;
         }
         if (healedAny) createTileFlashArea([{ x: tower.x, y: tower.y }], 'seer');
@@ -11531,8 +11914,17 @@ function canSubmitRewardClaims() {
     damageEnemy(tower, target, damage, `${tower.name} hit ${target.name}`, { key: 'basic_attack', label: 'Basic Attack' });
     tower.basicAttackCount = (tower.basicAttackCount || 0) + 1;
     if (tower.type === 'warrior' && isAbilityUnlocked(tower, 'gladiator_strike') && tower.basicAttackCount % 18 === 0) {
-      damageEnemy(tower, target, tower.damage * 2.3, `${tower.name} triggered Gladiator Strike`, { key: 'gladiator_strike', label: 'Gladiator Strike' });
-      healTower(tower, tower.maxHp * 0.05, `${tower.name} healed from Gladiator Strike`);
+      const warriorTemplate = TOWER_TEMPLATES.warrior || { damage: 0, hp: 0 };
+      const warriorBaseDamage = Number(tower.baseDamage || warriorTemplate.damage || 0);
+      const warriorBaseMaxHp = Number(warriorTemplate.hp || 0);
+      const currentGladiatorStrikeDamage = tower.damage * 2.3;
+      const baseGladiatorStrikeDamage = warriorBaseDamage * 2.3;
+      const gladiatorStrikeDamage = baseGladiatorStrikeDamage + Math.max(0, currentGladiatorStrikeDamage - baseGladiatorStrikeDamage) * 0.85;
+      const currentGladiatorStrikeHeal = tower.maxHp * 0.05;
+      const baseGladiatorStrikeHeal = warriorBaseMaxHp * 0.05;
+      const gladiatorStrikeHeal = baseGladiatorStrikeHeal + Math.max(0, currentGladiatorStrikeHeal - baseGladiatorStrikeHeal) * 0.75;
+      damageEnemy(tower, target, gladiatorStrikeDamage, `${tower.name} triggered Gladiator Strike`, { key: 'gladiator_strike', label: 'Gladiator Strike' });
+      healTower(tower, gladiatorStrikeHeal, `${tower.name} healed from Gladiator Strike`);
       showBanner('Warrior passive: Gladiator Strike');
     }
     if (tower.type === 'pirate' && tower.basicAttackCount % 10 === 0) {
@@ -11822,24 +12214,37 @@ function canSubmitRewardClaims() {
       .slice(0, Math.max(1, Number(limit || 1)));
   }
 
+
+  function getEnemyTargetRangePadding(enemy) {
+    if (!enemy) return 0;
+    if (enemy.isBoss) return 2;
+    const sizeKey = getEnemyOccupancyClass(enemy);
+    if (sizeKey === 'large') return 1;
+    return 0;
+  }
+
+  function getTowerToEnemyRangeDistance(tower, enemy) {
+    return Math.max(0, dist(tower, enemy) - getEnemyTargetRangePadding(enemy));
+  }
+
   function nearestEnemyInRange(tower, range) {
-    const enemies = game.enemies.filter(e => dist(tower, e) <= range);
+    const enemies = game.enemies.filter(e => getTowerToEnemyRangeDistance(tower, e) <= range);
     if (!enemies.length) return null;
     if (tower.type === 'pirate') {
       const nonBleeding = enemies.filter(e => !e.debuffs?.bleed);
       if (nonBleeding.length) {
-        nonBleeding.sort((a, b) => dist(tower, a) - dist(tower, b));
+        nonBleeding.sort((a, b) => getTowerToEnemyRangeDistance(tower, a) - getTowerToEnemyRangeDistance(tower, b));
         return nonBleeding[0] || null;
       }
     }
     if (tower.type === 'archer' && game.modifiers.senseWeakness) {
       const debuffed = enemies.filter(e => e.debuffs && Object.keys(e.debuffs).length > 0);
       if (debuffed.length) {
-        debuffed.sort((a, b) => dist(tower, a) - dist(tower, b));
+        debuffed.sort((a, b) => getTowerToEnemyRangeDistance(tower, a) - getTowerToEnemyRangeDistance(tower, b));
         return debuffed[0] || null;
       }
     }
-    enemies.sort((a, b) => dist(tower, a) - dist(tower, b));
+    enemies.sort((a, b) => getTowerToEnemyRangeDistance(tower, a) - getTowerToEnemyRangeDistance(tower, b));
     return enemies[0] || null;
   }
 
@@ -12427,7 +12832,7 @@ function canSubmitRewardClaims() {
       toY: to.y,
       durationMs,
       startedAt,
-      imagePath: opts.imagePath || DRAGOON_SPEAR_IMAGE_PATH,
+      imagePath: opts.imagePath || DRAGOON_SPEAR_THROW_IMAGE_PATH,
       sizeMultiplier: Number.isFinite(Number(opts.sizeMultiplier)) ? Number(opts.sizeMultiplier) : 0.52,
       opacityFloor: 1,
       opacityDrop: 0,
@@ -12452,7 +12857,7 @@ function canSubmitRewardClaims() {
       startedAt,
       durationMs,
       until: startedAt + durationMs,
-      imagePath: opts.imagePath || DRAGOON_SPEAR_IMAGE_PATH,
+      imagePath: opts.imagePath || DRAGOON_SPEAR_SWING_IMAGE_PATH,
       opacityFloor: 1,
     });
     return { startedAt, durationMs, until: startedAt + durationMs };
@@ -12807,7 +13212,7 @@ function canSubmitRewardClaims() {
         const endAngle = isDreadknightSword ? 270 : 45;
         const angle = startAngle + ((endAngle - startAngle) * progress);
         sprite.className = `projectile-effect ${isDreadknightSword ? 'projectile-effect-big-sword' : 'projectile-effect-dragoon-overpower'}`;
-        sprite.src = effect.imagePath || (isDreadknightSword ? BIG_ASS_SWORD_IMAGE_PATH : DRAGOON_SPEAR_IMAGE_PATH);
+        sprite.src = effect.imagePath || (isDreadknightSword ? BIG_ASS_SWORD_IMAGE_PATH : DRAGOON_SPEAR_SWING_IMAGE_PATH);
         sprite.alt = '';
         sprite.draggable = false;
         sprite.style.position = 'absolute';
@@ -13335,9 +13740,12 @@ function canSubmitRewardClaims() {
     updateQuestMetric('killsTotal', 1);
     if (enemy.isBoss) updateQuestMetric('killsBoss', 1);
     else if (enemy.type === 'skitter') updateQuestMetric('killsSkitter', 1);
-    else if ((enemy.cssClass || '').includes('large')) updateQuestMetric('killsLarge', 1);
-    else if ((enemy.cssClass || '').includes('medium')) updateQuestMetric('killsMedium', 1);
-    else updateQuestMetric('killsSmall', 1);
+    else {
+      const enemySizeKey = getEnemyOccupancyClass(enemy);
+      if (enemySizeKey === 'large') updateQuestMetric('killsLarge', 1);
+      else if (enemySizeKey === 'medium') updateQuestMetric('killsMedium', 1);
+      else updateQuestMetric('killsSmall', 1);
+    }
     updateQuestMetric('goldEarned', jewel);
     log(`${enemy.name} died. +${formatJewel(jewel)} Gold.`);
   }
@@ -14038,7 +14446,11 @@ function canSubmitRewardClaims() {
         captureTrackedRunNow('disconnected');
       }
     } else {
-      loadWalletHeroes(true).catch((error) => { console.error(error); });
+      const autoLoadKey = `${String(detail.address || '').toLowerCase()}::${Number(detail.activeChainId || 0)}`;
+      if (game.walletHeroAutoLoadedKey !== autoLoadKey) {
+        game.walletHeroAutoLoadedKey = autoLoadKey;
+        loadWalletHeroes(true).catch((error) => { console.error(error); });
+      }
     }
   });
 
@@ -14098,8 +14510,16 @@ function canSubmitRewardClaims() {
     updateRelicSwapUi();
     updateRelicSwapUi();
   });
-  window.addEventListener('dfk-defense:wallet-state', () => { updateJewelTradeUi(); updateRelicSwapUi(); });
-  window.addEventListener('dfk-defense:tracking-state', () => { updateJewelTradeUi(); updateRelicSwapUi(); });
+  window.addEventListener('dfk-defense:wallet-state', () => {
+    try { syncTopMenuWalletResources(); } catch (_error) {}
+    updateJewelTradeUi();
+    updateRelicSwapUi();
+  });
+  window.addEventListener('dfk-defense:tracking-state', () => {
+    try { syncTopMenuWalletResources(); } catch (_error) {}
+    updateJewelTradeUi();
+    updateRelicSwapUi();
+  });
   els.speedToggleBtn?.addEventListener('click', () => {
     setPlayMode('easy');
   });
@@ -14110,9 +14530,17 @@ function canSubmitRewardClaims() {
     setPaused(!game.paused);
   });
   els.introBtn?.addEventListener('click', () => {
-    openIntroModal(game.introPageIndex || 0, 'intro');
+    openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
   });
   els.loreBtn?.addEventListener('click', () => {
+    openIntroModal(0, 'lore');
+  });
+  els.guideIntroToggleBtn?.addEventListener('click', () => {
+    game.introPageIndex = 0;
+    openIntroModal(0, 'intro');
+  });
+  els.guideLoreToggleBtn?.addEventListener('click', () => {
+    game.introPageIndex = 0;
     openIntroModal(0, 'lore');
   });
   els.bountyBtn?.addEventListener('click', () => {
@@ -14120,6 +14548,17 @@ function canSubmitRewardClaims() {
   });
   els.questsBtn?.addEventListener('click', () => {
     openQuestsModal();
+  });
+  els.questDailyToggleBtn?.addEventListener('click', () => {
+    game.questBoardView = 'quests';
+    renderDailyQuestsBoard();
+    updateQuestBoardToggle();
+  });
+  els.questBountyToggleBtn?.addEventListener('click', () => {
+    game.questBoardView = 'bounty';
+    renderBountyBoard();
+    refreshBountyBoard().catch(() => {});
+    updateQuestBoardToggle();
   });
   els.trackedRunsBtn?.addEventListener('click', () => {
     openTrackedRunsModal();
@@ -14606,3 +15045,160 @@ setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {}
   }
   setTimeout(hook, 100);
 })();
+
+
+
+
+
+
+
+function closeJewelReceivedLightwindow() {
+  try {
+    const backdrop = document.getElementById('jewelReceivedLightwindowBackdrop');
+    if (backdrop) backdrop.remove();
+    document.body.classList.remove('intro-open');
+  } catch (_) {}
+}
+
+function showJewelReceivedLightwindow(amountText) {
+  try {
+    closeJewelReceivedLightwindow();
+    const backdrop = document.createElement('div');
+    backdrop.id = 'jewelReceivedLightwindowBackdrop';
+    backdrop.className = 'jewel-received-lightwindow-backdrop';
+    backdrop.innerHTML = ''
+      + '<div class="jewel-received-lightwindow" role="dialog" aria-modal="true">'
+      + '  <div class="jewel-received-kicker">TREASURY DELIVERY</div>'
+      + '  <div class="jewel-received-title">' + String(amountText || '').trim() + ' Jewel received!</div>'
+      + '  <div class="jewel-received-copy">Click anywhere to close.</div>'
+      + '  <button type="button" class="jewel-received-close">Hell yeah</button>'
+      + '</div>';
+    backdrop.addEventListener('click', function() { closeJewelReceivedLightwindow(); });
+    const panel = backdrop.querySelector('.jewel-received-lightwindow');
+    panel.addEventListener('click', function(ev) { ev.stopPropagation(); });
+    const btn = backdrop.querySelector('.jewel-received-close');
+    if (btn) btn.addEventListener('click', function(ev) { ev.preventDefault(); ev.stopPropagation(); closeJewelReceivedLightwindow(); });
+    document.body.appendChild(backdrop);
+    document.body.classList.add('intro-open');
+  } catch (_) {}
+}
+
+
+function observeRewardSentForJewelReceived() {
+  try {
+    const obs = new MutationObserver(() => {
+      const modal = document.querySelector('.reward-sent-modal, #rewardSentModal, [data-reward-sent-modal]');
+      if (!modal) return;
+      if (modal.dataset && modal.dataset.jewelReceivedObserved === '1') return;
+      const text = (modal.textContent || '');
+      const match = text.match(/([0-9]+(?:\.[0-9]+)?)\s*jewel/i);
+      if (match) {
+        if (modal.dataset) modal.dataset.jewelReceivedObserved = '1';
+        showJewelReceivedLightwindow(match[1]);
+      }
+    });
+    obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+  } catch (_) {}
+}
+observeRewardSentForJewelReceived();
+
+
+function syncTopMenuWalletResources() {
+  try {
+    const jewelSource = document.getElementById('walletJewelBalance');
+    const goldSource = document.getElementById('walletDfkgoldBalance');
+    const trackingSource = document.getElementById('walletTrackingSummary');
+    const jewelTarget = document.getElementById('walletTopJewelBalance');
+    const goldTarget = document.getElementById('walletTopDfkgoldBalance');
+    const trackingTarget = document.getElementById('walletTopTrackingSummary');
+    const claimedTarget = document.getElementById('walletTopClaimedToday');
+    const resetTarget = document.getElementById('walletTopResetTimer');
+
+    const rawJewelText = jewelSource ? String(jewelSource.textContent || 'Wallet JEWEL: --') : '';
+    const fallbackNativeJewel = (typeof getWalletNativeJewelBalance === 'function')
+      ? getWalletNativeJewelBalance()
+      : null;
+    const nextJewelText = rawJewelText && !/--/.test(rawJewelText)
+      ? rawJewelText.replace(/^Wallet\s+/i, '').replace(/\s+Jewel$/i, '').trim()
+      : (Number.isFinite(Number(fallbackNativeJewel)) ? `JEWEL: ${Number(fallbackNativeJewel).toLocaleString(undefined, { maximumFractionDigits: 4 })}` : 'JEWEL: --');
+    const nextGoldText = goldSource
+      ? String(goldSource.textContent || 'Wallet DFK Gold: --').replace(/^Wallet\s+/i, '').trim()
+      : 'DFK Gold: --';
+    const nextTrackingText = trackingSource
+      ? String(trackingSource.textContent || 'Tracked Runs: -- · Best Wave: --').trim()
+      : 'Tracked Runs: -- · Best Wave: --';
+    const nextClaimedText = (typeof getClaimedDailyQuestJewelTotal === 'function')
+      ? `Claimed today: ${Number(getClaimedDailyQuestJewelTotal() || 0)} Jewel`
+      : 'Claimed today: 0 Jewel';
+    const nextResetText = (typeof getSecondsUntilDailyQuestReset === 'function' && typeof formatDailyQuestResetCountdown === 'function')
+      ? `Reset timer: ${formatDailyQuestResetCountdown(getSecondsUntilDailyQuestReset())}`
+      : 'Reset timer: --';
+
+    if (jewelTarget && jewelTarget.textContent !== nextJewelText) jewelTarget.textContent = nextJewelText;
+    if (goldTarget && goldTarget.textContent !== nextGoldText) goldTarget.textContent = nextGoldText;
+    if (trackingTarget && trackingTarget.textContent !== nextTrackingText) trackingTarget.textContent = nextTrackingText;
+    if (claimedTarget && claimedTarget.textContent !== nextClaimedText) claimedTarget.textContent = nextClaimedText;
+    if (resetTarget && resetTarget.textContent !== nextResetText) resetTarget.textContent = nextResetText;
+  } catch (_) {}
+}
+
+function installTopMenuWalletResourceSync() {
+  try {
+    syncTopMenuWalletResources();
+  } catch (_) {}
+}
+
+
+function refreshTopMenuData(options = {}) {
+  const tasks = [];
+  try {
+    if (typeof refreshWalletJewelTokenBalance === 'function') {
+      tasks.push(Promise.resolve(refreshWalletJewelTokenBalance({ skipMilestoneRender: true })).catch(() => null));
+    } else if (typeof refreshWalletEconomyDetails === 'function') {
+      tasks.push(Promise.resolve(refreshWalletEconomyDetails()).catch(() => null));
+    }
+  } catch (_error) {}
+  try {
+    if (options.includeHeroRoster && typeof loadWalletHeroes === 'function') tasks.push(Promise.resolve(loadWalletHeroes(true)).catch(() => null));
+  } catch (_error) {}
+  try {
+    if (!options.skipRails && window.DFKCryptoRails) {
+      if (typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') tasks.push(Promise.resolve(window.DFKCryptoRails.refreshTreasurySummary()).catch(() => null));
+      if (typeof window.DFKCryptoRails.refreshRewardClaimsAdmin === 'function') tasks.push(Promise.resolve(window.DFKCryptoRails.refreshRewardClaimsAdmin()).catch(() => null));
+      if (options.includeRunBalance && typeof window.DFKCryptoRails.refreshRunBalance === 'function') tasks.push(Promise.resolve(window.DFKCryptoRails.refreshRunBalance()).catch(() => null));
+    }
+  } catch (_error) {}
+  try {
+    if (options.includeRunBalance && window.DFKRunTracker && typeof window.DFKRunTracker.refreshSummary === 'function') {
+      tasks.push(Promise.resolve(window.DFKRunTracker.refreshSummary()).catch(() => null));
+    }
+  } catch (_error) {}
+  return Promise.allSettled(tasks).finally(() => {
+    try { syncTopMenuWalletResources(); } catch (_error) {}
+    try { updateJewelTradeUi(); } catch (_error) {}
+    try { updateRelicSwapUi(); } catch (_error) {}
+    try { render(); } catch (_error) {}
+    return null;
+  });
+}
+
+window.refreshTopMenuData = refreshTopMenuData;
+document.addEventListener('DOMContentLoaded', () => {
+  try { syncTopMenuWalletResources(); } catch (_error) {}
+  try { installTopMenuWalletResourceSync(); } catch (_error) {}
+  const topRefreshBtn = document.getElementById('walletTopRefreshBtn');
+  if (topRefreshBtn && !topRefreshBtn.dataset.boundRefresh) {
+    topRefreshBtn.dataset.boundRefresh = '1';
+    topRefreshBtn.addEventListener('click', async () => {
+      topRefreshBtn.disabled = true;
+      try {
+        await refreshTopMenuData({ includeRunBalance: true }).catch(() => null);
+        try { syncTopMenuWalletResources(); } catch (_error) {}
+      } finally {
+        window.setTimeout(() => { topRefreshBtn.disabled = false; }, 800);
+      }
+    });
+  }
+});
+
+
