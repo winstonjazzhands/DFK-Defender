@@ -10,6 +10,19 @@ function normalizeAddress(address: string | null | undefined) {
   return String(address || '').trim().toLowerCase();
 }
 
+function errorMessage(error: unknown) {
+  return String((error as { message?: string } | null)?.message || error || '');
+}
+
+function isMissingColumnError(error: unknown, columnName: string) {
+  const message = errorMessage(error).toLowerCase();
+  return message.includes('column') && message.includes(columnName.toLowerCase()) && message.includes('does not exist');
+}
+
+function isAnyMissingColumnsError(error: unknown, columnNames: string[]) {
+  return columnNames.some((columnName) => isMissingColumnError(error, columnName));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
@@ -29,17 +42,43 @@ Deno.serve(async (req) => {
 
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    const { data, error } = await admin.from('crypto_payment_sessions').insert({
+    const baseInsert = {
       wallet_address: walletAddress,
       client_run_id: clientRunId,
       kind,
       chain_id: chainId,
       expected_amount_wei: expectedAmountWei,
+    };
+    const extendedInsert = {
+      ...baseInsert,
       parent_payment_session_id: parentPaymentSessionId,
       expires_at: expiresAt,
       metadata,
-    }).select('id, wallet_address, client_run_id, kind, chain_id, expected_amount_wei, created_at, expires_at').single();
-    if (error) throw new Error(`crypto_payment_sessions insert failed: ${error.message || error}`);
+    };
+
+    let data: Record<string, unknown> | null = null;
+    let error: unknown = null;
+
+    const primaryInsert = await admin
+      .from('crypto_payment_sessions')
+      .insert(extendedInsert)
+      .select('id, wallet_address, client_run_id, kind, chain_id, expected_amount_wei, created_at, expires_at')
+      .single();
+
+    data = primaryInsert.data as Record<string, unknown> | null;
+    error = primaryInsert.error;
+
+    if (error && isAnyMissingColumnsError(error, ['parent_payment_session_id', 'expires_at', 'metadata', 'created_at'])) {
+      const fallbackInsert = await admin
+        .from('crypto_payment_sessions')
+        .insert(baseInsert)
+        .select('id, wallet_address, client_run_id, kind, chain_id, expected_amount_wei')
+        .single();
+      data = fallbackInsert.data as Record<string, unknown> | null;
+      error = fallbackInsert.error;
+    }
+
+    if (error || !data) throw new Error(`crypto_payment_sessions insert failed: ${errorMessage(error) || 'unknown error'}`);
 
     return json({
       ok: true,
@@ -48,9 +87,9 @@ Deno.serve(async (req) => {
       clientRunId: data.client_run_id,
       kind: data.kind,
       chainId: data.chain_id,
-      expectedAmountWei: String(data.expected_amount_wei),
-      createdAt: data.created_at,
-      expiresAt: data.expires_at,
+      expectedAmountWei: String(data.expected_amount_wei || expectedAmountWei),
+      createdAt: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+      expiresAt: typeof data.expires_at === 'string' ? data.expires_at : expiresAt,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || 'Could not create payment session.');

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BUILD_VERSION = 'v10.2.4';
+  const BUILD_VERSION = 'v10.2.6';
 
   const CONFIG = Object.freeze({
     chainId: Number(window.DFK_AVAX_CHAIN_ID || 43114),
@@ -45,6 +45,10 @@
     rewardClaimsLoading: false,
     rewardClaimsError: '',
     rewardWhitelistSaving: false,
+    rewardWhitelistCollapsed: true,
+    rewardSpendTimeframe: 'all',
+    rewardClaimsTab: 'pending',
+    rewardClaimsPageByTab: { pending: 1, completed: 1, rejected: 1 },
     treasuryFlyoutOpen: false,
   };
   const ui = {};
@@ -130,19 +134,64 @@
     if (notesInput) notesInput.value = String(item && item.notes || '');
   }
 
+
+function ensureTreasuryLayout() {
+  const section = qs('rewardClaimsAdminSection');
+  const whitelistSection = qs('rewardClaimsWhitelistSection');
+  const bodyEl = qs('rewardClaimsAdminBody');
+  if (!section || !whitelistSection || !bodyEl) return;
+  if (bodyEl.nextElementSibling !== whitelistSection) {
+    section.appendChild(whitelistSection);
+  }
+  let toggleBtn = qs('rewardClaimsWhitelistToggleBtn');
+  if (!toggleBtn) {
+    const subtitle = whitelistSection.querySelector('.reward-claims-admin-subtitle');
+    if (subtitle) {
+      subtitle.innerHTML = `<button type="button" class="reward-claims-rollup-btn" id="rewardClaimsWhitelistToggleBtn" aria-expanded="${state.rewardWhitelistCollapsed ? 'false' : 'true'}">Withdrawal Whitelist <span class="reward-claims-rollup-chevron">${state.rewardWhitelistCollapsed ? '▸' : '▾'}</span></button>`;
+      toggleBtn = qs('rewardClaimsWhitelistToggleBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          state.rewardWhitelistCollapsed = !state.rewardWhitelistCollapsed;
+          renderRewardClaimsAdmin();
+        });
+      }
+    }
+  }
+  whitelistSection.classList.toggle('is-collapsed', !!state.rewardWhitelistCollapsed);
+  if (toggleBtn) {
+    toggleBtn.setAttribute('aria-expanded', state.rewardWhitelistCollapsed ? 'false' : 'true');
+    const chev = toggleBtn.querySelector('.reward-claims-rollup-chevron');
+    if (chev) chev.textContent = state.rewardWhitelistCollapsed ? '▸' : '▾';
+  }
+}
+
+function getRewardSpendTimeframeLabel(value) {
+  if (value === 'today') return 'Today';
+  if (value === 'this_week') return 'This Week';
+  if (value === 'last_week') return 'Last Week';
+  return 'All Time';
+}
+
 function renderRewardClaimsAdmin() {
   const section = qs('rewardClaimsAdminSection');
   const statusEl = qs('rewardClaimsAdminStatus');
   const bodyEl = qs('rewardClaimsAdminBody');
-  const refreshBtn = qs('refreshRewardClaimsBtn');
+  const refreshBtn = qs('refreshTreasuryViewBtn');
+  const headerEl = qs('rewardClaimsAdminHeader');
   const wallet = getWallet();
   const visible = !!(wallet && wallet.address && isTreasuryWallet(wallet.address));
   syncTreasuryFlyoutUi();
+  ensureTreasuryLayout();
   if (section) {
     section.classList.toggle('hidden', !visible);
     section.setAttribute('aria-hidden', visible ? 'false' : 'true');
   }
   if (!visible || !bodyEl) return;
+  if (headerEl) {
+    headerEl.classList.toggle('is-collapsed', !!state.rewardClaimsSectionCollapsed);
+    headerEl.setAttribute('aria-expanded', state.rewardClaimsSectionCollapsed ? 'false' : 'true');
+  }
+  bodyEl.classList.toggle('hidden', !!state.rewardClaimsSectionCollapsed);
   if (refreshBtn) refreshBtn.disabled = !!state.rewardClaimsLoading;
   if (state.rewardClaimsLoading && !state.rewardClaims) {
     if (statusEl) statusEl.textContent = 'Pending claims: Loading…';
@@ -155,13 +204,27 @@ function renderRewardClaimsAdmin() {
     return;
   }
   const data = state.rewardClaims || { pendingCount: 0, completedCount: 0, pendingTotalsByCurrency: {}, items: [], pendingItems: [], completedItems: [], whitelistItems: [], spendItems: [] };
-  const pendingItems = Array.isArray(data.pendingItems) ? data.pendingItems : [];
-  const completedItems = Array.isArray(data.completedItems) ? data.completedItems : [];
+  const allItems = Array.isArray(data.items) ? data.items : [];
+  const rawPendingItems = Array.isArray(data.pendingItems) ? data.pendingItems : [];
+  const rawCompletedItems = Array.isArray(data.completedItems) ? data.completedItems : [];
+  const pendingItems = rawPendingItems.length ? rawPendingItems : allItems.filter((item) => {
+    const status = String(item && item.status || item && item.rawStatus || 'pending').trim().toLowerCase();
+    return status !== 'paid' && status !== 'rejected' && !String(item && item.paidAt || '').trim() && !String(item && item.txHash || '').trim();
+  });
+  const completedItems = rawCompletedItems.length ? rawCompletedItems : allItems.filter((item) => {
+    const status = String(item && item.status || item && item.rawStatus || '').trim().toLowerCase();
+    return status === 'paid' || !!String(item && item.paidAt || '').trim() || !!String(item && item.txHash || '').trim();
+  });
+  const rejectedItems = allItems.filter((item) => {
+    const status = String(item && item.status || item && item.rawStatus || '').trim().toLowerCase();
+    return status === 'rejected';
+  });
   const whitelistItems = Array.isArray(data.whitelistItems) ? data.whitelistItems : [];
   const spendItems = Array.isArray(data.spendItems) ? data.spendItems : [];
-  const pendingCount = Number(data.pendingCount != null ? data.pendingCount : pendingItems.length || 0);
-  const completedCount = Number(data.completedCount != null ? data.completedCount : completedItems.length || 0);
-  if (statusEl) statusEl.textContent = `Pending claims: ${pendingCount} · Completed: ${completedCount} · Whitelisted wallets: ${whitelistItems.length}`;
+  const pendingCount = pendingItems.length;
+  const completedCount = completedItems.length;
+  const rejectedCount = rejectedItems.length;
+  if (statusEl) statusEl.textContent = `Pending: ${pendingCount} · Completed: ${completedCount} · Rejected: ${rejectedCount} · Whitelisted wallets: ${whitelistItems.length}`;
   const whitelistListEl = qs('rewardClaimsWhitelistList');
   const saveWhitelistBtn = qs('saveRewardWhitelistBtn');
   if (saveWhitelistBtn) saveWhitelistBtn.disabled = !!state.rewardClaimsLoading || !!state.rewardWhitelistSaving;
@@ -213,8 +276,8 @@ function renderRewardClaimsAdmin() {
       ? `<div class="reward-claim-actions">${status !== 'paid' ? `<button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Send Now</button><button class="reward-claim-action-btn" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}</div>`
       : `<div class="reward-claim-actions"><button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Approve &amp; Send</button><button class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve Only</button><button class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button></div>`;
     return `
-      <article class="reward-claim-card is-${status}">
-        <div class="reward-claim-card-top">
+      <article class="reward-claim-card is-collapsible" data-claim-collapse-card="1" is-collapsible is-${status}">
+        <div class="reward-claim-summary"><div class="reward-claim-summary-main">${escapeHtml(shortWallet(item.walletAddress || ""))}</div><div class="reward-claim-summary-sub">${escapeHtml(item.claimDay || item.requestedAtLabel || "")}</div></div><div class="reward-claim-card-top">
           <div>
             <div class="reward-claim-card-title">${escapeHtml(type)}</div>${whitelistLabel}
             <div class="reward-claim-card-status status-${status}">${escapeHtml(String(status).toUpperCase())}</div>
@@ -238,12 +301,35 @@ function renderRewardClaimsAdmin() {
     `;
   };
 
-  const pendingMarkup = pendingItems.length
-    ? pendingItems.map((item) => renderClaimCard(item, false)).join('')
-    : '<div class="reward-claims-admin-empty">No pending withdrawals.</div>';
-  const completedMarkup = completedItems.length
-    ? completedItems.map((item) => renderClaimCard(item, true)).join('')
-    : '<div class="reward-claims-admin-empty">No completed withdrawals yet.</div>';
+  const claimsPerPage = 10;
+  const claimsByTab = { pending: pendingItems, completed: completedItems, rejected: rejectedItems };
+  const tabKey = ['pending', 'completed', 'rejected'].includes(String(state.rewardClaimsTab || '')) ? String(state.rewardClaimsTab) : 'pending';
+  const activeItems = Array.isArray(claimsByTab[tabKey]) ? claimsByTab[tabKey] : [];
+  const requestedPage = Math.max(1, Number((state.rewardClaimsPageByTab && state.rewardClaimsPageByTab[tabKey]) || 1));
+  const pageCount = Math.max(1, Math.ceil(activeItems.length / claimsPerPage));
+  const safePage = Math.min(requestedPage, pageCount);
+  if (state.rewardClaimsPageByTab) state.rewardClaimsPageByTab[tabKey] = safePage;
+  const pageStart = (safePage - 1) * claimsPerPage;
+  const pagedItems = activeItems.slice(pageStart, pageStart + claimsPerPage);
+  const claimsTabMarkup = `<div class="reward-claims-tabs">
+      <button class="reward-claims-tab-btn ${tabKey === 'pending' ? 'active' : ''}" data-claims-tab="pending">Pending <span class="reward-claims-tab-count">${pendingCount}</span></button>
+      <button class="reward-claims-tab-btn ${tabKey === 'completed' ? 'active' : ''}" data-claims-tab="completed">Completed <span class="reward-claims-tab-count">${completedCount}</span></button>
+      <button class="reward-claims-tab-btn ${tabKey === 'rejected' ? 'active' : ''}" data-claims-tab="rejected">Rejected <span class="reward-claims-tab-count">${rejectedCount}</span></button>
+    </div>`;
+  const claimsListMarkup = pagedItems.length
+    ? pagedItems.map((item) => renderClaimCard(item, tabKey !== 'pending')).join('')
+    : `<div class="reward-claims-admin-empty">No ${escapeHtml(tabKey)} withdrawals.</div>`;
+  const claimsPagerMarkup = `<div class="reward-claims-pagination">
+      <button class="reward-claim-action-btn" data-claims-page-dir="prev" ${safePage <= 1 ? 'disabled' : ''}>Prev</button>
+      <div class="reward-claims-page-label">Page ${safePage} / ${pageCount}</div>
+      <button class="reward-claim-action-btn" data-claims-page-dir="next" ${safePage >= pageCount ? 'disabled' : ''}>Next</button>
+    </div>`;
+  const spendControlsMarkup = `<div class="reward-spend-controls">
+      <button class="reward-spend-filter-btn ${state.rewardSpendTimeframe === 'today' ? 'active' : ''}" data-spend-timeframe="today">Today</button>
+      <button class="reward-spend-filter-btn ${state.rewardSpendTimeframe === 'this_week' ? 'active' : ''}" data-spend-timeframe="this_week">This Week</button>
+      <button class="reward-spend-filter-btn ${state.rewardSpendTimeframe === 'last_week' ? 'active' : ''}" data-spend-timeframe="last_week">Last Week</button>
+      <button class="reward-spend-filter-btn ${state.rewardSpendTimeframe === 'all' ? 'active' : ''}" data-spend-timeframe="all">All Time</button>
+    </div>`;
   const spendMarkup = spendItems.length
     ? `<div class="reward-claim-spend-list">${spendItems.map((item) => `
       <div class="reward-claim-whitelist-row reward-spend-row">
@@ -257,20 +343,19 @@ function renderRewardClaimsAdmin() {
         <div class="reward-claim-whitelist-pill">Gold burns ${escapeHtml(String(Number(item.dfkGoldBurnCount || 0)))}</div>
         <div class="reward-claim-whitelist-notes">${escapeHtml(item.lastActivityAtLabel || 'No activity time')}</div>
       </div>`).join('')}</div>`
-    : '<div class="reward-claims-admin-empty">No JEWEL or DFK Gold spend data yet.</div>';
+    : '<div class="reward-claims-admin-empty">No JEWEL or DFK Gold spend data for this timeframe yet.</div>';
 
   bodyEl.innerHTML = `${totalsMarkup}
     <div class="reward-claims-admin-group">
-      <div class="reward-claims-admin-subtitle">Pending withdrawals</div>
-      ${pendingMarkup}
-    </div>
-    <div class="reward-claims-admin-group">
-      <div class="reward-claims-admin-subtitle">Completed withdrawals</div>
-      ${completedMarkup}
+      <div class="reward-claims-admin-subtitle">Withdrawals</div>
+      ${claimsTabMarkup}
+      ${claimsListMarkup}
+      ${claimsPagerMarkup}
     </div>
     <div class="reward-claims-admin-group">
       <div class="reward-claims-admin-subtitle">Player spend list</div>
-      <div class="wallet-tracking-summary">JEWEL spent and DFK Gold burned by wallet.</div>
+      <div class="wallet-tracking-summary">JEWEL spent on hero hires / gold swaps and DFK Gold burned by wallet. Showing: ${escapeHtml(getRewardSpendTimeframeLabel(state.rewardSpendTimeframe || 'all'))}.</div>
+      ${spendControlsMarkup}
       ${spendMarkup}
     </div>`;
 }
@@ -311,6 +396,8 @@ function openTreasuryFlyout() {
   if (!(wallet && wallet.address && isTreasuryWallet(wallet.address))) return;
   state.treasuryFlyoutOpen = true;
   syncTreasuryFlyoutUi();
+  refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
+  refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
 }
 
 function closeTreasuryFlyout() {
@@ -337,18 +424,21 @@ function updateTreasuryUi() {
     statusEl.textContent = pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private';
   }
   if (!state.treasurySummary) {
-    if (totalEl) totalEl.textContent = 'Treasury Earned: Loading…';
-    if (todayEl) todayEl.textContent = 'Today: --';
-    if (breakdownEl) breakdownEl.textContent = 'Bundles: -- · Gold swaps: -- · Hero hires: --';
-    if (countEl) countEl.textContent = 'Confirmed payments: --';
+    if (totalEl) totalEl.textContent = 'Treasury Earned: 0';
+    if (todayEl) todayEl.textContent = 'Today: 0';
+    if (breakdownEl) breakdownEl.textContent = 'Bundles: 0 · Gold swaps: 0 · Hero hires: 0';
+    if (countEl) countEl.textContent = state.rewardClaims ? `Confirmed payments: ${Number((state.rewardClaims && state.rewardClaims.completedCount) || 0)}+ reward updates loaded` : 'Confirmed payments: --';
     renderRewardClaimsAdmin();
     return;
   }
   const s = state.treasurySummary;
   if (totalEl) totalEl.textContent = `Treasury Earned: ${formatAvaxFromWei(s.totalConfirmedWei || '0')}`;
-  if (todayEl) todayEl.textContent = `Today: ${formatAvaxFromWei(s.todayConfirmedWei || '0')}`;
-  if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')}`;
-  if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)}`;
+  if (todayEl) {
+    const todayBurned = Math.max(0, Number(s.todayBurnedGold || 0));
+    todayEl.textContent = `Today: ${formatAvaxFromWei(s.todayConfirmedWei || '0')}${todayBurned > 0 ? ` · Burned gold: ${todayBurned.toLocaleString()}` : ''}`;
+  }
+  if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')} · Burned gold: ${Math.max(0, Number(s.lifetimeBurnedGold || 0)).toLocaleString()}`;
+  if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)} · Lifetime tracked runs: ${Number(s.lifetimeTrackedRuns || 0).toLocaleString()}`;
   renderRewardClaimsAdmin();
 }
 
@@ -447,26 +537,41 @@ function loadCachedBalance() {
     return error instanceof Error ? error : new Error(message);
   }
 
+  async function ensureTreasurySession() {
+    const tracker = window.DFKRunTracker;
+    if (!tracker || typeof tracker.getState !== 'function') {
+      throw new Error('Run tracking is not available.');
+    }
+    const trackerState = tracker.getState() || {};
+    const existingToken = trackerState && trackerState.session && trackerState.session.sessionToken
+      ? String(trackerState.session.sessionToken)
+      : '';
+    if (existingToken) return existingToken;
+    if (typeof tracker.authenticate !== 'function') {
+      throw new Error('Run tracking session missing. Enable run tracking first.');
+    }
+    const session = await tracker.authenticate();
+    const token = session && session.sessionToken ? String(session.sessionToken) : '';
+    if (!token) throw new Error('Run tracking session missing. Enable run tracking first.');
+    return token;
+  }
+
   async function callFunction(name, payload) {
-    if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) throw new Error('Supabase config missing.');
-
-    const trackerState =
-      window.DFKRunTracker && typeof window.DFKRunTracker.getState === 'function'
-        ? window.DFKRunTracker.getState()
-        : null;
-
-    const sessionToken =
-      (trackerState && trackerState.session && trackerState.session.sessionToken) ||
-      '';
+    if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) throw new Error('Supabase functions are not configured.');
+    const trackerState = window.DFKRunTracker && typeof window.DFKRunTracker.getState === 'function'
+      ? window.DFKRunTracker.getState()
+      : null;
+    const sessionToken = (trackerState && trackerState.session && trackerState.session.sessionToken) || '';
+    const useSessionAsBearer = !!sessionToken && name === CONFIG.rewardClaimsAdminFunction;
 
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.supabaseAnonKey,
+      Authorization: useSessionAsBearer
+        ? `Bearer ${sessionToken}`
+        : `Bearer ${CONFIG.supabaseAnonKey}`,
     };
-
-    if (sessionToken) {
-      headers['x-session-token'] = String(sessionToken);
-    }
+    if (sessionToken) headers['x-session-token'] = sessionToken;
 
     let response;
     try {
@@ -487,9 +592,16 @@ function loadCachedBalance() {
       json = { error: raw || `${name} failed.` };
     }
 
-    if (!response.ok) throw enhanceFunctionError(name, new Error(json && json.error ? json.error : `${name} failed.`));
+    if (!response.ok) {
+      const message = json && json.error ? json.error : `${name} failed.`;
+      if (/session token required|session not found|session expired|session revoked/i.test(String(message || ''))) {
+        throw enhanceFunctionError(name, new Error('Treasury session missing. Open tracked runs or connect run tracking first, then refresh claims.'));
+      }
+      throw enhanceFunctionError(name, new Error(message));
+    }
     return json;
   }
+
 
   function render() {
     const wallet = getWallet();
@@ -577,6 +689,59 @@ function loadCachedBalance() {
   }
 
 
+
+  function getRewardClaimItemById(claimId) {
+    const data = state.rewardClaims || {};
+    const allItems = Array.isArray(data.items) ? data.items : [];
+    const pendingItems = Array.isArray(data.pendingItems) ? data.pendingItems : [];
+    const completedItems = Array.isArray(data.completedItems) ? data.completedItems : [];
+    const targetId = String(claimId || '').trim();
+    return pendingItems.concat(completedItems, allItems).find((item) => String(item && item.id || '').trim() === targetId) || null;
+  }
+
+  function parseRewardAmountToWei(claimItem) {
+    const currency = String(claimItem && claimItem.rewardCurrency || '').trim().toUpperCase();
+    const amountValue = Number(claimItem && claimItem.amountValue || 0);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) throw new Error('Claim amount is invalid.');
+    if (currency !== 'JEWEL' && currency !== 'AVAX') throw new Error(`Unsupported reward currency: ${currency || 'unknown'}.`);
+    return BigInt(Math.round(amountValue * 1e18)).toString();
+  }
+
+  async function sendNativeRewardClaimPayout(claimItem) {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !wallet.selectedProvider || typeof wallet.selectedProvider.request !== 'function') {
+      throw new Error('Treasury wallet connection is required.');
+    }
+    const currency = String(claimItem && claimItem.rewardCurrency || '').trim().toUpperCase();
+    const targetWallet = normalizeAddress(claimItem && claimItem.walletAddress || '');
+    if (!targetWallet) throw new Error('Claim wallet is missing.');
+    const amountWei = parseRewardAmountToWei(claimItem);
+    const targetChainId = currency === 'JEWEL' ? 53935 : Number(CONFIG.chainId || 43114);
+    const targetChainHex = currency === 'JEWEL'
+      ? (window.DFK_DFKCHAIN_HEX || '0xd2af')
+      : (CONFIG.chainHex || '0xa86a');
+    const currentChainId = Number(wallet.activeChainId || 0);
+    if (currentChainId !== targetChainId) {
+      try {
+        await wallet.selectedProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: targetChainHex }],
+        });
+      } catch (_error) {
+        throw new Error(`Switch to ${currency === 'JEWEL' ? 'DFK Chain' : 'AVAX'} first, then try again.`);
+      }
+    }
+    const txHash = await wallet.selectedProvider.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: wallet.address,
+        to: targetWallet,
+        value: '0x' + BigInt(String(amountWei || '0')).toString(16),
+      }],
+    });
+    return { txHash, rewardCurrency: currency, amountWei, walletAddress: targetWallet };
+  }
+
   async function refreshTreasurySummary() {
     const wallet = getWallet();
     if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) {
@@ -594,12 +759,14 @@ function loadCachedBalance() {
   async function updateRewardClaimStatus(claimId, nextStatus, mode = 'status') {
     const wallet = getWallet();
     if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
-    const adminNote = window.prompt(`Optional admin note for ${mode === 'approve_and_pay' ? 'approve and send' : nextStatus}:`, '') || '';
+    const normalizedStatus = nextStatus === 'approve' ? 'approved' : (nextStatus === 'reject' ? 'rejected' : String(nextStatus || '').trim().toLowerCase());
+    const claimItem = getRewardClaimItemById(claimId);
+    const adminNote = window.prompt(`Optional admin note for ${mode === 'approve_and_pay' ? 'approve and send' : normalizedStatus}:`, '') || '';
     let txHash = '';
     state.rewardClaimsLoading = true;
     updateTreasuryUi();
     try {
-      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, mode === 'approve_and_pay' ? {
+      let response = await callFunction(CONFIG.rewardClaimsAdminFunction, mode === 'approve_and_pay' ? {
         walletAddress: wallet.address,
         action: 'approve_and_pay',
         claimId,
@@ -608,10 +775,24 @@ function loadCachedBalance() {
         walletAddress: wallet.address,
         action: 'update_status',
         claimId,
-        status: nextStatus,
+        status: normalizedStatus,
         adminNote,
         txHash,
       });
+
+      if (mode === 'approve_and_pay' && (!response || !response.txHash) && claimItem) {
+        const manualPayout = await sendNativeRewardClaimPayout(claimItem);
+        txHash = String(manualPayout && manualPayout.txHash || '').trim();
+        response = await callFunction(CONFIG.rewardClaimsAdminFunction, {
+          walletAddress: wallet.address,
+          action: 'update_status',
+          claimId,
+          status: 'paid',
+          adminNote: [String(adminNote || '').trim(), `Manual treasury payout sent by ${wallet.address}.`].filter(Boolean).join(' '),
+          txHash,
+        });
+      }
+
       if (response && response.txHash) {
         setStatus(`Treasury payout sent: ${shortHash(response.txHash)}`, 'good');
       } else if (response && response.message) {
@@ -690,8 +871,10 @@ function loadCachedBalance() {
     state.rewardClaimsError = '';
     updateTreasuryUi();
     try {
-      const response = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100 });
-      state.rewardClaims = response || { pendingCount: 0, items: [] };
+      await ensureTreasurySession();
+      const claimsResponse = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100, timeframe: state.rewardSpendTimeframe || 'all' });
+      state.rewardClaims = claimsResponse || { pendingCount: 0, items: [] };
+      state.rewardClaimsPageByTab = { pending: 1, completed: 1, rejected: 1 };
       return state.rewardClaims;
     } catch (error) {
       state.rewardClaimsError = error && error.message ? error.message : 'Failed to load reward claims.';
@@ -709,38 +892,93 @@ function loadCachedBalance() {
     const resolvedRunId = clientRunId || ((window.crypto && typeof window.crypto.randomUUID === 'function')
       ? window.crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
-    const session = await callFunction(CONFIG.createSessionFunction, {
-      walletAddress: wallet.address,
-      clientRunId: resolvedRunId,
-      kind,
-      expectedAmountWei: String(amountWei || '0'),
-      chainId: CONFIG.chainId,
-      metadata,
-    });
+
+    const normalizedKind = String(kind || '').trim().toLowerCase();
+    const allowSessionlessHeroHire = normalizedKind === 'hero_hire';
+    let session = null;
+
+    try {
+      session = await callFunction(CONFIG.createSessionFunction, {
+        walletAddress: wallet.address,
+        clientRunId: resolvedRunId,
+        kind,
+        expectedAmountWei: String(amountWei || '0'),
+        chainId: CONFIG.chainId,
+        metadata,
+      });
+    } catch (error) {
+      if (!allowSessionlessHeroHire) throw error;
+      const message = error && error.message ? error.message : 'session creation failed';
+      console.warn('[AVAX Rails] hero_hire session creation failed, falling back to direct wallet payment:', message);
+      setStatus(`AVAX Rails: Paying for ${label || kind}…`, 'warn');
+    }
+
     setStatus(`AVAX Rails: Paying for ${label || kind}…`, 'warn');
     const payment = await sendWalletPayment({ amountWei: String(amountWei || '0') });
+
+    if (!session || !session.paymentSessionId) {
+      refreshTreasurySummary().catch(() => {});
+      if (normalizedKind === 'gold_crate' && window.game) {
+        try {
+          window.game.jewel = (Number(window.game.jewel || 0) + 3000);
+          if (typeof window.render === 'function') window.render();
+        } catch(e){}
+      }
+      return {
+        paymentSessionId: null,
+        clientRunId: resolvedRunId,
+        txHash: payment.txHash,
+        verifiedAt: null,
+        walletAddress: payment.walletAddress,
+        kind,
+        metadata,
+      };
+    }
+
     setStatus(`AVAX Rails: Verifying ${label || kind}…`, 'warn');
-    const verified = await verifyPaymentWithRetry({
-      paymentSessionId: session.paymentSessionId,
-      txHash: payment.txHash,
-      walletAddress: payment.walletAddress,
-      expectedAmountWei: String(amountWei || '0'),
-      expectedTo: CONFIG.treasuryAddress,
-      chainId: CONFIG.chainId,
-      clientRunId: resolvedRunId,
-      kind,
-      metadata,
-    });
-    refreshTreasurySummary().catch(() => {});
-    return {
-      paymentSessionId: session.paymentSessionId,
-      clientRunId: resolvedRunId,
-      txHash: payment.txHash,
-      verifiedAt: verified.verifiedAt || new Date().toISOString(),
-      walletAddress: payment.walletAddress,
-      kind,
-      metadata,
-    };
+    try {
+      const verified = await verifyPaymentWithRetry({
+        paymentSessionId: session.paymentSessionId,
+        txHash: payment.txHash,
+        walletAddress: payment.walletAddress,
+        expectedAmountWei: String(amountWei || '0'),
+        expectedTo: CONFIG.treasuryAddress,
+        chainId: CONFIG.chainId,
+        clientRunId: resolvedRunId,
+        kind,
+        metadata,
+      });
+      refreshTreasurySummary().catch(() => {});
+      if (normalizedKind === 'gold_crate' && window.game) {
+        try {
+          window.game.jewel = (Number(window.game.jewel || 0) + 3000);
+          if (typeof window.render === 'function') window.render();
+        } catch(e){}
+      }
+      return {
+        paymentSessionId: session.paymentSessionId,
+        clientRunId: resolvedRunId,
+        txHash: payment.txHash,
+        verifiedAt: verified.verifiedAt || new Date().toISOString(),
+        walletAddress: payment.walletAddress,
+        kind,
+        metadata,
+      };
+    } catch (error) {
+      if (!allowSessionlessHeroHire) throw error;
+      const message = error && error.message ? error.message : 'verification failed';
+      console.warn('[AVAX Rails] hero_hire verification failed after payment, returning success to avoid blocking placement:', message);
+      refreshTreasurySummary().catch(() => {});
+      return {
+        paymentSessionId: session.paymentSessionId || null,
+        clientRunId: resolvedRunId,
+        txHash: payment.txHash,
+        verifiedAt: null,
+        walletAddress: payment.walletAddress,
+        kind,
+        metadata,
+      };
+    }
   }
 
   async function refreshRunBalance() {
@@ -1110,8 +1348,18 @@ function loadCachedBalance() {
     if (goldBtn) goldBtn.addEventListener('click', () => buyPowerUp('gold_crate').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
     if (patchBtn) patchBtn.addEventListener('click', () => buyPowerUp('portal_patch').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed'}`, 'bad'); }));
     hoistTreasuryFlyoutToBody();
-    const refreshClaimsBtn = qs('refreshRewardClaimsBtn');
-    if (refreshClaimsBtn) refreshClaimsBtn.addEventListener('click', () => refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); }));
+    const refreshClaimsBtn = qs('refreshTreasuryViewBtn');
+    if (refreshClaimsBtn) refreshClaimsBtn.addEventListener('click', async () => {
+      refreshClaimsBtn.disabled = true;
+      try {
+        await refreshTreasurySummary().catch(() => { updateTreasuryUi(); return null; });
+        await refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); return null; });
+        await refreshRunBalance().catch(() => null);
+        updateTreasuryUi();
+      } finally {
+        window.setTimeout(() => { refreshClaimsBtn.disabled = false; }, 500);
+      }
+    });
     const treasuryFlyoutBtn = qs('treasuryFlyoutBtn');
     if (treasuryFlyoutBtn) treasuryFlyoutBtn.addEventListener('click', () => { if (state.treasuryFlyoutOpen) closeTreasuryFlyout(); else openTreasuryFlyout(); });
     const treasuryFlyoutCloseBtn = qs('avaxTreasuryPanelCloseBtn');
@@ -1139,6 +1387,31 @@ function loadCachedBalance() {
     });
     const rewardClaimsBody = qs('rewardClaimsAdminBody');
     if (rewardClaimsBody) rewardClaimsBody.addEventListener('click', (event) => {
+      const tabButton = event.target && event.target.closest ? event.target.closest('[data-claims-tab]') : null;
+      if (tabButton) {
+        const nextTab = String(tabButton.getAttribute('data-claims-tab') || 'pending').trim().toLowerCase();
+        if (['pending', 'completed', 'rejected'].includes(nextTab)) {
+          state.rewardClaimsTab = nextTab;
+          if (state.rewardClaimsPageByTab) state.rewardClaimsPageByTab[nextTab] = 1;
+          renderRewardClaimsAdmin();
+        }
+        return;
+      }
+      const pageButton = event.target && event.target.closest ? event.target.closest('[data-claims-page-dir]') : null;
+      if (pageButton) {
+        const dir = String(pageButton.getAttribute('data-claims-page-dir') || '').trim().toLowerCase();
+        const tabKey = ['pending', 'completed', 'rejected'].includes(String(state.rewardClaimsTab || '')) ? String(state.rewardClaimsTab) : 'pending';
+        const delta = dir === 'next' ? 1 : -1;
+        if (state.rewardClaimsPageByTab) state.rewardClaimsPageByTab[tabKey] = Math.max(1, Number((state.rewardClaimsPageByTab[tabKey]) || 1) + delta);
+        renderRewardClaimsAdmin();
+        return;
+      }
+      const collapseCard = event.target && event.target.closest ? event.target.closest('[data-claim-collapse-card]') : null;
+      const actionButton = event.target && event.target.closest ? event.target.closest('[data-claim-action], [data-claims-tab], [data-claims-page-dir]') : null;
+      if (collapseCard && !actionButton) {
+        collapseCard.classList.toggle('open');
+        return;
+      }
       const button = event.target && event.target.closest ? event.target.closest('[data-claim-action]') : null;
       if (!button) return;
       const claimId = String(button.getAttribute('data-claim-id') || '').trim();
@@ -1177,19 +1450,15 @@ function loadCachedBalance() {
     }
     window.addEventListener('dfk-defense:wallet-state', (event) => {
       handleWalletState(event.detail);
-      if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
-      refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
-      refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
+      render();
+      updateTreasuryUi();
     });
     window.addEventListener('dfk-defense:tracking-state', () => {
-      if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
-      refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
-      refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
+      render();
+      updateTreasuryUi();
     });
     render();
-    if (!isFreeWeb3RunsMode()) refreshRunBalance().catch(() => { render(); }); else render();
-    refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
-    refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
+    updateTreasuryUi();
   }
 
   window.DFKCryptoRails = {

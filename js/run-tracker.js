@@ -71,6 +71,13 @@
       ui.enableBtn.classList.toggle('hidden', !showEnable);
       ui.enableBtn.setAttribute('aria-hidden', showEnable ? 'false' : 'true');
     }
+    if (ui.disableBtn) {
+      const showDisable = !!state.session;
+      ui.disableBtn.disabled = !showDisable || !state.address || !state.client;
+      ui.disableBtn.textContent = 'Disable Run Tracking';
+      ui.disableBtn.classList.toggle('hidden', !showDisable);
+      ui.disableBtn.setAttribute('aria-hidden', showDisable ? 'false' : 'true');
+    }
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
     if (ui.saveVanityBtn) ui.saveVanityBtn.disabled = !state.session || !state.client || !state.address;
@@ -264,9 +271,8 @@
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.key,
-      Authorization: `Bearer ${CONFIG.key}`,
+      Authorization: `Bearer ${token || CONFIG.key}`,
     };
-    if (token) headers['x-session-token'] = String(token);
     const response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
       method: 'POST',
       headers,
@@ -295,8 +301,8 @@
         requestId,
         response: json || responseText || null,
       });
-      if (!token && /authorization header/i.test(String(message || ''))) {
-        throw new Error('Missing authorization header. Redeploy the Supabase functions with --no-verify-jwt.');
+      if (!token && /authorization header|session token required|unauthorized|wallet mismatch/i.test(String(message || ''))) {
+        throw new Error('Run tracking session missing. Re-enable run tracking, then press Refresh to flush pending runs.');
       }
       throw new Error(`${message} [${debugBits.join(' ')}]`);
     }
@@ -499,7 +505,7 @@
     }
   }
 
-  async function refreshSummary() {
+  async function refreshSummary(options = {}) {
     if (!state.client || !state.address) {
       state.summary = 'Tracked Runs: -- · Best Wave: --';
       render();
@@ -533,6 +539,11 @@
       ? `Tracked Runs: ${runs} · Best Wave: ${bestWave} · Pending Uploads: ${pendingCount}`
       : `Tracked Runs: ${runs} · Best Wave: ${bestWave}`;
     render();
+    if (options && options.flushPending && pendingCount > 0 && state.session && !isSessionStale(state.session)) {
+      try {
+        await processPendingRuns({ address, interactive: false, force: true });
+      } catch (_error) {}
+    }
     return data;
   }
 
@@ -649,12 +660,23 @@
   }
 
   function scheduleQueueFlush() {
-    if (state.queueFlushTimer) clearInterval(state.queueFlushTimer);
+    if (state.queueFlushTimer) {
+      clearInterval(state.queueFlushTimer);
+      state.queueFlushTimer = null;
+    }
     state.queueFlushTimer = window.setInterval(() => {
-      const address = getTrackingAddress();
-      if (!address || document.hidden) return;
-      processPendingRuns({ address, interactive: false }).catch(() => {});
-    }, CONFIG.flushIntervalMs);
+      try {
+        const address = normalizeAddress(state.address || getTrackingAddress() || '');
+        if (!address || document.hidden) return;
+        const pendingCount = getPendingQueueCount(address);
+        if (pendingCount <= 0) return;
+        const currentSession = restoreSession(address);
+        if (!currentSession || isSessionStale(currentSession)) return;
+        state.session = currentSession;
+        state.lastAuthenticatedAddress = address;
+        processPendingRuns({ address, interactive: false }).catch(() => {});
+      } catch (_error) {}
+    }, 20000);
   }
 
   async function submitCompletedRun(runPayload) {
@@ -735,10 +757,10 @@
             'Content-Type': 'application/json',
             apikey: CONFIG.key,
             Authorization: `Bearer ${state.session.sessionToken}`,
-            'x-session-token': String(state.session.sessionToken),
           },
           body,
-        }).then(async () => {
+        }).then(async (response) => {
+          if (!response || !response.ok) return;
           try {
             await processPendingRuns({ address: walletAddress, interactive: false, force: true });
           } catch (_error) {}
@@ -776,8 +798,8 @@
       applyStatus(pendingCount > 0 ? `Run Tracking: Signature needed (${pendingCount} pending upload${pendingCount === 1 ? '' : 's'})` : 'Run Tracking: Signature needed', 'warn');
     }
     await refreshSummary();
-    if (state.session || pendingCount > 0) {
-      await processPendingRuns({ address: state.address, interactive: !!state.session, force: pendingCount > 0 }).catch(() => {});
+    if (state.session && !isSessionStale(state.session) && pendingCount > 0) {
+      processPendingRuns({ address: state.address, interactive: false }).catch(() => {});
     }
   }
 
@@ -823,6 +845,7 @@
     ui.status = qs('walletTrackingStatus');
     ui.summary = qs('walletTrackingSummary');
     ui.enableBtn = qs('enableTrackingBtn');
+    ui.disableBtn = qs('disableTrackingBtn');
     ui.vanitySection = qs('walletVanitySection');
     ui.vanityInput = qs('walletVanityInput');
     ui.vanityStatus = qs('walletVanityStatus');
@@ -834,16 +857,6 @@
     }
     if (ui.enableBtn) {
       ui.enableBtn.addEventListener('click', async () => {
-        if (state.session) {
-          ui.enableBtn.disabled = true;
-          try {
-            await disableTracking();
-          } finally {
-            render();
-          }
-          return;
-        }
-
         const enablingDuringActiveUntrackedGame = hasMeaningfulUntrackedGameInProgress();
         const confirmMessage = enablingDuringActiveUntrackedGame
           ? 'This will cancel the current game and start a new one with run tracking enabled. Continue?'
@@ -863,27 +876,28 @@
         }
       });
     }
+    if (ui.disableBtn) {
+      ui.disableBtn.addEventListener('click', async () => {
+        ui.disableBtn.disabled = true;
+        try {
+          await disableTracking();
+        } catch (error) {
+          applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad');
+        } finally {
+          render();
+        }
+      });
+    }
   }
 
   async function init() {
     if (state.initialized) return;
     state.initialized = true;
     bindUi();
+    scheduleQueueFlush();
     if (window.supabase && CONFIG.url && CONFIG.key) {
       state.client = window.supabase.createClient(CONFIG.url, CONFIG.key, { auth: { persistSession: false, autoRefreshToken: false } });
     }
-    scheduleQueueFlush();
-    window.addEventListener('online', () => {
-      const address = getTrackingAddress();
-      if (!address) return;
-      processPendingRuns({ address, interactive: false, force: true }).catch(() => {});
-    });
-    window.addEventListener('visibilitychange', () => {
-      if (document.hidden) return;
-      const address = getTrackingAddress();
-      if (!address) return;
-      processPendingRuns({ address, interactive: false }).catch(() => {});
-    });
     window.addEventListener('dfk-defense:wallet-state', (event) => {
       handleWalletState(event.detail).catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
     });
@@ -896,6 +910,7 @@
     authenticate,
     disableTracking,
     refreshSummary,
+    flushPendingRuns: (options = {}) => processPendingRuns(options),
     submitCompletedRun,
     submitCompletedRunKeepalive,
     processPendingRuns,

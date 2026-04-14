@@ -3,7 +3,7 @@
 let lastTouchEnd = 0;
 
 document.addEventListener('touchend', (event) => {
-  const now = Date.now( ); ctx.restore();
+  const now = Date.now();
   if (now - lastTouchEnd <= 300) {
     event.preventDefault();
   }
@@ -556,7 +556,9 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const PRAYER_OF_HEALING_BASE_AMOUNT = 127;
   const SEER_PASSIVE_HEAL_PERCENT_BASE = 0.01;
   const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.02;
-  const SEER_PASSIVE_HEAL_INTERVAL_MS = 1000;
+  const SEER_PASSIVE_HEAL_INTERVAL_MS = 2000;
+  const SAGE_GLOW_HEAL_INTERVAL_MS = 5000;
+  const SAGE_GLOW_HEAL_PERCENT = 0.02;
   const WARSTONE_BASE_DAMAGE = 38;
   const CHRONO_PURGE_BASE_DAMAGE = 20;
   const CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL = 0.01;
@@ -630,8 +632,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES = 11;
   let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
-  const WARRIOR_HP_GROWTH_PER_LEVEL = 1.053;
-  const WARRIOR_DAMAGE_GROWTH_PER_LEVEL = 1.05;
+  const WARRIOR_HP_GROWTH_PER_LEVEL = 1.03975;
+  const WARRIOR_DAMAGE_GROWTH_PER_LEVEL = 1.045;
   const WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL = 1 + ((WARRIOR_DAMAGE_GROWTH_PER_LEVEL - 1) * 0.75);
   const DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL = 1.035251407835505;
   const POST_WAVE100_ENEMY_COUNT_MULTIPLIER = 0.85;
@@ -650,7 +652,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       name: 'Warrior',
       letter: 'WAR',
       hp: 1240,
-      damage: 54.5,
+      damage: 51.775,
       attackInterval: 1.33,
       range: 1,
       autoAttack: true,
@@ -891,7 +893,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'meditate', name: 'Meditate', desc: 'Spend 100 Gold and the Seer meditates on the future to gain 5% attack speed.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'seer', { speedMult: 1.05 }) },
     { id: 'art_enjoyer', name: 'Art Enjoyer', desc: 'Spend 300 Gold to teach the Seer about art so Temporal Restoration also heals Statues.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.seerPassiveHealsStatues = true },
     { id: 'oracle', name: 'Oracle', desc: 'Spend 300 Gold to reduce all Seer damage to zero but increase Seer healing by 2x.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.seerDamageMultiplier *= 0; game.modifiers.seerHealMultiplier *= 2; } },
-    { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
+    { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; game.modifiers.notBlindNeverWas = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
     { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 120, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
     { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 120, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
     { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
@@ -1426,6 +1428,34 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     elite: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', goalMultiplier: 3, count: 1, requiresFreeCompletion: true, tierLabel: 'Elite Quest' }),
     bounty: Object.freeze({ rewardJewel: 20, rewardText: '20 Jewel', goalMultiplier: 30, count: 3, requiresFreeCompletion: true, sequentialUnlock: true, tierLabel: 'Bounty' }),
   });
+
+  const AVAX_PER_JEWEL_REWARD_EQUIVALENT = 0.00025;
+
+  function formatQuestAvaxReward(amountAvax) {
+    const value = Math.max(0, Number(amountAvax || 0));
+    if (value <= 0) return '0 AVAX';
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 })} AVAX`;
+  }
+
+  function getQuestRewardAmountAvax(quest) {
+    return Math.max(0, Number(quest && quest.rewardJewel || 0)) * AVAX_PER_JEWEL_REWARD_EQUIVALENT;
+  }
+
+  function getQuestRewardText(quest) {
+    if (isConnectedWalletOnAvax()) return formatQuestAvaxReward(getQuestRewardAmountAvax(quest));
+    return String(quest && quest.rewardText || '0 Jewel');
+  }
+
+  function getQuestRewardCurrency(quest) {
+    if (isConnectedWalletOnAvax() && Number(quest && quest.rewardJewel || 0) > 0) return 'AVAX';
+    return 'JEWEL';
+  }
+
+  function getQuestRewardAmountValue(quest) {
+    if (isConnectedWalletOnAvax()) return Number(getQuestRewardAmountAvax(quest).toFixed(6));
+    return Math.max(0, Number(quest && quest.rewardJewel || 0));
+  }
+
   const BASE_DAILY_QUEST_POOL = [
     { id: 'kill_50', name: 'Cull the Weak', description: 'Kill 50 enemies.', metric: 'killsTotal', goal: 50 },
     { id: 'kill_100', name: 'Field Clearer', description: 'Kill 100 enemies.', metric: 'killsTotal', goal: 100 },
@@ -1787,6 +1817,7 @@ async function claimDailyQuest(questId) {
   if (Number(quest.rewardJewel || 0) <= 0) {
     board.claimed[questId] = true;
     persistDailyQuestBoard();
+    try { syncTopMenuWalletResources(); } catch (_error) {}
     renderDailyQuestsBoard();
     showBanner(`${quest.name} completed. Higher-value daily quests are now closer to unlocking.`, 2600);
     return;
@@ -1799,25 +1830,28 @@ async function claimDailyQuest(questId) {
   board.error = '';
   renderDailyQuestsBoard();
   try {
+    const resolvedRewardText = getQuestRewardText(quest);
     const claimPayload = {
       claimType: 'daily_quest',
       walletAddress: getConnectedWalletAddress(),
       questId: quest.id,
       questName: quest.name,
-      rewardText: quest.rewardText || '1 Jewel',
+      rewardText: resolvedRewardText,
+      rewardCurrency: getQuestRewardCurrency(quest),
+      rewardAmountValue: getQuestRewardAmountValue(quest),
       playerName: getRewardClaimPlayerName(),
     };
     const result = await requestRewardClaim(claimPayload);
     board.claimed[questId] = true;
     persistDailyQuestBoard();
-    if (Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
+    if (!isConnectedWalletOnAvax() && Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
     const payoutResult = await waitForRewardClaimPayout(claimPayload, result);
     if (payoutResult && (String(payoutResult.status || '').toLowerCase() === 'paid' || String(payoutResult.txHash || '').trim())) {
       refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
       if (typeof refreshTopMenuData === 'function') refreshTopMenuData({ includeRunBalance: false });
       showRewardPayoutNotice({
         txHash: payoutResult.txHash,
-        rewardText: quest.rewardText || '1 Jewel',
+        rewardText: resolvedRewardText,
         reasonText: quest.name,
       });
     } else {
@@ -1916,14 +1950,14 @@ function showRewardPayoutNotice(details = {}) {
   const titleEl = modal.querySelector('#rewardPayoutNoticeTitle');
   const bodyEl = modal.querySelector('#rewardPayoutNoticeBody');
   const actionsEl = modal.querySelector('#rewardPayoutNoticeActions');
-  const rewardText = String(details.rewardText || '1 Jewel').trim() || '1 Jewel';
+  const rewardText = String(details.rewardText || '1 Reward').trim() || '1 Reward';
   const reasonText = String(details.reasonText || 'Quest reward').trim() || 'Quest reward';
   const explorerBase = getRewardPayoutExplorerBase();
   const txUrl = `${explorerBase}/tx/${txHash}`;
-  if (titleEl) titleEl.textContent = 'Reward Sent';
+  if (titleEl) titleEl.textContent = `Received ${rewardText}`;
   if (bodyEl) {
     bodyEl.innerHTML = `
-      <p class="champion-modal-note" style="margin:0 0 12px;">${escapeHtml(rewardText)} was sent from treasury for ${escapeHtml(reasonText)}.</p>
+      <p class="champion-modal-note" style="margin:0 0 12px;">${escapeHtml(rewardText)} hit your wallet from the payout treasury for ${escapeHtml(reasonText)}.</p>
       <div class="reward-claim-card is-paid" style="margin:0;">
         <div class="reward-claim-card-grid">
           <div><span class="reward-claim-label">Status</span><div class="reward-claim-value">Paid</div></div>
@@ -1934,31 +1968,12 @@ function showRewardPayoutNotice(details = {}) {
   }
   if (actionsEl) {
     actionsEl.innerHTML = '';
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'secondary small-action';
-    copyBtn.textContent = 'Copy Tx Hash';
-    copyBtn.addEventListener('click', async () => {
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(txHash);
-          copyBtn.textContent = 'Copied';
-          window.setTimeout(() => { copyBtn.textContent = 'Copy Tx Hash'; }, 1400);
-        }
-      } catch (_error) {}
-    });
-    const openBtn = document.createElement('a');
-    openBtn.className = 'small-action';
-    openBtn.href = txUrl;
-    openBtn.target = '_blank';
-    openBtn.rel = 'noopener noreferrer';
-    openBtn.textContent = `Open ${shortenHash(txHash, 8, 6)}`;
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.className = 'secondary small-action';
-    closeBtn.textContent = 'Close';
+    closeBtn.className = 'small-action';
+    closeBtn.textContent = 'hell yeah';
     closeBtn.addEventListener('click', () => hideRewardPayoutNoticeModal());
-    actionsEl.append(copyBtn, openBtn, closeBtn);
+    actionsEl.append(closeBtn);
   }
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
@@ -1993,7 +2008,7 @@ function formatQuestResetCountdown(dateKey) {
       const rewardValue = Number(quest.rewardJewel || 0);
       const canClaimRewards = rewardValue <= 0 ? true : canSubmitRewardClaims();
       const claimDisabled = !unlocked || !complete || !canClaimRewards || board.claiming;
-      const rewardText = quest.rewardText || '1 Jewel';
+      const rewardText = getQuestRewardText(quest);
       const readyButtonText = rewardValue <= 0 ? 'Complete Unlock Quest' : `Claim ${rewardText}`;
       const button = claimed
         ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
@@ -2045,6 +2060,7 @@ function formatQuestResetCountdown(dateKey) {
       </div>
       <div class="bounty-grid quests-grid">${cards}</div>
     `;
+    try { syncTopMenuWalletResources(); } catch (_error) {}
   }
 
   function openQuestsModal() {
@@ -2868,6 +2884,141 @@ function formatQuestResetCountdown(dateKey) {
     return json || {};
   }
 
+
+  function getSupabaseRestConfig() {
+    const { url, key } = getSupabaseFunctionConfig();
+    if (!url || !key) throw new Error('Supabase REST is not configured.');
+    const baseUrl = url.replace(/\/?functions\/?$/i, '');
+    return { baseUrl, key };
+  }
+
+  async function fetchSupabaseRestCount(table, selectColumn = 'wallet_address') {
+    const { baseUrl, key } = getSupabaseRestConfig();
+    const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(selectColumn)}`;
+    const response = await fetch(endpoint, {
+      method: 'HEAD',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: 'count=exact',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`REST count failed for ${table}: ${response.status}`);
+    }
+    const range = String(response.headers.get('content-range') || '');
+    const match = range.match(/\/(\d+)\s*$/);
+    return match ? Math.max(0, Number(match[1] || 0)) : 0;
+  }
+
+  async function fetchSupabaseRestPaginated(table, columns, pageSize = 1000) {
+    const { baseUrl, key } = getSupabaseRestConfig();
+    const rows = [];
+    let from = 0;
+    while (true) {
+      const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`;
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Range: `${from}-${from + pageSize - 1}`,
+        },
+      });
+      const responseText = await response.text().catch(() => '');
+      let payload = [];
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch (_error) {
+          payload = [];
+        }
+      }
+      if (!response.ok) {
+        const message = Array.isArray(payload) ? '' : (payload && (payload.message || payload.error || ''));
+        throw new Error(message || `REST query failed for ${table}: ${response.status}`);
+      }
+      const batch = Array.isArray(payload) ? payload : [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+      from += pageSize;
+    }
+    return rows;
+  }
+
+  function summarizeBurnTotalsFromRows(rows) {
+    const summary = {
+      total: 0,
+      totalRuns: 0,
+      topBurner: null,
+    };
+    const byWallet = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const wallet = normalizeAddress(row && (row.wallet_address || row.wallet || row.address || ''));
+      const amount = Math.max(0, Number(row && (row.burn_amount ?? row.amount ?? 0)) || 0);
+      if (amount > 0) {
+        summary.total += amount;
+        if (wallet) byWallet.set(wallet, Math.max(0, Number(byWallet.get(wallet) || 0)) + amount);
+      }
+    }
+    for (const [wallet, amount] of byWallet.entries()) {
+      if (!summary.topBurner || amount > summary.topBurner.total || (amount === summary.topBurner.total && wallet.localeCompare(summary.topBurner.wallet_address) < 0)) {
+        summary.topBurner = { wallet_address: wallet, total: Number(amount.toFixed(3)) };
+      }
+    }
+    summary.total = Number(summary.total.toFixed(3));
+    return summary;
+  }
+
+  function summarizeBurnTotalsFromRunRows(rows) {
+    const burnRows = [];
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const stats = row && typeof row.stats_json === 'object' ? row.stats_json : {};
+      burnRows.push({
+        wallet_address: row && row.wallet_address ? row.wallet_address : '',
+        burn_amount: Math.max(0, Number(
+          stats && (stats.dfkGoldBurnedTotal ?? stats.dfk_gold_burned_total ?? stats.burnedGoldTotal ?? 0)
+        ) || 0),
+      });
+    }
+    const summary = summarizeBurnTotalsFromRows(burnRows);
+    summary.totalRuns = Array.isArray(rows) ? rows.length : 0;
+    return summary;
+  }
+
+  async function fetchGlobalBurnedGoldTotalsViaRest() {
+    let totalRuns = 0;
+    try {
+      totalRuns = await fetchSupabaseRestCount('runs', 'wallet_address');
+    } catch (_error) {
+      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
+      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
+      return {
+        total: summaryFromRuns.total,
+        totalRuns: summaryFromRuns.totalRuns,
+        topBurner: summaryFromRuns.topBurner,
+      };
+    }
+
+    try {
+      const burnRows = await fetchSupabaseRestPaginated('dfk_gold_burns', 'wallet_address,burn_amount,amount');
+      const burnSummary = summarizeBurnTotalsFromRows(burnRows);
+      return {
+        total: burnSummary.total,
+        totalRuns,
+        topBurner: burnSummary.topBurner,
+      };
+    } catch (_error) {
+      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
+      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
+      return {
+        total: summaryFromRuns.total,
+        totalRuns: totalRuns || summaryFromRuns.totalRuns,
+        topBurner: summaryFromRuns.topBurner,
+      };
+    }
+  }
+
   function findFirstNumericFieldDeep(value, fieldNames, depth = 0) {
     if (!value || depth > 6) return null;
     const names = Array.isArray(fieldNames) ? fieldNames : [];
@@ -2921,28 +3072,53 @@ function formatQuestResetCountdown(dateKey) {
     if (!force && game.globalDfkGoldRefreshPending) return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
     game.globalDfkGoldRefreshPending = true;
     try {
-      const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
-      const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
-      const total = Math.max(0, Number((payload && (payload.global_dfk_gold_burned ?? payload.globalDfkGoldBurned ?? payload.global_burned_total)) || 0));
-      const burnLeader = payload && (payload.top_burner || payload.topBurner || payload.burn_leader || null);
-      const aggregateRuns = findFirstNumericFieldDeep(
-        response,
-        ['total_runs', 'total_runs_since_april_1', 'total_runs_since_apr_1', 'tracked_runs_total', 'run_count', 'runs_count']
-      );
-      const summedRuns = sumNumericFieldInArraysDeep(
-        response,
-        ['total_runs', 'tracked_runs_total', 'run_count', 'runs_count']
-      );
-      const totalRuns = Math.max(0, Number(Math.max(Number(aggregateRuns || 0), Number(summedRuns || 0)) || 0));
-      game.globalDfkGoldBurnedTotal = total;
+      let total = 0;
+      let burnLeader = null;
+      let totalRuns = 0;
+
+      try {
+        const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
+        const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
+        const lifetime = payload && typeof payload.lifetime === 'object' ? payload.lifetime : {};
+        total = Math.max(0, Number(
+          (lifetime && (lifetime.global_dfk_gold_burned ?? lifetime.globalDfkGoldBurned ?? lifetime.global_burned_total))
+          ?? (payload && (payload.lifetime_global_dfk_gold_burned ?? payload.lifetimeDfkGoldBurned ?? payload.lifetime_burned_total))
+          ?? 0
+        ));
+        burnLeader = (lifetime && (lifetime.top_burner || lifetime.topBurner || lifetime.burn_leader || null))
+          || (payload && (payload.lifetime_top_burner || payload.lifetimeTopBurner || payload.lifetime_burn_leader || null))
+          || null;
+        totalRuns = Math.max(0, Number(
+          (lifetime && (lifetime.total_runs ?? lifetime.tracked_runs_total ?? lifetime.run_count ?? lifetime.runs_count))
+          ?? (payload && (payload.lifetime_total_runs ?? payload.lifetimeTrackedRuns ?? payload.lifetime_run_count ?? payload.lifetime_runs_count))
+          ?? 0
+        ));
+      } catch (_error) {
+        const fallback = await fetchGlobalBurnedGoldTotalsViaRest();
+        total = Math.max(0, Number(fallback && fallback.total || 0));
+        burnLeader = fallback && fallback.topBurner ? fallback.topBurner : null;
+        totalRuns = Math.max(0, Number(fallback && fallback.totalRuns || 0));
+      }
+
+      if ((totalRuns <= 0 && total <= 0) || !Number.isFinite(totalRuns)) {
+        try {
+          const fallback = await fetchGlobalBurnedGoldTotalsViaRest();
+          total = Math.max(total, Math.max(0, Number(fallback && fallback.total || 0)));
+          totalRuns = Math.max(totalRuns, Math.max(0, Number(fallback && fallback.totalRuns || 0)));
+          if (!burnLeader && fallback && fallback.topBurner) burnLeader = fallback.topBurner;
+        } catch (_error) {}
+      }
+
+      game.globalDfkGoldBurnedTotal = Math.max(0, Number(total || 0));
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
-      game.globalTrackedRunsTotal = totalRuns;
+      game.globalTrackedRunsTotal = Math.max(0, Number(totalRuns || 0));
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
-      return total;
+      return game.globalDfkGoldBurnedTotal;
     } catch (error) {
+      updateBurnedGoldDisplay();
       return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
     } finally {
       game.globalDfkGoldRefreshPending = false;
@@ -3144,14 +3320,27 @@ function formatQuestResetCountdown(dateKey) {
     const body = modal.querySelector('#milestonePaymentChoiceBody');
     const actions = modal.querySelector('#milestonePaymentChoiceActions');
     if (!body || !actions) return;
+    const useAvax = canUseAvaxRailsPurchases();
     const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
     const jewelWei = getMilestoneHeroJewelPriceWei(offer);
     const jewelLabel = getMilestoneHeroJewelPriceLabel(offer);
+    const avaxLabel = formatAvaxValue(AVAX_MILESTONE_HERO_WEI);
     const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(jewelWei);
     body.innerHTML = `<p>Hire ${template.name} L${offer.heroLevel}. Choose how you want to pay.</p>
-      <p>${offer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}.</p>`;
+      <p>${useAvax ? avaxLabel : `${offer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}` }.</p>`;
     actions.innerHTML = '';
-    if (goldAvailable) {
+    if (useAvax) {
+      const avaxBtn = document.createElement('button');
+      avaxBtn.type = 'button';
+      avaxBtn.className = 'small-action milestone-hero-offer-btn';
+      avaxBtn.textContent = `Use ${avaxLabel}`;
+      avaxBtn.addEventListener('click', () => {
+        setMilestonePaymentChoiceProcessing(template.name);
+        beginMilestoneHeroHireAvax(heroType, { preserveModal: true }).catch((error) => console.error(error));
+      });
+      actions.appendChild(avaxBtn);
+    }
+    if (!useAvax && goldAvailable) {
       const goldBtn = document.createElement('button');
       goldBtn.type = 'button';
       goldBtn.className = 'small-action milestone-hero-offer-btn';
@@ -3189,6 +3378,9 @@ function formatQuestResetCountdown(dateKey) {
   async function beginMilestoneHeroHireFlow(heroType) {
     const offer = game.milestoneHeroOffer;
     if (!offer) return;
+    if (canUseAvaxRailsPurchases()) {
+      return beginMilestoneHeroHireAvax(heroType);
+    }
     const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
     const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(offer));
     if (goldAvailable && jewelAvailable) {
@@ -3278,8 +3470,9 @@ function formatQuestResetCountdown(dateKey) {
     const walletDfkgold = getWalletDfkgoldBalance();
     const hasWallet = !!getConnectedWalletAddress();
     const jewelLabel = heroOffer ? getMilestoneHeroJewelPriceLabel(heroOffer) : '';
+    const avaxHeroLabel = heroOffer ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : '';
     const jewelAvailable = !!(heroOffer && isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(heroOffer)));
-    const shouldAutoRefreshMilestoneWallet = !!(heroOffer && hasWallet && isConnectedWalletOnDfk());
+    const shouldAutoRefreshMilestoneWallet = !!(heroOffer && hasWallet && !useAvax && isConnectedWalletOnDfk());
     const now = Date.now();
     if (shouldAutoRefreshMilestoneWallet && !game.milestoneOfferAutoRefreshPending && (now - Number(game.milestoneOfferLastAutoRefreshAt || 0) >= 15000)) {
       game.milestoneOfferAutoRefreshPending = true;
@@ -3291,7 +3484,7 @@ function formatQuestResetCountdown(dateKey) {
     const sections = [];
     title.textContent = heroOffer ? `Reinforcements at Wave ${heroOffer.wave}` : `Barrier Bundle at Wave ${barrierOffer.wave}`;
     if (heroOffer) {
-      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
+      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${useAvax ? avaxHeroLabel : `${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}` }.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
     }
     if (barrierOffer) {
       const barrierLabel = useAvax ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : `${barrierOffer.burnCost.toLocaleString()} DFK Gold`;
@@ -3302,7 +3495,7 @@ function formatQuestResetCountdown(dateKey) {
     if (heroOffer) {
       const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
       const goldAvailable = walletDfkgold >= Number(heroOffer.burnCost || 0);
-      const canLaunchHire = hasWallet && (goldAvailable || jewelAvailable);
+      const canLaunchHire = hasWallet && (useAvax || goldAvailable || jewelAvailable);
       for (const type of heroTypes) {
         const t = TOWER_TEMPLATES[type];
         const btn = document.createElement('button');
@@ -3318,8 +3511,9 @@ function formatQuestResetCountdown(dateKey) {
       }
       const note = document.createElement('div');
       note.className = 'milestone-hero-offer-note';
-      if (!hasWallet) note.textContent = 'Connect a wallet on DFK Chain to pay with DFK Gold or JEWEL for this hire.';
+      if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to pay with DFK Gold or JEWEL for this hire.';
       else if (game.dfkGoldSwapPending || game.jewelTradePending) note.textContent = 'Waiting for wallet confirmation…';
+      else if (useAvax) note.textContent = `Pick a hero to pay ${avaxHeroLabel} with AVAX for the hire.`;
       else if (walletDfkgold >= Number(heroOffer.burnCost || 0) && jewelAvailable) note.textContent = `Both payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or Gold?`;
       else if (walletDfkgold >= Number(heroOffer.burnCost || 0)) note.textContent = `Only DFK Gold is ready right now, so picking a hero launches the DFK Gold transaction.`;
       else if (jewelAvailable) note.textContent = `Only JEWEL is ready right now, so picking a hero launches the JEWEL transaction.`;
@@ -3338,8 +3532,10 @@ function formatQuestResetCountdown(dateKey) {
           renderMilestoneHeroOffer();
           try {
             await refreshWalletEconomyDetails();
-            await refreshWalletJewelTokenBalance();
-            await recoverPendingMilestoneJewelHire().catch(() => false);
+            if (!useAvax) {
+              await refreshWalletJewelTokenBalance();
+              await recoverPendingMilestoneJewelHire().catch(() => false);
+            }
           } finally {
             game.milestoneOfferWalletRefreshPending = false;
             renderMilestoneHeroOffer();
@@ -4557,21 +4753,42 @@ function renderDamageReport() {
     if (requireAuth && !token) throw new Error('Enable run tracking before claiming a bounty.');
     const endpoint = `${url}/functions/v1/${functionName}`;
     const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
-    const hasPayload = Object.keys(normalizedPayload).length > 0;
 
-    const readOnlyBoardRequest = functionName === BOUNTY_BOARD_FUNCTION && !requireAuth && !token && !hasPayload;
-    const headers = readOnlyBoardRequest ? {} : {
+    const isBoardRead = functionName === BOUNTY_BOARD_FUNCTION && !requireAuth;
+    if (isBoardRead) {
+      const boardHeaders = { apikey: key };
+      if (token) boardHeaders.Authorization = `Bearer ${token}`;
+      const query = normalizedPayload.walletAddress ? `?walletAddress=${encodeURIComponent(String(normalizedPayload.walletAddress || ''))}` : '';
+      try {
+        const response = await fetch(endpoint + query, { method: 'GET', headers: boardHeaders });
+        const json = await response.json().catch(() => null);
+        if (response.ok) return json || {};
+      } catch (_error) {}
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...boardHeaders,
+          },
+          body: JSON.stringify(normalizedPayload),
+        });
+        const json = await response.json().catch(() => null);
+        if (response.ok) return json || {};
+        throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
+      } catch (error) {
+        const text = String(error && error.message || '');
+        throw new Error(text || 'Failed to load bounty board.');
+      }
+    }
+
+    const headers = {
       'Content-Type': 'application/json',
       apikey: key,
     };
-    if (!readOnlyBoardRequest && token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetch(endpoint, readOnlyBoardRequest ? {
-      method: 'GET',
-      headers,
-    } : {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(normalizedPayload),
@@ -4641,7 +4858,7 @@ function canSubmitRewardClaims() {
       return;
     }
     if (state.error && (!state.runs || !state.runs.length)) {
-      els.trackedRunsBody.innerHTML = `<div class="bounty-status-banner is-error">${escapeHtml(state.error)}</div>`;
+      els.trackedRunsBody.innerHTML = `<div class="bounty-status-banner is-error">${escapeHtml(/failed to fetch|401|400|403|cors/i.test(String(state.error || '')) ? 'Tracked runs are unavailable right now.' : state.error)}</div>`;
       return;
     }
     const allRuns = Array.isArray(state.runs) ? state.runs : [];
@@ -4857,6 +5074,15 @@ function canSubmitRewardClaims() {
     try {
       const result = await callBountyFunction(CLAIM_BOUNTY_FUNCTION, { walletAddress }, true);
       showBanner(result && result.message ? result.message : 'Bounty claimed.', 2600);
+      if (result && (String(result.status || '').toLowerCase() === 'paid' || String(result.txHash || '').trim())) {
+        refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
+        if (typeof refreshTopMenuData === 'function') refreshTopMenuData({ includeRunBalance: false });
+        showRewardPayoutNotice({
+          txHash: result.txHash,
+          rewardText: String(result.amountText || result.rewardText || 'JEWEL').trim() || 'JEWEL',
+          reasonText: result.title || 'Bounty reward',
+        });
+      }
       await refreshBountyBoard();
       if (window.DFKRunTracker && typeof window.DFKRunTracker.refreshSummary === 'function') {
         window.DFKRunTracker.refreshSummary().catch(() => {});
@@ -5290,7 +5516,7 @@ function canSubmitRewardClaims() {
     sage: {
       key: 'sage', heroClass: 'Sage', label: 'Sage', towerType: 'champion_sage',
       summary: 'Caster support champion with brutal wave control and a one-time team resurrection. She glows with dangerous calm.',
-      skills: ['Kiss From A Rose — every 5s fires rose shards at up to 18 enemies within 3 tiles.', 'Petal Storm — every 30s sends crimson petal shockwaves blasting outward and punts enemies toward the map start.', 'Live Forever — once each deployment, fallen allies revive at full health and become invulnerable for 3s.', 'Battle Meditation — the Sage seems to glow, giving her allies confidence. Casters gain 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed.'],
+      skills: ['Kiss From A Rose — every 5s fires rose shards at up to 18 enemies within 3 tiles.', 'Petal Storm — every 30s sends crimson petal shockwaves blasting outward and punts enemies toward the map start.', 'Live Forever — once each deployment, fallen allies revive at full health and become invulnerable for 3s.', 'Glow — allies under the Sage’s protection heal 2% of their max HP every 5 seconds. Battle Meditation also gives casters 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed.'],
     },
     dragoon: {
       key: 'dragoon', heroClass: 'Dragoon', label: 'Dragoon', towerType: 'champion_dragoon',
@@ -5311,7 +5537,7 @@ function canSubmitRewardClaims() {
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
-  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '1000000000000000');
+  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '2173913043478261');
   const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || AVAX_MILESTONE_HERO_WEI || '1000000000000000');
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad').trim().toLowerCase();
   const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
@@ -5846,11 +6072,24 @@ function canSubmitRewardClaims() {
   }
 
   function isMeleeHeroType(type) {
-    return ['warrior', 'champion_dreadknight', 'champion_dragoon'].includes(String(type || ''));
+    return ['warrior', 'archer', 'pirate', 'champion_dreadknight', 'champion_dragoon'].includes(String(type || ''));
   }
 
   function hasSageChampionMeleeBuff(tower) {
     return !!(tower && isMeleeHeroType(tower.type) && hasLivingChampionOfType('champion_sage', tower.id));
+  }
+
+  function isUnderSageGlowProtection(tower) {
+    if (!tower || isStatueTower(tower) || Number(tower.hp || 0) <= 0) return false;
+    return hasSageChampionBuff(tower) || hasSageChampionMeleeBuff(tower);
+  }
+
+  function getSageGlowProtectedAllies(sourceTower = null) {
+    return (game.towers || []).filter((ally) => {
+      if (!ally || Number(ally.hp || 0) <= 0) return false;
+      if (sourceTower && ally.id === sourceTower.id) return false;
+      return isUnderSageGlowProtection(ally);
+    });
   }
 
   function hasDragoonLeadershipBuff(tower) {
@@ -6545,6 +6784,9 @@ function canSubmitRewardClaims() {
   }
 
   function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
+    closeGuestConnectConfirmModal({ preserveIntroState: true });
+    closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
+    closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
     const pages = setName === 'heroes' ? HERO_PAGES : (setName === 'lore' ? LORE_PAGES : INTRO_PAGES);
     game.modalDismiss = null;
     game.introSet = setName;
@@ -7318,7 +7560,7 @@ function canSubmitRewardClaims() {
           const sageBuffBadge = document.createElement('div');
           sageBuffBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
           sageBuffBadge.textContent = 'GLOW+';
-          sageBuffBadge.title = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage';
+          sageBuffBadge.title = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage. Archer and Pirate count as melee for Sage protection.';
           tile.el.appendChild(sageBuffBadge);
         }
 
@@ -9044,7 +9286,7 @@ function canSubmitRewardClaims() {
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. At level ${PURE_ENERGY_LEVEL}, the Archon becomes PURE ENERGY: +50% damage, +10% speed, no more leveling, ${Math.round((PURE_ENERGY_BURN_DURATION_MULTIPLIER - 1) * 100)}% longer burn duration, and wider detonation fire. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${getTornSoulBurnDurationSeconds(tower).toFixed(1)}s in a ${getTornSoulBurnRadius(tower)}-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'fireball').toFixed(1)}s.${stronger}${common}${scale}`,
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
-      temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every second.${common}${scale}`,
+      temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every 2 seconds. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every 2 seconds.${common}${scale}`,
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
       chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10. Cooldown: ${getAbilityCooldownSeconds(tower, 'chrono_purge').toFixed(1)}s.${common}${scale}`,
       evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage. Any attack that misses will show "MISS" on the Warrior or Statue.${common}${scale}`,
@@ -9060,10 +9302,10 @@ function canSubmitRewardClaims() {
       champion_crush: `Stomps enemies within 2 tiles, knocks them back 5 tiles toward the void, and has a 50% chance to stun for 3s. Deals ${Math.round(tower.damage * 1.4)} damage.${common}${scale}`,
       champion_gauntlet: `Passive. Enemies that pass through this champion are slowed by 50% for 10s.${common}${scale}`,
       champion_dread: `Passive. Enemies within 2 tiles take 25% increased damage while Dreadknight is deployed.${common}${scale}`,
-      champion_kiss_from_a_rose: `She fires rose shards at up to 18 enemies within 3 tiles. Each shard deals ${Math.round(tower.damage * 0.85)} damage.${common}${scale}`,
+      champion_kiss_from_a_rose: `She fires rose shards at up to 18 enemies within 3 tiles. Each shard deals ${Math.round(getChampionSageKissFromARoseDamage(tower))} damage. This grows by 1% every 3 Sage levels.${common}${scale}`,
       champion_storm: `Petal Storm. Sends crimson petal shockwaves blasting out from the Sage, damaging enemies and punting them toward the map start. Deals ${Math.round(tower.damage * 2.6)} damage.${common}${scale}`,
       champion_live_forever: `Passive. Once each deployment, she revives the first fallen ally at full health and makes them invulnerable for 3s.${common}${scale}`,
-      champion_eye_contact: `Passive. Battle Meditation: the Sage seems to glow, giving her allies confidence. Casters gain 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed.${common}${scale}`,
+      champion_eye_contact: `Passive. Glow: allies under the Sage's protection heal 2% of their max HP every 5 seconds. Battle Meditation also gives casters 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed. Archer and Pirate count as melee for Sage protection.${common}${scale}`,
       champion_overpower: `He blasts enemies within 2 tiles, knocks them 5 tiles toward the portal, and inspires nearby heroes for 2s. Deals ${Math.round(tower.damage * 2)} damage.${common}${scale}`,
       champion_leadership: `Passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.${common}${scale}`,
       champion_point: `He points past the smallest enemies and looks for medium to large targets first, throwing a spear that kills them instantly. Bosses may be targeted, but instead take 15% of their starting health in damage.${common}${scale}`,
@@ -11763,6 +12005,13 @@ function canSubmitRewardClaims() {
     return Math.max(cooldownReadyAt, getTowerAbilityGlobalReadyAt(tower));
   }
 
+  function getChampionSageKissFromARoseDamage(tower) {
+    const baseDamage = Math.max(0, Number(tower?.damage || 0)) * 0.85;
+    const level = Math.max(1, Number(tower?.level || 1));
+    const bonusSteps = Math.floor(level / 3);
+    return baseDamage * (1 + (bonusSteps * 0.01));
+  }
+
   function performChampionSageKissFromARose(tower, current = now()) {
     if (!tower) return false;
     const roseTargets = game.enemies.filter((enemy) => dist(enemy, tower) <= 3).slice(0, 18);
@@ -11778,7 +12027,7 @@ function canSubmitRewardClaims() {
       if (projectileMeta) {
         createExplosionEffect(enemy.x, enemy.y, 'sage', 0.7, 300, SAGE_ROSE_PROJECTILE_IMAGE_PATH, 'sage-rose-burst', [{ x: enemy.x, y: enemy.y }], { startedAt: projectileMeta.arrivalAt - 35 });
       }
-      damageEnemy(tower, enemy, tower.damage * 0.85, `${tower.name} shredded ${enemy.name}`, { key: 'champion_kiss_from_a_rose', label: 'Kiss From A Rose' });
+      damageEnemy(tower, enemy, getChampionSageKissFromARoseDamage(tower), `${tower.name} shredded ${enemy.name}`, { key: 'champion_kiss_from_a_rose', label: 'Kiss From A Rose' });
     });
     return true;
   }
@@ -11833,19 +12082,38 @@ function canSubmitRewardClaims() {
       const healTickAt = tower.seerHealTickAt || 0;
       if (current >= healTickAt) {
         const healPercent = getSeerPassiveHealPercent(tower);
-        const allies = game.towers.filter((ally) => {
+        const allies = healPercent > 0 ? game.towers.filter((ally) => {
           if (!ally || ally.hp <= 0) return false;
           if (isStatueTower(ally)) return !!game.modifiers.seerPassiveHealsStatues;
           return true;
-        });
+        }) : [];
         let healedAny = false;
         for (const ally of allies) {
           const before = Number(ally.hp || 0);
-          healTower(ally, Math.max(1, ally.maxHp * healPercent), null, { sourceTowerId: tower.id, allowStatue: isStatueTower(ally) });
+          const healAmount = Math.max(0, ally.maxHp * healPercent);
+          if (healAmount <= 0) continue;
+          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: isStatueTower(ally) });
           if (ally.hp > before) healedAny = true;
         }
         if (healedAny) createTileFlashArea([{ x: tower.x, y: tower.y }], 'seer');
         tower.seerHealTickAt = current + SEER_PASSIVE_HEAL_INTERVAL_MS;
+      }
+    }
+
+    if (tower.type === 'champion_sage' && tower.hp > 0) {
+      const glowHealTickAt = Number(tower.sageGlowHealTickAt || 0);
+      if (current >= glowHealTickAt) {
+        const protectedAllies = getSageGlowProtectedAllies(tower);
+        let healedAny = false;
+        for (const ally of protectedAllies) {
+          const before = Number(ally.hp || 0);
+          const healAmount = Math.max(0, Number(ally.maxHp || 0) * SAGE_GLOW_HEAL_PERCENT);
+          if (healAmount <= 0) continue;
+          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: false });
+          if (Number(ally.hp || 0) > before) healedAny = true;
+        }
+        if (healedAny) createTileFlashArea(protectedAllies.map((ally) => ({ x: ally.x, y: ally.y })), 'sage');
+        tower.sageGlowHealTickAt = current + SAGE_GLOW_HEAL_INTERVAL_MS;
       }
     }
 
@@ -14529,17 +14797,21 @@ function canSubmitRewardClaims() {
   els.pauseBtn?.addEventListener('click', () => {
     setPaused(!game.paused);
   });
-  els.introBtn?.addEventListener('click', () => {
+  els.introBtn?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
     openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
   });
-  els.loreBtn?.addEventListener('click', () => {
+  els.loreBtn?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
     openIntroModal(0, 'lore');
   });
-  els.guideIntroToggleBtn?.addEventListener('click', () => {
+  els.guideIntroToggleBtn?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
     game.introPageIndex = 0;
     openIntroModal(0, 'intro');
   });
-  els.guideLoreToggleBtn?.addEventListener('click', () => {
+  els.guideLoreToggleBtn?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
     game.introPageIndex = 0;
     openIntroModal(0, 'lore');
   });
@@ -15170,7 +15442,7 @@ function refreshTopMenuData(options = {}) {
   } catch (_error) {}
   try {
     if (options.includeRunBalance && window.DFKRunTracker && typeof window.DFKRunTracker.refreshSummary === 'function') {
-      tasks.push(Promise.resolve(window.DFKRunTracker.refreshSummary()).catch(() => null));
+      tasks.push(Promise.resolve(window.DFKRunTracker.refreshSummary({ flushPending: true })).catch(() => null));
     }
   } catch (_error) {}
   return Promise.allSettled(tasks).finally(() => {

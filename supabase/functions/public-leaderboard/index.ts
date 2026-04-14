@@ -16,6 +16,25 @@ type RangeWindow = {
   end: string;
 };
 
+
+async function fetchPaginatedRows(admin: SupabaseClient, table: string, columns: string) {
+  const pageSize = 1000;
+  const rows: Record<string, unknown>[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await admin
+      .from(table)
+      .select(columns)
+      .range(from, from + pageSize - 1);
+    if (error) return { rows: [], error };
+    const batch = Array.isArray(data) ? data as Record<string, unknown>[] : [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+  return { rows, error: null as unknown };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return json({ ok: true }, 200);
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -27,15 +46,26 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const rangeSelection = resolveRequestedRange(url);
     const players = await fetchPlayers(admin);
-    const runs = await fetchRunsForRange(admin, rangeSelection.selectedRange);
+    const [runs, lifetimeRuns, burnRows, lifetimeBurnRows] = await Promise.all([
+      fetchRunsForRange(admin, rangeSelection.selectedRange),
+      fetchAllRuns(admin),
+      fetchBurnRowsForRange(admin, rangeSelection.selectedRange),
+      fetchAllBurnRows(admin),
+    ]);
     const usedMap = buildUsedWalletHeroesMap(runs);
-    const burnRows = await fetchBurnRowsForRange(admin, rangeSelection.selectedRange);
     const burnSummary = buildBurnSummary(burnRows, runs);
     const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet);
+    const lifetimeBurnSummary = buildBurnSummary(lifetimeBurnRows, lifetimeRuns);
+    const lifetimeUsedMap = buildUsedWalletHeroesMap(lifetimeRuns);
+    const lifetimeRows = buildLeaderboardRows(players, lifetimeRuns, lifetimeUsedMap, lifetimeBurnSummary.byWallet);
 
     if (burnSummary.topBurner) {
       const matchedRow = rows.find((row) => normalizeAddress(row.wallet_address) === burnSummary.topBurner?.wallet_address);
       if (matchedRow) burnSummary.topBurner.display_name = String(matchedRow.display_name || burnSummary.topBurner.wallet_address);
+    }
+    if (lifetimeBurnSummary.topBurner) {
+      const matchedLifetimeRow = lifetimeRows.find((row) => normalizeAddress(row.wallet_address) === lifetimeBurnSummary.topBurner?.wallet_address);
+      if (matchedLifetimeRow) lifetimeBurnSummary.topBurner.display_name = String(matchedLifetimeRow.display_name || lifetimeBurnSummary.topBurner.wallet_address);
     }
 
     return json({
@@ -47,6 +77,36 @@ Deno.serve(async (req) => {
         display_name: burnSummary.topBurner.display_name,
         player_name: burnSummary.topBurner.display_name,
         dfk_gold_burned: burnSummary.topBurner.total,
+      } : null,
+      lifetime: {
+        total_runs: lifetimeRuns.length,
+        tracked_runs_total: lifetimeRuns.length,
+        runs_count: lifetimeRuns.length,
+        run_count: lifetimeRuns.length,
+        global_dfk_gold_burned: lifetimeBurnSummary.total,
+        global_burned_total: lifetimeBurnSummary.total,
+        top_burner: lifetimeBurnSummary.topBurner ? {
+          wallet_address: lifetimeBurnSummary.topBurner.wallet_address,
+          wallet: lifetimeBurnSummary.topBurner.wallet_address,
+          display_name: lifetimeBurnSummary.topBurner.display_name,
+          player_name: lifetimeBurnSummary.topBurner.display_name,
+          dfk_gold_burned: lifetimeBurnSummary.topBurner.total,
+        } : null,
+      },
+      lifetime_total_runs: lifetimeRuns.length,
+      lifetimeTrackedRuns: lifetimeRuns.length,
+      lifetime_run_count: lifetimeRuns.length,
+      lifetime_runs_count: lifetimeRuns.length,
+      lifetime_global_dfk_gold_burned: lifetimeBurnSummary.total,
+      lifetimeDfkGoldBurned: lifetimeBurnSummary.total,
+      lifetime_burned_total: lifetimeBurnSummary.total,
+      lifetime_top_burner: lifetimeBurnSummary.topBurner ? {
+        wallet_address: lifetimeBurnSummary.topBurner.wallet_address,
+        wallet: lifetimeBurnSummary.topBurner.wallet_address,
+        display_name: lifetimeBurnSummary.topBurner.display_name,
+        player_name: lifetimeBurnSummary.topBurner.display_name,
+        dfk_gold_burned: lifetimeBurnSummary.topBurner.total,
+        total: lifetimeBurnSummary.topBurner.total,
       } : null,
       meta: {
         preset: rangeSelection.preset,
@@ -148,6 +208,25 @@ async function fetchPlayers(admin: SupabaseClient) {
   throw lastError || new Error('Players query failed.');
 }
 
+async function fetchAllRuns(admin: SupabaseClient) {
+  const selectVariants = [
+    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+  ];
+
+  let lastError: unknown = null;
+  for (const columns of selectVariants) {
+    const result = await fetchPaginatedRows(admin, 'runs', columns);
+    if (!result.error) return result.rows as RunRow[];
+    lastError = result.error;
+    if (isMissingColumnError(result.error)) continue;
+    throw result.error;
+  }
+  throw lastError || new Error('Runs query failed.');
+}
+
 async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
   const selectVariants = [
     'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
@@ -233,6 +312,25 @@ function buildBurnSummary(burnRows: BurnRow[], runs: RunRow[]) {
   }
 
   return { byWallet, total: Number(total.toFixed(3)), topBurner };
+}
+
+async function fetchAllBurnRows(admin: SupabaseClient) {
+  const selectVariants = [
+    'wallet_address, burn_amount, confirmed_at',
+    'wallet_address, amount, confirmed_at',
+    'wallet_address, tx_hash, burn_amount, confirmed_at',
+    'wallet_address, tx_hash, amount, confirmed_at',
+    'wallet_address, tx_hash, burn_amount, amount, confirmed_at',
+  ];
+
+  for (const columns of selectVariants) {
+    const result = await fetchPaginatedRows(admin, 'dfk_gold_burns', columns);
+    if (!result.error) return result.rows as BurnRow[];
+    if (isMissingColumnError(result.error) || isMissingRelationError(result.error)) continue;
+    throw result.error;
+  }
+
+  return [];
 }
 
 async function fetchBurnRowsForRange(admin: SupabaseClient, range: RangeWindow) {

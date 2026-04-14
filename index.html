@@ -243,8 +243,6 @@
 <div>
 <div class="leaderboard-kicker">Private treasury admin</div>
 <h2 class="leaderboard-title leaderboard-title-compact">Treasury View</h2>
-<div class="leaderboard-reset-copy" id="avaxTreasuryStatus">Private</div>
-<div class="leaderboard-reset-copy">Private treasury summary, whitelist controls, and reward payout review.</div>
 </div>
 <button aria-label="Close treasury view" class="leaderboard-close" id="avaxTreasuryPanelCloseBtn" type="button">×</button>
 </div>
@@ -254,12 +252,12 @@
 <div class="wallet-tracking-summary" id="avaxTreasuryBreakdown">Bundles: -- · Gold swaps: -- · Hero hires: --</div>
 <div class="wallet-tracking-summary" id="avaxTreasuryTxCount">Confirmed payments: --</div>
 <div aria-hidden="true" class="reward-claims-admin hidden" id="rewardClaimsAdminSection">
-<div class="reward-claims-admin-header">
+<div class="reward-claims-admin-header" id="rewardClaimsAdminHeader">
 <div>
 <div class="meta-title reward-claims-admin-title">Reward Claims</div>
 <div class="wallet-tracking-summary" id="rewardClaimsAdminStatus">Pending claims: --</div>
 </div>
-<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshRewardClaimsBtn" type="button">Refresh claims</button>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshTreasuryViewBtn" type="button">Refresh treasury</button>
 </div>
 <div class="reward-claims-admin-whitelist" id="rewardClaimsWhitelistSection">
 <div class="reward-claims-admin-subtitle">Withdrawal Whitelist</div>
@@ -335,6 +333,7 @@
 <button class="wallet-btn secondary" id="disconnectWalletBtn" type="button">Disconnect</button>
 </div>
 <button class="wallet-btn secondary tracking-btn" id="enableTrackingBtn" type="button">Enable Run Tracking</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="disableTrackingBtn" type="button">Disable Run Tracking</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
 
 
@@ -420,7 +419,7 @@
 </section>
 <section class="right-panel panel" id="infoPanel">
 <div class="panel-toggle-row">
-<div class="burned-gold-block"><div class="burned-gold-display" id="totalRunsDisplay">Total runs since Apr 1: 0</div><div class="burned-gold-display" id="burnedGoldDisplay">Burned: 0 DFK Gold</div><div class="burned-gold-leader-display" id="burnedGoldLeaderDisplay">No burn leader yet</div></div>
+<div class="burned-gold-block"><div class="burned-gold-display" id="totalRunsDisplay">Total tracked runs: 0</div><div class="burned-gold-display" id="burnedGoldDisplay">Burned: 0 DFK Gold</div><div class="burned-gold-leader-display" id="burnedGoldLeaderDisplay">No burn leader yet</div></div>
 </div>
 <div class="hero-quick-select" id="heroQuickSelect"></div>
 <div class="selected-info" id="selectedInfo">Nothing selected.</div>

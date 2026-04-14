@@ -165,6 +165,22 @@
     return value.toLocaleString(undefined, { maximumFractionDigits: Math.min(3, Math.max(0, Number(decimals) || 0)) });
   }
 
+  async function withRpcFallback(config, work) {
+    const urls = Array.isArray(config && config.rpcUrls) ? config.rpcUrls.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    let lastError = null;
+    for (const url of urls) {
+      try {
+        const provider = new window.ethers.JsonRpcProvider(url, config.chainId, { staticNetwork: true });
+        const result = await work(provider, url);
+        if (result != null) return result;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError) throw lastError;
+    return null;
+  }
+
   async function fetchNativeBalance(address) {
     if (!state.selectedProvider || !address) return null;
     const hexBalance = await request(state.selectedProvider, 'eth_getBalance', [address, 'latest']);
@@ -225,49 +241,52 @@
 
   async function resolveProfileNameViaRpc(address) {
     if (!address || !window.ethers) return null;
-    let provider = null;
+    const normalized = normalizeAddress(address);
     try {
-      const walletProvider = state.selectedProvider;
-      provider = walletProvider
-        ? new window.ethers.BrowserProvider(walletProvider)
-        : new window.ethers.JsonRpcProvider(CONFIG.rpcUrls[0], CONFIG.chainId, { staticNetwork: true });
-      const contract = new window.ethers.Contract(CONTRACTS.dfkProfiles, PROFILES_ABI, provider);
-      const normalized = normalizeAddress(address);
-      const attempts = [
-    async () => {
-      const result = await contract.getNames([normalized]);
-      const first = Array.isArray(result) ? result[0] : null;
-      const name = cleanName(first);
-      return name ? name : null;
-    },
-        async () => {
-          const result = await contract.addressToProfile(normalized);
-          const owner = normalizeAddress(result && result.owner);
-          const name = cleanName(result && result.name);
-          return owner === normalized ? name : null;
-        },
-        async () => {
-          const result = await contract.getProfile(normalized);
-          const owner = normalizeAddress(result && result.owner);
-          const name = cleanName(result && result.name);
-          return owner === normalized ? name : null;
-        },
-        async () => {
-          const result = await contract.getProfileByAddress(normalized);
-          const owner = normalizeAddress(result && result._owner);
-          const name = cleanName(result && result._name);
-          return owner === normalized ? name : null;
-        },
-      ];
-      for (const attempt of attempts) {
-        try {
-          const name = await attempt();
-          if (name) return name;
-        } catch (_error) {
-          // try next call shape
+      const tryProvider = async (provider) => {
+        const contract = new window.ethers.Contract(CONTRACTS.dfkProfiles, PROFILES_ABI, provider);
+        const attempts = [
+          async () => {
+            const result = await contract.getNames([normalized]);
+            const first = Array.isArray(result) ? result[0] : null;
+            const name = cleanName(first);
+            return name ? name : null;
+          },
+          async () => {
+            const result = await contract.addressToProfile(normalized);
+            const owner = normalizeAddress(result && result.owner);
+            const name = cleanName(result && result.name);
+            return owner === normalized ? name : null;
+          },
+          async () => {
+            const result = await contract.getProfile(normalized);
+            const owner = normalizeAddress(result && result.owner);
+            const name = cleanName(result && result.name);
+            return owner === normalized ? name : null;
+          },
+          async () => {
+            const result = await contract.getProfileByAddress(normalized);
+            const owner = normalizeAddress(result && result._owner);
+            const name = cleanName(result && result._name);
+            return owner === normalized ? name : null;
+          },
+        ];
+        for (const attempt of attempts) {
+          try {
+            const name = await attempt();
+            if (name) return name;
+          } catch (_error) {
+            // try next call shape
+          }
         }
+        return null;
+      };
+
+      if (Number(state.activeChainId || 0) === Number(DFK_CONFIG.chainId || 0) && state.selectedProvider) {
+        return await tryProvider(new window.ethers.BrowserProvider(state.selectedProvider));
       }
-      return null;
+
+      return await withRpcFallback(DFK_CONFIG, tryProvider);
     } catch (_error) {
       return null;
     }
@@ -281,6 +300,8 @@
 
   async function fetchProfileName(address) {
     if (!address) return null;
+    const functionName = await resolveProfileNameViaFunction(address);
+    if (functionName) return functionName;
     return await fetchProfileNameFromChain(address);
   }
 

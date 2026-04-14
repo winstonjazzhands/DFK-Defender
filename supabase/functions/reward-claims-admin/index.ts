@@ -63,23 +63,26 @@ function isCompletedWithdrawal(row: Record<string, unknown>) {
   return status === 'paid' || !!paidAt || !!txHash;
 }
 
-async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number) {
+async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, timeframe = 'all') {
   const claimColumns = 'id, wallet_address, claim_type, status, player_name_snapshot, amount_text, amount_value, reward_currency, reason_text, source_ref, claim_day, requested_at, approved_at, paid_at, resolved_at, admin_note, tx_hash, failure_reason, resolved_by_wallet';
   const [
     { data: rows, error },
     { data: whitelistRows, error: whitelistError },
     { data: burnRows, error: burnError },
     { data: tokenRows, error: tokenError },
+    { data: sessionPaymentRows, error: sessionPaymentError },
   ] = await Promise.all([
     admin.from('reward_claim_requests').select(claimColumns).order('requested_at', { ascending: false }).limit(limit),
     admin.from('reward_claim_whitelist').select('wallet_address, is_active, auto_daily, auto_bounty, max_claim_amount, daily_cap, notes, updated_at'),
     admin.from('dfk_gold_burns').select('wallet_address, burn_amount, confirmed_at').order('confirmed_at', { ascending: false }).limit(5000),
     admin.from('dfk_token_payments').select('wallet_address, paid_amount_wei, payment_asset, kind, verified_at, metadata').order('verified_at', { ascending: false }).limit(5000),
+    admin.from('crypto_payment_sessions').select('wallet_address, paid_amount_wei, payment_asset, kind, verified_at, metadata, expected_amount_wei, status').eq('status', 'confirmed').order('verified_at', { ascending: false }).limit(5000),
   ]);
   if (error) throw error;
   if (whitelistError) throw whitelistError;
   if (burnError && burnError.code !== 'PGRST205') throw burnError;
   if (tokenError && tokenError.code !== 'PGRST205') throw tokenError;
+  if (sessionPaymentError && sessionPaymentError.code !== 'PGRST205') throw sessionPaymentError;
 
   const allRows = rows || [];
   const completedRows = allRows.filter((row) => isCompletedWithdrawal(row));
@@ -116,6 +119,26 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number) 
     const walletKey = normalizeAddress(row.wallet_address);
     const playerName = String(row.player_name_snapshot || '').trim();
     if (walletKey && playerName && !walletNameMap.has(walletKey)) walletNameMap.set(walletKey, playerName);
+  }
+
+
+  const now = new Date();
+  const startOfUtcDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startOfUtcWeek = new Date(startOfUtcDay);
+  startOfUtcWeek.setUTCDate(startOfUtcWeek.getUTCDate() - ((startOfUtcWeek.getUTCDay() + 6) % 7));
+  const startOfLastUtcWeek = new Date(startOfUtcWeek);
+  startOfLastUtcWeek.setUTCDate(startOfLastUtcWeek.getUTCDate() - 7);
+  const endOfLastUtcWeek = new Date(startOfUtcWeek);
+
+  function inSelectedTimeframe(value: string | null | undefined) {
+    const iso = String(value || '').trim();
+    if (!iso) return false;
+    const ms = new Date(iso).getTime();
+    if (!Number.isFinite(ms)) return false;
+    if (timeframe === 'today') return ms >= startOfUtcDay.getTime();
+    if (timeframe === 'this_week') return ms >= startOfUtcWeek.getTime();
+    if (timeframe === 'last_week') return ms >= startOfLastUtcWeek.getTime() && ms < endOfLastUtcWeek.getTime();
+    return true;
   }
 
   const mapClaimItem = (row: any) => {
@@ -182,21 +205,59 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number) 
   };
 
   for (const row of (burnRows || [])) {
+    const confirmedAt = String(row.confirmed_at || '').trim() || null;
+    if (!inSelectedTimeframe(confirmedAt)) continue;
     const entry = ensureSpendWallet(row.wallet_address);
     if (!entry) continue;
-    entry.dfkGoldBurned += Number(row.burn_amount || 0) || 0;
+    const burnAmount = Number(row.burn_amount ?? row.amount ?? 0) || 0;
+    entry.dfkGoldBurned += burnAmount;
     entry.dfkGoldBurnCount += 1;
-    const confirmedAt = String(row.confirmed_at || '').trim() || null;
     if (confirmedAt && (!entry.lastActivityAt || confirmedAt > entry.lastActivityAt)) entry.lastActivityAt = confirmedAt;
   }
 
-  for (const row of (tokenRows || [])) {
+  const spendKinds = new Set([
+    'gold_swap',
+    'hero_hire',
+    'milestone_hero_hire',
+    'jewel_gold_swap',
+    'jewel_extra_hero',
+    'jewel_milestone_hero_hire',
+  ]);
+
+  const mergedTokenRows = []
+    .concat(Array.isArray(tokenRows) ? tokenRows : [])
+    .concat(Array.isArray(sessionPaymentRows) ? sessionPaymentRows.map((row) => ({
+      wallet_address: row.wallet_address,
+      paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei,
+      payment_asset: row.payment_asset,
+      kind: row.kind,
+      verified_at: row.verified_at,
+      metadata: row.metadata,
+    })) : []);
+
+  for (const row of mergedTokenRows) {
+    const kind = String(row.kind || '').trim();
+    if (!spendKinds.has(kind)) continue;
+    const verifiedAt = String(row.verified_at || '').trim() || null;
+    if (!inSelectedTimeframe(verifiedAt)) continue;
     const entry = ensureSpendWallet(row.wallet_address, String((row.metadata && (row.metadata.playerName || row.metadata.player_name)) || '').trim());
     if (!entry) continue;
     entry.jewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
     entry.jewelSpendCount += 1;
-    const verifiedAt = String(row.verified_at || '').trim() || null;
     if (verifiedAt && (!entry.lastActivityAt || verifiedAt > entry.lastActivityAt)) entry.lastActivityAt = verifiedAt;
+  }
+
+  const lifetimeBurnRows = Array.isArray(burnRows) ? burnRows : [];
+  const lifetimeTokenRows = mergedTokenRows;
+  let lifetimeGoldBurned = 0;
+  let lifetimeJewelSpentWei = 0n;
+  for (const row of lifetimeBurnRows) {
+    lifetimeGoldBurned += Number(row.burn_amount ?? row.amount ?? 0) || 0;
+  }
+  for (const row of lifetimeTokenRows) {
+    const kind = String(row.kind || '').trim();
+    if (!spendKinds.has(kind)) continue;
+    lifetimeJewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
   }
 
   const spendItems = Array.from(spendByWallet.values())
@@ -240,12 +301,16 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number) 
     completedItems: completedRows.map(mapClaimItem),
     whitelistItems,
     spendItems,
+    spendTimeframe: timeframe,
+    lifetimeGoldBurned,
+    lifetimeJewelSpentWei: lifetimeJewelSpentWei.toString(),
   };
 }
 
 async function updateClaimStatus(admin: ReturnType<typeof createAdmin>, adminWallet: string, body: Record<string, unknown>) {
   const claimId = String(body.claimId || '').trim();
-  const nextStatus = String(body.status || '').trim().toLowerCase();
+  const rawStatus = String(body.status || '').trim().toLowerCase();
+  const nextStatus = rawStatus === 'approve' ? 'approved' : (rawStatus === 'reject' ? 'rejected' : rawStatus);
   const adminNote = String(body.adminNote || '').trim();
   const txHash = String(body.txHash || '').trim();
   const failureReason = String(body.failureReason || '').trim();
@@ -439,7 +504,8 @@ Deno.serve(async (req) => {
     }
 
     const limit = Math.max(1, Math.min(100, Number(body.limit || 25) || 25));
-    return json(await listClaims(admin, limit));
+    const timeframe = String(body.timeframe || 'all').trim().toLowerCase();
+    return json(await listClaims(admin, limit, timeframe));
   } catch (error) {
     if (error instanceof Response) return error;
     return json({ error: error instanceof Error ? error.message : 'Failed to load reward claims.' }, 500);

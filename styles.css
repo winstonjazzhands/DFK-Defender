@@ -8699,3 +8699,223 @@ body.story-active #startModeModal.modal-primed-under-intro button {
   opacity:.7;
   cursor:not-allowed;
 }
+
+
+.reward-claims-rollup-btn{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#f7f0c6;
+  font:inherit;
+  font-weight:800;
+  padding:0;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.reward-claims-admin-whitelist.is-collapsed .reward-claims-admin-whitelist-form,
+.reward-claims-admin-whitelist.is-collapsed .reward-claims-admin-whitelist-list{
+  display:none;
+}
+.reward-spend-controls{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:10px 0 12px;
+}
+.reward-spend-filter-btn{
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+  border-radius:10px;
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.reward-spend-filter-btn.active{
+  background:rgba(104, 82, 214, 0.35);
+  border-color:rgba(167, 151, 255, 0.45);
+}
+
+
+/* Enlarged reward claims viewing area */
+.reward-claims-admin-group{
+  margin-bottom: 18px;
+}
+.reward-claims-admin-group .reward-claims-admin-subtitle{
+  margin-bottom: 10px;
+}
+.reward-claim-card{
+  padding: 18px 20px;
+  margin-bottom: 12px;
+}
+.reward-claim-card-grid{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+.reward-claim-card-title{
+  font-size: 1.15rem;
+}
+.reward-claim-card-amount{
+  font-size: 1.2rem;
+}
+.reward-claim-value,
+.reward-claim-label,
+.reward-claim-admin-note,
+.reward-claim-whitelist-wallet,
+.reward-claim-whitelist-notes{
+  font-size: 1rem;
+}
+.reward-claim-actions{
+  gap: 10px;
+  margin-top: 14px;
+}
+.reward-claim-action-btn{
+  padding: 10px 14px;
+  font-size: 0.98rem;
+}
+#rewardClaimsAdminBody{
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.reward-claim-spend-list{
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+
+/* Withdrawal tabs and smaller request cards */
+.reward-claims-tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0 0 10px;
+}
+.reward-claims-tab-btn{
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.06);
+  color:#fff;
+  border-radius:10px;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.reward-claims-tab-btn.active{
+  background:rgba(104,82,214,0.35);
+  border-color:rgba(167,151,255,0.45);
+}
+.reward-claims-tab-count{
+  display:inline-flex;
+  min-width:20px;
+  justify-content:center;
+  margin-left:6px;
+  padding:1px 6px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.14);
+  font-size:11px;
+}
+.reward-claims-pagination{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+}
+.reward-claims-page-label{
+  font-size:12px;
+  opacity:.86;
+}
+
+/* make withdrawal request containers/fonts ~25% smaller */
+.reward-claim-card{
+  padding:13px 15px !important;
+  margin-bottom:9px !important;
+}
+.reward-claim-card-grid{
+  gap:9px 14px !important;
+}
+.reward-claim-card-title{
+  font-size:.92rem !important;
+}
+.reward-claim-card-amount{
+  font-size:.96rem !important;
+}
+.reward-claim-value,
+.reward-claim-label,
+.reward-claim-admin-note,
+.reward-claim-whitelist-wallet,
+.reward-claim-whitelist-notes{
+  font-size:.75rem !important;
+}
+.reward-claim-actions{
+  gap:8px !important;
+  margin-top:10px !important;
+}
+.reward-claim-action-btn{
+  padding:7px 10px !important;
+  font-size:.75rem !important;
+}
+
+.reward-claim-card.is-collapsible .reward-claim-card-top,
+.reward-claim-card.is-collapsible .reward-claim-card-grid,
+.reward-claim-card.is-collapsible .reward-claim-actions{
+  display:none;
+}
+.reward-claim-card.is-collapsible.open .reward-claim-card-top,
+.reward-claim-card.is-collapsible.open .reward-claim-card-grid,
+.reward-claim-card.is-collapsible.open .reward-claim-actions{
+  display:block;
+}
+.reward-claim-summary{
+  display:flex;
+  justify-content:space-between;
+  font-size:.8rem;
+  padding:4px 2px;
+}
+
+
+.reward-claim-card.is-collapsible{
+  cursor:pointer;
+}
+.reward-claim-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.reward-claim-summary::after{
+  content:"▸";
+  opacity:.8;
+  font-size:.9rem;
+  margin-left:auto;
+}
+.reward-claim-card.is-collapsible.open .reward-claim-summary::after{
+  content:"▾";
+}
+.reward-claim-summary-main{
+  font-weight:700;
+}
+.reward-claim-summary-sub{
+  opacity:.78;
+  font-size:.72rem;
+}
+
+
+#rewardClaimsAdminHeader{
+  cursor:pointer;
+}
+#rewardClaimsAdminHeader::after{
+  content:"▾";
+  margin-left:10px;
+  opacity:.8;
+  font-size:.9rem;
+}
+#rewardClaimsAdminHeader.is-collapsed::after{
+  content:"▸";
+}

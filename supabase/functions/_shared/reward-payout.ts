@@ -54,6 +54,29 @@ function isValidPrivateKey(value: string) {
   return /^0x[0-9a-fA-F]{64}$/.test(String(value || "").trim());
 }
 
+
+async function waitForReceiptWithBackoff(publicClient: ReturnType<typeof createPublicClient>, txHash: `0x${string}`) {
+  const timeoutMs = 180000;
+  const startedAt = Date.now();
+  let lastError: unknown = null;
+  while ((Date.now() - startedAt) < timeoutMs) {
+    try {
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 45000, pollingInterval: 2000 });
+      if (receipt) return receipt;
+    } catch (error) {
+      lastError = error;
+      try {
+        const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+        if (receipt) return receipt;
+      } catch (innerError) {
+        lastError = innerError;
+      }
+    }
+  }
+  if (lastError instanceof Error) throw lastError;
+  throw new Error('Treasury payout confirmation timed out.');
+}
+
 async function recordAutoPayFailure(admin: AdminClient, claim: RewardClaimRow, nowIso: string, message: string) {
   const note = appendNote(claim?.admin_note, "Auto-payout failed; manual review required.");
   const { error: updateError } = await admin
@@ -128,11 +151,25 @@ export async function tryAutoPayJewelClaim(admin: AdminClient, claim: RewardClai
       to: walletAddress as `0x${string}`,
       value: parseUnits(amountText, 18),
     });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const pendingNote = appendNote(claim?.admin_note, `Treasury payout submitted on-chain. Tx: ${txHash}`);
+    const { error: pendingError } = await admin
+      .from("reward_claim_requests")
+      .update({
+        status: "approved",
+        approved_at: claim?.approved_at || nowIso,
+        resolved_at: claim?.resolved_at || nowIso,
+        resolved_by_wallet: claim?.resolved_by_wallet || "treasury:auto",
+        tx_hash: txHash,
+        failure_reason: null,
+        admin_note: pendingNote,
+      })
+      .eq("id", claim.id);
+    if (pendingError) throw pendingError;
+    const receipt = await waitForReceiptWithBackoff(publicClient, txHash);
     if (Number(receipt.status) !== 1) {
       throw new Error("Treasury payout transaction failed on-chain.");
     }
-    const note = appendNote(claim?.admin_note, `Auto-paid ${amountText} JEWEL via treasury native transfer.`);
+    const note = appendNote(pendingNote, `Auto-paid ${amountText} JEWEL via treasury native transfer.`);
     const { error } = await admin
       .from("reward_claim_requests")
       .update({
