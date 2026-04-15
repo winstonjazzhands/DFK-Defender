@@ -11343,7 +11343,7 @@ function canSubmitRewardClaims() {
     swallowModalEvent(event);
     suppressBoardClicks(1200);
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
-    openSeerIntroModal();
+    closeSeerIntroModal();
     showBanner('Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
   }
 
