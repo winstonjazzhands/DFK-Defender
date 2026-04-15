@@ -100,8 +100,11 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const admin = createAdmin();
-    const body = await req.json().catch(() => ({}));
-    const requestedWallet = normalizeAddress(body.walletAddress as string);
+    const url = new URL(req.url);
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const requestedWallet = normalizeAddress(
+      (body && typeof body === 'object' && 'walletAddress' in body ? body.walletAddress : null) || url.searchParams.get('walletAddress') || ''
+    );
     const sessionWallet = await resolveSessionWallet(admin, req);
     const walletAddress = requestedWallet && sessionWallet === requestedWallet ? requestedWallet : '';
 
