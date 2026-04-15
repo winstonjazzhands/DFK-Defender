@@ -9053,7 +9053,7 @@ function canSubmitRewardClaims() {
       els.relicModalBody.appendChild(jewelCard);
     }
 
-    if (!isFreeStartingRelic || swapOfferActive) {
+    if (!isFreeStartingRelic) {
       const skip = document.createElement('button');
       skip.className = 'secondary relic-skip-btn';
       skip.textContent = 'Skip relic shop';
@@ -14944,12 +14944,68 @@ function canSubmitRewardClaims() {
       && getLiveWaveCount() < MAX_LIVE_WAVES;
   }
 
+  function ensureStartWaveHintEl() {
+    if (els.startWaveHintEl) return els.startWaveHintEl;
+    const stack = document.getElementById('startWaveStack');
+    if (!stack) return null;
+    const hint = document.createElement('div');
+    hint.id = 'startWaveHint';
+    hint.className = 'start-wave-hint';
+    hint.hidden = true;
+    hint.style.marginTop = '6px';
+    hint.style.fontSize = '12px';
+    hint.style.lineHeight = '1.35';
+    hint.style.textAlign = 'center';
+    hint.style.color = '#ffcc66';
+    hint.style.textShadow = '0 0 8px rgba(0,0,0,0.42)';
+    hint.style.maxWidth = '260px';
+    hint.style.whiteSpace = 'normal';
+    stack.appendChild(hint);
+    els.startWaveHintEl = hint;
+    return hint;
+  }
+
+  function getStartWaveBlockers() {
+    const blockers = [];
+    const pushUnique = (message) => {
+      if (!message) return;
+      if (!blockers.includes(message)) blockers.push(message);
+    };
+    if (game.crashed) pushUnique('Resolve the runtime error');
+    if (game.phase === SETUP_PHASES.PORTAL) pushUnique('Place your portal');
+    if (game.phase === SETUP_PHASES.OBSTACLES) {
+      pushUnique(`Place all of your barriers (${game.playerObstacleCount}/${getTargetPlayerObstacleCount()})`);
+    }
+    if (game.phase === SETUP_PHASES.WARRIOR) pushUnique('Place your warrior');
+    if (game.startingRelicPending) pushUnique('Choose your free relic');
+    else if (Array.isArray(game.relicChoices) && game.relicChoices.length) pushUnique('Choose a relic');
+    if (game.continueOfferPending) pushUnique('Resolve your reward choice');
+    if (hasActiveMilestoneOffer()) pushUnique('Resolve the milestone offer');
+    if (getLiveWaveCount() >= MAX_LIVE_WAVES) pushUnique('Wait for a live wave slot to open');
+    if (game.phase === SETUP_PHASES.BATTLE && !game.nextWavePlan && !game.crashed) pushUnique('Wait for the next wave to prepare');
+    return blockers;
+  }
+
   function syncStartWaveButtonState() {
     if (!els.startWaveBtn) return false;
     const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending;
     els.startWaveBtn.disabled = !canStart;
     const liveCount = getLiveWaveCount();
     els.startWaveBtn.textContent = liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave');
+    const hintEl = ensureStartWaveHintEl();
+    const blockers = canStart ? [] : getStartWaveBlockers();
+    const hintText = blockers.length ? blockers.join('\n') : 'Finish setup to begin the wave';
+    els.startWaveBtn.title = els.startWaveBtn.disabled ? hintText : '';
+    els.startWaveBtn.setAttribute('aria-label', els.startWaveBtn.disabled ? `Start Next Wave unavailable. ${hintText.replace(/\n/g, '. ')}` : 'Start Next Wave');
+    if (hintEl) {
+      if (els.startWaveBtn.disabled) {
+        hintEl.innerHTML = blockers.length ? blockers.map(message => `• ${message}`).join('<br>') : '• Finish setup to begin the wave';
+        hintEl.hidden = false;
+      } else {
+        hintEl.innerHTML = '';
+        hintEl.hidden = true;
+      }
+    }
     syncStartWaveBonusIndicator();
     return canStart;
   }
