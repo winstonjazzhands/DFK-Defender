@@ -79,7 +79,7 @@
   }
 
   function getDailyRaffleQualifiedWaveCount() {
-    return 10;
+    return 30;
   }
 
   function getCurrentUtcDayBounds() {
@@ -165,7 +165,7 @@
       used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts),
       dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : 0)) || 0,
       last_run_at: row.last_run_at || row.updated_at || null,
-      raffle_qualified: Number(row.total_waves_cleared != null ? row.total_waves_cleared : (row.waves_cleared != null ? row.waves_cleared : 0)) >= getDailyRaffleQualifiedWaveCount()
+      raffle_qualified: !!(row.raffle_qualified || row.daily_raffle_qualified || Number(row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0)) >= getDailyRaffleQualifiedWaveCount())
     };
   }
 
@@ -228,7 +228,7 @@
       var fullName = escapeHtml(row.player_name);
       var nftUsed = !!row.used_wallet_heroes;
       var showRaffle = isDailyRaffleMode();
-      var raffleQualified = Number(row.total_waves_cleared || 0) >= getDailyRaffleQualifiedWaveCount();
+      var raffleQualified = !!row.raffle_qualified;
       return '<tr>' +
         '<td class="leaderboard-rank">' + (index + 1) + '</td>' +
         '<td class="leaderboard-name-cell" title="' + fullName + '">' + fullName + '</td>' +
@@ -237,7 +237,7 @@
         '<td class="leaderboard-runs-cell">' + escapeHtml(String(row.runs)) + '</td>' +
         '<td class="leaderboard-burn-cell">' + escapeHtml(String(Math.round(Number(row.dfk_gold_burned) || 0).toLocaleString())) + '</td>' +
         '<td class="leaderboard-nft-cell ' + (nftUsed ? 'is-yes' : 'is-no') + '">' + (nftUsed ? 'Yes' : 'No') + '</td>' +
-        (showRaffle ? ('<td class="leaderboard-nft-cell ' + (raffleQualified ? 'is-yes' : 'is-no') + '">' + (raffleQualified ? 'Qualified' : (Math.max(0, getDailyRaffleQualifiedWaveCount() - Number(row.total_waves_cleared || 0)) + ' waves left')) + '</td>') : '') +
+        (showRaffle ? ('<td class="leaderboard-nft-cell is-yes">Qualified</td>') : '') +
       '</tr>';
     }).join('');
   }
@@ -275,13 +275,13 @@
     if (title) title.textContent = showRaffle ? 'Daily Raffle Leaderboard' : 'Leaderboard';
     if (resetCopy) {
       resetCopy.textContent = showRaffle
-        ? 'Tracks only the current UTC day. Players qualify for the daily raffle at 10 waves completed between 00:00 and 23:59 UTC.'
+        ? 'Tracks only the current UTC day. Players qualify for the daily raffle with a tracked run that reaches wave 30+ between 00:00 and 23:59 UTC.'
         : 'Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.';
     }
     if (rangeCopy) {
       rangeCopy.textContent = showRaffle
-        ? 'Today only, in UTC. Only players with activity in the current UTC day are shown. Qualification is 10 waves between 00:00 and 23:59 UTC.'
-        : 'Search a date range for the highest scores in that window. Daily raffle qualification is 10 waves completed during the current UTC day only.';
+        ? 'Today only, in UTC. Only players with activity in the current UTC day are shown. Qualification is a tracked wave 30+ run between 00:00 and 23:59 UTC.'
+        : 'Search a date range for the highest scores in that window. Daily raffle qualification is a tracked wave 30+ run completed during the current UTC day only.';
     }
   }
 
@@ -350,7 +350,7 @@
       var payload = await loadLeaderboardRows();
       if (isDailyRaffleMode()) {
         payload.rows = (payload.rows || []).filter(function (row) {
-          return isWithinCurrentUtcDay(row && row.last_run_at);
+          return isWithinCurrentUtcDay(row && row.last_run_at) && !!(row && row.raffle_qualified);
         });
       }
       window.DFKLeaderboardRows = payload.rows;

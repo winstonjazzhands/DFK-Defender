@@ -46,18 +46,19 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const rangeSelection = resolveRequestedRange(url);
     const players = await fetchPlayers(admin);
-    const [runs, lifetimeRuns, burnRows, lifetimeBurnRows] = await Promise.all([
+    const [runs, lifetimeRuns, burnRows, lifetimeBurnRows, latestDailyRaffleWinner] = await Promise.all([
       fetchRunsForRange(admin, rangeSelection.selectedRange),
       fetchAllRuns(admin),
       fetchBurnRowsForRange(admin, rangeSelection.selectedRange),
       fetchAllBurnRows(admin),
+      fetchLatestDailyRaffleWinner(admin),
     ]);
     const usedMap = buildUsedWalletHeroesMap(runs);
     const burnSummary = buildBurnSummary(burnRows, runs);
-    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet);
+    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange);
     const lifetimeBurnSummary = buildBurnSummary(lifetimeBurnRows, lifetimeRuns);
     const lifetimeUsedMap = buildUsedWalletHeroesMap(lifetimeRuns);
-    const lifetimeRows = buildLeaderboardRows(players, lifetimeRuns, lifetimeUsedMap, lifetimeBurnSummary.byWallet);
+    const lifetimeRows = buildLeaderboardRows(players, lifetimeRuns, lifetimeUsedMap, lifetimeBurnSummary.byWallet, null);
 
     if (burnSummary.topBurner) {
       const matchedRow = rows.find((row) => normalizeAddress(row.wallet_address) === burnSummary.topBurner?.wallet_address);
@@ -113,6 +114,10 @@ Deno.serve(async (req) => {
         selected_range: rangeSelection.selectedRange,
         current_week: rangeSelection.currentWeek,
         last_week: rangeSelection.lastWeek,
+        daily_raffle: {
+          threshold_wave: 30,
+          latest_winner: latestDailyRaffleWinner,
+        },
       },
     }, 200);
   } catch (error) {
@@ -121,7 +126,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map<string, boolean>, burnByWallet: Map<string, number>) {
+function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map<string, boolean>, burnByWallet: Map<string, number>, _selectedRange: RangeWindow | null) {
   const playerByWallet = new Map<string, PlayerRow>();
   for (const player of players || []) {
     const wallet = normalizeAddress(player.wallet_address);
@@ -136,6 +141,7 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
     used_wallet_heroes: boolean;
     last_run_at: string | null;
     updated_at: string | null;
+    raffle_qualified: boolean;
   }>();
 
   for (const row of runs || []) {
@@ -150,11 +156,13 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
       used_wallet_heroes: false,
       last_run_at: null,
       updated_at: null,
+      raffle_qualified: false,
     };
     current.best_wave = Math.max(current.best_wave, sanitizeInt(row.wave_reached));
     current.runs += 1;
     current.total_waves_cleared += sanitizeInt(row.waves_cleared);
     current.used_wallet_heroes = current.used_wallet_heroes || Boolean(usedMap.get(wallet));
+    current.raffle_qualified = current.raffle_qualified || sanitizeInt(row.wave_reached) >= 30;
     if (completedAt) {
       const iso = completedAt.toISOString();
       if (!current.last_run_at || iso > current.last_run_at) current.last_run_at = iso;
@@ -179,6 +187,8 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
       last_run_at: aggregate.last_run_at,
       updated_at: aggregate.updated_at,
       dfk_gold_burned: Number((burnByWallet.get(aggregate.wallet_address) || 0).toFixed(3)),
+      raffle_qualified: !!aggregate.raffle_qualified,
+      daily_raffle_qualified: !!aggregate.raffle_qualified,
     };
   }).sort((a, b) => {
     return sanitizeInt(b.best_wave) - sanitizeInt(a.best_wave)
@@ -279,6 +289,31 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
   return map;
 }
 
+
+
+async function fetchLatestDailyRaffleWinner(admin: SupabaseClient) {
+  const { data, error } = await admin
+    .from('daily_raffle_results')
+    .select('raffle_day, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .order('raffle_day', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (isMissingRelationError(error)) return null;
+    throw error;
+  }
+  if (!data) return null;
+  return {
+    raffle_day: data.raffle_day,
+    winner_wallet: data.winner_wallet,
+    winner_name: data.winner_name,
+    qualifier_count: sanitizeInt(data.qualifier_count),
+    payout_status: data.payout_status || null,
+    payout_tx_hash: data.payout_tx_hash || null,
+    claim_id: data.claim_id || null,
+    settled_at: data.settled_at || null,
+  };
+}
 function buildBurnSummary(burnRows: BurnRow[], runs: RunRow[]) {
   const byWallet = new Map<string, number>();
   let total = 0;

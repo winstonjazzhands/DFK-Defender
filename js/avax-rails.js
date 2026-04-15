@@ -458,7 +458,12 @@ function updateTreasuryUi() {
   }
   if (statusEl) {
     const pendingCount = Number((state.rewardClaims && state.rewardClaims.pendingCount) || 0);
-    statusEl.textContent = pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private';
+    const latestRaffleWinner = state.treasurySummary && state.treasurySummary.latestRaffleWinner ? state.treasurySummary.latestRaffleWinner : null;
+    const winnerName = latestRaffleWinner && (latestRaffleWinner.winner_name || latestRaffleWinner.display_name) ? String(latestRaffleWinner.winner_name || latestRaffleWinner.display_name).trim() : '';
+    const winnerWallet = latestRaffleWinner && latestRaffleWinner.winner_wallet ? String(latestRaffleWinner.winner_wallet).trim() : '';
+    const winnerLabel = winnerName || shortWallet(winnerWallet);
+    const raffleCopy = winnerLabel ? ` · Raffle: ${winnerLabel}` : '';
+    statusEl.textContent = (pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private') + raffleCopy;
   }
   if (!state.treasurySummary) {
     if (totalEl) totalEl.textContent = 'Treasury Earned: 0';

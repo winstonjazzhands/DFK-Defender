@@ -6566,11 +6566,7 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   flex-direction: column;
   gap: 3px;
 }
-.burned-gold-leader-display {
-  font-size: 0.72rem;
-  color: rgba(232, 221, 189, 0.88);
-  line-height: 1.25;
-}
+.burned-gold-leader-display { display: none !important; }
 
 
 /* v46.9.1.60 user fix: taller desktop info panel, dark summoner foot-cloud, smaller boss, smaller skitter explosion */
@@ -9085,3 +9081,6 @@ body #bountyModal .intro-body.bounty-body {
   width: min(1140px, calc(100vw - 28px)) !important;
   max-width: min(1140px, calc(100vw - 28px)) !important;
 }
+
+
+.burned-gold-raffle-display{margin-top:0;display:inline-flex;align-items:center;justify-content:center;white-space:normal;line-height:1.2;text-align:center;word-break:break-word;overflow-wrap:anywhere;padding-top:.55rem;padding-bottom:.55rem;font-size:.84rem}

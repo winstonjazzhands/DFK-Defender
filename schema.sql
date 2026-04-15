@@ -300,3 +300,39 @@ create policy "reward_claim_requests_read_none"
   to anon, authenticated
   using (false)
   with check (false);
+
+
+create table if not exists public.daily_raffle_results (
+  raffle_day date primary key,
+  window_start timestamptz not null,
+  window_end timestamptz not null,
+  qualifier_count integer not null default 0 check (qualifier_count >= 0),
+  winner_wallet text references public.players(wallet_address) on delete set null,
+  winner_name text,
+  winning_run_id uuid references public.runs(id) on delete set null,
+  reward_amount numeric(20,8) not null default 20 check (reward_amount >= 0),
+  reward_currency text not null default 'JEWEL',
+  claim_id uuid references public.reward_claim_requests(id) on delete set null,
+  payout_status text not null default 'pending',
+  payout_tx_hash text,
+  settled_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_daily_raffle_results_settled_at on public.daily_raffle_results (settled_at desc);
+
+alter table public.daily_raffle_results enable row level security;
+
+drop policy if exists "daily_raffle_results_read_none" on public.daily_raffle_results;
+create policy "daily_raffle_results_read_none"
+  on public.daily_raffle_results
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
+drop trigger if exists trg_daily_raffle_results_updated_at on public.daily_raffle_results;
+create trigger trg_daily_raffle_results_updated_at
+before update on public.daily_raffle_results
+for each row execute function public.set_updated_at();

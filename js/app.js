@@ -2795,15 +2795,18 @@ function formatQuestResetCountdown(dateKey) {
       els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
     }
     const leaderEl = document.getElementById('burnedGoldLeaderDisplay');
-    if (!leaderEl) return;
-    const leaderTotal = Math.max(0, Number(game.globalDfkGoldBurnLeaderTotal || 0));
-    const leaderName = String(game.globalDfkGoldBurnLeaderName || '').trim();
-    const leaderWallet = String(game.globalDfkGoldBurnLeaderWallet || '').trim();
-    const leaderLabel = leaderName || truncateWalletAddress(leaderWallet) || 'No one';
-    if (leaderTotal > 0) {
-      leaderEl.textContent = `${leaderLabel} leads the pack with ${leaderTotal.toLocaleString()} gold burned`;
+    if (leaderEl) leaderEl.style.display = 'none';
+    const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
+    if (!raffleEl) return;
+    const raffleName = String(game.latestDailyRaffleWinnerName || '').trim();
+    const raffleWallet = String(game.latestDailyRaffleWinnerWallet || '').trim();
+    const raffleDay = String(game.latestDailyRaffleWinnerDay || '').trim();
+    const qualifierCount = Math.max(0, Number(game.latestDailyRaffleQualifierCount || 0));
+    const raffleLabel = raffleName || truncateWalletAddress(raffleWallet) || '';
+    if (raffleLabel) {
+      raffleEl.textContent = `Daily raffle winner: ${raffleLabel}`;
     } else {
-      leaderEl.textContent = 'No burn leader yet';
+      raffleEl.textContent = 'Daily raffle winner: Pending next draw';
     }
   }
 
@@ -3161,6 +3164,16 @@ function formatQuestResetCountdown(dateKey) {
     return total;
   }
 
+  async function fetchLatestDailyRaffleWinnerDirect() {
+    try {
+      const response = await fetchSupabaseFunctionJson('daily-raffle', null, 'GET');
+      const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
+      return payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   async function fetchGlobalBurnedGoldTotal(force = false) {
     const nowMs = Date.now();
     if (!force && game.globalDfkGoldRefreshPending) return Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
@@ -3169,10 +3182,11 @@ function formatQuestResetCountdown(dateKey) {
       let total = 0;
       let burnLeader = null;
       let totalRuns = 0;
+      let payload = {};
 
       try {
         const response = await fetchSupabaseFunctionJson('public-leaderboard', null, 'GET');
-        const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
+        payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
         const lifetime = payload && typeof payload.lifetime === 'object' ? payload.lifetime : {};
         total = Math.max(0, Number(
           (lifetime && (lifetime.global_dfk_gold_burned ?? lifetime.globalDfkGoldBurned ?? lifetime.global_burned_total))
@@ -3183,10 +3197,16 @@ function formatQuestResetCountdown(dateKey) {
           || (payload && (payload.lifetime_top_burner || payload.lifetimeTopBurner || payload.lifetime_burn_leader || null))
           || null;
         totalRuns = Math.max(0, Number(
-          (lifetime && (lifetime.total_runs ?? lifetime.tracked_runs_total ?? lifetime.run_count ?? lifetime.runs_count))
-          ?? (payload && (payload.lifetime_total_runs ?? payload.lifetimeTrackedRuns ?? payload.lifetime_run_count ?? payload.lifetime_runs_count))
+          (lifetime && (lifetime.total_runs ?? lifetime.totalRuns ?? lifetime.tracked_runs_total ?? lifetime.trackedRunsTotal ?? lifetime.run_count ?? lifetime.runs_count ?? lifetime.count_runs))
+          ?? (payload && (payload.lifetime_total_runs ?? payload.lifetimeTotalRuns ?? payload.lifetimeTrackedRuns ?? payload.lifetime_tracked_runs ?? payload.lifetime_run_count ?? payload.lifetime_runs_count ?? payload.total_runs ?? payload.totalRuns))
           ?? 0
         ));
+        if (totalRuns <= 0) {
+          totalRuns = Math.max(0, Number(
+            findFirstNumericFieldDeep(payload, ['lifetime_total_runs', 'lifetimeTotalRuns', 'tracked_runs_total', 'trackedRunsTotal', 'total_runs', 'totalRuns', 'run_count', 'runs_count'])
+            ?? 0
+          ));
+        }
       } catch (_error) {
         const fallback = await fetchGlobalBurnedGoldTotalsViaRest();
         total = Math.max(0, Number(fallback && fallback.total || 0));
@@ -3194,7 +3214,7 @@ function formatQuestResetCountdown(dateKey) {
         totalRuns = Math.max(0, Number(fallback && fallback.totalRuns || 0));
       }
 
-      if ((totalRuns <= 0 && total <= 0) || !Number.isFinite(totalRuns)) {
+      if (totalRuns <= 0 || !Number.isFinite(totalRuns) || (total <= 0 && totalRuns <= 0)) {
         try {
           const fallback = await fetchGlobalBurnedGoldTotalsViaRest();
           total = Math.max(total, Math.max(0, Number(fallback && fallback.total || 0)));
@@ -3204,10 +3224,19 @@ function formatQuestResetCountdown(dateKey) {
       }
 
       game.globalDfkGoldBurnedTotal = Math.max(0, Number(total || 0));
+      const dailyRaffle = (payload && payload.meta && payload.meta.daily_raffle) ? payload.meta.daily_raffle : {};
+      let latestWinner = dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null;
+      if (!latestWinner || !(latestWinner.winner_name || latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet)) {
+        latestWinner = await fetchLatestDailyRaffleWinnerDirect();
+      }
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
       game.globalTrackedRunsTotal = Math.max(0, Number(totalRuns || 0));
+      game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.display_name || latestWinner.player_name) ? String(latestWinner.winner_name || latestWinner.display_name || latestWinner.player_name).trim() : '';
+      game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : '';
+      game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : '';
+      game.latestDailyRaffleQualifierCount = Math.max(0, Number(latestWinner ? (latestWinner.qualifier_count ?? latestWinner.eligible_count ?? 0) : 0));
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
       return game.globalDfkGoldBurnedTotal;

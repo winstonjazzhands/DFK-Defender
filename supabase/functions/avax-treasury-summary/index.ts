@@ -82,16 +82,19 @@ Deno.serve(async (req) => {
       { data: tokenRows, error: tokenError },
       burnRows,
       { count: lifetimeTrackedRunsCount, error: runCountError },
+      { data: latestRaffleWinner, error: latestRaffleWinnerError },
     ] = await Promise.all([
       admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed'),
       admin.from('dfk_token_payments').select('*'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
+      admin.from('daily_raffle_results').select('raffle_day, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     logNonMissingError('avax-treasury-summary sessionRows query failed', sessionError, 'crypto_payment_sessions');
     logNonMissingError('avax-treasury-summary tokenRows query failed', tokenError, 'dfk_token_payments');
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
+    logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
 
     const safeSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
     const safeTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
@@ -139,6 +142,7 @@ Deno.serve(async (req) => {
       todayBurnedGold,
       burnedGoldCount: burnEntries.length,
       todayBurnedGoldCount: todayBurnRows.length,
+      latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? latestRaffleWinner : null,
     });
   } catch (error) {
     if (error instanceof Response) return error;
