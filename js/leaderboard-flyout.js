@@ -6,6 +6,7 @@
     current_week: 'current_week',
     last_week: 'last_week',
     current_day: 'current_day',
+    current_day_avax: 'current_day_avax',
     custom: 'custom'
   };
 
@@ -75,7 +76,16 @@
   }
 
   function isDailyRaffleMode() {
-    return getCurrentRangeRequest().mode === RANGE_MODES.current_day;
+    var mode = getCurrentRangeRequest().mode;
+    return mode === RANGE_MODES.current_day || mode === RANGE_MODES.current_day_avax;
+  }
+
+  function getCurrentRaffleType() {
+    return getCurrentRangeRequest().mode === RANGE_MODES.current_day_avax ? 'avax' : 'dfk';
+  }
+
+  function getCurrentRaffleLabel() {
+    return getCurrentRaffleType() === 'avax' ? 'AVAX Daily Raffle' : 'DFK Daily Raffle';
   }
 
   function getDailyRaffleQualifiedWaveCount() {
@@ -165,7 +175,8 @@
       used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts),
       dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : 0)) || 0,
       last_run_at: row.last_run_at || row.updated_at || null,
-      raffle_qualified: !!(row.raffle_qualified || row.daily_raffle_qualified || Number(row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0)) >= getDailyRaffleQualifiedWaveCount())
+      raffle_qualified: !!(row.raffle_qualified || row.daily_raffle_qualified || Number(row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0)) >= getDailyRaffleQualifiedWaveCount()),
+      raffle_chain: String(row.raffle_chain || row.raffle_type || row.chain_label || '').toLowerCase() || null
     };
   }
 
@@ -260,9 +271,11 @@
     var currentBtn = el('leaderboardCurrentWeekBtn');
     var lastBtn = el('leaderboardLastWeekBtn');
     var dayBtn = el('leaderboardCurrentDayBtn');
+    var avaxDayBtn = el('leaderboardAvaxRaffleBtn');
     if (currentBtn) currentBtn.classList.toggle('active', range.mode === RANGE_MODES.current_week);
     if (lastBtn) lastBtn.classList.toggle('active', range.mode === RANGE_MODES.last_week);
     if (dayBtn) dayBtn.classList.toggle('active', range.mode === RANGE_MODES.current_day);
+    if (avaxDayBtn) avaxDayBtn.classList.toggle('active', range.mode === RANGE_MODES.current_day_avax);
   }
 
   function updateDailyRaffleUi(meta) {
@@ -271,6 +284,8 @@
     var resetCopy = document.querySelector('.leaderboard-reset-copy');
     var rangeCopy = el('leaderboardRangeCopy');
     var showRaffle = isDailyRaffleMode();
+    var flyout = el('leaderboardFlyout');
+    if (flyout) flyout.classList.toggle('leaderboard-flyout-daily', !!showRaffle);
     if (header) header.classList.toggle('hidden', !showRaffle);
     if (title) title.textContent = showRaffle ? 'Daily Raffle Leaderboard' : 'Leaderboard';
     if (resetCopy) {
@@ -299,7 +314,7 @@
     var selected = meta && meta.selected_range ? meta.selected_range : null;
     if (isDailyRaffleMode()) {
       var today = getCurrentUtcDateOnly();
-      display.textContent = 'Daily raffle window: last 24 hours';
+      display.textContent = getCurrentRaffleLabel() + ' window: last 24 hours';
       return;
     }
     if (!selected) {
@@ -313,9 +328,8 @@
 
   function buildLeaderboardParams() {
     var range = getCurrentRangeRequest();
-    if (range.mode === RANGE_MODES.current_day) {
-      var today = getCurrentUtcDateOnly();
-      return { preset: RANGE_MODES.current_day };
+    if (range.mode === RANGE_MODES.current_day || range.mode === RANGE_MODES.current_day_avax) {
+      return { preset: 'current_day', raffleType: getCurrentRaffleType() };
     }
     if (range.mode === RANGE_MODES.custom) {
       return { start: range.start, end: range.end, mode: range.mode };
@@ -349,8 +363,9 @@
     try {
       var payload = await loadLeaderboardRows();
       if (isDailyRaffleMode()) {
+        var raffleType = getCurrentRaffleType();
         payload.rows = (payload.rows || []).filter(function (row) {
-          return !!(row && row.raffle_qualified);
+          return !!(row && row.raffle_qualified && (!row.raffle_chain || row.raffle_chain === raffleType));
         });
       }
       window.DFKLeaderboardRows = payload.rows;
@@ -453,6 +468,7 @@
     var currentWeekBtn = el('leaderboardCurrentWeekBtn');
     var lastWeekBtn = el('leaderboardLastWeekBtn');
     var currentDayBtn = el('leaderboardCurrentDayBtn');
+    var avaxRaffleBtn = el('leaderboardAvaxRaffleBtn');
     var applyRangeBtn = el('leaderboardApplyRangeBtn');
 
     if (openBtn) openBtn.addEventListener('click', function () { setOpenState(true); });
@@ -474,6 +490,11 @@
     if (currentDayBtn) currentDayBtn.addEventListener('click', function () {
       var today = getCurrentUtcDateOnly();
       setRange(RANGE_MODES.current_day, today, today);
+      refreshLeaderboard();
+    });
+    if (avaxRaffleBtn) avaxRaffleBtn.addEventListener('click', function () {
+      var today = getCurrentUtcDateOnly();
+      setRange(RANGE_MODES.current_day_avax, today, today);
       refreshLeaderboard();
     });
     if (applyRangeBtn) applyRangeBtn.addEventListener('click', applyCustomRange);

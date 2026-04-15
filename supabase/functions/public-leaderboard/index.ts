@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
+const DFK_CHAIN_ID = 53935;
+const AVAX_CHAIN_ID = 43114;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
@@ -48,16 +51,17 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const rangeSelection = resolveRequestedRange(url);
     const players = await fetchPlayers(admin);
-    const [runs, lifetimeRuns, burnRows, lifetimeBurnRows, latestDailyRaffleWinner] = await Promise.all([
-      fetchRunsForRange(admin, rangeSelection.selectedRange),
+    const [runs, lifetimeRuns, burnRows, lifetimeBurnRows, latestDfkDailyRaffleWinner, latestAvaxDailyRaffleWinner] = await Promise.all([
+      fetchRunsForRange(admin, rangeSelection.selectedRange, rangeSelection.raffleType),
       fetchAllRuns(admin),
       fetchBurnRowsForRange(admin, rangeSelection.selectedRange),
       fetchAllBurnRows(admin),
-      fetchLatestDailyRaffleWinner(admin),
+      fetchLatestDailyRaffleWinner(admin, 'dfk'),
+      fetchLatestDailyRaffleWinner(admin, 'avax'),
     ]);
     const usedMap = buildUsedWalletHeroesMap(runs);
     const burnSummary = buildBurnSummary(burnRows, runs);
-    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange);
+    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange, rangeSelection.raffleType);
     const lifetimeBurnSummary = buildBurnSummary(lifetimeBurnRows, lifetimeRuns);
     const lifetimeUsedMap = buildUsedWalletHeroesMap(lifetimeRuns);
     const lifetimeRows = buildLeaderboardRows(players, lifetimeRuns, lifetimeUsedMap, lifetimeBurnSummary.byWallet, null);
@@ -118,7 +122,10 @@ Deno.serve(async (req) => {
         last_week: rangeSelection.lastWeek,
         daily_raffle: {
           threshold_wave: 30,
-          latest_winner: latestDailyRaffleWinner,
+          raffle_type: rangeSelection.raffleType || 'dfk',
+          latest_winner: rangeSelection.raffleType === 'avax' ? latestAvaxDailyRaffleWinner : latestDfkDailyRaffleWinner,
+          latest_winner_dfk: latestDfkDailyRaffleWinner,
+          latest_winner_avax: latestAvaxDailyRaffleWinner,
         },
       },
     }, 200);
@@ -128,7 +135,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map<string, boolean>, burnByWallet: Map<string, number>, _selectedRange: RangeWindow | null) {
+function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map<string, boolean>, burnByWallet: Map<string, number>, _selectedRange: RangeWindow | null, raffleType?: string | null) {
   const playerByWallet = new Map<string, PlayerRow>();
   for (const player of players || []) {
     const wallet = normalizeAddress(player.wallet_address);
@@ -144,6 +151,7 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
     last_run_at: string | null;
     updated_at: string | null;
     raffle_qualified: boolean;
+    raffle_chain: string | null;
   }>();
 
   for (const row of runs || []) {
@@ -159,12 +167,14 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
       last_run_at: null,
       updated_at: null,
       raffle_qualified: false,
+      raffle_chain: null,
     };
     current.best_wave = Math.max(current.best_wave, sanitizeInt(row.wave_reached));
     current.runs += 1;
     current.total_waves_cleared += sanitizeInt(row.waves_cleared);
     current.used_wallet_heroes = current.used_wallet_heroes || Boolean(usedMap.get(wallet));
     current.raffle_qualified = current.raffle_qualified || sanitizeInt(row.wave_reached) >= 30;
+    if (!current.raffle_chain) current.raffle_chain = inferRaffleChainLabel(row.chain_id, raffleType);
     if (completedAt) {
       const iso = completedAt.toISOString();
       if (!current.last_run_at || iso > current.last_run_at) current.last_run_at = iso;
@@ -191,6 +201,7 @@ function buildLeaderboardRows(players: PlayerRow[], runs: RunRow[], usedMap: Map
       dfk_gold_burned: Number((burnByWallet.get(aggregate.wallet_address) || 0).toFixed(3)),
       raffle_qualified: !!aggregate.raffle_qualified,
       daily_raffle_qualified: !!aggregate.raffle_qualified,
+      raffle_chain: aggregate.raffle_chain || (raffleType || null),
     };
   }).sort((a, b) => {
     return sanitizeInt(b.best_wave) - sanitizeInt(a.best_wave)
@@ -222,10 +233,10 @@ async function fetchPlayers(admin: SupabaseClient) {
 
 async function fetchAllRuns(admin: SupabaseClient) {
   const selectVariants = [
-    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
   ];
 
   let lastError: unknown = null;
@@ -239,12 +250,12 @@ async function fetchAllRuns(admin: SupabaseClient) {
   throw lastError || new Error('Runs query failed.');
 }
 
-async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
+async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow, raffleType?: string | null) {
   const selectVariants = [
-    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
   ];
 
   const rangeStartMs = range.startTs ? Date.parse(range.startTs) : 0;
@@ -259,7 +270,7 @@ async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
         return (result.rows as RunRow[]).filter((row) => {
           const ts = parseTimestamp(row.completed_at ?? row.created_at ?? row.run_started_at ?? null);
           const ms = ts ? ts.getTime() : 0;
-          return !!ms && ms >= rangeStartMs && ms < rangeEndMs;
+          return !!ms && ms >= rangeStartMs && ms < rangeEndMs && matchesRaffleChain(row, raffleType);
         });
       }
       lastError = result.error;
@@ -270,12 +281,29 @@ async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
     let query = admin.from('runs').select(columns);
     query = query.gte('completed_at', range.start).lt('completed_at', nextUtcDay(range.end));
     const { data, error } = await query;
-    if (!error) return (Array.isArray(data) ? data : []) as RunRow[];
+    if (!error) return ((Array.isArray(data) ? data : []) as RunRow[]).filter((row) => matchesRaffleChain(row, raffleType));
     lastError = error;
     if (isMissingColumnError(error)) continue;
     throw error;
   }
   throw lastError || new Error('Runs query failed.');
+}
+
+
+function inferRaffleChainLabel(chainId: unknown, raffleType?: string | null) {
+  const parsed = sanitizeInt(chainId);
+  if (parsed === AVAX_CHAIN_ID) return 'avax';
+  if (parsed === DFK_CHAIN_ID) return 'dfk';
+  if (raffleType === 'avax' || raffleType === 'dfk') return raffleType;
+  return null;
+}
+
+function matchesRaffleChain(row: RunRow, raffleType?: string | null) {
+  if (!raffleType || raffleType === 'all') return true;
+  const parsed = sanitizeInt((row as Record<string, unknown>).chain_id);
+  if (raffleType === 'avax') return parsed === AVAX_CHAIN_ID;
+  if (raffleType === 'dfk') return parsed === DFK_CHAIN_ID || parsed === 0;
+  return true;
 }
 
 function buildUsedWalletHeroesMap(rows: RunRow[]) {
@@ -309,10 +337,11 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
 
 
 
-async function fetchLatestDailyRaffleWinner(admin: SupabaseClient) {
+async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string) {
   const { data, error } = await admin
     .from('daily_raffle_results')
-    .select('raffle_day, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .eq('raffle_type', raffleType)
     .order('raffle_day', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -330,6 +359,7 @@ async function fetchLatestDailyRaffleWinner(admin: SupabaseClient) {
     payout_tx_hash: data.payout_tx_hash || null,
     claim_id: data.claim_id || null,
     settled_at: data.settled_at || null,
+    raffle_type: data.raffle_type || raffleType,
   };
 }
 function buildBurnSummary(burnRows: BurnRow[], runs: RunRow[]) {
@@ -421,6 +451,7 @@ function resolveRequestedRange(url: URL) {
 
   let selectedRange = currentWeek;
   let preset = 'current_week';
+  let raffleType: string | null = null;
 
   if ((presetParam === 'last_week' || modeParam === 'last_week')) {
     selectedRange = lastWeek;
@@ -451,9 +482,10 @@ function resolveRequestedRange(url: URL) {
       endTs: end.toISOString(),
     };
     preset = 'current_day';
+    raffleType = String(url.searchParams.get('raffleType') || 'dfk').trim().toLowerCase() === 'avax' ? 'avax' : 'dfk';
   }
 
-  return { preset, selectedRange, currentWeek, lastWeek };
+  return { preset, selectedRange, currentWeek, lastWeek, raffleType };
 }
 
 function getUtcWeekRange(weekOffset: number): RangeWindow {

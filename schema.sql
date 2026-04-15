@@ -306,7 +306,9 @@ create policy "reward_claim_requests_read_none"
 
 
 create table if not exists public.daily_raffle_results (
-  raffle_day date primary key,
+  raffle_day date not null,
+  raffle_type text not null default 'dfk',
+  raffle_chain_id bigint,
   window_start timestamptz not null,
   window_end timestamptz not null,
   qualifier_count integer not null default 0 check (qualifier_count >= 0),
@@ -320,10 +322,11 @@ create table if not exists public.daily_raffle_results (
   payout_tx_hash text,
   settled_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint daily_raffle_results_pkey primary key (raffle_day, raffle_type)
 );
 
-create index if not exists idx_daily_raffle_results_settled_at on public.daily_raffle_results (settled_at desc);
+create index if not exists idx_daily_raffle_results_settled_at on public.daily_raffle_results (raffle_type, settled_at desc);
 
 alter table public.daily_raffle_results enable row level security;
 

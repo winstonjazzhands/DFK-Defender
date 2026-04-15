@@ -25,6 +25,46 @@ function sumWei(rows: Array<{ expected_amount_wei?: string | number | null; amou
   return rows.reduce((total, row) => total + BigInt(String((row && (row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei)) || '0')), 0n).toString();
 }
 
+function normalizeDecimalString(value: unknown) {
+  const text = String(value ?? '').trim();
+  if (!text) return '0';
+  const cleaned = text.replace(/,/g, '');
+  if (!/^[-+]?\d+(?:\.\d+)?$/.test(cleaned)) return '0';
+  return cleaned.replace(/^\+/, '');
+}
+
+function addPositiveDecimalStrings(a: unknown, b: unknown) {
+  const [aWholeRaw, aFracRaw = ''] = normalizeDecimalString(a).split('.');
+  const [bWholeRaw, bFracRaw = ''] = normalizeDecimalString(b).split('.');
+  const fracLen = Math.max(aFracRaw.length, bFracRaw.length);
+  const aWhole = aWholeRaw || '0';
+  const bWhole = bWholeRaw || '0';
+  const aFrac = aFracRaw.padEnd(fracLen, '0');
+  const bFrac = bFracRaw.padEnd(fracLen, '0');
+  const scale = fracLen > 0 ? (10n ** BigInt(fracLen)) : 1n;
+  const left = BigInt(aWhole) * scale + BigInt(aFrac || '0');
+  const right = BigInt(bWhole) * scale + BigInt(bFrac || '0');
+  const total = left + right;
+  const whole = total / scale;
+  const frac = fracLen > 0 ? (total % scale).toString().padStart(fracLen, '0').replace(/0+$/, '') : '';
+  return `${whole.toString()}${frac ? `.${frac}` : ''}`;
+}
+
+function sumRewardAmounts(rows: Array<{ amount_value?: string | number | null; amount_text?: string | null; reward_currency?: string | null }>, currency: 'JEWEL' | 'AVAX') {
+  let total = '0';
+  for (const row of rows) {
+    const rowCurrency = String(row?.reward_currency || '').trim().toUpperCase();
+    if (rowCurrency !== currency) continue;
+    const amountValue = row?.amount_value;
+    if (amountValue != null && String(amountValue).trim()) {
+      total = addPositiveDecimalStrings(total, amountValue);
+      continue;
+    }
+    const match = String(row?.amount_text || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    if (match?.[1]) total = addPositiveDecimalStrings(total, match[1]);
+  }
+  return total;
+}
 
 function isMissingRelationError(error: unknown, relationName: string) {
   const code = String((error as { code?: string } | null)?.code || '').trim();
@@ -83,21 +123,28 @@ Deno.serve(async (req) => {
       burnRows,
       { count: lifetimeTrackedRunsCount, error: runCountError },
       { data: latestRaffleWinner, error: latestRaffleWinnerError },
+      { data: latestAvaxRaffleWinner, error: latestAvaxRaffleWinnerError },
+      { data: paidClaimRows, error: paidClaimRowsError },
     ] = await Promise.all([
       admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed'),
       admin.from('dfk_token_payments').select('*'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
-      admin.from('daily_raffle_results').select('raffle_day, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('reward_claim_requests').select('reward_currency, amount_value, amount_text, status').eq('status', 'paid'),
     ]);
 
     logNonMissingError('avax-treasury-summary sessionRows query failed', sessionError, 'crypto_payment_sessions');
     logNonMissingError('avax-treasury-summary tokenRows query failed', tokenError, 'dfk_token_payments');
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
     logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
+    logNonMissingError('avax-treasury-summary latest AVAX raffle winner query failed', latestAvaxRaffleWinnerError, 'daily_raffle_results');
+    logNonMissingError('avax-treasury-summary paid reward claims query failed', paidClaimRowsError, 'reward_claim_requests');
 
     const safeSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
     const safeTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
+    const safePaidClaimRows = Array.isArray(paidClaimRows) ? paidClaimRows : [];
     const today = new Date().toISOString().slice(0, 10);
     const confirmed = []
       .concat(safeSessionRows.map((row) => ({
@@ -118,6 +165,10 @@ Deno.serve(async (req) => {
       return kind === 'hero_hire' || kind === 'milestone_hero_hire';
     });
     const burnEntries = Array.isArray(burnRows) ? burnRows : [];
+    const lifetimeAvaxInWei = sumWei(safeSessionRows);
+    const lifetimeJewelInWei = sumWei(safeTokenRows);
+    const lifetimeAvaxOut = sumRewardAmounts(safePaidClaimRows, 'AVAX');
+    const lifetimeJewelOut = sumRewardAmounts(safePaidClaimRows, 'JEWEL');
     const todayBurnRows = burnEntries.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
     const lifetimeBurnedGold = burnEntries.reduce((total, row) => total + (Number((row && (row.burn_amount ?? row.amount)) || 0) || 0), 0);
@@ -130,6 +181,10 @@ Deno.serve(async (req) => {
       confirmedCount: confirmed.length,
       todayConfirmedCount: todayRows.length,
       totalConfirmedWei: sumWei(confirmed),
+      lifetimeAvaxInWei,
+      lifetimeJewelInWei,
+      lifetimeAvaxOut,
+      lifetimeJewelOut,
       todayConfirmedWei: sumWei(todayRows),
       entryFeeWei: sumWei(entryRows),
       goldSwapWei: sumWei(goldRows),
@@ -143,6 +198,7 @@ Deno.serve(async (req) => {
       burnedGoldCount: burnEntries.length,
       todayBurnedGoldCount: todayBurnRows.length,
       latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? latestRaffleWinner : null,
+      latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? latestAvaxRaffleWinner : null,
     });
   } catch (error) {
     if (error instanceof Response) return error;

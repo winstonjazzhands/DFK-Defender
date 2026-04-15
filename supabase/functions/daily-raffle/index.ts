@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { tryAutoPayRewardClaim, isAutoRewardPayoutConfigured } from '../_shared/reward-payout.ts';
+import { DFK_CHAIN_ID, AVAX_CHAIN_ID } from '../_shared/env.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,40 @@ function createAdmin() {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
+}
+
+type RaffleConfig = {
+  raffleType: 'dfk' | 'avax';
+  chainId: number;
+  rewardAmountText: string;
+  rewardCurrency: 'JEWEL' | 'AVAX';
+  claimType: string;
+  sourceRefPrefix: string;
+  cronSecretEnv: string;
+};
+
+function getRaffleConfig(raffleTypeRaw: string | null | undefined): RaffleConfig {
+  const raffleType = String(raffleTypeRaw || '').trim().toLowerCase() === 'avax' ? 'avax' : 'dfk';
+  if (raffleType === 'avax') {
+    return {
+      raffleType: 'avax',
+      chainId: AVAX_CHAIN_ID,
+      rewardAmountText: String(Deno.env.get('AVAX_DAILY_RAFFLE_AMOUNT') || '1').trim(),
+      rewardCurrency: 'AVAX',
+      claimType: 'daily_raffle_avax',
+      sourceRefPrefix: 'daily_raffle_avax',
+      cronSecretEnv: 'DAILY_RAFFLE_CRON_SECRET',
+    };
+  }
+  return {
+    raffleType: 'dfk',
+    chainId: DFK_CHAIN_ID,
+    rewardAmountText: '20',
+    rewardCurrency: 'JEWEL',
+    claimType: 'daily_raffle_dfk',
+    sourceRefPrefix: 'daily_raffle_dfk',
+    cronSecretEnv: 'DAILY_RAFFLE_CRON_SECRET',
+  };
 }
 
 function utcDateOnly(date: Date) {
@@ -77,10 +112,11 @@ async function pickWinner(wallets: string[], raffleDay: string) {
   return { wallet: sorted[index], seed };
 }
 
-async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>) {
+async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax') {
   const { data, error } = await admin
     .from('daily_raffle_results')
-    .select('raffle_day, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .eq('raffle_type', raffleType)
     .order('raffle_day', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -91,25 +127,26 @@ async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>) {
   return data || null;
 }
 
-function buildRaffleClaimInsert(raffleDay: string, winnerWallet: string, winnerName: string, winnerRunId: string | null) {
+
+function buildRaffleClaimInsert(config: RaffleConfig, raffleDay: string, winnerWallet: string, winnerName: string, winnerRunId: string | null) {
   return {
-    request_key: `daily_raffle:${raffleDay}:${winnerWallet}`,
+    request_key: `${config.sourceRefPrefix}:${raffleDay}:${winnerWallet}`,
     wallet_address: winnerWallet,
-    claim_type: 'daily_raffle',
+    claim_type: config.claimType,
     status: 'approved',
     player_name_snapshot: winnerName || winnerWallet,
-    amount_text: '20 JEWEL',
-    amount_value: 20,
-    reward_currency: 'JEWEL',
-    reason_text: `Daily raffle winner for ${raffleDay} UTC.`,
-    source_ref: `daily_raffle:${raffleDay}`,
+    amount_text: `${config.rewardAmountText} ${config.rewardCurrency}`,
+    amount_value: Number(config.rewardAmountText || 0),
+    reward_currency: config.rewardCurrency,
+    reason_text: `${config.raffleType.toUpperCase()} daily raffle winner for ${raffleDay} UTC.`,
+    source_ref: `${config.sourceRefPrefix}:${raffleDay}`,
     run_id: winnerRunId || null,
     claim_day: raffleDay,
     requested_at: new Date().toISOString(),
     approved_at: new Date().toISOString(),
     resolved_at: new Date().toISOString(),
     resolved_by_wallet: 'treasury:auto',
-    admin_note: `Auto-generated daily raffle payout for ${raffleDay} UTC.`,
+    admin_note: `Auto-generated ${config.raffleType.toUpperCase()} daily raffle payout for ${raffleDay} UTC.`,
   } as Record<string, unknown>;
 }
 
@@ -152,6 +189,7 @@ async function upsertRaffleClaim(admin: ReturnType<typeof createAdmin>, claimIns
 
 async function finalizeRaffleResult(
   admin: ReturnType<typeof createAdmin>,
+  config: RaffleConfig,
   raffleDay: string,
   raffleRow: Record<string, unknown>,
   winnerWallet: string,
@@ -160,7 +198,7 @@ async function finalizeRaffleResult(
 ) {
   if (!winnerWallet) return raffleRow;
 
-  const claimInsert = buildRaffleClaimInsert(raffleDay, winnerWallet, winnerName, winnerRunId);
+  const claimInsert = buildRaffleClaimInsert(config, raffleDay, winnerWallet, winnerName, winnerRunId);
   const claimRow = await upsertRaffleClaim(admin, claimInsert);
 
   let payoutStatus = String(raffleRow?.payout_status || '').trim().toLowerCase() || 'approved';
@@ -187,17 +225,19 @@ async function finalizeRaffleResult(
       winning_run_id: winnerRunId || raffleRow.winning_run_id || null,
     })
     .eq('raffle_day', raffleDay)
+    .eq('raffle_type', config.raffleType)
     .select('*')
     .single();
   if (finalError) throw finalError;
   return finalRow;
 }
 
-async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, raffleDay: string) {
+async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config: RaffleConfig, raffleDay: string) {
   const { data: existing, error: existingError } = await admin
     .from('daily_raffle_results')
-    .select('*')
+.select('*')
     .eq('raffle_day', raffleDay)
+    .eq('raffle_type', config.raffleType)
     .maybeSingle();
   if (existingError) {
     if (!String((existingError as { message?: string } | null)?.message || '').toLowerCase().includes('does not exist')) throw existingError;
@@ -209,30 +249,18 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, raffleD
     const existingTxHash = String(existing.payout_tx_hash || '').trim();
     if (!existingWinnerWallet || existingPayoutStatus === 'no_qualifiers') return existing;
     if (existingClaimId && existingPayoutStatus === 'paid' && existingTxHash) return existing;
-
-    let winnerName = cleanName(existing.winner_name);
-    if (!winnerName) {
-      const { data: player } = await admin
-        .from('players')
-        .select('vanity_name, display_name')
-        .eq('wallet_address', existingWinnerWallet)
-        .maybeSingle();
-      winnerName = cleanName(player?.vanity_name || player?.display_name || existingWinnerWallet);
-    }
-
-    const winnerRunId = String(existing.winning_run_id || '').trim() || null;
-    console.warn(`daily-raffle self-heal: resuming incomplete settlement for ${raffleDay}`);
-    return await finalizeRaffleResult(admin, raffleDay, existing as Record<string, unknown>, existingWinnerWallet, winnerName || existingWinnerWallet, winnerRunId);
+    throw new Error(`Existing ${config.raffleType.toUpperCase()} daily raffle row for ${raffleDay} is incomplete. Delete that day's row and rerun instead of reusing the same winner.`);
   }
 
   const windowStart = startOfUtcDay(raffleDay);
   const windowEnd = addUtcDays(windowStart, 1);
   const { data: runRows, error: runError } = await admin
     .from('runs')
-    .select('id, wallet_address, wave_reached, completed_at, display_name_snapshot')
+    .select('id, wallet_address, wave_reached, completed_at, display_name_snapshot, chain_id')
     .gte('completed_at', windowStart.toISOString())
     .lt('completed_at', windowEnd.toISOString())
     .gte('wave_reached', 30)
+    .eq('chain_id', config.chainId)
     .order('completed_at', { ascending: false });
   if (runError) throw runError;
 
@@ -245,8 +273,8 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, raffleD
 
   const qualifiers = Array.from(qualifierByWallet.values());
   const qualifierWallets = qualifiers.map((row) => normalizeAddress(row.wallet_address)).filter(Boolean);
-  const winnerPick = await pickWinner(qualifierWallets, raffleDay);
-  const winnerWallet = winnerPick ? winnerPick.wallet : null;
+  const winnerPick = await pickWinner(qualifierWallets, `${config.raffleType}:${raffleDay}`);
+  let winnerWallet = winnerPick ? winnerPick.wallet : null;
   const winnerRun = winnerWallet ? qualifierByWallet.get(winnerWallet) : null;
   let winnerName = cleanName(winnerRun?.display_name_snapshot);
 
@@ -261,14 +289,16 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, raffleD
 
   const baseInsert = {
     raffle_day: raffleDay,
+    raffle_type: config.raffleType,
+    raffle_chain_id: config.chainId,
     window_start: windowStart.toISOString(),
     window_end: windowEnd.toISOString(),
     qualifier_count: qualifiers.length,
     winner_wallet: winnerWallet,
     winner_name: winnerName || null,
     winning_run_id: winnerRun?.id || null,
-    reward_amount: 20,
-    reward_currency: 'JEWEL',
+    reward_amount: Number(config.rewardAmountText || 0),
+    reward_currency: config.rewardCurrency,
     payout_status: winnerWallet ? 'pending' : 'no_qualifiers',
     settled_at: new Date().toISOString(),
   } as Record<string, unknown>;
@@ -281,8 +311,9 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, raffleD
   if (insertError) throw insertError;
 
   if (!winnerWallet) return inserted;
-  return await finalizeRaffleResult(admin, raffleDay, inserted as Record<string, unknown>, winnerWallet, winnerName || winnerWallet, String(winnerRun?.id || '').trim() || null);
+  return await finalizeRaffleResult(admin, config, raffleDay, inserted as Record<string, unknown>, winnerWallet, winnerName || winnerWallet, String(winnerRun?.id || '').trim() || null);
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
@@ -293,14 +324,15 @@ Deno.serve(async (req) => {
     const previousDay = utcDateOnly(addUtcDays(todayStart, -1));
     const url = new URL(req.url);
     const requestedDay = String(url.searchParams.get('raffleDay') || '').trim();
-    const cronSecret = String(Deno.env.get('DAILY_RAFFLE_CRON_SECRET') || '').trim();
+    const config = getRaffleConfig(url.searchParams.get('raffleType'));
+    const cronSecret = String(Deno.env.get(config.cronSecretEnv) || Deno.env.get('DAILY_RAFFLE_CRON_SECRET') || '').trim();
     const providedCronSecret = String(req.headers.get('x-cron-secret') || '').trim();
     const allowSettle = req.method === 'POST' || !cronSecret || providedCronSecret === cronSecret;
 
     let settled = null;
-    if (allowSettle) settled = await settleRaffleForDay(admin, requestedDay || previousDay);
+    if (allowSettle) settled = await settleRaffleForDay(admin, config, requestedDay || previousDay);
 
-    const latestWinner = await fetchLatestWinner(admin);
+    const latestWinner = await fetchLatestWinner(admin, config.raffleType);
     const currentDayStartIso = todayStart.toISOString();
     const nextDayIso = addUtcDays(todayStart, 1).toISOString();
     const { data: todayQualifiers, error: qualifierError } = await admin
@@ -308,7 +340,8 @@ Deno.serve(async (req) => {
       .select('wallet_address')
       .gte('completed_at', currentDayStartIso)
       .lt('completed_at', nextDayIso)
-      .gte('wave_reached', 30);
+      .gte('wave_reached', 30)
+      .eq('chain_id', config.chainId);
     if (qualifierError) throw qualifierError;
     const qualifierWallets = Array.from(new Set((todayQualifiers || []).map((row) => normalizeAddress(row.wallet_address)).filter(Boolean))).sort();
 
@@ -316,10 +349,15 @@ Deno.serve(async (req) => {
       ok: true,
       settled_raffle: settled,
       latest_winner: latestWinner,
+      raffle_type: config.raffleType,
       current_window: {
         raffle_day: utcDateOnly(todayStart),
+        raffle_type: config.raffleType,
         qualifier_count: qualifierWallets.length,
         threshold_wave: 30,
+        chain_id: config.chainId,
+        reward_currency: config.rewardCurrency,
+        reward_amount: Number(config.rewardAmountText || 0),
         window_start: currentDayStartIso,
         window_end: nextDayIso,
       },

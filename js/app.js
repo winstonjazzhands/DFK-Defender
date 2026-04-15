@@ -9135,17 +9135,30 @@ function canSubmitRewardClaims() {
         tileAt(px, py).portal = true;
       }
     }
-    game.phase = SETUP_PHASES.OBSTACLES;
-    setInstruction(`Place ${getTargetPlayerObstacleCount()} obstacles. Do not block every path. You can move the portal before wave 1.`);
+    const hasAllStartingBarriers = game.playerObstacleCount >= getTargetPlayerObstacleCount();
+    const hasWarrior = game.towers.some(t => t && !t.isSatellite && t.type === 'warrior');
+    if (hasAllStartingBarriers && hasWarrior) {
+      game.phase = SETUP_PHASES.BATTLE;
+      if (!game.nextWavePlan) prepareNextWave();
+      setInstruction(`Barrier placement complete. Wave ${game.waveNumber + 1} is ready when you are. Before the first wave starts, you can still click a barrier to move it.`);
+      syncStartWaveButtonState();
+    } else if (hasAllStartingBarriers) {
+      game.phase = SETUP_PHASES.WARRIOR;
+      setInstruction('Place your starting Warrior on any open tile. Before the first wave starts, you can still click a barrier to move it.');
+    } else {
+      game.phase = SETUP_PHASES.OBSTACLES;
+      setInstruction(`Place ${getTargetPlayerObstacleCount()} obstacles. Do not block every path. You can move the portal before wave 1.`);
+    }
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
     return true;
   }
 
   function canPlacePlayerObstacle(x, y) {
+    if (game.playerObstacleCount >= getTargetPlayerObstacleCount()) return false;
     const tile = tileAt(x, y);
     if (!tile || tile.type === 'spawn' || tile.portal || tile.obstacle || tile.towerId) return false;
     tile.obstacle = 'player';
-    const okay = existsPathFromBreachToPortal();
+    const okay = existsPathFromBreachToPortal(false);
     tile.obstacle = null;
     return okay;
   }
@@ -9263,6 +9276,7 @@ function canSubmitRewardClaims() {
       setInstruction('Setup complete. Start the first wave when you are ready.');
     }
     prepareNextWave();
+    syncStartWaveButtonState();
     log(`Warrior placed at (${x + 1}, ${y + 1}).`);
     els.skipSetupBtn.classList.add('hidden');
     return true;
@@ -10292,7 +10306,7 @@ function canSubmitRewardClaims() {
     if (tile.portal) return true;
     if (tile.towerId) {
       const tower = game.towers.find(t => t.id === tile.towerId);
-      if (tower && tower.type === 'warrior') return true;
+      if (tower && tower.type === 'warrior') return !!includeWarrior;
       return false;
     }
     return false;

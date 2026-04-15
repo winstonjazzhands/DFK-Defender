@@ -106,6 +106,17 @@
     }
   }
 
+  function formatRewardAmount(value, symbol) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return `0 ${symbol}`;
+    const normalized = text.replace(/,/g, '');
+    if (!/^[-+]?\d+(?:\.\d+)?$/.test(normalized)) return `-- ${symbol}`;
+    const [wholeRaw, fracRaw = ''] = normalized.replace(/^\+/, '').split('.');
+    const whole = String(BigInt(wholeRaw || '0'));
+    const frac = fracRaw.slice(0, 4).replace(/0+$/, '');
+    return `${whole}${frac ? '.' + frac : ''} ${symbol}`;
+  }
+
   function shortWallet(address) {
     const value = String(address || '').trim();
     return value ? `${value.slice(0, 8)}…${value.slice(-6)}` : '--';
@@ -466,19 +477,16 @@ function updateTreasuryUi() {
     statusEl.textContent = (pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private') + raffleCopy;
   }
   if (!state.treasurySummary) {
-    if (totalEl) totalEl.textContent = 'Treasury Earned: 0';
-    if (todayEl) todayEl.textContent = 'Today: 0';
+    if (totalEl) totalEl.textContent = 'Lifetime In · AVAX: 0 AVAX · JEWEL: 0 Jewel';
+    if (todayEl) todayEl.textContent = 'Lifetime Out · AVAX: 0 AVAX · JEWEL: 0 Jewel';
     if (breakdownEl) breakdownEl.textContent = 'Bundles: 0 · Gold swaps: 0 · Hero hires: 0';
     if (countEl) countEl.textContent = state.rewardClaims ? `Confirmed payments: ${Number((state.rewardClaims && state.rewardClaims.completedCount) || 0)}+ reward updates loaded` : 'Confirmed payments: --';
     renderRewardClaimsAdmin();
     return;
   }
   const s = state.treasurySummary;
-  if (totalEl) totalEl.textContent = `Treasury Earned: ${formatAvaxFromWei(s.totalConfirmedWei || '0')}`;
-  if (todayEl) {
-    const todayBurned = Math.max(0, Number(s.todayBurnedGold || 0));
-    todayEl.textContent = `Today: ${formatAvaxFromWei(s.todayConfirmedWei || '0')}${todayBurned > 0 ? ` · Burned gold: ${todayBurned.toLocaleString()}` : ''}`;
-  }
+  if (totalEl) totalEl.textContent = `Lifetime In · AVAX: ${formatAvaxFromWei(s.lifetimeAvaxInWei || '0')} · JEWEL: ${formatJewelFromWei(s.lifetimeJewelInWei || '0')}`;
+  if (todayEl) todayEl.textContent = `Lifetime Out · AVAX: ${formatRewardAmount(s.lifetimeAvaxOut || '0', 'AVAX')} · JEWEL: ${formatRewardAmount(s.lifetimeJewelOut || '0', 'Jewel')}`;
   if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')} · Burned gold: ${Math.max(0, Number(s.lifetimeBurnedGold || 0)).toLocaleString()}`;
   if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)} · Lifetime tracked runs: ${Number(s.lifetimeTrackedRuns || 0).toLocaleString()}`;
   renderRewardClaimsAdmin();
