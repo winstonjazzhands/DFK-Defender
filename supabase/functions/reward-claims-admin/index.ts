@@ -1,6 +1,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { isAutoJewelPayoutConfigured, tryAutoPayJewelClaim } from '../_shared/reward-payout.ts';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
+import { isAutoRewardPayoutConfigured, tryAutoPayRewardClaim } from '../_shared/reward-payout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,9 +13,6 @@ function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function createAdmin() {
   return createClient(
@@ -25,24 +23,6 @@ function createAdmin() {
 }
 
 
-async function requireAdminSession(req: Request, admin: ReturnType<typeof createAdmin>) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const fallbackHeader = req.headers.get('x-session-token') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim() || String(fallbackHeader).trim();
-  if (!token) throw new Response(JSON.stringify({ error: 'Session token required.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  const { data: session, error } = await admin
-    .from('wallet_sessions')
-    .select('session_token, wallet_address, expires_at, revoked_at')
-    .eq('session_token', token)
-    .single();
-
-  if (error || !session) throw new Response(JSON.stringify({ error: 'Session not found.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (session.revoked_at) throw new Response(JSON.stringify({ error: 'Session revoked.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (Date.now() >= new Date(session.expires_at).getTime()) throw new Response(JSON.stringify({ error: 'Session expired.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  return session;
-}
 
 function formatWhen(iso: string | null | undefined) {
   const value = String(iso || '').trim();
@@ -63,26 +43,47 @@ function isCompletedWithdrawal(row: Record<string, unknown>) {
   return status === 'paid' || !!paidAt || !!txHash;
 }
 
+
+function isMissingRelationError(error: unknown, relationName: string) {
+  const code = String((error as { code?: string } | null)?.code || '').trim();
+  const message = String((error as { message?: string } | null)?.message || '').toLowerCase();
+  return code === 'PGRST205' || (message.includes('relation') && message.includes(relationName.toLowerCase()) && message.includes('does not exist'));
+}
+
+async function safeTableSelect<T>(promise: Promise<{ data: T[] | null; error: { code?: string; message?: string } | null }>, relationName: string) {
+  const { data, error } = await promise;
+  if (error) {
+    if (isMissingRelationError(error, relationName)) return [] as T[];
+    throw error;
+  }
+  return Array.isArray(data) ? data : [];
+}
+
+async function safeSectionRows<T>(label: string, relationName: string, loader: () => Promise<T[]>) {
+  try {
+    const rows = await loader();
+    return { rows, warning: null as string | null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || `${label} unavailable.`);
+    console.error(`[reward-claims-admin] ${label} failed`, error);
+    return { rows: [] as T[], warning: `${label}: ${message}` };
+  }
+}
+
 async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, timeframe = 'all') {
-  const claimColumns = 'id, wallet_address, claim_type, status, player_name_snapshot, amount_text, amount_value, reward_currency, reason_text, source_ref, claim_day, requested_at, approved_at, paid_at, resolved_at, admin_note, tx_hash, failure_reason, resolved_by_wallet';
-  const [
-    { data: rows, error },
-    { data: whitelistRows, error: whitelistError },
-    { data: burnRows, error: burnError },
-    { data: tokenRows, error: tokenError },
-    { data: sessionPaymentRows, error: sessionPaymentError },
-  ] = await Promise.all([
-    admin.from('reward_claim_requests').select(claimColumns).order('requested_at', { ascending: false }).limit(limit),
-    admin.from('reward_claim_whitelist').select('wallet_address, is_active, auto_daily, auto_bounty, max_claim_amount, daily_cap, notes, updated_at'),
-    admin.from('dfk_gold_burns').select('wallet_address, burn_amount, confirmed_at').order('confirmed_at', { ascending: false }).limit(5000),
-    admin.from('dfk_token_payments').select('wallet_address, paid_amount_wei, payment_asset, kind, verified_at, metadata').order('verified_at', { ascending: false }).limit(5000),
-    admin.from('crypto_payment_sessions').select('wallet_address, paid_amount_wei, payment_asset, kind, verified_at, metadata, expected_amount_wei, status').eq('status', 'confirmed').order('verified_at', { ascending: false }).limit(5000),
+  const [claimSection, whitelistSection, burnSection, tokenSection, sessionSection] = await Promise.all([
+    safeSectionRows<any>('reward claims', 'reward_claim_requests', () => safeTableSelect<any>(admin.from('reward_claim_requests').select('*').order('requested_at', { ascending: false }).limit(limit), 'reward_claim_requests')),
+    safeSectionRows<any>('reward whitelist', 'reward_claim_whitelist', () => safeTableSelect<any>(admin.from('reward_claim_whitelist').select('*'), 'reward_claim_whitelist')),
+    safeSectionRows<any>('gold burns', 'dfk_gold_burns', () => safeTableSelect<any>(admin.from('dfk_gold_burns').select('wallet_address, burn_amount, amount, confirmed_at').order('confirmed_at', { ascending: false }).limit(5000), 'dfk_gold_burns')),
+    safeSectionRows<any>('token payments', 'dfk_token_payments', () => safeTableSelect<any>(admin.from('dfk_token_payments').select('*').order('verified_at', { ascending: false }).limit(5000), 'dfk_token_payments')),
+    safeSectionRows<any>('crypto payment sessions', 'crypto_payment_sessions', () => safeTableSelect<any>(admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed').order('verified_at', { ascending: false }).limit(5000), 'crypto_payment_sessions')),
   ]);
-  if (error) throw error;
-  if (whitelistError) throw whitelistError;
-  if (burnError && burnError.code !== 'PGRST205') throw burnError;
-  if (tokenError && tokenError.code !== 'PGRST205') throw tokenError;
-  if (sessionPaymentError && sessionPaymentError.code !== 'PGRST205') throw sessionPaymentError;
+  const rows = claimSection.rows;
+  const whitelistRows = whitelistSection.rows;
+  const burnRows = burnSection.rows;
+  const tokenRows = tokenSection.rows;
+  const sessionPaymentRows = sessionSection.rows;
+  const sectionWarnings = [claimSection.warning, whitelistSection.warning, burnSection.warning, tokenSection.warning, sessionSection.warning].filter(Boolean) as string[];
 
   const allRows = rows || [];
   const completedRows = allRows.filter((row) => isCompletedWithdrawal(row));
@@ -240,7 +241,10 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     if (!spendKinds.has(kind)) continue;
     const verifiedAt = String(row.verified_at || '').trim() || null;
     if (!inSelectedTimeframe(verifiedAt)) continue;
-    const entry = ensureSpendWallet(row.wallet_address, String((row.metadata && (row.metadata.playerName || row.metadata.player_name)) || '').trim());
+    const parsedMetadata = typeof row.metadata === 'string'
+      ? (() => { try { return JSON.parse(row.metadata); } catch { return {}; } })()
+      : (row.metadata && typeof row.metadata === 'object' ? row.metadata : {});
+    const entry = ensureSpendWallet(row.wallet_address, String((parsedMetadata && (parsedMetadata.playerName || parsedMetadata.player_name)) || '').trim());
     if (!entry) continue;
     entry.jewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
     entry.jewelSpendCount += 1;
@@ -291,6 +295,7 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     updatedAt: row.updatedAt || null,
   })).sort((a, b) => a.walletAddress.localeCompare(b.walletAddress));
 
+  const schemaWarning = sectionWarnings.length ? sectionWarnings.join(' | ') : null;
   return {
     ok: true,
     pendingCount,
@@ -304,6 +309,8 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     spendTimeframe: timeframe,
     lifetimeGoldBurned,
     lifetimeJewelSpentWei: lifetimeJewelSpentWei.toString(),
+    schemaWarning,
+    sectionWarnings,
   };
 }
 
@@ -354,8 +361,9 @@ async function approveAndPayClaim(admin: ReturnType<typeof createAdmin>, adminWa
     .from('reward_claim_requests')
     .select('id, wallet_address, status, amount_value, reward_currency, amount_text, admin_note, approved_at, resolved_at, resolved_by_wallet, tx_hash, paid_at, failure_reason')
     .eq('id', claimId)
-    .single();
-  if (error || !claim) throw (error || new Error('Claim not found.'));
+    .maybeSingle();
+  if (error) throw error;
+  if (!claim) throw new Error('Claim not found.');
 
   const now = new Date().toISOString();
   const currentStatus = String(claim.status || '').trim().toLowerCase();
@@ -398,11 +406,11 @@ async function approveAndPayClaim(admin: ReturnType<typeof createAdmin>, adminWa
     claim.resolved_by_wallet = adminWallet;
   }
 
-  if (!isAutoJewelPayoutConfigured()) {
-    return { ok: true, claimId, status: 'approved', txHash: null, message: 'Claim approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable one-click payout.' };
+  if (!isAutoRewardPayoutConfigured()) {
+    return { ok: true, claimId, status: 'approved', txHash: null, message: 'Claim approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable one-click treasury payout.' };
   }
 
-  const payout = await tryAutoPayJewelClaim(admin, {
+  const payout = await tryAutoPayRewardClaim(admin, {
     id: claim.id,
     wallet_address: claim.wallet_address,
     status: 'approved',
@@ -423,6 +431,7 @@ async function approveAndPayClaim(admin: ReturnType<typeof createAdmin>, adminWa
     claimId,
     status: payout.paid ? 'paid' : 'approved',
     txHash: payout.txHash || null,
+    rewardCurrency: String(claim.reward_currency || '').trim().toUpperCase() || null,
     message: payout.message,
   };
 }
@@ -476,7 +485,9 @@ Deno.serve(async (req) => {
   try {
     const admin = createAdmin();
     const body = await req.json().catch(() => ({}));
-    const session = await requireAdminSession(req, admin);
+    const sessionResult = await loadValidWalletSession(admin, req, corsHeaders);
+    if ('response' in sessionResult) return sessionResult.response;
+    const session = sessionResult.session;
     const walletAddress = normalizeAddress(body.walletAddress as string || session.wallet_address);
     const adminWallet = normalizeAddress(Deno.env.get('DFK_REWARD_ADMIN_WALLET') || Deno.env.get('DFK_AVAX_TREASURY_ADDRESS') || '0xab45288409900be5ef23c19726a30c28268495ad');
     const privateAdminWallets = (Deno.env.get('DFK_PRIVATE_ADMIN_WALLETS') || `${adminWallet},0x971bdacd04ef40141ddb6ba175d4f76665103c81`)

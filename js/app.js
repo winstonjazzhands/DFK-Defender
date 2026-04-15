@@ -527,6 +527,7 @@ function getRandomTree(){
     ? window.DFK_LIVE_DAMAGE_REPORT_WALLETS
     : PRIVATE_ADMIN_WALLETS).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
   const TEST_GOLD_GRANT_AMOUNT = 10000;
+  const DAILY_QUEST_TEST_RESET_WALLET = '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
   const HIRE_COSTS = [25, 50, 88, 138];
   const MAX_STANDARD_HEROES_ON_BOARD = 5;
   const UPGRADE_COST_MULTIPLIER = 3.3062;
@@ -544,7 +545,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v1.4.40';
+const APP_VERSION = 'v10.3.3';
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -1096,6 +1097,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     banner: document.getElementById('banner'),
     abilityInfoPopup: null,
     startWaveBtn: document.getElementById('startWaveBtn'),
+    startWaveBonusIndicator: document.getElementById('startWaveBonusIndicator'),
     skipSetupBtn: document.getElementById('skipSetupBtn'),
     restartBtn: document.getElementById('restartBtn'),
     upgradeBtn: document.getElementById('upgradeBtn'),
@@ -1268,6 +1270,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     dfkGoldSwapPending: false,
     jewelTradePending: false,
     pendingMilestonePurchase: null,
+    milestoneOfferTxnPending: false,
+    milestoneOfferTxnLabel: '',
     dfkGoldBurnedTotal: 0,
     globalDfkGoldBurnedTotal: 0,
     globalDfkGoldBurnLeaderName: '',
@@ -1421,15 +1425,13 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
 
 
   const DAILY_QUEST_GOAL_MULTIPLIER = 5.625;
-  const DAILY_QUEST_BOARD_VERSION = 2;
+  const DAILY_QUEST_BOARD_VERSION = 4;
   const DAILY_QUEST_TIER_CONFIG = Object.freeze({
-    free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', goalMultiplier: 0.5, count: 3, unlocksRewardedQuests: true, tierLabel: 'Unlock Quest' }),
-    standard: Object.freeze({ rewardJewel: 1, rewardText: '1 Jewel', goalMultiplier: 1.5, count: 2, requiresFreeCompletion: true, tierLabel: 'Daily Quest' }),
-    elite: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', goalMultiplier: 3, count: 1, requiresFreeCompletion: true, tierLabel: 'Elite Quest' }),
-    bounty: Object.freeze({ rewardJewel: 20, rewardText: '20 Jewel', goalMultiplier: 30, count: 3, requiresFreeCompletion: true, sequentialUnlock: true, tierLabel: 'Bounty' }),
+    free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', rewardAvax: 0, goalMultiplier: 0.75, count: 5, unlocksRewardedQuests: true, tierLabel: 'Unlock Quest' }),
+    standard: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', rewardAvax: 0.0006, goalMultiplier: 1.5, count: 3, requiresFreeCompletion: true, tierLabel: 'Daily Quest' }),
+    elite: Object.freeze({ rewardJewel: 3, rewardText: '3 Jewel', rewardAvax: 0.00125, goalMultiplier: 3, count: 2, requiresFreeCompletion: true, tierLabel: 'Elite Quest' }),
+    bounty: Object.freeze({ rewardJewel: 20, rewardText: '20 Jewel', rewardAvax: 0.005, goalMultiplier: 30, count: 0, requiresFreeCompletion: true, sequentialUnlock: true, tierLabel: 'Bounty' }),
   });
-
-  const AVAX_PER_JEWEL_REWARD_EQUIVALENT = 0.00025;
 
   function formatQuestAvaxReward(amountAvax) {
     const value = Math.max(0, Number(amountAvax || 0));
@@ -1438,7 +1440,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
   function getQuestRewardAmountAvax(quest) {
-    return Math.max(0, Number(quest && quest.rewardJewel || 0)) * AVAX_PER_JEWEL_REWARD_EQUIVALENT;
+    const explicitRewardAvax = Number(quest && quest.rewardAvax);
+    if (Number.isFinite(explicitRewardAvax) && explicitRewardAvax > 0) return explicitRewardAvax;
+    return 0;
   }
 
   function getQuestRewardText(quest) {
@@ -1491,6 +1495,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'waves_10', name: 'Ten Down', description: 'Clear 10 waves total.', metric: 'wavesClearedTotal', goal: 10 },
     { id: 'waves_20', name: 'Twenty Down', description: 'Clear 20 waves total.', metric: 'wavesClearedTotal', goal: 20 },
     { id: 'waves_35', name: 'Hold the Line', description: 'Clear 35 waves total.', metric: 'wavesClearedTotal', goal: 35 },
+    { id: 'waves_100', name: 'Century Mark', description: 'Clear 100 waves total.', metric: 'wavesClearedTotal', goal: 100 },
     { id: 'wave_peak_10', name: 'Break Through', description: 'Reach wave 10 in a run.', metric: 'maxWave', goal: 10 },
     { id: 'wave_peak_20', name: 'Push Deeper', description: 'Reach wave 20 in a run.', metric: 'maxWave', goal: 20 },
     { id: 'wave_peak_30', name: 'Dig In', description: 'Reach wave 30 in a run.', metric: 'maxWave', goal: 30 },
@@ -1500,7 +1505,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   ];
 
   const DAILY_QUEST_TIER_SOURCE_IDS = Object.freeze({
-    free: Object.freeze(['kill_50', 'small_40', 'medium_20', 'large_8', 'skitter_5', 'boss_1', 'damage_10k', 'gold_800', 'spend_600', 'relics_1', 'heroes_3', 'upgrades_4', 'satellites_1', 'waves_10', 'wave_peak_10']),
+    free: Object.freeze(['waves_100', 'kill_50', 'small_40', 'medium_20', 'large_8', 'skitter_5', 'boss_1', 'damage_10k', 'gold_800', 'spend_600', 'relics_1', 'heroes_3', 'upgrades_4', 'satellites_1', 'waves_10', 'wave_peak_10']),
     standard: Object.freeze(['kill_100', 'kill_200', 'small_80', 'medium_40', 'large_15', 'skitter_12', 'damage_25k', 'gold_1800', 'spend_1400', 'relics_2', 'heroes_6', 'upgrades_10', 'satellites_3', 'waves_20', 'wave_peak_20', 'runs_2', 'boss_waves_2']),
     elite: Object.freeze(['kill_350', 'boss_3', 'damage_50k', 'gold_3200', 'spend_2600', 'waves_35', 'wave_peak_30', 'runs_4']),
   });
@@ -1525,7 +1530,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       case 'upgrades': return `Buy ${formatQuestGoal(goal)} upgrades.`;
       case 'satellitesPlaced': return `Place ${formatQuestGoal(goal)} satellite${goal === 1 ? '' : 's'}, statue${goal === 1 ? '' : 's'}, or Torn Soul${goal === 1 ? '' : 's'}.`;
       case 'wavesClearedTotal': return `Clear ${formatQuestGoal(goal)} waves total.`;
-      case 'maxWave': return `Reach wave ${formatQuestGoal(goal)} in a run.`;
+      case 'maxWave': return `Reach wave ${formatQuestGoal(goal)} in a single game.`;
       case 'runsCompleted': return `Complete ${formatQuestGoal(goal)} runs.`;
       case 'bossWavesCleared': return `Clear ${formatQuestGoal(goal)} boss waves.`;
       default: return quest.description;
@@ -1543,7 +1548,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     return sourceIds.map((sourceId) => {
       const quest = DAILY_QUEST_BASE_MAP[sourceId];
       if (!quest) return null;
-      const scaledGoal = Math.max(1, Math.ceil(Number(quest.goal || 0) * DAILY_QUEST_GOAL_MULTIPLIER * Number(tierMeta.goalMultiplier || 1)));
+      const scaledGoal = sourceId === 'wave_peak_30'
+        ? 60
+        : Math.max(1, Math.ceil(Number(quest.goal || 0) * DAILY_QUEST_GOAL_MULTIPLIER * Number(tierMeta.goalMultiplier || 1)));
       return {
         ...quest,
         id: `${tierKey}:${quest.id}`,
@@ -1551,6 +1558,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
         tierKey,
         tierLabel: tierMeta.tierLabel,
         rewardJewel: Number(tierMeta.rewardJewel || 0),
+        rewardAvax: Number(tierMeta.rewardAvax || 0),
         rewardText: tierMeta.rewardText,
         goal: scaledGoal,
         description: buildDailyQuestDescription(quest, scaledGoal),
@@ -1587,8 +1595,58 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     return getConnectedWalletAddress() || 'guest';
   }
 
+  function canUseDailyQuestTestReset(walletAddress = getConnectedWalletAddress()) {
+    return normalizeAddress(walletAddress) === DAILY_QUEST_TEST_RESET_WALLET;
+  }
+
+  function getDailyQuestTestCycleStorageKey(playerKey, dateKey) {
+    return `dfkDefenderDailyQuestResetCycle:v${DAILY_QUEST_BOARD_VERSION}:${playerKey}:${dateKey}`;
+  }
+
+  function getDailyQuestTestCycle(playerKey = getDailyQuestPlayerKey(), dateKey = getDailyQuestDateKey()) {
+    if (!canUseDailyQuestTestReset(playerKey)) return 0;
+    try {
+      const raw = localStorage.getItem(getDailyQuestTestCycleStorageKey(playerKey, dateKey));
+      const value = Number(raw);
+      return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  function setDailyQuestTestCycle(nextCycle, playerKey = getDailyQuestPlayerKey(), dateKey = getDailyQuestDateKey()) {
+    if (!canUseDailyQuestTestReset(playerKey)) return 0;
+    const safeCycle = Math.max(0, Math.floor(Number(nextCycle) || 0));
+    try {
+      localStorage.setItem(getDailyQuestTestCycleStorageKey(playerKey, dateKey), String(safeCycle));
+    } catch (error) {}
+    return safeCycle;
+  }
+
   function getDailyQuestStorageKey(playerKey, dateKey) {
-    return `dfkDefenderDailyQuests:v${DAILY_QUEST_BOARD_VERSION}:${playerKey}:${dateKey}`;
+    const cycle = getDailyQuestTestCycle(playerKey, dateKey);
+    const cycleSuffix = cycle > 0 ? `:cycle:${cycle}` : '';
+    return `dfkDefenderDailyQuests:v${DAILY_QUEST_BOARD_VERSION}:${playerKey}:${dateKey}${cycleSuffix}`;
+  }
+
+  function resetDailyQuestTestBoard() {
+    const playerKey = getDailyQuestPlayerKey();
+    const dateKey = getDailyQuestDateKey();
+    if (!canUseDailyQuestTestReset(playerKey)) return false;
+    const nextCycle = setDailyQuestTestCycle(getDailyQuestTestCycle(playerKey, dateKey) + 1, playerKey, dateKey);
+    const board = game.dailyQuestBoard || (game.dailyQuestBoard = {});
+    board.loading = false;
+    board.claiming = false;
+    board.error = '';
+    board.playerKey = playerKey;
+    board.dateKey = dateKey;
+    board.testCycle = nextCycle;
+    board.questIds = pickDailyQuestIds(playerKey, dateKey);
+    board.progress = {};
+    board.claimed = {};
+    board.metrics = createEmptyDailyQuestMetrics();
+    persistDailyQuestBoard();
+    return true;
   }
 
   function createEmptyDailyQuestMetrics() {
@@ -1638,7 +1696,16 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     ];
     for (const [tierKey, count] of tierEntries) {
       const pool = Array.isArray(DAILY_QUEST_TIER_POOLS[tierKey]) ? DAILY_QUEST_TIER_POOLS[tierKey].slice() : [];
-      for (let i = 0; i < count && pool.length; i += 1) {
+      if (tierKey === 'free' && count > 0) {
+        const forcedIndex = pool.findIndex((entry) => String(entry && entry.id || '') === 'waves_100');
+        if (forcedIndex >= 0) {
+          const forcedQuest = pool.splice(forcedIndex, 1)[0];
+          const forcedId = forcedQuest && typeof forcedQuest === 'object' ? String(forcedQuest.id || '') : String(forcedQuest || '');
+          if (forcedId) result.push(forcedId);
+        }
+      }
+      const picksNeeded = Math.max(0, count - (tierKey === 'free' ? 1 : 0));
+      for (let i = 0; i < picksNeeded && pool.length; i += 1) {
         const roll = seededRandom(`${seedBase}:${tierKey}:${i}`)();
         const idx = Math.floor(roll * pool.length) % pool.length;
         const pickedQuest = pool.splice(idx, 1)[0];
@@ -1676,8 +1743,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     board.error = '';
     board.playerKey = playerKey;
     board.dateKey = dateKey;
+    board.testCycle = getDailyQuestTestCycle(playerKey, dateKey);
     board.questIds = Array.isArray(stored?.questIds) && stored.questIds.length
-      ? stored.questIds.map((entry) => typeof entry === 'object' && entry ? String(entry.id || '') : String(entry || '')).filter(Boolean).slice(0, 9)
+      ? stored.questIds.map((entry) => typeof entry === 'object' && entry ? String(entry.id || '') : String(entry || '')).filter(Boolean).slice(0, 10)
       : pickDailyQuestIds(playerKey, dateKey);
     board.progress = stored && typeof stored.progress === 'object' && stored.progress ? stored.progress : {};
     board.claimed = stored && typeof stored.claimed === 'object' && stored.claimed ? stored.claimed : {};
@@ -1806,7 +1874,7 @@ async function claimDailyQuest(questId) {
   if (!quest || isQuestClaimed(questId, board) || !isQuestUnlocked(quest, board) || !isQuestComplete(quest, board)) return;
   const claimedJewelTotal = getClaimedDailyQuestJewelTotal(board);
   const rewardJewel = Math.max(0, Number(quest.rewardJewel || 0));
-  if (rewardJewel > 0 && claimedJewelTotal + rewardJewel > 6) {
+  if (rewardJewel > 0 && claimedJewelTotal + rewardJewel > 7) {
     const resetText = formatDailyQuestResetCountdown(getSecondsUntilDailyQuestReset());
     const capMessage = `it looks like you already claimed your daily quest rewards, they will reset with new quests in ${resetText} and you can complete and claim more then.`;
     board.error = capMessage;
@@ -1841,6 +1909,9 @@ async function claimDailyQuest(questId) {
       rewardAmountValue: getQuestRewardAmountValue(quest),
       playerName: getRewardClaimPlayerName(),
     };
+    if (canUseDailyQuestTestReset(board.playerKey) && Number(board.testCycle || 0) > 0) {
+      claimPayload.testResetCycle = Number(board.testCycle || 0);
+    }
     const result = await requestRewardClaim(claimPayload);
     board.claimed[questId] = true;
     persistDailyQuestBoard();
@@ -1852,6 +1923,7 @@ async function claimDailyQuest(questId) {
       showRewardPayoutNotice({
         txHash: payoutResult.txHash,
         rewardText: resolvedRewardText,
+        rewardCurrency: claimPayload.rewardCurrency,
         reasonText: quest.name,
       });
     } else {
@@ -1867,7 +1939,11 @@ async function claimDailyQuest(questId) {
 }
 
 
-function getRewardPayoutExplorerBase() {
+function getRewardPayoutExplorerBase(rewardCurrency = '') {
+  const currency = String(rewardCurrency || '').trim().toUpperCase();
+  if (currency === 'AVAX') {
+    return String(window.DFK_AVAX_EXPLORER_URL || 'https://snowtrace.io').trim().replace(/\/$/, '');
+  }
   const base = String(window.DFK_DFKCHAIN_EXPLORER_URL || 'https://subnets.avax.network/defi-kingdoms').trim();
   return base.replace(/\/$/, '');
 }
@@ -1952,7 +2028,8 @@ function showRewardPayoutNotice(details = {}) {
   const actionsEl = modal.querySelector('#rewardPayoutNoticeActions');
   const rewardText = String(details.rewardText || '1 Reward').trim() || '1 Reward';
   const reasonText = String(details.reasonText || 'Quest reward').trim() || 'Quest reward';
-  const explorerBase = getRewardPayoutExplorerBase();
+  const rewardCurrency = String(details.rewardCurrency || details.currency || '').trim();
+  const explorerBase = getRewardPayoutExplorerBase(rewardCurrency);
   const txUrl = `${explorerBase}/tx/${txHash}`;
   if (titleEl) titleEl.textContent = `Received ${rewardText}`;
   if (bodyEl) {
@@ -1962,7 +2039,9 @@ function showRewardPayoutNotice(details = {}) {
         <div class="reward-claim-card-grid">
           <div><span class="reward-claim-label">Status</span><div class="reward-claim-value">Paid</div></div>
           <div><span class="reward-claim-label">Amount</span><div class="reward-claim-value">${escapeHtml(rewardText)}</div></div>
+          <div><span class="reward-claim-label">Currency</span><div class="reward-claim-value">${escapeHtml(rewardCurrency || (rewardText.includes('AVAX') ? 'AVAX' : 'JEWEL'))}</div></div>
           <div style="grid-column:1 / -1;"><span class="reward-claim-label">Tx Hash</span><div class="reward-claim-value mono">${escapeHtml(txHash)}</div></div>
+          <div style="grid-column:1 / -1;"><a class="small-action" style="display:inline-flex;text-decoration:none;" href="${escapeHtml(txUrl)}" target="_blank" rel="noopener noreferrer">View transaction</a></div>
         </div>
       </div>`;
   }
@@ -2024,7 +2103,7 @@ function formatQuestResetCountdown(dateKey) {
           </div>
           <h3 class="bounty-card-title">${escapeHtml(quest.name)}</h3>
           <p class="bounty-card-copy">${escapeHtml(quest.description)}</p>
-          ${unlocked ? '' : '<div class="bounty-status-banner">Complete all 3 zero-jewel unlock quests before this one can start.</div>'}
+          ${unlocked ? '' : '<div class="bounty-status-banner">Complete all 5 zero-jewel unlock quests before this one can start.</div>'}
           <div class="quest-progress-row">
             <div class="quest-progress-track"><span style="width:${Math.max(0, Math.min(100, (progress / quest.goal) * 100))}%"></span></div>
             <div class="quest-progress-text">${unlocked ? `${Math.min(progress, quest.goal)} / ${quest.goal}` : `Locked · ${quest.goal}`}</div>
@@ -2041,20 +2120,35 @@ function formatQuestResetCountdown(dateKey) {
       ? '<div class="bounty-status-banner">Connect your wallet and enable run tracking to send daily reward claims to the backend.</div>'
       : '<div class="bounty-status-banner">Claimed quests are also logged in the private rewards panel for payout review.</div>';
     const errorBanner = board.error ? `<div class="bounty-status-banner is-error">${escapeHtml(board.error)}</div>` : '';
+    const showQuestTestReset = canUseDailyQuestTestReset(board.playerKey);
+    const testCycleText = Number(board.testCycle || 0) > 0 ? ` • Test cycle ${Number(board.testCycle || 0)}` : '';
+    const testResetControls = showQuestTestReset
+      ? `<div class="tracked-runs-hero-strip quests-summary-strip" style="margin-top:12px;">
+          <div>
+            <div class="bounty-strip-kicker">Private test controls</div>
+            <p class="bounty-strip-copy">This reset button only appears for your wallet. It clears today's quest progress and starts a fresh local test cycle so you can run the dailies again.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+            <div class="bounty-strip-badge">Cycle ${Math.max(0, Number(board.testCycle || 0))}</div>
+            <button type="button" class="small-action" data-reset-daily-quests="true">Reset today's dailies</button>
+          </div>
+        </div>`
+      : '';
     els.questsBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
-          <div class="bounty-strip-kicker">Six daily quests roll every UTC day</div>
-          <p class="bounty-strip-copy">You get 3 easy 0 Jewel unlock quests, 2 harder 1 Jewel quests, and 1 elite 2 Jewel quest. Finish all three 0 Jewel quests before the reward quests can begin.</p>
+          <div class="bounty-strip-kicker">Ten daily quests roll every UTC day</div>
+          <p class="bounty-strip-copy">You get 5 easy 0 Jewel unlock quests, 3 harder 2 Jewel quests, and 2 elite 3 Jewel quests. Finish all five 0 Jewel quests before the reward quests can begin.</p>
         </div>
         <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)}</div>
       </div>
       ${rewardClaimBanner}
       ${errorBanner}
+      ${testResetControls}
       <div class="tracked-runs-hero-strip quests-summary-strip">
         <div>
           <div class="bounty-strip-kicker">Today's progress</div>
-          <p class="bounty-strip-copy">${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed • Player: ${escapeHtml(board.playerKey)} • 3x 0 Jewel · 2x 1 Jewel · 1x 2 Jewel</p>
+          <p class="bounty-strip-copy">${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed • Player: ${escapeHtml(board.playerKey)}${escapeHtml(testCycleText)} • 5x 0 Jewel · 3x 2 Jewel · 2x 3 Jewel</p>
         </div>
         <div class="bounty-strip-badge">${board.dateKey}</div>
       </div>
@@ -3449,6 +3543,18 @@ function formatQuestResetCountdown(dateKey) {
     showHeroPlacementReminder(labels[0]);
   }
 
+  function setMilestoneOfferTxnPending(label = '') {
+    game.milestoneOfferTxnPending = true;
+    game.milestoneOfferTxnLabel = String(label || '').trim();
+    render();
+  }
+
+  function clearMilestoneOfferTxnPending() {
+    game.milestoneOfferTxnPending = false;
+    game.milestoneOfferTxnLabel = '';
+    render();
+  }
+
   function renderMilestoneHeroOffer() {
     const modal = els.milestoneHeroOfferModal;
     const body = els.milestoneHeroOfferBody;
@@ -3482,6 +3588,7 @@ function formatQuestResetCountdown(dateKey) {
       });
     }
     const sections = [];
+    const milestoneTxnPending = !!game.milestoneOfferTxnPending;
     title.textContent = heroOffer ? `Reinforcements at Wave ${heroOffer.wave}` : `Barrier Bundle at Wave ${barrierOffer.wave}`;
     if (heroOffer) {
       sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${useAvax ? avaxHeroLabel : `${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}` }.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
@@ -3501,8 +3608,8 @@ function formatQuestResetCountdown(dateKey) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'small-action milestone-hero-offer-btn';
-        btn.textContent = (game.dfkGoldSwapPending || game.jewelTradePending) ? 'Waiting…' : `${t.name} L${heroOffer.heroLevel}`;
-        btn.disabled = !canLaunchHire || game.dfkGoldSwapPending || game.jewelTradePending;
+        btn.textContent = milestoneTxnPending ? 'Submitting…' : ((game.dfkGoldSwapPending || game.jewelTradePending) ? 'Waiting…' : `${t.name} L${heroOffer.heroLevel}`);
+        btn.disabled = milestoneTxnPending || !canLaunchHire || game.dfkGoldSwapPending || game.jewelTradePending;
         btn.title = '';
         btn.addEventListener('click', () => {
           beginMilestoneHeroHireFlow(type).catch((error) => console.error(error));
@@ -3511,21 +3618,26 @@ function formatQuestResetCountdown(dateKey) {
       }
       const note = document.createElement('div');
       note.className = 'milestone-hero-offer-note';
+      const nativeBalanceLabel = getWalletNativeJewelBalanceLabel();
+      const balanceSummary = useAvax
+        ? `Wallet: ${nativeBalanceLabel}`
+        : `Wallet: ${walletDfkgold.toLocaleString()} DFK Gold · ${nativeBalanceLabel}`;
       if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to pay with DFK Gold or JEWEL for this hire.';
+      else if (milestoneTxnPending) note.textContent = `${game.milestoneOfferTxnLabel || 'Purchase'} submitting…`;
       else if (game.dfkGoldSwapPending || game.jewelTradePending) note.textContent = 'Waiting for wallet confirmation…';
-      else if (useAvax) note.textContent = `Pick a hero to pay ${avaxHeroLabel} with AVAX for the hire.`;
-      else if (walletDfkgold >= Number(heroOffer.burnCost || 0) && jewelAvailable) note.textContent = `Both payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or Gold?`;
-      else if (walletDfkgold >= Number(heroOffer.burnCost || 0)) note.textContent = `Only DFK Gold is ready right now, so picking a hero launches the DFK Gold transaction.`;
-      else if (jewelAvailable) note.textContent = `Only JEWEL is ready right now, so picking a hero launches the JEWEL transaction.`;
-      else note.textContent = `Need ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel} in the connected wallet.`;
+      else if (useAvax) note.textContent = `Pick a hero to pay ${avaxHeroLabel} with AVAX for the hire. ${balanceSummary}`;
+      else if (walletDfkgold >= Number(heroOffer.burnCost || 0) && jewelAvailable) note.textContent = `Both payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or Gold? ${balanceSummary}`;
+      else if (walletDfkgold >= Number(heroOffer.burnCost || 0)) note.textContent = `Only DFK Gold is ready right now, so picking a hero launches the DFK Gold transaction. ${balanceSummary}`;
+      else if (jewelAvailable) note.textContent = `Only JEWEL is ready right now, so picking a hero launches the JEWEL transaction. ${balanceSummary}`;
+      else note.textContent = `Need ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel} in the connected wallet. ${balanceSummary}`;
       actions.appendChild(note);
 
       if (hasWallet) {
         const refreshBtn = document.createElement('button');
         refreshBtn.type = 'button';
         refreshBtn.className = 'secondary small-action milestone-hero-offer-btn';
-        refreshBtn.textContent = game.milestoneOfferWalletRefreshPending ? 'Refreshing…' : 'Refresh Wallet';
-        refreshBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
+        refreshBtn.textContent = milestoneTxnPending ? 'Submitting…' : (game.milestoneOfferWalletRefreshPending ? 'Refreshing…' : 'Refresh Wallet');
+        refreshBtn.disabled = milestoneTxnPending || !!game.milestoneOfferWalletRefreshPending;
         refreshBtn.addEventListener('click', async () => {
           if (game.milestoneOfferWalletRefreshPending) return;
           game.milestoneOfferWalletRefreshPending = true;
@@ -3547,8 +3659,8 @@ function formatQuestResetCountdown(dateKey) {
           const cancelStuckBtn = document.createElement('button');
           cancelStuckBtn.type = 'button';
           cancelStuckBtn.className = 'secondary small-action milestone-hero-offer-btn';
-          cancelStuckBtn.textContent = 'Clear Stuck Waiting';
-          cancelStuckBtn.disabled = !!game.milestoneOfferWalletRefreshPending;
+          cancelStuckBtn.textContent = milestoneTxnPending ? 'Submitting…' : 'Clear Stuck Waiting';
+          cancelStuckBtn.disabled = milestoneTxnPending || !!game.milestoneOfferWalletRefreshPending;
           cancelStuckBtn.addEventListener('click', () => {
             game.jewelTradePending = false;
             clearPendingMilestonePurchase();
@@ -3565,8 +3677,8 @@ function formatQuestResetCountdown(dateKey) {
       const barrierBtn = document.createElement('button');
       barrierBtn.type = 'button';
       barrierBtn.className = 'small-action milestone-hero-offer-btn';
-      barrierBtn.textContent = game.dfkGoldSwapPending ? 'Waiting…' : `Buy ${barrierOffer.barrierCount} More Barriers`;
-      barrierBtn.disabled = game.dfkGoldSwapPending || !hasWallet || (!useAvax && walletDfkgold < barrierOffer.burnCost);
+      barrierBtn.textContent = milestoneTxnPending ? 'Submitting…' : (game.dfkGoldSwapPending ? 'Waiting…' : `Buy ${barrierOffer.barrierCount} More Barriers`);
+      barrierBtn.disabled = milestoneTxnPending || game.dfkGoldSwapPending || !hasWallet || (!useAvax && walletDfkgold < barrierOffer.burnCost);
       barrierBtn.addEventListener('click', () => {
         (useAvax ? beginMilestoneBarrierOfferAvax() : beginMilestoneBarrierOffer()).catch((error) => console.error(error));
       });
@@ -3574,6 +3686,7 @@ function formatQuestResetCountdown(dateKey) {
       const barrierNote = document.createElement('div');
       barrierNote.className = 'milestone-hero-offer-note';
       if (!hasWallet) barrierNote.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for more barriers.' : 'Connect a wallet on DFK Chain to burn DFK Gold for more barriers.';
+      else if (milestoneTxnPending) barrierNote.textContent = `${game.milestoneOfferTxnLabel || 'Purchase'} submitting…`;
       else if (game.dfkGoldSwapPending) barrierNote.textContent = 'Waiting for wallet confirmation…';
       else if (!useAvax && walletDfkgold < barrierOffer.burnCost) barrierNote.textContent = `Need ${barrierOffer.burnCost.toLocaleString()} DFK Gold in the connected wallet.`;
       else barrierNote.textContent = `Buying now raises your barrier cap by ${barrierOffer.barrierCount} for the rest of this run.`;
@@ -3582,7 +3695,8 @@ function formatQuestResetCountdown(dateKey) {
     const skipBtn = document.createElement('button');
     skipBtn.type = 'button';
     skipBtn.className = 'secondary small-action milestone-hero-offer-btn';
-    skipBtn.textContent = 'Skip offer';
+    skipBtn.textContent = milestoneTxnPending ? 'Submitting…' : 'Skip offer';
+    skipBtn.disabled = milestoneTxnPending;
     skipBtn.addEventListener('click', () => finishMilestoneOffer());
     actions.appendChild(skipBtn);
     modal.classList.remove('hidden');
@@ -3591,6 +3705,7 @@ function formatQuestResetCountdown(dateKey) {
   async function beginMilestoneBarrierOffer() {
     const offer = game.milestoneBarrierOffer;
     if (!offer) return;
+    setMilestoneOfferTxnPending('Barrier purchase');
     try {
       await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
         pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${offer.barrierCount} more barriers…`,
@@ -3603,12 +3718,15 @@ function formatQuestResetCountdown(dateKey) {
       log(`Barrier bundle unlocked at wave ${offer.wave}: +${offer.barrierCount} barriers after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
       showBanner(`Barrier cap remains ${BASE_PLAYER_BARRIER_COUNT}.`, 2400);
       render();
-    } catch (_error) {  }
+    } catch (_error) {  } finally {
+      clearMilestoneOfferTxnPending();
+    }
   }
 
   async function beginMilestoneBarrierOfferAvax() {
     const offer = game.milestoneBarrierOffer;
     if (!offer) return;
+    setMilestoneOfferTxnPending('Barrier purchase');
     try {
       await performAvaxTreasuryPurchase('powerup', AVAX_MILESTONE_BARRIER_WEI, `${offer.barrierCount} more barriers`, {
         wave: offer.wave,
@@ -3631,6 +3749,7 @@ function formatQuestResetCountdown(dateKey) {
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
+    setMilestoneOfferTxnPending(`${template.name} hire`);
     try {
       
       const result = await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
@@ -3663,6 +3782,7 @@ function formatQuestResetCountdown(dateKey) {
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
+    setMilestoneOfferTxnPending(`${template.name} hire`);
     try {
       
       const jewelWei = getMilestoneHeroJewelPriceWei(offer);
@@ -3684,13 +3804,16 @@ function formatQuestResetCountdown(dateKey) {
         setMilestoneHeroOfferProcessing(template.name);
       }
       render();
-    } catch (_error) {}
+    } catch (_error) {} finally {
+      clearMilestoneOfferTxnPending();
+    }
   }
 
   async function beginMilestoneHeroHireAvax(heroType, options = {}) {
     const offer = game.milestoneHeroOffer;
     const template = TOWER_TEMPLATES[heroType];
     if (!offer || !template) return;
+    setMilestoneOfferTxnPending(`${template.name} hire`);
     try {
       
       const result = await performAvaxTreasuryPurchase('hero_hire', AVAX_MILESTONE_HERO_WEI, `${template.name} reinforcement`, {
@@ -3709,7 +3832,9 @@ function formatQuestResetCountdown(dateKey) {
         setMilestoneHeroOfferProcessing(template.name);
       }
       render();
-    } catch (_error) {}
+    } catch (_error) {} finally {
+      clearMilestoneOfferTxnPending();
+    }
   }
 
   async function recordDfkgoldBurn(txHash, walletAddress, burnAmount, defenderGoldAwarded) {
@@ -4746,18 +4871,47 @@ function renderDamageReport() {
     return trackerState.session && trackerState.session.sessionToken ? String(trackerState.session.sessionToken) : '';
   }
 
+  function isSessionAuthFailureMessage(message) {
+    return /session not found|session expired|session revoked|wallet mismatch|enable run tracking|missing authorization header|unauthorized|invalid or expired session|session origin mismatch|user agent mismatch/i.test(String(message || ''));
+  }
+
+  async function refreshRunTrackerSessionToken(forceRefresh = false) {
+    if (!window.DFKRunTracker) return '';
+    if (forceRefresh && typeof window.DFKRunTracker.reauthenticate === 'function') {
+      const session = await window.DFKRunTracker.reauthenticate();
+      return session && session.sessionToken ? String(session.sessionToken) : getRunTrackerSessionToken();
+    }
+    if (typeof window.DFKRunTracker.authenticate !== 'function') return '';
+    const session = await window.DFKRunTracker.authenticate(forceRefresh ? { forceRefresh: true } : undefined);
+    return session && session.sessionToken ? String(session.sessionToken) : getRunTrackerSessionToken();
+  }
+
+  function buildFunctionAuthHeaders(key, token, includeJson = true) {
+    const headers = { apikey: key };
+    if (includeJson) headers['Content-Type'] = 'application/json';
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      headers['x-session-token'] = token;
+    } else {
+      headers.Authorization = `Bearer ${key}`;
+    }
+    return headers;
+  }
+
   async function callBountyFunction(functionName, payload = {}, requireAuth = false) {
     const { url, key } = getBountySupabaseConfig();
     if (!url || !key) throw new Error('Supabase bounty board is not configured.');
-    const token = getRunTrackerSessionToken();
-    if (requireAuth && !token) throw new Error('Enable run tracking before claiming a bounty.');
+    let token = getRunTrackerSessionToken();
+    if (requireAuth && !token) {
+      token = await refreshRunTrackerSessionToken();
+      if (!token) throw new Error('Enable run tracking before claiming a bounty.');
+    }
     const endpoint = `${url}/functions/v1/${functionName}`;
     const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
 
     const isBoardRead = functionName === BOUNTY_BOARD_FUNCTION && !requireAuth;
     if (isBoardRead) {
-      const boardHeaders = { apikey: key };
-      if (token) boardHeaders.Authorization = `Bearer ${token}`;
+      const boardHeaders = buildFunctionAuthHeaders(key, token, false);
       const query = normalizedPayload.walletAddress ? `?walletAddress=${encodeURIComponent(String(normalizedPayload.walletAddress || ''))}` : '';
       try {
         const response = await fetch(endpoint + query, { method: 'GET', headers: boardHeaders });
@@ -4767,10 +4921,7 @@ function renderDamageReport() {
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...boardHeaders,
-          },
+          headers: buildFunctionAuthHeaders(key, token, true),
           body: JSON.stringify(normalizedPayload),
         });
         const json = await response.json().catch(() => null);
@@ -4782,22 +4933,34 @@ function renderDamageReport() {
       }
     }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      apikey: key,
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(normalizedPayload),
-    });
-    const json = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
+    async function sendRequest(activeToken) {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: buildFunctionAuthHeaders(key, activeToken, true),
+        body: JSON.stringify(normalizedPayload),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(json && (json.error || json.message) ? (json.error || json.message) : `Request failed: ${response.status}`);
+      }
+      return json || {};
     }
-    return json || {};
+
+    try {
+      return await sendRequest(token);
+    } catch (error) {
+      const message = String(error && error.message || '');
+      if (!requireAuth || !isSessionAuthFailureMessage(message)) throw error;
+      let refreshedToken = '';
+      try {
+        refreshedToken = await refreshRunTrackerSessionToken(false);
+      } catch (_error) {}
+      if (!refreshedToken || refreshedToken === token) {
+        refreshedToken = await refreshRunTrackerSessionToken(true);
+      }
+      if (!refreshedToken || refreshedToken === token) throw error;
+      return await sendRequest(refreshedToken);
+    }
   }
 
 function getRewardClaimPlayerName() {
@@ -4932,6 +5095,17 @@ function canSubmitRewardClaims() {
     closeQuestsModal();
     closeKnownRelicsModal();
     renderTrackedRunsBoard();
+    if (window.DFKRunTracker) {
+      if (typeof window.DFKRunTracker.authenticate === 'function' && typeof window.DFKRunTracker.isTrackingEnabled === 'function' && window.DFKRunTracker.isTrackingEnabled()) {
+        window.DFKRunTracker.authenticate().catch(() => {});
+      }
+      if (typeof window.DFKRunTracker.flushPendingRuns === 'function') {
+        window.DFKRunTracker.flushPendingRuns({ interactive: true, force: true }).catch(() => {});
+      }
+      if (typeof window.DFKRunTracker.refreshSummary === 'function') {
+        window.DFKRunTracker.refreshSummary({ flushPending: true }).catch(() => {});
+      }
+    }
     refreshBountyBoard().catch(() => {});
     game.introOpen = true;
     syncStatusOverlayVisibility(true);
@@ -5536,8 +5710,8 @@ function canSubmitRewardClaims() {
   const DFK_GOLD_SWAP_COST = 10000;
   const DEFENDER_GOLD_SWAP_REWARD = 1000;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
-  const AVAX_DEFENDER_GOLD_SWAP_REWARD = 3000;
-  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '2173913043478261');
+  const AVAX_DEFENDER_GOLD_SWAP_REWARD = 2000;
+  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '450000000000000');
   const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || AVAX_MILESTONE_HERO_WEI || '1000000000000000');
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad').trim().toLowerCase();
   const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
@@ -6827,7 +7001,8 @@ function canSubmitRewardClaims() {
 
   function updateTopbar() {
     const portalText = `${Math.max(0, Math.round(game.portalHp))}/2500`;
-    const goldText = formatJewel(game.jewel);
+    const goldBonusLabel = getLiveWaveGoldBonusLabel();
+    const goldText = goldBonusLabel ? `${formatJewel(game.jewel)} (${goldBonusLabel})` : formatJewel(game.jewel);
     if (els.portalHp) els.portalHp.textContent = portalText;
     if (els.mobilePortalHp) els.mobilePortalHp.textContent = portalText;
     if (els.jewelCount) els.jewelCount.textContent = goldText;
@@ -10145,12 +10320,17 @@ function canSubmitRewardClaims() {
       const tile = tileAt(enemy.x, enemy.y);
       return tile && tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
     })();
-    if (occupantTower && occupantTower.isSoulSplit) {
-      createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.75, 1800, PURPLE_FIRE_GIF_PATH);
-      createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, getTornSoulBurnRadius(occupantTower)), 'wizard');
-      damageEnemy(occupantTower, enemy, occupantTower.damage * getTornSoulExplosionMultiplier(occupantTower), `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: isTornSoulArchon(occupantTower) ? 'Archon Burst' : 'Torn Soul Burst' });
-      igniteTornSoulBurn(occupantTower, occupantTower.x, occupantTower.y);
-      removeTower(occupantTower, `${occupantTower.name} collapsed into shadow.`);
+    if (occupantTower) {
+      if (occupantTower.type === 'champion_dreadknight' && occupantTower.hp > 0) {
+        applyDebuff(enemy, 'slow', 10, { percent: Math.max(Number(enemy?.debuffs?.slow?.percent || 0), 0.5) });
+      }
+      if (occupantTower.isSoulSplit) {
+        createExplosionEffect(occupantTower.x, occupantTower.y, 'wizard', 0.75, 1800, PURPLE_FIRE_GIF_PATH);
+        createTileFlashArea(getTilesInManhattanRange(occupantTower.x, occupantTower.y, getTornSoulBurnRadius(occupantTower)), 'wizard');
+        damageEnemy(occupantTower, enemy, occupantTower.damage * getTornSoulExplosionMultiplier(occupantTower), `${occupantTower.name} detonated on ${enemy.name}`, { key: 'soul_split_burst', label: isTornSoulArchon(occupantTower) ? 'Archon Burst' : 'Torn Soul Burst' });
+        igniteTornSoulBurn(occupantTower, occupantTower.x, occupantTower.y);
+        removeTower(occupantTower, `${occupantTower.name} collapsed into shadow.`);
+      }
     }
     markProgress(`${enemy.name} moved.`);
     return true;
@@ -11327,12 +11507,14 @@ function canSubmitRewardClaims() {
     game.nextWavePlan = null;
     stageUpcomingWavePlan(true);
     const liveCount = getLiveWaveCount();
-    setInstruction(`Waves ${Math.max(1, game.activeWaveBase + 1)}-${game.waveNumber} are live (${liveCount}/3). Defend the portal.`);
+    const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
+    const liveWaveGoldBonusText = liveWaveGoldBonusLabel ? ` ${liveWaveGoldBonusLabel} kill rewards active.` : '';
+    setInstruction(`Waves ${Math.max(1, game.activeWaveBase + 1)}-${game.waveNumber} are live (${liveCount}/3). Defend the portal.${liveWaveGoldBonusText}`);
     syncStartWaveButtonState();
     const mutationText = currentPlan.mutation ? ` • ${currentPlan.mutation.name}` : '';
-    showBanner(`${currentPlan.elite ? 'Elite Wave' : 'Wave'} ${currentPlan.waveNumber} joined the battle${liveCount > 1 ? ` (${liveCount}/3 live)` : ''}.`, 2200);
+    showBanner(`${currentPlan.elite ? 'Elite Wave' : 'Wave'} ${currentPlan.waveNumber} joined the battle${liveCount > 1 ? ` (${liveCount}/3 live • ${liveWaveGoldBonusLabel || 'Gold bonus active'})` : ''}.`, 2400);
     markProgress(`Wave ${currentPlan.waveNumber} started.`);
-    log(`Wave ${currentPlan.waveNumber} started. Pattern: ${prettyPattern(currentPlan.pattern)}${mutationText ? `, Mutation: ${currentPlan.mutation.name}` : ''}. ${liveCount}/3 live.`);
+    log(`Wave ${currentPlan.waveNumber} started. Pattern: ${prettyPattern(currentPlan.pattern)}${mutationText ? `, Mutation: ${currentPlan.mutation.name}` : ''}. ${liveCount}/3 live.${liveWaveGoldBonusLabel ? ` ${liveWaveGoldBonusLabel} kill rewards active.` : ''}`);
     render();
   }
 
@@ -14004,6 +14186,8 @@ function canSubmitRewardClaims() {
   function awardKill(enemy) {
     let jewel = enemy.jewel;
     if (enemy.killedBy === 'pirate') jewel *= (1 + game.modifiers.pirateSteal);
+    const liveWaveGoldBonusMultiplier = getLiveWaveGoldBonusMultiplier();
+    if (liveWaveGoldBonusMultiplier > 1) jewel *= liveWaveGoldBonusMultiplier;
     game.jewel += jewel;
     updateQuestMetric('killsTotal', 1);
     if (enemy.isBoss) updateQuestMetric('killsBoss', 1);
@@ -14015,7 +14199,8 @@ function canSubmitRewardClaims() {
       else updateQuestMetric('killsSmall', 1);
     }
     updateQuestMetric('goldEarned', jewel);
-    log(`${enemy.name} died. +${formatJewel(jewel)} Gold.`);
+    const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
+    log(`${enemy.name} died. +${formatJewel(jewel)} Gold${liveWaveGoldBonusLabel ? ` (${liveWaveGoldBonusLabel} live bonus)` : ''}.`);
   }
 
   function damageEnemy(sourceTower, enemy, amount, message, damageMethod = null) {
@@ -14577,6 +14762,33 @@ function canSubmitRewardClaims() {
     return Array.isArray(game.activeWavePlans) ? game.activeWavePlans.length : 0;
   }
 
+  function getLiveWaveGoldBonusMultiplier() {
+    const liveCount = getLiveWaveCount();
+    if (liveCount >= 3) return 1.5;
+    if (liveCount >= 2) return 1.25;
+    return 1;
+  }
+
+  function getLiveWaveGoldBonusLabel() {
+    const mult = getLiveWaveGoldBonusMultiplier();
+    if (mult >= 1.5) return '1.5x Gold';
+    if (mult >= 1.25) return '1.25x Gold';
+    return '';
+  }
+
+  function syncStartWaveBonusIndicator() {
+    if (!els.startWaveBonusIndicator) return;
+    const liveCount = getLiveWaveCount();
+    const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
+    if (liveCount >= 2 && liveWaveGoldBonusLabel) {
+      els.startWaveBonusIndicator.textContent = `Multiwave Bonus ${liveWaveGoldBonusLabel}`;
+      els.startWaveBonusIndicator.hidden = false;
+    } else {
+      els.startWaveBonusIndicator.textContent = '';
+      els.startWaveBonusIndicator.hidden = true;
+    }
+  }
+
   function buyableWaveStart() {
     return game.phase === SETUP_PHASES.BATTLE
       && !game.relicChoices.length
@@ -14592,6 +14804,7 @@ function canSubmitRewardClaims() {
     els.startWaveBtn.disabled = !canStart;
     const liveCount = getLiveWaveCount();
     els.startWaveBtn.textContent = liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave');
+    syncStartWaveBonusIndicator();
     return canStart;
   }
 
@@ -14964,7 +15177,18 @@ function canSubmitRewardClaims() {
     claimActiveBounty().catch(() => {});
   });
   els.questsBody?.addEventListener('click', (event) => {
-    const claimBtn = event.target instanceof Element ? event.target.closest('[data-quest-id]') : null;
+    const target = event.target instanceof Element ? event.target : null;
+    const resetBtn = target ? target.closest('[data-reset-daily-quests="true"]') : null;
+    if (resetBtn) {
+      if (!canUseDailyQuestTestReset()) return;
+      const confirmed = window.confirm("Reset today's dailies for this private test wallet? This will clear local daily quest progress and start a fresh test cycle.");
+      if (!confirmed) return;
+      resetDailyQuestTestBoard();
+      renderDailyQuestsBoard();
+      showBanner('Daily quests reset for private wallet testing.', 2600);
+      return;
+    }
+    const claimBtn = target ? target.closest('[data-quest-id]') : null;
     if (!claimBtn) return;
     claimDailyQuest(claimBtn.getAttribute('data-quest-id') || '').catch(() => {});
   });

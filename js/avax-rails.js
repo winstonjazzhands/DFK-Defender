@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BUILD_VERSION = 'v10.2.6';
+  const BUILD_VERSION = 'v10.4.0';
 
   const CONFIG = Object.freeze({
     chainId: Number(window.DFK_AVAX_CHAIN_ID || 43114),
@@ -25,8 +25,9 @@
     bundleGames: Number(window.DFK_AVAX_BUNDLE_GAMES || 100),
     freeWeb3Runs: window.DFK_AVAX_FREE_WEB3_RUNS !== false,
     dailyFreeGames: Number(window.DFK_AVAX_DAILY_FREE_GAMES || 5),
+    sessionDebugFunction: window.DFK_SUPABASE_SESSION_DEBUG_FUNCTION || 'wallet-session-debug',
     powerUps: Object.freeze({
-      gold_crate: { label: '3,000 Gold', wei: String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000'), buttonId: 'buyGoldBoostBtn' },
+      gold_crate: { label: '2,000 Gold', wei: String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000'), buttonId: 'buyGoldBoostBtn' },
       portal_patch: { label: 'Portal Patch', wei: String(window.DFK_AVAX_PORTAL_PATCH_PRICE_WEI || '400000000000000'), buttonId: 'buyPortalPatchBtn' },
     }),
   });
@@ -204,6 +205,7 @@ function renderRewardClaimsAdmin() {
     return;
   }
   const data = state.rewardClaims || { pendingCount: 0, completedCount: 0, pendingTotalsByCurrency: {}, items: [], pendingItems: [], completedItems: [], whitelistItems: [], spendItems: [] };
+  const schemaWarning = String(data.schemaWarning || '').trim();
   const allItems = Array.isArray(data.items) ? data.items : [];
   const rawPendingItems = Array.isArray(data.pendingItems) ? data.pendingItems : [];
   const rawCompletedItems = Array.isArray(data.completedItems) ? data.completedItems : [];
@@ -273,8 +275,8 @@ function renderRewardClaimsAdmin() {
       ? `<div class="reward-claim-whitelist-badge">Whitelist${item.whitelist.autoDaily || item.whitelist.autoBounty ? ' · Auto' : ''}</div>`
       : '';
     const actions = completed
-      ? `<div class="reward-claim-actions">${status !== 'paid' ? `<button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Send Now</button><button class="reward-claim-action-btn" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}</div>`
-      : `<div class="reward-claim-actions"><button class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Approve &amp; Send</button><button class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve Only</button><button class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button></div>`;
+      ? `<div class="reward-claim-actions">${status !== 'paid' ? `<button type="button" class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Send Now</button><button type="button" class="reward-claim-action-btn" data-claim-action="paid" data-claim-id="${escapeHtml(item.id || '')}">Mark Paid</button>` : ''}</div>`
+      : `<div class="reward-claim-actions"><button type="button" class="reward-claim-action-btn is-good" data-claim-action="approve_and_pay" data-claim-id="${escapeHtml(item.id || '')}">Approve &amp; Send</button><button type="button" class="reward-claim-action-btn" data-claim-action="approve" data-claim-id="${escapeHtml(item.id || '')}">Approve Only</button><button type="button" class="reward-claim-action-btn is-danger" data-claim-action="reject" data-claim-id="${escapeHtml(item.id || '')}">Reject</button></div>`;
     return `
       <article class="reward-claim-card is-collapsible" data-claim-collapse-card="1" is-collapsible is-${status}">
         <div class="reward-claim-summary"><div class="reward-claim-summary-main">${escapeHtml(shortWallet(item.walletAddress || ""))}</div><div class="reward-claim-summary-sub">${escapeHtml(item.claimDay || item.requestedAtLabel || "")}</div></div><div class="reward-claim-card-top">
@@ -358,6 +360,41 @@ function renderRewardClaimsAdmin() {
       ${spendControlsMarkup}
       ${spendMarkup}
     </div>`;
+  attachDirectRewardClaimActionListeners(bodyEl);
+}
+
+function handleRewardClaimAction(button, event) {
+  if (!button) return false;
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const claimId = String(button.getAttribute('data-claim-id') || '').trim();
+  const action = String(button.getAttribute('data-claim-action') || '').trim().toLowerCase();
+  if (!claimId || !action) return false;
+  if (action === 'approve_and_pay') {
+    updateRewardClaimStatus(claimId, 'approved', 'approve_and_pay').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to approve and send reward claim.'}`, 'bad'); updateTreasuryUi(); });
+    return true;
+  }
+  const map = { approve: 'approved', reject: 'rejected', paid: 'paid' };
+  const nextStatus = map[action];
+  if (!nextStatus) return false;
+  updateRewardClaimStatus(claimId, nextStatus, 'status').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to update reward claim.'}`, 'bad'); updateTreasuryUi(); });
+  return true;
+}
+
+function attachDirectRewardClaimActionListeners(rootEl) {
+  const host = rootEl || qs('rewardClaimsAdminBody');
+  if (!host || typeof host.querySelectorAll !== 'function') return;
+  host.querySelectorAll('[data-claim-action]').forEach((button) => {
+    if (!button) return;
+    button.setAttribute('type', 'button');
+    if (button.__dfkDirectClaimActionBound) return;
+    button.__dfkDirectClaimActionBound = true;
+    button.addEventListener('click', (event) => {
+      handleRewardClaimAction(button, event);
+    });
+  });
 }
 
 
@@ -521,6 +558,7 @@ function loadCachedBalance() {
       ? window.DFKDefenseWallet.getState()
       : null;
   }
+  function tokenFingerprint(token) { const v = String(token || ''); return v ? `${v.slice(0, 6)}…${v.slice(-4)}` : ''; }
   function isNetworkLikeError(message) {
     const msg = String(message || '').toLowerCase();
     return msg.includes('failed to fetch') || msg.includes('load failed') || msg.includes('networkerror') || msg.includes('cors') || msg.includes('preflight');
@@ -556,50 +594,138 @@ function loadCachedBalance() {
     return token;
   }
 
-  async function callFunction(name, payload) {
-    if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) throw new Error('Supabase functions are not configured.');
+  async function refreshTreasurySessionToken(forceRefresh = false) {
+    const tracker = window.DFKRunTracker;
+    if (!tracker) return '';
+    if (forceRefresh && typeof tracker.reauthenticate === 'function') {
+      const session = await tracker.reauthenticate();
+      return session && session.sessionToken ? String(session.sessionToken) : '';
+    }
+    if (typeof tracker.authenticate === 'function') {
+      const session = await tracker.authenticate(forceRefresh ? { forceRefresh: true } : undefined);
+      return session && session.sessionToken ? String(session.sessionToken) : getTrackerSessionToken();
+    }
+    return getTrackerSessionToken();
+  }
+
+  function isTreasurySessionError(message) {
+    return /session token required|session not found|session expired|session revoked|wallet mismatch|missing authorization header|unauthorized|invalid or expired session|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
+  }
+
+  function getTrackerSessionToken() {
     const trackerState = window.DFKRunTracker && typeof window.DFKRunTracker.getState === 'function'
       ? window.DFKRunTracker.getState()
       : null;
-    const sessionToken = (trackerState && trackerState.session && trackerState.session.sessionToken) || '';
-    const useSessionAsBearer = !!sessionToken && name === CONFIG.rewardClaimsAdminFunction;
+    return (trackerState && trackerState.session && trackerState.session.sessionToken) || '';
+  }
 
+  function buildTreasuryHeaders(sessionToken) {
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.supabaseAnonKey,
-      Authorization: useSessionAsBearer
-        ? `Bearer ${sessionToken}`
-        : `Bearer ${CONFIG.supabaseAnonKey}`,
+      Authorization: `Bearer ${sessionToken || CONFIG.supabaseAnonKey}`,
     };
     if (sessionToken) headers['x-session-token'] = sessionToken;
+    return headers;
+  }
 
-    let response;
-    try {
-      response = await fetch(`${CONFIG.supabaseUrl}/functions/v1/${name}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload || {}),
-      });
-    } catch (error) {
-      throw enhanceFunctionError(name, error);
-    }
+  async function callFunction(name, payload) {
+    if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) throw new Error('Supabase functions are not configured.');
+    let sessionToken = getTrackerSessionToken();
 
-    const raw = await response.text().catch(() => '');
-    let json = {};
-    try {
-      json = raw ? JSON.parse(raw) : {};
-    } catch {
-      json = { error: raw || `${name} failed.` };
-    }
-
-    if (!response.ok) {
-      const message = json && json.error ? json.error : `${name} failed.`;
-      if (/session token required|session not found|session expired|session revoked/i.test(String(message || ''))) {
-        throw enhanceFunctionError(name, new Error('Treasury session missing. Open tracked runs or connect run tracking first, then refresh claims.'));
+    async function logSessionDiagnostic(reason, activeToken, error) {
+      if (!window.DFKRunTracker || typeof window.DFKRunTracker.debugSession !== 'function') return;
+      try {
+        const diagnostic = await window.DFKRunTracker.debugSession({
+          token: activeToken || '',
+          reason,
+          source: name,
+        });
+        console.warn('[avax-rails] auth diagnostic', {
+          functionName: name,
+          tokenFingerprint: tokenFingerprint(activeToken),
+          diagnostic,
+          originalError: String(error && error.message ? error.message : error || ''),
+        });
+      } catch (_error) {
+        // ignore diagnostic failures
       }
-      throw enhanceFunctionError(name, new Error(message));
     }
-    return json;
+
+    async function sendRequest(activeToken) {
+      let response;
+      try {
+        response = await fetch(`${CONFIG.supabaseUrl}/functions/v1/${name}`, {
+          method: 'POST',
+          headers: buildTreasuryHeaders(activeToken),
+          body: JSON.stringify(payload || {}),
+        });
+      } catch (error) {
+        throw enhanceFunctionError(name, error);
+      }
+
+      const raw = await response.text().catch(() => '');
+      let json = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        json = { error: raw || `${name} failed.` };
+      }
+
+      if (!response.ok) {
+        const message = json && json.error ? json.error : `${name} failed.`;
+        const requestId = response.headers.get('x-request-id') || response.headers.get('cf-ray') || '';
+        const errorCode = json && (json.code || json.errorCode || json.reason) ? String(json.code || json.errorCode || json.reason) : '';
+        console.warn('[avax-rails] function call failed', {
+          functionName: name,
+          status: response.status,
+          code: errorCode || null,
+          tokenFingerprint: tokenFingerprint(activeToken),
+          requestId,
+          response: json || raw || null,
+        });
+        const err = enhanceFunctionError(name, new Error(`${message}${requestId ? ` [requestId=${requestId}]` : ''}`));
+        err.status = response.status;
+        err.code = errorCode || '';
+        err.requestId = requestId || '';
+        err.responseJson = json;
+        throw err;
+      }
+      return json;
+    }
+
+    try {
+      return await sendRequest(sessionToken);
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error || '');
+      if (!isTreasurySessionError(message) || !window.DFKRunTracker || typeof window.DFKRunTracker.authenticate !== 'function') {
+        if (/session token required|session not found|session expired|session revoked/i.test(message)) {
+          await logSessionDiagnostic('initial-auth-failure', sessionToken, error);
+          throw enhanceFunctionError(name, new Error('Treasury session missing. Open tracked runs or connect run tracking first, then refresh claims.'));
+        }
+        throw error;
+      }
+      let refreshedToken = '';
+      try {
+        refreshedToken = await refreshTreasurySessionToken(false);
+      } catch (_error) {}
+      if (!refreshedToken || refreshedToken === sessionToken) {
+        refreshedToken = await refreshTreasurySessionToken(true);
+      }
+      if (!refreshedToken || refreshedToken === sessionToken) {
+        await logSessionDiagnostic('reauth-did-not-yield-new-token', sessionToken, error);
+        if (/session token required|session not found|session expired|session revoked/i.test(message)) {
+          throw enhanceFunctionError(name, new Error('Treasury session missing. Open tracked runs or connect run tracking first, then refresh claims.'));
+        }
+        throw error;
+      }
+      try {
+        return await sendRequest(refreshedToken);
+      } catch (retryError) {
+        await logSessionDiagnostic('retry-auth-failure', refreshedToken, retryError);
+        throw retryError;
+      }
+    }
   }
 
 
@@ -766,21 +892,14 @@ function loadCachedBalance() {
     state.rewardClaimsLoading = true;
     updateTreasuryUi();
     try {
-      let response = await callFunction(CONFIG.rewardClaimsAdminFunction, mode === 'approve_and_pay' ? {
-        walletAddress: wallet.address,
-        action: 'approve_and_pay',
-        claimId,
-        adminNote,
-      } : {
-        walletAddress: wallet.address,
-        action: 'update_status',
-        claimId,
-        status: normalizedStatus,
-        adminNote,
-        txHash,
-      });
+      let response;
+      const claimCurrency = String(claimItem && claimItem.rewardCurrency || '').trim().toUpperCase();
+      const canManualNativePayout = mode === 'approve_and_pay'
+        && !!claimItem
+        && (claimCurrency === 'AVAX' || claimCurrency === 'JEWEL')
+        && !!(wallet && wallet.selectedProvider && typeof wallet.selectedProvider.request === 'function');
 
-      if (mode === 'approve_and_pay' && (!response || !response.txHash) && claimItem) {
+      if (canManualNativePayout) {
         const manualPayout = await sendNativeRewardClaimPayout(claimItem);
         txHash = String(manualPayout && manualPayout.txHash || '').trim();
         response = await callFunction(CONFIG.rewardClaimsAdminFunction, {
@@ -788,9 +907,36 @@ function loadCachedBalance() {
           action: 'update_status',
           claimId,
           status: 'paid',
-          adminNote: [String(adminNote || '').trim(), `Manual treasury payout sent by ${wallet.address}.`].filter(Boolean).join(' '),
+          adminNote: [String(adminNote || '').trim(), `Manual treasury payout sent by ${wallet.address}. Currency: ${claimCurrency}.`].filter(Boolean).join(' '),
           txHash,
         });
+      } else {
+        response = await callFunction(CONFIG.rewardClaimsAdminFunction, mode === 'approve_and_pay' ? {
+          walletAddress: wallet.address,
+          action: 'approve_and_pay',
+          claimId,
+          adminNote,
+        } : {
+          walletAddress: wallet.address,
+          action: 'update_status',
+          claimId,
+          status: normalizedStatus,
+          adminNote,
+          txHash,
+        });
+
+        if (mode === 'approve_and_pay' && (!response || !response.txHash) && claimItem) {
+          const manualPayout = await sendNativeRewardClaimPayout(claimItem);
+          txHash = String(manualPayout && manualPayout.txHash || '').trim();
+          response = await callFunction(CONFIG.rewardClaimsAdminFunction, {
+            walletAddress: wallet.address,
+            action: 'update_status',
+            claimId,
+            status: 'paid',
+            adminNote: [String(adminNote || '').trim(), `Manual treasury payout sent by ${wallet.address}. Currency: ${claimCurrency || 'UNKNOWN'}.`].filter(Boolean).join(' '),
+            txHash,
+          });
+        }
       }
 
       if (response && response.txHash) {
@@ -873,7 +1019,17 @@ function loadCachedBalance() {
     try {
       await ensureTreasurySession();
       const claimsResponse = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100, timeframe: state.rewardSpendTimeframe || 'all' });
-      state.rewardClaims = claimsResponse || { pendingCount: 0, items: [] };
+      const safeClaims = claimsResponse || { pendingCount: 0, items: [] };
+      const whitelistItems = Array.isArray(safeClaims.whitelistItems) ? safeClaims.whitelistItems : [];
+      if (!whitelistItems.length || String(safeClaims.schemaWarning || '').trim()) {
+        try {
+          const whitelistResponse = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, action: 'whitelist_list' });
+          if (Array.isArray(whitelistResponse && whitelistResponse.items) && whitelistResponse.items.length) {
+            safeClaims.whitelistItems = whitelistResponse.items;
+          }
+        } catch (_error) {}
+      }
+      state.rewardClaims = safeClaims;
       state.rewardClaimsPageByTab = { pending: 1, completed: 1, rejected: 1 };
       return state.rewardClaims;
     } catch (error) {
@@ -920,7 +1076,7 @@ function loadCachedBalance() {
       refreshTreasurySummary().catch(() => {});
       if (normalizedKind === 'gold_crate' && window.game) {
         try {
-          window.game.jewel = (Number(window.game.jewel || 0) + 3000);
+          window.game.jewel = (Number(window.game.jewel || 0) + 2000);
           if (typeof window.render === 'function') window.render();
         } catch(e){}
       }
@@ -951,7 +1107,7 @@ function loadCachedBalance() {
       refreshTreasurySummary().catch(() => {});
       if (normalizedKind === 'gold_crate' && window.game) {
         try {
-          window.game.jewel = (Number(window.game.jewel || 0) + 3000);
+          window.game.jewel = (Number(window.game.jewel || 0) + 2000);
           if (typeof window.render === 'function') window.render();
         } catch(e){}
       }
@@ -1387,8 +1543,16 @@ function loadCachedBalance() {
     });
     const rewardClaimsBody = qs('rewardClaimsAdminBody');
     if (rewardClaimsBody) rewardClaimsBody.addEventListener('click', (event) => {
-      const tabButton = event.target && event.target.closest ? event.target.closest('[data-claims-tab]') : null;
+      const target = event.target && event.target.closest ? event.target : null;
+
+      const button = target && target.closest ? target.closest('[data-claim-action]') : null;
+      if (button) {
+        if (handleRewardClaimAction(button, event)) return;
+      }
+
+      const tabButton = target && target.closest ? target.closest('[data-claims-tab]') : null;
       if (tabButton) {
+        event.preventDefault();
         const nextTab = String(tabButton.getAttribute('data-claims-tab') || 'pending').trim().toLowerCase();
         if (['pending', 'completed', 'rejected'].includes(nextTab)) {
           state.rewardClaimsTab = nextTab;
@@ -1397,8 +1561,10 @@ function loadCachedBalance() {
         }
         return;
       }
-      const pageButton = event.target && event.target.closest ? event.target.closest('[data-claims-page-dir]') : null;
+
+      const pageButton = target && target.closest ? target.closest('[data-claims-page-dir]') : null;
       if (pageButton) {
+        event.preventDefault();
         const dir = String(pageButton.getAttribute('data-claims-page-dir') || '').trim().toLowerCase();
         const tabKey = ['pending', 'completed', 'rejected'].includes(String(state.rewardClaimsTab || '')) ? String(state.rewardClaimsTab) : 'pending';
         const delta = dir === 'next' ? 1 : -1;
@@ -1406,25 +1572,12 @@ function loadCachedBalance() {
         renderRewardClaimsAdmin();
         return;
       }
-      const collapseCard = event.target && event.target.closest ? event.target.closest('[data-claim-collapse-card]') : null;
-      const actionButton = event.target && event.target.closest ? event.target.closest('[data-claim-action], [data-claims-tab], [data-claims-page-dir]') : null;
-      if (collapseCard && !actionButton) {
+
+      const collapseCard = target && target.closest ? target.closest('[data-claim-collapse-card]') : null;
+      if (collapseCard) {
         collapseCard.classList.toggle('open');
         return;
       }
-      const button = event.target && event.target.closest ? event.target.closest('[data-claim-action]') : null;
-      if (!button) return;
-      const claimId = String(button.getAttribute('data-claim-id') || '').trim();
-      const action = String(button.getAttribute('data-claim-action') || '').trim().toLowerCase();
-      if (!claimId || !action) return;
-      if (action === 'approve_and_pay') {
-        updateRewardClaimStatus(claimId, 'approved', 'approve_and_pay').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to approve and send reward claim.'}`, 'bad'); updateTreasuryUi(); });
-        return;
-      }
-      const map = { approve: 'approved', reject: 'rejected', paid: 'paid' };
-      const nextStatus = map[action];
-      if (!nextStatus) return;
-      updateRewardClaimStatus(claimId, nextStatus, 'status').catch((error) => { setStatus(`AVAX Rails: ${error.message || 'Failed to update reward claim.'}`, 'bad'); updateTreasuryUi(); });
     });
   }
 

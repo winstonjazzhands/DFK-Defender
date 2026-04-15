@@ -12,6 +12,7 @@
     retryBaseMs: 15 * 1000,
     retryMaxMs: 15 * 60 * 1000,
     flushIntervalMs: 30 * 1000,
+    debugFunction: window.DFK_SUPABASE_SESSION_DEBUG_FUNCTION || 'wallet-session-debug',
   });
 
   const SESSION_TOKEN_STORAGE_KEY = 'dfk_wallet_session_token';
@@ -45,6 +46,7 @@
   function normalizeAddress(address) { return String(address || '').trim().toLowerCase(); }
   function setText(el, text) { if (el) el.textContent = text; }
   function nowMs() { return Date.now(); }
+  function tokenFingerprint(token) { const v = String(token || ''); return v ? `${v.slice(0, 6)}…${v.slice(-4)}` : ''; }
 
   function sessionStorageKey(address) {
     return `dfkRunTrackerSession:${normalizeAddress(address)}`;
@@ -273,6 +275,7 @@
       apikey: CONFIG.key,
       Authorization: `Bearer ${token || CONFIG.key}`,
     };
+    if (token) headers['x-session-token'] = token;
     const response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
       method: 'POST',
       headers,
@@ -288,29 +291,91 @@
         ? (json.error || json.message)
         : (responseText || `Request failed: ${response.status}`);
       const requestId = response.headers.get('x-request-id') || response.headers.get('cf-ray') || '';
+      const errorCode = json && (json.code || json.errorCode || json.reason) ? String(json.code || json.errorCode || json.reason) : '';
       const debugBits = [
         `fn=${functionName}`,
         `status=${response.status}`,
+        errorCode ? `code=${errorCode}` : '',
         `sessionHeader=${token ? 'yes' : 'no'}`,
         requestId ? `requestId=${requestId}` : ''
       ].filter(Boolean);
       console.warn('[run-tracker] function call failed', {
         functionName,
         status: response.status,
+        code: errorCode || null,
         sessionHeaderAttached: !!token,
+        tokenFingerprint: tokenFingerprint(token),
         requestId,
         response: json || responseText || null,
       });
       if (!token && /authorization header|session token required|unauthorized|wallet mismatch/i.test(String(message || ''))) {
         throw new Error('Run tracking session missing. Re-enable run tracking, then press Refresh to flush pending runs.');
       }
-      throw new Error(`${message} [${debugBits.join(' ')}]`);
+      const err = new Error(`${message} [${debugBits.join(' ')}]`);
+      err.status = response.status;
+      err.code = errorCode || '';
+      err.requestId = requestId || '';
+      err.responseJson = json;
+      throw err;
     }
     return json;
   }
 
   function isAuthErrorMessage(message) {
-    return /invalid or expired session|session not found|missing authorization header|jwt|expired|unauthorized|wallet mismatch/i.test(String(message || ''));
+    return /invalid or expired session|session not found|missing authorization header|jwt|expired|unauthorized|wallet mismatch|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
+  }
+
+
+  async function debugSession(options = {}) {
+    if (!CONFIG.url || !CONFIG.key || !CONFIG.debugFunction) {
+      return { ok: false, error: 'Session debug function is not configured.' };
+    }
+    const wallet = getWalletState();
+    const address = options.address || state.address || (wallet && wallet.address) || '';
+    const currentSession = (options.forceRefresh && address) ? null : (state.session || restoreSession(address));
+    const token = options.token || (currentSession && currentSession.sessionToken) || '';
+    const payload = {
+      walletAddress: address || null,
+      reason: options.reason || null,
+      source: options.source || 'run-tracker',
+      includeClientContext: true,
+    };
+    const headers = {
+      'Content-Type': 'application/json',
+      apikey: CONFIG.key,
+      Authorization: `Bearer ${token || CONFIG.key}`,
+    };
+    if (token) headers['x-session-token'] = token;
+    try {
+      const response = await fetch(`${CONFIG.url}/functions/v1/${CONFIG.debugFunction}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const raw = await response.text().catch(() => '');
+      let json = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch (_error) { json = { raw }; }
+      const result = {
+        ok: response.ok,
+        status: response.status,
+        tokenFingerprint: tokenFingerprint(token),
+        requestOrigin: window.location.origin,
+        walletAddress: address || null,
+        debug: json,
+      };
+      console.warn('[run-tracker] session debug', result);
+      return result;
+    } catch (error) {
+      const result = {
+        ok: false,
+        error: String(error && error.message ? error.message : error || 'Session debug failed.'),
+        tokenFingerprint: tokenFingerprint(token),
+        requestOrigin: window.location.origin,
+        walletAddress: address || null,
+      };
+      console.warn('[run-tracker] session debug failed', result);
+      return result;
+    }
   }
 
   async function ensureAuthenticatedSession(options = {}) {
@@ -384,7 +449,15 @@
       applyStatus('Run Tracking: Disabled', 'warn');
       return true;
     } catch (error) {
-      applyStatus(`Run Tracking: ${error.message || 'Disable failed'}`, 'bad');
+      const message = String(error && error.message ? error.message : 'Disable failed');
+      if (/session not found|session revoked|session expired|wallet mismatch|unauthorized/i.test(message)) {
+        clearSession(walletAddress);
+        state.session = null;
+        state.summary = 'Tracked Runs: -- · Best Wave: --';
+        applyStatus('Run Tracking: Disabled', 'warn');
+        return true;
+      }
+      applyStatus(`Run Tracking: ${message || 'Disable failed'}`, 'bad');
       return false;
     }
   }
@@ -425,14 +498,22 @@
     await controller.restartForTracking();
   }
 
-  async function authenticate() {
+  async function authenticate(options = {}) {
     if (state.authPromise) return state.authPromise;
 
     state.authPromise = (async () => {
+      const forceRefresh = !!(options && options.forceRefresh);
       const wallet = getWalletState();
       if (!wallet || !wallet.address || !wallet.selectedProvider) throw new Error('Connect your wallet first.');
       state.address = wallet.address;
-      const restored = restoreSession(wallet.address);
+      if (forceRefresh) {
+        clearSession(wallet.address);
+        state.session = null;
+        state.sessionToken = null;
+        try { sessionStorage.removeItem(SESSION_TOKEN_STORAGE_KEY); } catch (_error) {}
+        try { localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY); } catch (_error) {}
+      }
+      const restored = forceRefresh ? null : restoreSession(wallet.address);
       if (restored) {
         state.session = restored;
         state.lastAuthenticatedAddress = normalizeAddress(wallet.address);
@@ -756,7 +837,8 @@
           headers: {
             'Content-Type': 'application/json',
             apikey: CONFIG.key,
-            Authorization: `Bearer ${state.session.sessionToken}`,
+            Authorization: `Bearer ${String(state.session.sessionToken || '') || CONFIG.key}`,
+            'x-session-token': String(state.session.sessionToken || ''),
           },
           body,
         }).then(async (response) => {
@@ -908,6 +990,8 @@
   window.DFKRunTracker = {
     init,
     authenticate,
+    reauthenticate: () => authenticate({ forceRefresh: true }),
+    debugSession,
     disableTracking,
     refreshSummary,
     flushPendingRuns: (options = {}) => processPendingRuns(options),

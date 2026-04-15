@@ -1,18 +1,16 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 
 function normalizeOrigin(value: string | null | undefined) {
@@ -83,7 +81,8 @@ function createAdmin() {
 
 async function resolveSessionWallet(admin: ReturnType<typeof createAdmin>, req: Request) {
   const authHeader = req.headers.get('Authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const fallbackHeader = req.headers.get('x-session-token') || '';
+  const token = String(fallbackHeader).trim() || authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
   const { data: session } = await admin
     .from('wallet_sessions')

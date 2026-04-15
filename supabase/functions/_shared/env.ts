@@ -3,6 +3,9 @@ export const DFK_RPC_URL = Deno.env.get("DFK_RPC_URL") || "";
 export const DFK_JEWEL_TOKEN_ADDRESS = (Deno.env.get("DFK_JEWEL_TOKEN_ADDRESS") || "0xCCb93dABD71c8Dad03Fc4CE5559dC3D89F67a260").toLowerCase();
 export const TREASURY_ADDRESS = (Deno.env.get("TREASURY_ADDRESS") || "0xab45288409900be5ef23c19726a30c28268495ad").trim().toLowerCase();
 export const DFK_JEWEL_PAYMENT_ASSET = Deno.env.get("DFK_JEWEL_PAYMENT_ASSET") || "native_jewel";
+export const AVAX_CHAIN_ID = Number(Deno.env.get("AVAX_CHAIN_ID") || "43114");
+export const AVAX_RPC_URL = Deno.env.get("AVAX_RPC_URL") || "https://api.avax.network/ext/bc/C/rpc";
+export const AVAX_TREASURY_ADDRESS = (Deno.env.get("DFK_AVAX_TREASURY_ADDRESS") || Deno.env.get("AVAX_TREASURY_ADDRESS") || TREASURY_ADDRESS).trim().toLowerCase();
 const RAW_TREASURY_PRIVATE_KEY = Deno.env.get("TREASURY_PRIVATE_KEY") || Deno.env.get("DFK_TREASURY_PRIVATE_KEY") || "";
 
 export function normalizePrivateKey(value: string | null | undefined) {

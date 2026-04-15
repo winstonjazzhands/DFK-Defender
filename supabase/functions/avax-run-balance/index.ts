@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,9 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function createAdmin() {
   return createClient(
@@ -39,6 +37,13 @@ function isAnyMissingColumnsError(error: unknown, columnNames: string[]) {
   return columnNames.some((columnName) => isMissingColumnError(error, columnName));
 }
 
+
+function isMissingRelationError(error: unknown, relationName: string) {
+  const code = String((error as { code?: string } | null)?.code || '').trim();
+  const message = errorMessage(error).toLowerCase();
+  return code === 'PGRST205' || (message.includes('relation') && message.includes(relationName.toLowerCase()) && message.includes('does not exist'));
+}
+
 async function loadPlayer(admin: ReturnType<typeof createAdmin>, walletAddress: string) {
   const fullSelect = 'wallet_address, paid_games_remaining, free_games_remaining, free_games_last_reset, total_paid_games_purchased';
   const minimalSelect = 'wallet_address';
@@ -47,6 +52,7 @@ async function loadPlayer(admin: ReturnType<typeof createAdmin>, walletAddress: 
     .from('players')
     .select(fullSelect)
     .eq('wallet_address', walletAddress)
+    .limit(1)
     .maybeSingle();
 
   if (!primary.error && primary.data) {
@@ -61,6 +67,17 @@ async function loadPlayer(admin: ReturnType<typeof createAdmin>, walletAddress: 
   }
 
   if (primary.error && !isAnyMissingColumnsError(primary.error, ['paid_games_remaining', 'free_games_remaining', 'free_games_last_reset', 'total_paid_games_purchased'])) {
+    if (isMissingRelationError(primary.error, 'players')) {
+      return {
+        wallet_address: walletAddress,
+        paid_games_remaining: 0,
+        free_games_remaining: 5,
+        free_games_last_reset: todayUtcDate(),
+        total_paid_games_purchased: 0,
+        schemaWarning: 'players table is missing; apply the schema migration and redeploy AVAX functions.',
+        playerExists: false,
+      };
+    }
     throw primary.error;
   }
 
@@ -68,9 +85,23 @@ async function loadPlayer(admin: ReturnType<typeof createAdmin>, walletAddress: 
     .from('players')
     .select(minimalSelect)
     .eq('wallet_address', walletAddress)
+    .limit(1)
     .maybeSingle();
 
-  if (fallback.error) throw fallback.error;
+  if (fallback.error) {
+    if (isMissingRelationError(fallback.error, 'players')) {
+      return {
+        wallet_address: walletAddress,
+        paid_games_remaining: 0,
+        free_games_remaining: 5,
+        free_games_last_reset: todayUtcDate(),
+        total_paid_games_purchased: 0,
+        schemaWarning: 'players table is missing; apply the schema migration and redeploy AVAX functions.',
+        playerExists: false,
+      };
+    }
+    throw fallback.error;
+  }
 
   return {
     wallet_address: walletAddress,
@@ -89,24 +120,6 @@ function nextUtcResetIso() {
   return next.toISOString();
 }
 
-async function requireSession(req: Request, admin: ReturnType<typeof createAdmin>) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const fallbackHeader = req.headers.get('x-session-token') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim() || String(fallbackHeader).trim();
-  if (!token) throw new Response(JSON.stringify({ error: 'Session token required.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  const { data: session, error } = await admin
-    .from('wallet_sessions')
-    .select('session_token, wallet_address, expires_at, revoked_at')
-    .eq('session_token', token)
-    .single();
-
-  if (error || !session) throw new Response(JSON.stringify({ error: 'Session not found.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (session.revoked_at) throw new Response(JSON.stringify({ error: 'Session revoked.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (Date.now() >= new Date(session.expires_at).getTime()) throw new Response(JSON.stringify({ error: 'Session expired.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  return session;
-}
 
 async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletAddress: string) {
   const today = todayUtcDate();
@@ -117,7 +130,9 @@ async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletA
     const fallbackInsert = await admin.from('players').insert({
       wallet_address: walletAddress,
     });
-    if (fallbackInsert.error) throw fallbackInsert.error;
+    if (fallbackInsert.error) {
+      return existingPlayer;
+    }
     return await loadPlayer(admin, walletAddress);
   }
 
@@ -132,9 +147,11 @@ async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletA
       const fallbackInsert = await admin.from('players').insert({
         wallet_address: walletAddress,
       });
-      if (fallbackInsert.error) throw fallbackInsert.error;
+      if (fallbackInsert.error) {
+        return existingPlayer;
+      }
     } else if (insertWithCredits.error) {
-      throw insertWithCredits.error;
+      return existingPlayer;
     }
 
     return await loadPlayer(admin, walletAddress);
@@ -152,7 +169,7 @@ async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletA
       })
       .eq('wallet_address', walletAddress);
 
-    if (refreshError) throw refreshError || new Error('Could not refresh daily games.');
+    if (refreshError) return existingPlayer;
     return await loadPlayer(admin, walletAddress);
   }
 
@@ -163,7 +180,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const admin = createAdmin();
-    const session = await requireSession(req, admin);
+    const sessionResult = await loadValidWalletSession(admin, req, corsHeaders);
+    if ('response' in sessionResult) return sessionResult.response;
+    const session = sessionResult.session;
     const body = await req.json().catch(() => ({}));
     const walletAddress = normalizeAddress(body.walletAddress || session.wallet_address);
     if (!walletAddress) return json({ error: 'walletAddress is required.' }, 400);

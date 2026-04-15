@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,9 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function createAdmin() {
   return createClient(
@@ -45,24 +43,6 @@ function nextUtcResetIso() {
   return next.toISOString();
 }
 
-async function requireSession(req: Request, admin: ReturnType<typeof createAdmin>) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const fallbackHeader = req.headers.get('x-session-token') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim() || String(fallbackHeader).trim();
-  if (!token) throw new Response(JSON.stringify({ error: 'Session token required.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  const { data: session, error } = await admin
-    .from('wallet_sessions')
-    .select('session_token, wallet_address, expires_at, revoked_at')
-    .eq('session_token', token)
-    .single();
-
-  if (error || !session) throw new Response(JSON.stringify({ error: 'Session not found.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (session.revoked_at) throw new Response(JSON.stringify({ error: 'Session revoked.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  if (Date.now() >= new Date(session.expires_at).getTime()) throw new Response(JSON.stringify({ error: 'Session expired.' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  return session;
-}
 
 async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletAddress: string) {
   const today = todayUtcDate();
@@ -95,12 +75,20 @@ async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletA
       .from('players')
       .select('wallet_address, paid_games_remaining, free_games_remaining, free_games_last_reset')
       .eq('wallet_address', walletAddress)
-      .single();
+      .maybeSingle();
 
     if (playerResponse.error && isAnyMissingColumnsError(playerResponse.error, ['paid_games_remaining', 'free_games_remaining', 'free_games_last_reset'])) {
       throw new Error('players table is missing AVAX game-credit columns; run the schema.sql migration, then redeploy avax-consume-run and avax-run-balance.');
     }
-    if (playerResponse.error || !playerResponse.data) throw playerResponse.error || new Error('Player record not found.');
+    if (playerResponse.error) throw playerResponse.error;
+    if (!playerResponse.data) {
+      return {
+        wallet_address: walletAddress,
+        paid_games_remaining: 0,
+        free_games_remaining: 5,
+        free_games_last_reset: today,
+      };
+    }
   }
 
   const player = playerResponse.data;
@@ -114,12 +102,20 @@ async function ensureFreshCredits(admin: ReturnType<typeof createAdmin>, walletA
       })
       .eq('wallet_address', walletAddress)
       .select('wallet_address, paid_games_remaining, free_games_remaining, free_games_last_reset')
-      .single();
+      .maybeSingle();
 
     if (refreshError && isAnyMissingColumnsError(refreshError, ['paid_games_remaining', 'free_games_remaining', 'free_games_last_reset'])) {
       throw new Error('players table is missing AVAX game-credit columns; run the schema.sql migration, then redeploy avax-consume-run and avax-run-balance.');
     }
-    if (refreshError || !refreshed) throw refreshError || new Error('Could not refresh daily games.');
+    if (refreshError) throw refreshError;
+    if (!refreshed) {
+      return {
+        wallet_address: walletAddress,
+        paid_games_remaining: 0,
+        free_games_remaining: 5,
+        free_games_last_reset: today,
+      };
+    }
     return refreshed;
   }
 
@@ -130,7 +126,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const admin = createAdmin();
-    const session = await requireSession(req, admin);
+    const sessionResult = await loadValidWalletSession(admin, req, corsHeaders);
+    if ('response' in sessionResult) return sessionResult.response;
+    const session = sessionResult.session;
     const body = await req.json().catch(() => ({}));
     const walletAddress = normalizeAddress(body.walletAddress || session.wallet_address);
     const clientRunId = typeof body.clientRunId === 'string' ? body.clientRunId.trim().slice(0, 128) : null;
@@ -167,12 +165,15 @@ Deno.serve(async (req) => {
       .update(updatePayload)
       .eq('wallet_address', walletAddress)
       .select('wallet_address, paid_games_remaining, free_games_remaining')
-      .single();
+      .maybeSingle();
 
     if (updateError && isAnyMissingColumnsError(updateError, ['paid_games_remaining', 'free_games_remaining'])) {
       throw new Error('players table is missing AVAX game-credit columns; run the schema.sql migration, then redeploy avax-consume-run and avax-run-balance.');
     }
-    if (updateError || !updated) throw updateError || new Error('Could not consume game.');
+    if (updateError) throw updateError;
+    if (!updated) {
+      return json({ error: 'Player credit row was not updated.', code: 'PLAYER_UPDATE_MISSING' }, 409);
+    }
 
     return json({
       ok: true,

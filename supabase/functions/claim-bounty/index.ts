@@ -1,19 +1,17 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { isAutoJewelPayoutConfigured, tryAutoPayJewelClaim } from '../_shared/reward-payout.ts';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
+import { isAutoRewardPayoutConfigured, tryAutoPayRewardClaim } from '../_shared/reward-payout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function normalizeOrigin(value: string | null | undefined) {
   const raw = String(value || '').trim();
@@ -115,7 +113,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const fallbackHeader = req.headers.get('x-session-token') || '';
+    const token = String(fallbackHeader).trim() || authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) return json({ error: 'Enable run tracking before claiming a bounty.' }, 401);
 
     const admin = createAdmin();
@@ -276,7 +275,7 @@ Deno.serve(async (req) => {
       : `${claimedByName} claimed ${active.title}.`;
 
     if (whitelistDecision.autoApprove && insertedClaim?.id) {
-      const payoutResult = await tryAutoPayJewelClaim(admin, {
+      const payoutResult = await tryAutoPayRewardClaim(admin, {
         id: insertedClaim.id,
         wallet_address: insertedClaim.wallet_address || walletAddress,
         status: insertedClaim.status,
@@ -298,10 +297,10 @@ Deno.serve(async (req) => {
       } else if (payoutResult.attempted) {
         status = 'approved';
         message = `${claimedByName} claimed ${active.title}. Auto-approved, but treasury payout failed and needs review: ${payoutResult.message}`;
-      } else if (isAutoJewelPayoutConfigured()) {
+      } else if (isAutoRewardPayoutConfigured()) {
         message = `${claimedByName} claimed ${active.title}. Auto-approved. ${payoutResult.message}`;
       } else {
-        message = `${claimedByName} claimed ${active.title}. Auto-approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable automatic JEWEL payouts.`;
+        message = `${claimedByName} claimed ${active.title}. Auto-approved. Set TREASURY_PRIVATE_KEY and the treasury chain env vars in Supabase secrets to enable automatic treasury payouts.`;
       }
     }
 
@@ -312,6 +311,7 @@ Deno.serve(async (req) => {
       nextRevealAt,
       status,
       txHash,
+      rewardCurrency: rewardInsert.reward_currency,
       message,
     });
   } catch (error) {

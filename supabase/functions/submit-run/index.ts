@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { extractSessionToken, loadValidWalletSession, normalizeAddress, validateSessionContext } from '../_shared/wallet-session.ts';
 import { Contract, JsonRpcProvider } from 'npm:ethers@6';
 
 const corsHeaders = {
@@ -17,49 +18,6 @@ const PROFILES_ABI = [
   'function getProfileByAddress(address _profileAddress) view returns (uint256 _id, address _owner, string _name, uint64 _created, uint8 _picId, uint256 _heroId, uint256 _points)',
 ];
 
-function normalizeOrigin(value: string | null | undefined) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  try {
-    return new URL(raw).origin.toLowerCase();
-  } catch (_error) {
-    return '';
-  }
-}
-
-function requestOrigin(req: Request) {
-  return normalizeOrigin(req.headers.get('origin') || req.headers.get('referer') || '');
-}
-
-async function sha256Hex(value: string) {
-  const data = new TextEncoder().encode(String(value || ''));
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function validateSessionContext(req: Request, session: Record<string, unknown>) {
-  const expectedOrigin = normalizeOrigin(String(session.session_origin || ''));
-  if (expectedOrigin) {
-    const actualOrigin = requestOrigin(req);
-    if (!actualOrigin || actualOrigin !== expectedOrigin) {
-      return json({ error: 'Session origin mismatch.', code: 'session_origin_mismatch' }, 401);
-    }
-  }
-
-  const expectedUserAgentHash = String(session.user_agent_hash || '').trim();
-  if (expectedUserAgentHash) {
-    const actualUserAgent = String(req.headers.get('user-agent') || '').trim();
-    if (!actualUserAgent) {
-      return json({ error: 'User agent missing for session.', code: 'missing_user_agent' }, 401);
-    }
-    const actualHash = await sha256Hex(actualUserAgent);
-    if (actualHash !== expectedUserAgentHash) {
-      return json({ error: 'Session device mismatch.', code: 'session_device_mismatch' }, 401);
-    }
-  }
-
-  return null;
-}
 
 function shouldRefreshChainName(existingPlayer: { display_name?: string | null; vanity_name?: string | null } | null | undefined, walletAddress: string) {
   const vanity = cleanName(existingPlayer?.vanity_name);
@@ -116,14 +74,15 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
 
   try {
-    const token = getSessionToken(req);
+    const token = extractSessionToken(req);
     if (!token || /^sb_(publishable|anon)_/i.test(token)) {
       return json({ error: 'Valid session token required.', code: 'missing_session_token' }, 401);
     }
 
     const admin = createAdmin();
-    const session = await loadValidSession(admin, token, req);
-    if ('response' in session) return session.response;
+    const sessionResult = await loadValidWalletSession(admin, req, corsHeaders, { validateContext: true });
+    if ('response' in sessionResult) return sessionResult.response;
+    const session = sessionResult.session;
 
     const body = await safeReadJson(req);
     if (!body || typeof body !== 'object') {
@@ -259,13 +218,6 @@ Deno.serve(async (req) => {
   }
 });
 
-function getSessionToken(req: Request) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const fallbackHeader = req.headers.get('x-session-token') || '';
-  const fallbackToken = String(fallbackHeader).trim();
-  const authToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-  return fallbackToken || authToken;
-}
 
 async function safeReadJson(req: Request) {
   try {
@@ -276,49 +228,6 @@ async function safeReadJson(req: Request) {
   }
 }
 
-async function loadValidSession(admin: SupabaseClient, token: string, req: Request) {
-  const selectVariants = [
-    'session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash',
-    'session_token, wallet_address, expires_at, revoked_at, session_origin',
-    'session_token, wallet_address, expires_at, revoked_at',
-    'session_token, wallet_address, expires_at',
-    'session_token, wallet_address',
-  ];
-
-  let lastError: unknown = null;
-  for (const columns of selectVariants) {
-    const { data: session, error } = await admin
-      .from('wallet_sessions')
-      .select(columns)
-      .eq('session_token', token)
-      .maybeSingle();
-
-    if (error) {
-      lastError = error;
-      if (isMissingColumnError(error)) continue;
-      console.error('submit-run wallet session lookup failed', { columns, ...normalizeError(error) });
-      return { response: json({ error: 'Session lookup failed.', code: 'session_lookup_failed', details: String((error as { message?: unknown }).message || '') }, 500) };
-    }
-
-    if (!session) return { response: json({ error: 'Session not found.', code: 'session_not_found' }, 401) };
-
-    const row = session as Record<string, unknown>;
-    if (row.revoked_at) return { response: json({ error: 'Session revoked.', code: 'session_revoked' }, 401) };
-
-    const contextError = await validateSessionContext(req, row);
-    if (contextError) return { response: contextError };
-
-    const expiresAt = safeIsoDate(row.expires_at);
-    if (expiresAt && Date.now() >= new Date(expiresAt).getTime()) {
-      return { response: json({ error: 'Session expired.', code: 'session_expired' }, 401) };
-    }
-
-    return { wallet_address: normalizeAddress(row.wallet_address as string) };
-  }
-
-  console.error('submit-run wallet session lookup exhausted variants', normalizeError(lastError));
-  return { response: json({ error: 'Session lookup failed.', code: 'session_lookup_failed' }, 500) };
-}
 
 async function fetchExistingPlayer(admin: SupabaseClient, walletAddress: string) {
   const selectVariants = [
@@ -806,9 +715,6 @@ function uniquePayloadVariants(variants: Record<string, unknown>[]) {
   return output;
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function cleanName(value: unknown) {
   const name = typeof value === 'string' ? value.trim() : '';

@@ -1,19 +1,17 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { isAutoJewelPayoutConfigured, tryAutoPayJewelClaim } from '../_shared/reward-payout.ts';
+import { loadValidWalletSession, normalizeAddress } from '../_shared/wallet-session.ts';
+import { isAutoRewardPayoutConfigured, tryAutoPayRewardClaim } from '../_shared/reward-payout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-session-token',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  return String(address || '').trim().toLowerCase();
-}
 
 function normalizeOrigin(value: string | null | undefined) {
   const raw = String(value || '').trim();
@@ -61,26 +59,52 @@ function parseAmountValue(text: string) {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-async function getWhitelistDecision(admin: ReturnType<typeof createAdmin>, walletAddress: string, claimType: 'daily_quest' | 'bounty', amountValue: number | null, claimDay: string) {
+function formatAmountText(amountValue: number | null, rewardCurrency: string | null, fallback: string) {
+  if (!(Number(amountValue) > 0) || !rewardCurrency) return String(fallback || '').trim();
+  const normalizedAmount = String(amountValue)
+    .replace(/(\.\d*?[1-9])0+$/g, '$1')
+    .replace(/\.0+$/g, '');
+  return `${normalizedAmount} ${rewardCurrency}`.trim();
+}
+
+const PRIVATE_DAILY_QUEST_TEST_RESET_WALLET = '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
+
+async function getWhitelistDecision(
+  admin: ReturnType<typeof createAdmin>,
+  walletAddress: string,
+  claimType: 'daily_quest' | 'bounty',
+  amountValue: number | null,
+  claimDay: string,
+  options: { bypassDailyCap?: boolean } = {},
+) {
   const { data: rule, error: ruleError } = await admin
     .from('reward_claim_whitelist')
     .select('wallet_address, is_active, auto_daily, auto_bounty, max_claim_amount, daily_cap, notes')
     .eq('wallet_address', walletAddress)
     .maybeSingle();
   if (ruleError) throw ruleError;
-  if (!rule || !rule.is_active) return { autoApprove: false, note: '' };
+  if (!rule) return { autoApprove: false, note: '', reason: 'No whitelist entry found for this wallet.' };
+  if (!rule.is_active) return { autoApprove: false, note: String(rule.notes || '').trim() || '', reason: 'Whitelist entry is inactive.' };
 
   const allowsType = claimType === 'daily_quest' ? !!rule.auto_daily : !!rule.auto_bounty;
-  if (!allowsType) return { autoApprove: false, note: String(rule.notes || '').trim() || '' };
+  if (!allowsType) {
+    return {
+      autoApprove: false,
+      note: String(rule.notes || '').trim() || '',
+      reason: claimType === 'daily_quest'
+        ? 'Whitelist entry does not allow auto-approval for daily rewards.'
+        : 'Whitelist entry does not allow auto-approval for bounties.',
+    };
+  }
 
   const numericAmount = Number(amountValue || 0) || 0;
   const maxClaimAmount = rule.max_claim_amount == null ? null : Number(rule.max_claim_amount);
   if (maxClaimAmount != null && numericAmount > maxClaimAmount) {
-    return { autoApprove: false, note: 'Whitelist max-claim guard prevented auto-approval.' };
+    return { autoApprove: false, note: 'Whitelist max-claim guard prevented auto-approval.', reason: 'Claim amount is above whitelist max_claim_amount.' };
   }
 
   const dailyCap = rule.daily_cap == null ? null : Number(rule.daily_cap);
-  if (dailyCap != null) {
+  if (dailyCap != null && !options.bypassDailyCap) {
     const { data: sameDayRows, error: sameDayError } = await admin
       .from('reward_claim_requests')
       .select('amount_value, status')
@@ -91,21 +115,22 @@ async function getWhitelistDecision(admin: ReturnType<typeof createAdmin>, walle
     if (sameDayError) throw sameDayError;
     const usedToday = (sameDayRows || []).reduce((sum, row) => sum + (Number(row.amount_value || 0) || 0), 0);
     if ((usedToday + numericAmount) > dailyCap) {
-      return { autoApprove: false, note: 'Whitelist daily cap prevented auto-approval.' };
+      return { autoApprove: false, note: 'Whitelist daily cap prevented auto-approval.', reason: 'Claim would exceed whitelist daily_cap.' };
     }
   }
 
   const noteParts = ['Auto-approved by whitelist rule.'];
   const notes = String(rule.notes || '').trim();
   if (notes) noteParts.push(notes);
-  return { autoApprove: true, note: noteParts.join(' ') };
+  return { autoApprove: true, note: noteParts.join(' '), reason: 'Whitelist auto-approval allowed this claim.' };
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
     const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const fallbackHeader = req.headers.get('x-session-token') || '';
+    const token = String(fallbackHeader).trim() || authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) return json({ error: 'Enable run tracking before claiming a reward.' }, 401);
 
     const admin = createAdmin();
@@ -129,8 +154,11 @@ Deno.serve(async (req) => {
 
     const questId = String(body.questId || '').trim().toLowerCase();
     const questName = String(body.questName || '').trim() || 'Daily quest';
-    const rewardText = String(body.rewardText || '').trim() || '1 Jewel';
+    const rewardText = String(body.rewardText || '').trim() || '2 Jewel';
     const playerName = String(body.playerName || '').trim() || walletAddress;
+    const requestedRewardCurrency = String(body.rewardCurrency || '').trim().toUpperCase();
+    const requestedRewardAmountValue = Number(body.rewardAmountValue);
+    const requestedTestResetCycle = Math.max(0, Math.floor(Number(body.testResetCycle) || 0));
     if (!questId) return json({ error: 'Quest ID is required.' }, 400);
 
     const dayStart = new Date();
@@ -149,10 +177,17 @@ Deno.serve(async (req) => {
     if (runError) throw runError;
     if (!qualifyingRun?.id) return json({ error: 'Complete at least one tracked run today before claiming a daily reward.' }, 409);
 
-    const amountValue = parseAmountValue(rewardText);
-    const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'daily_quest', amountValue, claimDay);
+    const amountValue = Number.isFinite(requestedRewardAmountValue) && requestedRewardAmountValue > 0
+      ? requestedRewardAmountValue
+      : parseAmountValue(rewardText);
+    const rewardCurrency = requestedRewardCurrency || (/jewel/i.test(rewardText) ? 'JEWEL' : (/avax/i.test(rewardText) ? 'AVAX' : null));
+    const canonicalAmountText = formatAmountText(amountValue, rewardCurrency, rewardText);
+    const authorizedTestResetCycle = walletAddress === PRIVATE_DAILY_QUEST_TEST_RESET_WALLET ? requestedTestResetCycle : 0;
+    const whitelistDecision = await getWhitelistDecision(admin, walletAddress, 'daily_quest', amountValue, claimDay, {
+      bypassDailyCap: authorizedTestResetCycle > 0,
+    });
 
-    const requestKey = `daily_quest:${walletAddress}:${claimDay}:${questId}`;
+    const requestKey = `daily_quest:${walletAddress}:${claimDay}:${questId}${authorizedTestResetCycle > 0 ? `:testcycle_${authorizedTestResetCycle}` : ''}`;
     const { data: existingClaim, error: existingError } = await admin
       .from('reward_claim_requests')
       .select('id, status, tx_hash, paid_at, reward_currency, amount_value, amount_text, wallet_address, admin_note, approved_at, resolved_at, resolved_by_wallet, failure_reason')
@@ -165,6 +200,9 @@ Deno.serve(async (req) => {
         claimId: existingClaim.id,
         status: existingClaim.status || 'pending',
         txHash: existingClaim.tx_hash || null,
+        rewardCurrency: existingClaim.reward_currency || rewardCurrency || null,
+        whitelistAutoApproved: false,
+        whitelistReason: 'Claim already exists for this wallet and quest today.',
         message: (existingClaim.status === 'paid' || existingClaim.tx_hash)
           ? `${questName} was already paid from treasury.`
           : `${questName} was already submitted earlier today.`,
@@ -178,17 +216,17 @@ Deno.serve(async (req) => {
       claim_type: 'daily_quest',
       status: whitelistDecision.autoApprove ? 'approved' : 'pending',
       player_name_snapshot: playerName,
-      amount_text: rewardText,
+      amount_text: canonicalAmountText,
       amount_value: amountValue,
-      reward_currency: /jewel/i.test(rewardText) ? 'JEWEL' : (/avax/i.test(rewardText) ? 'AVAX' : null),
+      reward_currency: rewardCurrency,
       reason_text: questName,
-      source_ref: `quest:${questId}`,
+      source_ref: `quest:${questId}${authorizedTestResetCycle > 0 ? `:testcycle_${authorizedTestResetCycle}` : ''}`,
       run_id: qualifyingRun.id,
       claim_day: claimDay,
       approved_at: whitelistDecision.autoApprove ? nowIso : null,
       resolved_at: whitelistDecision.autoApprove ? nowIso : null,
       resolved_by_wallet: whitelistDecision.autoApprove ? 'whitelist:auto' : null,
-      admin_note: whitelistDecision.note || null,
+      admin_note: [whitelistDecision.note || null, authorizedTestResetCycle > 0 ? `Private daily quest test reset cycle ${authorizedTestResetCycle}.` : null].filter(Boolean).join(' ') || null,
     };
 
     const { data: inserted, error: insertError } = await admin
@@ -205,13 +243,13 @@ Deno.serve(async (req) => {
       : `${questName} claim sent for payout review.`;
 
     if (whitelistDecision.autoApprove && inserted?.id) {
-      const payoutResult = await tryAutoPayJewelClaim(admin, {
+      const payoutResult = await tryAutoPayRewardClaim(admin, {
         id: inserted.id,
         wallet_address: inserted.wallet_address || walletAddress,
         status: inserted.status,
         amount_value: inserted.amount_value,
         reward_currency: inserted.reward_currency,
-        amount_text: inserted.amount_text,
+        amount_text: inserted.amount_text || canonicalAmountText,
         admin_note: inserted.admin_note,
         approved_at: inserted.approved_at,
         resolved_at: inserted.resolved_at,
@@ -227,10 +265,10 @@ Deno.serve(async (req) => {
       } else if (payoutResult.attempted) {
         status = 'approved';
         message = `${questName} auto-approved, but treasury payout failed and needs review: ${payoutResult.message}`;
-      } else if (isAutoJewelPayoutConfigured()) {
+      } else if (isAutoRewardPayoutConfigured()) {
         message = `${questName} auto-approved. ${payoutResult.message}`;
       } else {
-        message = `${questName} auto-approved. Set TREASURY_PRIVATE_KEY in Supabase secrets to enable automatic JEWEL payouts.`;
+        message = `${questName} auto-approved. Set TREASURY_PRIVATE_KEY and the treasury chain env vars in Supabase secrets to enable automatic treasury payouts.`;
       }
     }
 
@@ -239,6 +277,12 @@ Deno.serve(async (req) => {
       claimId: inserted?.id || null,
       status,
       txHash,
+      rewardCurrency: insertPayload.reward_currency,
+      rewardAmountValue: amountValue,
+      rewardAmountText: canonicalAmountText,
+      whitelistAutoApproved: whitelistDecision.autoApprove,
+      whitelistReason: whitelistDecision.reason,
+      testResetCycle: authorizedTestResetCycle || null,
       message,
     });
   } catch (error) {

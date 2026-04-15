@@ -8919,3 +8919,169 @@ body.story-active #startModeModal.modal-primed-under-intro button {
 #rewardClaimsAdminHeader.is-collapsed::after{
   content:"▸";
 }
+
+
+/* V10.2.8 daily quest modal layout refresh */
+.bounty-modal-card {
+  max-width: min(1380px, calc(100vw - 28px));
+}
+
+.bounty-body {
+  gap: 12px;
+}
+
+.bounty-grid.quests-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quest-card {
+  padding: 12px;
+  min-height: 0;
+}
+
+.quest-card .bounty-card-title {
+  margin: 12px 0 8px;
+  font-size: 16px;
+  line-height: 1.18;
+}
+
+.quest-card .bounty-card-copy {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.quest-card .bounty-tier-label {
+  font-size: 11px;
+}
+
+.quest-card .bounty-tier-index {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+
+.quest-card .bounty-reward-pill,
+.quest-card .bounty-state-chip {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+
+.quest-card .bounty-chain-note {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.quest-card .bounty-claim-btn {
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.quest-card .bounty-status-banner {
+  padding: 10px 11px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.quest-card .quest-progress-row {
+  gap: 6px;
+}
+
+.quest-card .quest-progress-text {
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .bounty-grid.quests-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .bounty-grid.quests-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .bounty-grid.quests-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* V10.2.9 widen dailies/bounties lightwindow */
+#questsModal .intro-modal-card.bounty-modal-card,
+#bountyModal .intro-modal-card.bounty-modal-card,
+#questsModal .bounty-modal-card,
+#bountyModal .bounty-modal-card {
+  width: min(1540px, calc(100vw - 20px));
+  max-width: min(1540px, calc(100vw - 20px));
+  max-height: calc(100vh - 24px);
+}
+
+#questsModal .intro-body.bounty-body,
+#bountyModal .intro-body.bounty-body {
+  padding: 14px 16px 16px;
+}
+
+@media (max-width: 1600px) {
+  #questsModal .intro-modal-card.bounty-modal-card,
+  #bountyModal .intro-modal-card.bounty-modal-card,
+  #questsModal .bounty-modal-card,
+  #bountyModal .bounty-modal-card {
+    width: min(96vw, 1460px);
+    max-width: min(96vw, 1460px);
+  }
+}
+
+
+/* V10.3.0 force wider dailies / bounties modal */
+body #questsModal.intro-modal,
+body #bountyModal.intro-modal {
+  padding: 8px !important;
+}
+
+body #questsModal .intro-modal-card.bounty-modal-card,
+body #bountyModal .intro-modal-card.bounty-modal-card,
+body #questsModal .bounty-modal-card,
+body #bountyModal .bounty-modal-card {
+  width: min(1680px, calc(100vw - 16px)) !important;
+  max-width: min(1680px, calc(100vw - 16px)) !important;
+  max-height: calc(100vh - 16px) !important;
+}
+
+body #questsModal .intro-body.bounty-body,
+body #bountyModal .intro-body.bounty-body {
+  padding: 14px 16px 16px !important;
+}
+
+@media (max-width: 1700px) {
+  body #questsModal .intro-modal-card.bounty-modal-card,
+  body #bountyModal .intro-modal-card.bounty-modal-card,
+  body #questsModal .bounty-modal-card,
+  body #bountyModal .bounty-modal-card {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  body #questsModal .intro-modal-card.bounty-modal-card,
+  body #bountyModal .intro-modal-card.bounty-modal-card,
+  body #questsModal .bounty-modal-card,
+  body #bountyModal .bounty-modal-card {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+  }
+}
+
+
+/* V10.3.1 widen dailies/bounties lightwindow by 50% */
+#questsModal .intro-modal-card,
+#bountyModal .intro-modal-card {
+  width: min(1140px, calc(100vw - 28px)) !important;
+  max-width: min(1140px, calc(100vw - 28px)) !important;
+}
