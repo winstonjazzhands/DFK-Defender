@@ -14,6 +14,8 @@ type RangeWindow = {
   label: string;
   start: string;
   end: string;
+  startTs?: string;
+  endTs?: string;
 };
 
 
@@ -245,13 +247,29 @@ async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow) {
     'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
   ];
 
+  const rangeStartMs = range.startTs ? Date.parse(range.startTs) : 0;
+  const rangeEndMs = range.endTs ? Date.parse(range.endTs) : 0;
+  const hasRollingWindow = Number.isFinite(rangeStartMs) && Number.isFinite(rangeEndMs) && rangeStartMs > 0 && rangeEndMs > rangeStartMs;
+
   let lastError: unknown = null;
   for (const columns of selectVariants) {
-    const { data, error } = await admin
-      .from('runs')
-      .select(columns)
-      .gte('completed_at', range.start)
-      .lt('completed_at', nextUtcDay(range.end));
+    if (hasRollingWindow) {
+      const result = await fetchPaginatedRows(admin, 'runs', columns);
+      if (!result.error) {
+        return (result.rows as RunRow[]).filter((row) => {
+          const ts = parseTimestamp(row.completed_at ?? row.created_at ?? row.run_started_at ?? null);
+          const ms = ts ? ts.getTime() : 0;
+          return !!ms && ms >= rangeStartMs && ms < rangeEndMs;
+        });
+      }
+      lastError = result.error;
+      if (isMissingColumnError(result.error)) continue;
+      throw result.error;
+    }
+
+    let query = admin.from('runs').select(columns);
+    query = query.gte('completed_at', range.start).lt('completed_at', nextUtcDay(range.end));
+    const { data, error } = await query;
     if (!error) return (Array.isArray(data) ? data : []) as RunRow[];
     lastError = error;
     if (isMissingColumnError(error)) continue;
@@ -378,11 +396,13 @@ async function fetchBurnRowsForRange(admin: SupabaseClient, range: RangeWindow) 
   ];
 
   for (const columns of selectVariants) {
-    const { data, error } = await admin
-      .from('dfk_gold_burns')
-      .select(columns)
-      .gte('confirmed_at', range.start)
-      .lt('confirmed_at', nextUtcDay(range.end));
+    let query = admin.from('dfk_gold_burns').select(columns);
+    if (range.startTs && range.endTs) {
+      query = query.gte('confirmed_at', range.startTs).lt('confirmed_at', range.endTs);
+    } else {
+      query = query.gte('confirmed_at', range.start).lt('confirmed_at', nextUtcDay(range.end));
+    }
+    const { data, error } = await query;
     if (!error) return (Array.isArray(data) ? data : []) as BurnRow[];
     if (isMissingColumnError(error) || isMissingRelationError(error)) continue;
     throw error;
@@ -417,6 +437,20 @@ function resolveRequestedRange(url: URL) {
       end: endParam,
     };
     preset = 'custom';
+  }
+
+  if ((presetParam === 'current_day' || modeParam === 'current_day')) {
+    const now = new Date();
+    const end = new Date(now.getTime());
+    const start = new Date(end.getTime() - (24 * 60 * 60 * 1000));
+    selectedRange = {
+      label: 'Daily Raffle',
+      start: formatDateOnly(start),
+      end: formatDateOnly(end),
+      startTs: start.toISOString(),
+      endTs: end.toISOString(),
+    };
+    preset = 'current_day';
   }
 
   return { preset, selectedRange, currentWeek, lastWeek };

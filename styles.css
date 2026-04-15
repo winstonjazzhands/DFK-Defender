@@ -3360,6 +3360,27 @@ body{
   margin-top: 8px;
 }
 
+.start-wave-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+#startWaveBonusIndicator {
+  min-width: 0;
+  text-align: left;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #ffe27a;
+  text-shadow: 0 0 6px rgba(255, 226, 122, 0.9), 0 0 14px rgba(255, 191, 73, 0.65);
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+
 .hire-section, .relic-section { min-height: 0; }
 .relic-section { display: none; }
 .hire-list {
@@ -4982,8 +5003,12 @@ body.intro-open .mobile-right-rail {
   .bottom-panel .controls-row.action-row.controls-row-lean {
     display: grid;
     grid-template-columns: max-content max-content max-content minmax(132px, 1fr) minmax(92px, 0.8fr) minmax(92px, 0.8fr);
-    align-items: center;
+    align-items: start;
     gap: 8px;
+  }
+
+  .bottom-panel .start-wave-stack {
+    align-self: start;
   }
 
   .bottom-panel .footer-topbar,
@@ -5817,6 +5842,19 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   gap: 6px;
 }
 
+.tracked-runs-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 12px;
+  align-items: end;
+}
+
+.tracked-runs-sort-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .tracked-runs-search-label {
   color: rgba(210, 220, 255, 0.82);
   font-size: 0.82rem;
@@ -5841,6 +5879,23 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
 }
 
 .tracked-runs-search-input:focus-visible {
+  outline: 2px solid rgba(160, 183, 255, 0.55);
+  outline-offset: 2px;
+}
+
+
+.tracked-runs-sort-select {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 154, 255, 0.26);
+  background: rgba(8, 14, 24, 0.92);
+  color: #f3f5ff;
+  padding: 0 12px;
+  font-size: 0.95rem;
+}
+
+.tracked-runs-sort-select:focus-visible {
   outline: 2px solid rgba(160, 183, 255, 0.55);
   outline-offset: 2px;
 }
@@ -5887,6 +5942,32 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   font-weight: 700;
   color: #f7f3dd;
   white-space: nowrap;
+}
+
+.tracked-run-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tracked-run-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(117, 132, 202, 0.16);
+  color: #d9deff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tracked-run-meta-time {
+  color: rgba(216, 224, 255, 0.72);
+  font-size: 0.82rem;
 }
 
 .tracked-run-status {

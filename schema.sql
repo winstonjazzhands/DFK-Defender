@@ -57,12 +57,15 @@ create table if not exists public.runs (
   run_started_at timestamptz,
   completed_at timestamptz not null,
   created_at timestamptz not null default now(),
+  chain_id integer not null default 53935,
   constraint runs_wallet_lowercase check (wallet_address = lower(wallet_address))
 );
 
 alter table public.players add column if not exists used_wallet_heroes boolean not null default false;
 
 create index if not exists idx_runs_wallet_completed_at on public.runs (wallet_address, completed_at desc);
+create index if not exists idx_runs_wallet_chain_completed_at on public.runs (wallet_address, chain_id, completed_at desc);
+create index if not exists idx_runs_chain_completed_at on public.runs (chain_id, completed_at desc);
 create index if not exists idx_runs_best_wave on public.runs (wave_reached desc, completed_at desc);
 create index if not exists idx_wallet_sessions_wallet on public.wallet_sessions (wallet_address, expires_at desc);
 

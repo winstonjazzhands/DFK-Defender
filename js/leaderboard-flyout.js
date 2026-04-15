@@ -275,13 +275,13 @@
     if (title) title.textContent = showRaffle ? 'Daily Raffle Leaderboard' : 'Leaderboard';
     if (resetCopy) {
       resetCopy.textContent = showRaffle
-        ? 'Tracks only the current UTC day. Players qualify for the daily raffle with a tracked run that reaches wave 30+ between 00:00 and 23:59 UTC.'
+        ? 'Tracks the last 24 hours on a rolling basis. Players qualify for the daily raffle with a tracked run that reaches wave 30+ during the last 24 hours.'
         : 'Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.';
     }
     if (rangeCopy) {
       rangeCopy.textContent = showRaffle
-        ? 'Today only, in UTC. Only players with activity in the current UTC day are shown. Qualification is a tracked wave 30+ run between 00:00 and 23:59 UTC.'
-        : 'Search a date range for the highest scores in that window. Daily raffle qualification is a tracked wave 30+ run completed during the current UTC day only.';
+        ? 'Shows only players with qualifying tracked activity in the last 24 hours. Qualification is a tracked wave 30+ run completed during the last 24 hours.'
+        : 'Search a date range for the highest scores in that window. Daily raffle qualification is a tracked wave 30+ run completed during the last 24 hours.';
     }
   }
 
@@ -299,7 +299,7 @@
     var selected = meta && meta.selected_range ? meta.selected_range : null;
     if (isDailyRaffleMode()) {
       var today = getCurrentUtcDateOnly();
-      display.textContent = 'Daily raffle window: ' + today + ' UTC';
+      display.textContent = 'Daily raffle window: last 24 hours';
       return;
     }
     if (!selected) {
@@ -315,7 +315,7 @@
     var range = getCurrentRangeRequest();
     if (range.mode === RANGE_MODES.current_day) {
       var today = getCurrentUtcDateOnly();
-      return { start: today, end: today, mode: RANGE_MODES.custom };
+      return { preset: RANGE_MODES.current_day };
     }
     if (range.mode === RANGE_MODES.custom) {
       return { start: range.start, end: range.end, mode: range.mode };
@@ -350,7 +350,7 @@
       var payload = await loadLeaderboardRows();
       if (isDailyRaffleMode()) {
         payload.rows = (payload.rows || []).filter(function (row) {
-          return isWithinCurrentUtcDay(row && row.last_run_at) && !!(row && row.raffle_qualified);
+          return !!(row && row.raffle_qualified);
         });
       }
       window.DFKLeaderboardRows = payload.rows;

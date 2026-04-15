@@ -2675,6 +2675,9 @@ function formatQuestResetCountdown(dateKey) {
   }
 
   function buildCompletedRunPayload(result = 'loss') {
+    const paymentSummary = buildPaymentSummary();
+    const connectedChainId = Number(getConnectedWalletChainId() || 0);
+    const resolvedChainId = Number(paymentSummary.chainId || connectedChainId || window.DFK_AVAX_CHAIN_ID || 43114);
     return {
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
@@ -2682,12 +2685,13 @@ function formatQuestResetCountdown(dateKey) {
       gameVersion: 'V46.9.1.110',
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
+      chainId: resolvedChainId,
       waveReached: Number(game.waveNumber || 0),
       wavesCleared: Number(game.waveNumber || 0),
       portalHpLeft: Math.max(0, Math.round(Number(game.portalHp || 0))),
       goldOnHand: Math.max(0, Math.round(Number(game.jewel || 0))),
       premiumJewels: Math.max(0, Math.round(Number(game.premiumJewels || 0))),
-      paymentSummary: buildPaymentSummary(),
+      paymentSummary,
       heroes: buildRunTrackingHeroes(),
       stats: {
         towerCount: game.towers.length,
@@ -4312,7 +4316,15 @@ function renderDamageReport() {
         { ok: false, queued: true, error: 'Run tracker call failed.' }
       );
       if (response && response.ok) {
-        log(`Run tracked at wave ${game.waveNumber}.`);
+        const trackedRunId = String(response && response.result && response.result.runId ? response.result.runId : '').trim();
+        const duplicateTrackedRun = Boolean(response && response.result && response.result.duplicate);
+        const trackedMessage = trackedRunId
+          ? `Game over, run tracked! Run ID: ${trackedRunId}`
+          : 'Game over, run tracked!';
+        showBanner(trackedMessage, 5200);
+        log(duplicateTrackedRun && trackedRunId
+          ? `Run already tracked. Run ID: ${trackedRunId}.`
+          : (trackedRunId ? `Run tracked at wave ${game.waveNumber}. Run ID: ${trackedRunId}.` : `Run tracked at wave ${game.waveNumber}.`));
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
@@ -5042,6 +5054,80 @@ function canSubmitRewardClaims() {
       .replace(/'/g, '&#39;');
   }
 
+  function formatTrackedRunTimestamp(value) {
+    if (!value) return 'Time unavailable';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Time unavailable';
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  function getTrackedRunChainLabel(chainId) {
+    const numericChainId = Number(chainId || 0);
+    if (numericChainId === 53935) return 'DFK Chain';
+    if (numericChainId === Number(window.DFK_AVAX_CHAIN_ID || 43114)) return 'AVAX';
+    return numericChainId > 0 ? `Chain ${numericChainId}` : 'Chain unknown';
+  }
+
+  function getTrackedRunTimestampValue(run) {
+    const raw = run && (run.completedAt || run.createdAt || run.runStartedAt || null);
+    const value = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function getTrackedRunChainSortValue(chainId) {
+    const numericChainId = Number(chainId || 0);
+    if (numericChainId === 53935) return 0;
+    if (numericChainId === Number(window.DFK_AVAX_CHAIN_ID || 43114)) return 1;
+    if (numericChainId > 0) return 2;
+    return 3;
+  }
+
+  function sortTrackedRuns(runs, sortMode) {
+    const list = Array.isArray(runs) ? runs.slice() : [];
+    const mode = String(sortMode || 'date_desc');
+    list.sort((a, b) => {
+      const aWave = Number(a && a.bestWave || 0) || 0;
+      const bWave = Number(b && b.bestWave || 0) || 0;
+      const aRunNumber = Number(a && a.runNumber || 0) || 0;
+      const bRunNumber = Number(b && b.runNumber || 0) || 0;
+      const aTime = getTrackedRunTimestampValue(a);
+      const bTime = getTrackedRunTimestampValue(b);
+      const aChain = getTrackedRunChainSortValue(a && a.chainId);
+      const bChain = getTrackedRunChainSortValue(b && b.chainId);
+      if (mode === 'date_asc') {
+        if (aTime !== bTime) return aTime - bTime;
+        if (aWave !== bWave) return bWave - aWave;
+        return aRunNumber - bRunNumber;
+      }
+      if (mode === 'wave_desc') {
+        if (aWave !== bWave) return bWave - aWave;
+        if (aTime !== bTime) return bTime - aTime;
+        return aRunNumber - bRunNumber;
+      }
+      if (mode === 'wave_asc') {
+        if (aWave !== bWave) return aWave - bWave;
+        if (aTime !== bTime) return bTime - aTime;
+        return aRunNumber - bRunNumber;
+      }
+      if (mode === 'chain_asc') {
+        if (aChain !== bChain) return aChain - bChain;
+        if (aWave !== bWave) return bWave - aWave;
+        if (aTime !== bTime) return bTime - aTime;
+        return aRunNumber - bRunNumber;
+      }
+      if (aTime !== bTime) return bTime - aTime;
+      if (aWave !== bWave) return bWave - aWave;
+      return aRunNumber - bRunNumber;
+    });
+    return list;
+  }
+
   function renderTrackedRunsBoard() {
     if (!els.trackedRunsBody) return;
     const state = game.bountyBoard || {};
@@ -5054,13 +5140,10 @@ function canSubmitRewardClaims() {
       return;
     }
     const allRuns = Array.isArray(state.runs) ? state.runs : [];
-    const runs = allRuns
-      .filter((run) => (Number(run.bestWave || 0) || 0) > 0)
-      .sort((a, b) => {
-        const waveDiff = (Number(b.bestWave || 0) || 0) - (Number(a.bestWave || 0) || 0);
-        if (waveDiff) return waveDiff;
-        return (Number(a.runNumber || 0) || 0) - (Number(b.runNumber || 0) || 0);
-      });
+    const runs = sortTrackedRuns(
+      allRuns.filter((run) => (Number(run.bestWave || 0) || 0) > 0),
+      game.trackedRunsSortMode || 'date_desc'
+    );
     if (!runs.length) {
       els.trackedRunsBody.innerHTML = '<div class="bounty-status-banner">No tracked runs yet. Runs with 0 waves completed are not shown.</div>';
       return;
@@ -5072,13 +5155,17 @@ function canSubmitRewardClaims() {
       const shortId = id.slice(0, 8);
       const wave = String(Number(run.bestWave || 0) || 0);
       const runNumber = String(Number(run.runNumber || 0) || 0);
-      return id.includes(search) || shortId.includes(search) || wave.includes(search) || runNumber.includes(search);
+      const chainLabel = String(getTrackedRunChainLabel(run.chainId)).toLowerCase();
+      const timestamp = String(formatTrackedRunTimestamp(run.completedAt || run.createdAt || run.runStartedAt || null)).toLowerCase();
+      return id.includes(search) || shortId.includes(search) || wave.includes(search) || runNumber.includes(search) || chainLabel.includes(search) || timestamp.includes(search);
     });
     const items = filteredRuns.map((run) => {
       const runNumber = Number(run.runNumber || 0) || 0;
       const bestWave = Number(run.bestWave || 0) || 0;
       const shortId = String(run.id || '').slice(0, 8) || 'unknown';
       const used = Boolean(run.used);
+      const chainLabel = getTrackedRunChainLabel(run.chainId);
+      const timestampLabel = formatTrackedRunTimestamp(run.completedAt || run.createdAt || run.runStartedAt || null);
       const claimedBountyText = escapeHtml(run.claimedBountyTitle || run.claimedBountyName || run.bountyTitle || (run.claimedBountyId ? `Bounty ${run.claimedBountyId}` : 'Bounty claim'));
       const statusText = used ? `Used for ${claimedBountyText}` : 'Available';
       return `
@@ -5089,6 +5176,10 @@ function canSubmitRewardClaims() {
               <div class="tracked-run-id">#${escapeHtml(shortId)}</div>
             </div>
             <div class="tracked-run-wave">Wave ${bestWave}</div>
+          </div>
+          <div class="tracked-run-meta-row">
+            <div class="tracked-run-meta-pill">${escapeHtml(chainLabel)}</div>
+            <div class="tracked-run-meta-time">${escapeHtml(timestampLabel)}</div>
           </div>
           <div class="tracked-run-status ${used ? 'is-used' : 'is-available'}">${statusText}</div>
         </article>
@@ -5106,10 +5197,22 @@ function canSubmitRewardClaims() {
         </div>
         <div class="bounty-strip-badge">${filteredRuns.length}/${runs.length} tracked run${runs.length === 1 ? '' : 's'}</div>
       </div>
-      <label class="tracked-runs-search-wrap">
-        <span class="tracked-runs-search-label">Search by run ID or waves completed</span>
-        <input id="trackedRunsSearchInput" class="tracked-runs-search-input" type="search" placeholder="Search by ID or wave" value="${escapeHtml(game.trackedRunsSearchQuery || '')}" />
-      </label>
+      <div class="tracked-runs-controls">
+        <label class="tracked-runs-search-wrap">
+          <span class="tracked-runs-search-label">Search by run ID or waves completed</span>
+          <input id="trackedRunsSearchInput" class="tracked-runs-search-input" type="search" placeholder="Search by ID or wave" value="${escapeHtml(game.trackedRunsSearchQuery || '')}" />
+        </label>
+        <label class="tracked-runs-sort-wrap">
+          <span class="tracked-runs-search-label">Sort tracked runs</span>
+          <select id="trackedRunsSortSelect" class="tracked-runs-sort-select">
+            <option value="date_desc" ${String(game.trackedRunsSortMode || 'date_desc') === 'date_desc' ? 'selected' : ''}>Date: newest first</option>
+            <option value="date_asc" ${String(game.trackedRunsSortMode || '') === 'date_asc' ? 'selected' : ''}>Date: oldest first</option>
+            <option value="wave_desc" ${String(game.trackedRunsSortMode || '') === 'wave_desc' ? 'selected' : ''}>Wave: highest first</option>
+            <option value="wave_asc" ${String(game.trackedRunsSortMode || '') === 'wave_asc' ? 'selected' : ''}>Wave: lowest first</option>
+            <option value="chain_asc" ${String(game.trackedRunsSortMode || '') === 'chain_asc' ? 'selected' : ''}>Chain: DFK → AVAX → other</option>
+          </select>
+        </label>
+      </div>
       ${emptyState}
     `;
   }
@@ -15198,6 +15301,14 @@ function canSubmitRewardClaims() {
       : null;
     if (!searchInput) return;
     game.trackedRunsSearchQuery = searchInput.value || '';
+    renderTrackedRunsBoard();
+  });
+  els.trackedRunsBody?.addEventListener('change', (event) => {
+    const sortSelect = event.target instanceof HTMLSelectElement && event.target.id === 'trackedRunsSortSelect'
+      ? event.target
+      : null;
+    if (!sortSelect) return;
+    game.trackedRunsSortMode = sortSelect.value || 'date_desc';
     renderTrackedRunsBoard();
   });
   els.bountyBody?.addEventListener('click', (event) => {

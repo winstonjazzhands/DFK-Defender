@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
     const stats = bodyRow.stats && typeof bodyRow.stats === 'object' ? (bodyRow.stats as Record<string, unknown>) : {};
     const completedAt = safeIsoDate(bodyRow.completedAt) || new Date().toISOString();
     const runStartedAt = safeIsoDate(bodyRow.runStartedAt);
+    const chainId = sanitizeChainId(bodyRow.chainId ?? ((bodyRow.paymentSummary && typeof bodyRow.paymentSummary === 'object') ? (bodyRow.paymentSummary as Record<string, unknown>).chainId : null));
     const usedWalletHeroes = Boolean(
       stats.usedWalletHeroes ||
       heroes.some((hero) => {
@@ -136,6 +137,7 @@ Deno.serve(async (req) => {
       stats,
       completedAt,
       runStartedAt,
+      chainId,
       usedWalletHeroes,
     });
     if (validationError) {
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
         usedWalletHeroes: Boolean(existingPlayer?.used_wallet_heroes) || usedWalletHeroes,
       });
       await touchWalletSession(admin, token);
-      return json({ ok: true, duplicate: true }, 200);
+      return json({ ok: true, duplicate: true, runId: duplicate.id || null, clientRunId }, 200);
     }
 
     const insertResult = await insertRun(admin, {
@@ -190,11 +192,12 @@ Deno.serve(async (req) => {
       stats_json: stats,
       run_started_at: runStartedAt,
       completed_at: completedAt,
+      chain_id: chainId,
     });
 
     if (insertResult.duplicate) {
       await touchWalletSession(admin, token);
-      return json({ ok: true, duplicate: true }, 200);
+      return json({ ok: true, duplicate: true, runId: insertResult.id || duplicate.id || null, clientRunId }, 200);
     }
 
     await syncPlayerSummaryFromRuns(admin, walletAddress, {
@@ -204,7 +207,7 @@ Deno.serve(async (req) => {
     });
 
     await touchWalletSession(admin, token);
-    return json({ ok: true }, 200);
+    return json({ ok: true, runId: insertResult.id || null, clientRunId }, 200);
   } catch (error) {
     const details = normalizeError(error);
     console.error('submit-run fatal error', details);
@@ -289,14 +292,14 @@ async function runAlreadyExists(admin: SupabaseClient, walletAddress: string, cl
       return { exists: false };
     }
 
-    if (!data) return { exists: false };
+    if (!data) return { exists: false, id: null as string | null };
     const row = data as Record<string, unknown>;
     const existingWallet = normalizeAddress(row.wallet_address as string);
-    if (!existingWallet || existingWallet === walletAddress) return { exists: true };
-    return { exists: false };
+    if (!existingWallet || existingWallet === walletAddress) return { exists: true, id: String(row.id || '').trim() || null };
+    return { exists: false, id: null as string | null };
   }
 
-  return { exists: false };
+  return { exists: false, id: null as string | null };
 }
 
 async function insertRun(admin: SupabaseClient, payload: Record<string, unknown>) {
@@ -317,20 +320,22 @@ async function insertRun(admin: SupabaseClient, payload: Record<string, unknown>
       portal_hp_left: payload.portal_hp_left,
       gold_on_hand: payload.gold_on_hand,
       completed_at: payload.completed_at,
+      chain_id: payload.chain_id,
     },
   ]);
 
   let lastError: unknown = null;
   for (const variant of variants) {
-    const { error } = await admin.from('runs').insert(variant);
-    if (!error) return { duplicate: false };
+    const { data, error } = await admin.from('runs').insert(variant).select('id').maybeSingle();
+    if (!error) return { duplicate: false, id: String((data as Record<string, unknown> | null)?.id || '').trim() || null };
 
     lastError = error;
     const message = String(error.message || '').toLowerCase();
     console.error('submit-run run insert failed', { payloadKeys: Object.keys(variant), ...normalizeError(error) });
 
     if (message.includes('duplicate key') || message.includes('already exists') || message.includes('unique constraint')) {
-      return { duplicate: true };
+      const existing = await runAlreadyExists(admin, normalizeAddress(String(payload.wallet_address || '')), String(payload.client_run_id || ''));
+      return { duplicate: true, id: existing.id || null };
     }
     if (!isMissingColumnError(error)) {
       throw error;
@@ -543,6 +548,7 @@ function validateRunSubmission(input: {
   stats: Record<string, unknown>;
   completedAt: string;
   runStartedAt: string | null;
+  chainId: number;
   usedWalletHeroes: boolean;
 }) {
   const allowedModes = new Set(['easy', 'challenge']);
@@ -600,6 +606,9 @@ function validateRunSubmission(input: {
   }
   if (!Number.isInteger(input.premiumJewels) || input.premiumJewels < 0 || input.premiumJewels > 1000000) {
     return { error: 'Invalid premiumJewels.', code: 'invalid_premium_jewels' };
+  }
+  if (!Number.isInteger(input.chainId) || input.chainId <= 0) {
+    return { error: 'Invalid chainId.', code: 'invalid_chain_id' };
   }
   if (input.gameVersion.length > 80 || !input.gameVersion) {
     return { error: 'Invalid gameVersion.', code: 'invalid_game_version' };
@@ -760,6 +769,12 @@ function safeIsoDate(value: unknown) {
 function sanitizeInt(value: unknown) {
   const parsed = Number(value || 0);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.round(parsed);
+}
+
+function sanitizeChainId(value: unknown) {
+  const parsed = Number(value || 0);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 53935;
   return Math.round(parsed);
 }
 

@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
 
     const usedRunIds = new Set<string>();
     let viewerBestWave = 0;
-    let viewerRuns: Array<{ id: string; wave_reached: number | null; completed_at?: string | null }> = [];
+    let viewerRuns: Array<{ id: string; wave_reached: number | null; completed_at?: string | null; created_at?: string | null; run_started_at?: string | null; chain_id?: number | null }> = [];
     if (walletAddress) {
       const { data: player } = await admin
         .from('players')
@@ -135,10 +135,10 @@ Deno.serve(async (req) => {
 
       const { data: viewerRunsData } = await admin
         .from('runs')
-        .select('id, wave_reached, completed_at')
+        .select('id, wave_reached, completed_at, created_at, run_started_at, chain_id')
         .eq('wallet_address', walletAddress)
         .order('completed_at', { ascending: false });
-      viewerRuns = (viewerRunsData || []) as Array<{ id: string; wave_reached: number | null; completed_at?: string | null }>;
+      viewerRuns = (viewerRunsData || []) as Array<{ id: string; wave_reached: number | null; completed_at?: string | null; created_at?: string | null; run_started_at?: string | null; chain_id?: number | null }>;
     }
 
     const now = new Date();
@@ -180,6 +180,9 @@ Deno.serve(async (req) => {
       bestWave: Number(run.wave_reached || 0),
       used: usedRunIds.has(run.id),
       completedAt: run.completed_at || null,
+      createdAt: run.created_at || null,
+      runStartedAt: run.run_started_at || null,
+      chainId: Number(run.chain_id || 0) || null,
     }));
 
     return json({
