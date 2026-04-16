@@ -50,13 +50,54 @@ function isMissingRelationError(error: unknown, relationName: string) {
   return code === 'PGRST205' || (message.includes('relation') && message.includes(relationName.toLowerCase()) && message.includes('does not exist'));
 }
 
-async function safeTableSelect<T>(promise: Promise<{ data: T[] | null; error: { code?: string; message?: string } | null }>, relationName: string) {
+function isMissingColumnError(error: unknown, columnName: string) {
+  const code = String((error as { code?: string } | null)?.code || '').trim();
+  const message = String((error as { message?: string } | null)?.message || '').toLowerCase();
+  return code === '42703' || (message.includes('column') && message.includes(columnName.toLowerCase()) && message.includes('does not exist'));
+}
+
+async function safeTableSelect<T>(
+  promise: Promise<{ data: T[] | null; error: { code?: string; message?: string } | null }>,
+  relationName: string,
+  options: { allowMissingColumns?: string[] } = {},
+) {
   const { data, error } = await promise;
   if (error) {
     if (isMissingRelationError(error, relationName)) return [] as T[];
+    const missingColumns = Array.isArray(options.allowMissingColumns) ? options.allowMissingColumns : [];
+    if (missingColumns.some((columnName) => isMissingColumnError(error, columnName))) return [] as T[];
     throw error;
   }
   return Array.isArray(data) ? data : [];
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function getRowEventTime(row: Record<string, unknown> | null | undefined) {
+  return firstNonEmptyString(
+    row?.verified_at,
+    row?.confirmed_at,
+    row?.paid_at,
+    row?.updated_at,
+    row?.created_at,
+    row?.requested_at,
+  );
+}
+
+function sortRowsByEventTimeDesc<T extends Record<string, unknown>>(rows: T[]) {
+  return [...rows].sort((a, b) => {
+    const aMs = new Date(getRowEventTime(a)).getTime();
+    const bMs = new Date(getRowEventTime(b)).getTime();
+    const safeA = Number.isFinite(aMs) ? aMs : 0;
+    const safeB = Number.isFinite(bMs) ? bMs : 0;
+    return safeB - safeA;
+  });
 }
 
 async function safeSectionRows<T>(label: string, relationName: string, loader: () => Promise<T[]>) {
@@ -74,9 +115,26 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
   const [claimSection, whitelistSection, burnSection, tokenSection, sessionSection] = await Promise.all([
     safeSectionRows<any>('reward claims', 'reward_claim_requests', () => safeTableSelect<any>(admin.from('reward_claim_requests').select('*').order('requested_at', { ascending: false }).limit(limit), 'reward_claim_requests')),
     safeSectionRows<any>('reward whitelist', 'reward_claim_whitelist', () => safeTableSelect<any>(admin.from('reward_claim_whitelist').select('*'), 'reward_claim_whitelist')),
-    safeSectionRows<any>('gold burns', 'dfk_gold_burns', () => safeTableSelect<any>(admin.from('dfk_gold_burns').select('wallet_address, burn_amount, amount, confirmed_at').order('confirmed_at', { ascending: false }).limit(5000), 'dfk_gold_burns')),
-    safeSectionRows<any>('token payments', 'dfk_token_payments', () => safeTableSelect<any>(admin.from('dfk_token_payments').select('*').order('verified_at', { ascending: false }).limit(5000), 'dfk_token_payments')),
-    safeSectionRows<any>('crypto payment sessions', 'crypto_payment_sessions', () => safeTableSelect<any>(admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed').order('verified_at', { ascending: false }).limit(5000), 'crypto_payment_sessions')),
+    safeSectionRows<any>('gold burns', 'dfk_gold_burns', () => safeTableSelect<any>(
+      admin.from('dfk_gold_burns').select('wallet_address, burn_amount, amount, confirmed_at').order('confirmed_at', { ascending: false }).limit(5000),
+      'dfk_gold_burns',
+    )),
+    safeSectionRows<any>('token payments', 'dfk_token_payments', async () => {
+      const rows = await safeTableSelect<any>(
+        admin.from('dfk_token_payments').select('*').limit(5000),
+        'dfk_token_payments',
+        { allowMissingColumns: ['verified_at', 'confirmed_at', 'updated_at', 'created_at'] },
+      );
+      return sortRowsByEventTimeDesc(rows);
+    }),
+    safeSectionRows<any>('crypto payment sessions', 'crypto_payment_sessions', async () => {
+      const rows = await safeTableSelect<any>(
+        admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed').limit(5000),
+        'crypto_payment_sessions',
+        { allowMissingColumns: ['verified_at', 'confirmed_at', 'updated_at', 'created_at'] },
+      );
+      return sortRowsByEventTimeDesc(rows);
+    }),
   ]);
   const rows = claimSection.rows;
   const whitelistRows = whitelistSection.rows;
@@ -232,15 +290,16 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
       paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei,
       payment_asset: row.payment_asset,
       kind: row.kind,
-      verified_at: row.verified_at,
+      verified_at: getRowEventTime(row) || null,
+      confirmed_at: firstNonEmptyString(row.confirmed_at) || null,
       metadata: row.metadata,
     })) : []);
 
   for (const row of mergedTokenRows) {
     const kind = String(row.kind || '').trim();
     if (!spendKinds.has(kind)) continue;
-    const verifiedAt = String(row.verified_at || '').trim() || null;
-    if (!inSelectedTimeframe(verifiedAt)) continue;
+    const activityAt = getRowEventTime(row) || null;
+    if (!inSelectedTimeframe(activityAt)) continue;
     const parsedMetadata = typeof row.metadata === 'string'
       ? (() => { try { return JSON.parse(row.metadata); } catch { return {}; } })()
       : (row.metadata && typeof row.metadata === 'object' ? row.metadata : {});
@@ -248,7 +307,7 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     if (!entry) continue;
     entry.jewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
     entry.jewelSpendCount += 1;
-    if (verifiedAt && (!entry.lastActivityAt || verifiedAt > entry.lastActivityAt)) entry.lastActivityAt = verifiedAt;
+    if (activityAt && (!entry.lastActivityAt || activityAt > entry.lastActivityAt)) entry.lastActivityAt = activityAt;
   }
 
   const lifetimeBurnRows = Array.isArray(burnRows) ? burnRows : [];

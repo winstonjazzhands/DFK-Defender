@@ -211,6 +211,125 @@ function pickWeeklyBounties(weekKey: string) {
 }
 
 
+
+type WeeklyTrackedRunRow = {
+  id?: string | number | null;
+  wave_reached?: number | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  run_started_at?: string | null;
+  chain_id?: number | null;
+};
+
+function isMissingColumnError(error: unknown) {
+  const code = String((error as { code?: unknown } | null)?.code || '');
+  const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
+  return code === '42703' || (message.includes('column') && message.includes('does not exist'));
+}
+
+function sanitizeInt(value: unknown) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.floor(num));
+}
+
+function isoTimeValue(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return 0;
+  const ms = new Date(text).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+async function listWeeklyRunsForWallet(admin: ReturnType<typeof createAdmin>, walletAddress: string, weekKey: string) {
+  const startIso = `${weekKey}T00:00:00.000Z`;
+  const endDate = new Date(startIso);
+  endDate.setUTCDate(endDate.getUTCDate() + 7);
+  const endIso = endDate.toISOString();
+
+  const selectVariants = [
+    'id, wave_reached, completed_at, created_at, run_started_at, chain_id',
+    'id, wave_reached, completed_at, created_at, chain_id',
+    'id, wave_reached, completed_at, chain_id',
+    'id, wave_reached, completed_at',
+    'id, wave_reached',
+  ];
+
+  for (const columns of selectVariants) {
+    const { data, error } = await admin
+      .from('runs')
+      .select(columns)
+      .eq('wallet_address', walletAddress)
+      .gte('completed_at', startIso)
+      .lt('completed_at', endIso)
+      .order('completed_at', { ascending: true });
+    if (!error) {
+      return Array.isArray(data) ? data as WeeklyTrackedRunRow[] : [];
+    }
+    if (!isMissingColumnError(error)) throw error;
+  }
+
+  return [];
+}
+
+function buildTrackedRunsForViewer(
+  viewerRuns: WeeklyTrackedRunRow[],
+  claimRows: Array<Record<string, unknown>>,
+  viewerWalletAddress: string,
+  activeById: Map<string, BountyDef>,
+) {
+  const normalizedViewer = normalizeAddress(viewerWalletAddress);
+  if (!normalizedViewer) return [];
+
+  const runs = (Array.isArray(viewerRuns) ? viewerRuns : [])
+    .map((row, index) => ({
+      id: String(row.id || '').trim() || `run-${index + 1}`,
+      runNumber: index + 1,
+      bestWave: sanitizeInt(row.wave_reached),
+      completedAt: String(row.completed_at || '').trim() || null,
+      createdAt: String(row.created_at || '').trim() || null,
+      runStartedAt: String(row.run_started_at || '').trim() || null,
+      chainId: sanitizeInt(row.chain_id) || null,
+      used: false,
+      claimedBountyId: '',
+      claimedBountyTitle: '',
+      _sortTime: Math.max(
+        isoTimeValue(row.completed_at),
+        isoTimeValue(row.created_at),
+        isoTimeValue(row.run_started_at),
+      ),
+    }))
+    .filter((row) => row.bestWave > 0)
+    .sort((a, b) => {
+      if (a._sortTime !== b._sortTime) return a._sortTime - b._sortTime;
+      if (a.bestWave !== b.bestWave) return a.bestWave - b.bestWave;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+  const viewerClaims = (Array.isArray(claimRows) ? claimRows : [])
+    .filter((row) => normalizeAddress(String(row.wallet_address || '')) === normalizedViewer)
+    .sort((a, b) => {
+      const aSlot = sanitizeInt(a.claim_slot);
+      const bSlot = sanitizeInt(b.claim_slot);
+      if (aSlot !== bSlot) return aSlot - bSlot;
+      return isoTimeValue(a.claimed_at) - isoTimeValue(b.claimed_at);
+    });
+
+  let nextUnusedIndex = 0;
+  for (const claim of viewerClaims) {
+    while (nextUnusedIndex < runs.length && runs[nextUnusedIndex].used) nextUnusedIndex += 1;
+    if (nextUnusedIndex >= runs.length) break;
+    const bountyId = String(claim.bounty_id || '').trim();
+    const bounty = activeById.get(bountyId) || null;
+    runs[nextUnusedIndex].used = true;
+    runs[nextUnusedIndex].claimedBountyId = bountyId;
+    runs[nextUnusedIndex].claimedBountyTitle = bounty?.title || bountyId || 'Bounty claim';
+    nextUnusedIndex += 1;
+  }
+
+  return runs.map(({ _sortTime, ...row }) => row);
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
 
@@ -247,6 +366,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const walletAddress = normalizeAddress((body && typeof body === 'object' && 'walletAddress' in body ? body.walletAddress : null) || url.searchParams.get('walletAddress') || '');
     const activeIds = active.map((entry) => entry.id);
+    const activeById = new Map(active.map((entry) => [entry.id, entry] as const));
 
     let claimRows: Array<Record<string, unknown>> = [];
     try {
@@ -329,13 +449,23 @@ Deno.serve(async (req) => {
       };
     });
 
+    let runs: Array<Record<string, unknown>> = [];
+    try {
+      if (walletAddress) {
+        const viewerRuns = await listWeeklyRunsForWallet(admin, walletAddress, weekKey);
+        runs = buildTrackedRunsForViewer(viewerRuns, claimRows, walletAddress, activeById);
+      }
+    } catch (runError) {
+      console.error('bounty-board tracked runs lookup failed:', runError);
+    }
+
     return json({
       ok: true,
       currentTime: new Date().toISOString(),
       nextRevealAt: nextWeekIso(weekKey),
       weekKey,
       entries,
-      runs: [],
+      runs,
     });
   } catch (error) {
     console.error('bounty-board fatal error:', error);
