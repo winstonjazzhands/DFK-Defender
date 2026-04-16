@@ -1586,6 +1586,26 @@ function loadCachedBalance() {
         return;
       }
 
+      const spendTimeframeButton = target && target.closest ? target.closest('[data-spend-timeframe]') : null;
+      if (spendTimeframeButton) {
+        event.preventDefault();
+        const nextTimeframe = String(spendTimeframeButton.getAttribute('data-spend-timeframe') || 'all').trim().toLowerCase();
+        if (!['today', 'this_week', 'last_week', 'all'].includes(nextTimeframe)) return;
+        if (nextTimeframe === String(state.rewardSpendTimeframe || 'all').trim().toLowerCase()) {
+          renderRewardClaimsAdmin();
+          return;
+        }
+        state.rewardSpendTimeframe = nextTimeframe;
+        state.rewardClaimsPageByTab = { pending: 1, completed: 1, rejected: 1 };
+        state.rewardClaimsLoading = true;
+        updateTreasuryUi();
+        refreshRewardClaimsAdmin().catch((error) => {
+          setStatus(`Treasury: ${error && error.message ? error.message : 'Failed to load spend data.'}`, 'bad');
+          updateTreasuryUi();
+        });
+        return;
+      }
+
       const collapseCard = target && target.closest ? target.closest('[data-claim-collapse-card]') : null;
       if (collapseCard) {
         collapseCard.classList.toggle('open');

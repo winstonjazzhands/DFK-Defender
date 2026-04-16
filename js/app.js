@@ -15874,7 +15874,8 @@ function canSubmitRewardClaims() {
     if (!claimBtn) return false;
     const bountyId = String(claimBtn.getAttribute('data-bounty-id') || '').trim();
     const rewardCurrency = String(claimBtn.getAttribute('data-reward-currency') || '').trim().toUpperCase();
-    if (!bountyId || !rewardCurrency || claimBtn.hasAttribute('disabled')) return true;
+    if (!bountyId || !rewardCurrency) return false;
+    if (claimBtn.hasAttribute('disabled')) return true;
     event.preventDefault();
     event.stopPropagation();
     claimActiveBounty(bountyId, rewardCurrency).catch(() => {});
