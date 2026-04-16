@@ -615,6 +615,7 @@ function hardenRunStats(input: {
     killsNearPortal: clampInt(source.killsNearPortal, 0, killsCap),
     killsNearStatue: clampInt(source.killsNearStatue, 0, killsCap),
     killsMultiWave: clampInt(source.killsMultiWave, 0, killsCap),
+    killsMulti3: clampInt(source.killsMulti3, 0, killsCap),
     killsPortalBelow75: clampInt(source.killsPortalBelow75, 0, killsCap),
     killsPortalBelow25: clampInt(source.killsPortalBelow25, 0, killsCap),
     critKills: clampInt(source.critKills, 0, killsCap),
@@ -669,6 +670,7 @@ function hardenRunStats(input: {
   out.killsNearPortal = Math.min(sanitizeInt(out.killsNearPortal), sanitizeInt(out.killsTotal));
   out.killsNearStatue = Math.min(sanitizeInt(out.killsNearStatue), sanitizeInt(out.killsTotal));
   out.killsMultiWave = Math.min(sanitizeInt(out.killsMultiWave), sanitizeInt(out.killsTotal));
+  out.killsMulti3 = Math.min(sanitizeInt(out.killsMulti3), sanitizeInt(out.killsMultiWave));
   out.killsPortalBelow75 = Math.min(sanitizeInt(out.killsPortalBelow75), sanitizeInt(out.killsTotal));
   out.killsPortalBelow25 = Math.min(sanitizeInt(out.killsPortalBelow25), sanitizeInt(out.killsTotal));
   out.critKills = Math.min(sanitizeInt(out.critKills), sanitizeInt(out.killsTotal));
