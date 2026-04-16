@@ -117,6 +117,57 @@ function isValidPrivateKey(value: string) {
 }
 
 
+function isRetryableRpcError(error: unknown) {
+  const message = String((error as { message?: unknown } | null)?.message || error || "").toLowerCase();
+  return [
+    'timeout',
+    'timed out',
+    'etimedout',
+    'network error',
+    'fetch failed',
+    'failed to fetch',
+    'socket hang up',
+    'econnreset',
+    '503',
+    '502',
+    '429',
+    'gateway',
+    'upstream',
+    'rate limit',
+  ].some((needle) => message.includes(needle));
+}
+
+function parseRpcList(value: string | null | undefined) {
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function uniqueRpcCandidates(primary: string, fallbacks: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of [primary, ...fallbacks]) {
+    const url = String(entry || '').trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
+
+function getRpcCandidatesForCurrency(rewardCurrency: 'JEWEL' | 'AVAX', primaryRpcUrl: string) {
+  if (rewardCurrency === 'AVAX') {
+    return uniqueRpcCandidates(primaryRpcUrl, [
+      ...parseRpcList(Deno.env.get('AVAX_RPC_URL_FALLBACKS')),
+      'https://api.avax.network/ext/bc/C/rpc',
+      'https://avalanche.public-rpc.com',
+      'https://1rpc.io/avax/c',
+    ]);
+  }
+  return uniqueRpcCandidates(primaryRpcUrl, parseRpcList(Deno.env.get('DFK_RPC_URL_FALLBACKS')));
+}
+
 async function waitForReceiptWithBackoff(publicClient: ReturnType<typeof createPublicClient>, txHash: `0x${string}`) {
   const timeoutMs = 180000;
   const startedAt = Date.now();
@@ -221,56 +272,70 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
       throw new Error(`TREASURY_PRIVATE_KEY does not match ${options.rewardCurrency} treasury address. Derived ${account.address}.`);
     }
 
-    const publicClient = createPublicClient({ chain: options.chain, transport: http(options.rpcUrl) });
-    const walletClient = createWalletClient({ account, chain: options.chain, transport: http(options.rpcUrl) });
+    const rpcCandidates = getRpcCandidatesForCurrency(options.rewardCurrency, options.rpcUrl);
+    let lastPreSubmitError: unknown = null;
 
-    const txHash = await walletClient.sendTransaction({
-      account,
-      chain: options.chain,
-      to: walletAddress as `0x${string}`,
-      value: parseUnits(options.amountText, 18),
-    });
-    submittedTxHash = txHash;
+    for (const rpcUrl of rpcCandidates) {
+      try {
+        const publicClient = createPublicClient({ chain: options.chain, transport: http(rpcUrl, { timeout: 45000 }) });
+        const walletClient = createWalletClient({ account, chain: options.chain, transport: http(rpcUrl, { timeout: 45000 }) });
 
-    pendingNote = appendNote(claim?.admin_note, `Treasury payout submitted on-chain. Tx: ${txHash}`);
-    const { error: pendingError } = await admin
-      .from("reward_claim_requests")
-      .update({
-        status: "approved",
-        approved_at: claim?.approved_at || nowIso,
-        resolved_at: claim?.resolved_at || nowIso,
-        resolved_by_wallet: claim?.resolved_by_wallet || "treasury:auto",
-        tx_hash: txHash,
-        failure_reason: null,
-        admin_note: pendingNote,
-      })
-      .eq("id", claim.id);
-    if (pendingError) throw pendingError;
+        const txHash = await walletClient.sendTransaction({
+          account,
+          chain: options.chain,
+          to: walletAddress as `0x${string}`,
+          value: parseUnits(options.amountText, 18),
+        });
+        submittedTxHash = txHash;
 
-    const receipt = await waitForReceiptWithBackoff(publicClient, txHash);
-    if (isReceiptReverted(receipt)) {
-      throw new Error(`Treasury payout transaction failed on-chain. ${describeReceipt(receipt)}`);
+        pendingNote = appendNote(claim?.admin_note, `Treasury payout submitted on-chain via ${rpcUrl}. Tx: ${txHash}`);
+        const { error: pendingError } = await admin
+          .from("reward_claim_requests")
+          .update({
+            status: "approved",
+            approved_at: claim?.approved_at || nowIso,
+            resolved_at: claim?.resolved_at || nowIso,
+            resolved_by_wallet: claim?.resolved_by_wallet || "treasury:auto",
+            tx_hash: txHash,
+            failure_reason: null,
+            admin_note: pendingNote,
+          })
+          .eq("id", claim.id);
+        if (pendingError) throw pendingError;
+
+        const receipt = await waitForReceiptWithBackoff(publicClient, txHash);
+        if (isReceiptReverted(receipt)) {
+          throw new Error(`Treasury payout transaction failed on-chain. ${describeReceipt(receipt)}`);
+        }
+        if (!isReceiptSuccessful(receipt)) {
+          throw new Error(`Treasury payout receipt status was inconclusive. ${describeReceipt(receipt)}`);
+        }
+
+        const note = appendNote(pendingNote, `Auto-paid ${options.amountText} ${options.rewardCurrency} via treasury native transfer. ${describeReceipt(receipt)}.`);
+        const { error } = await admin
+          .from("reward_claim_requests")
+          .update({
+            status: "paid",
+            approved_at: claim?.approved_at || nowIso,
+            paid_at: nowIso,
+            resolved_at: nowIso,
+            resolved_by_wallet: "treasury:auto",
+            tx_hash: txHash,
+            failure_reason: null,
+            admin_note: note,
+          })
+          .eq("id", claim.id);
+        if (error) throw error;
+        return { attempted: true, paid: true, txHash, message: `Sent ${options.amountText} ${options.rewardCurrency} to ${walletAddress} via native transfer.` };
+      } catch (rpcError) {
+        if (submittedTxHash) throw rpcError;
+        lastPreSubmitError = rpcError;
+        if (!isRetryableRpcError(rpcError)) throw rpcError;
+      }
     }
-    if (!isReceiptSuccessful(receipt)) {
-      throw new Error(`Treasury payout receipt status was inconclusive. ${describeReceipt(receipt)}`);
-    }
 
-    const note = appendNote(pendingNote, `Auto-paid ${options.amountText} ${options.rewardCurrency} via treasury native transfer. ${describeReceipt(receipt)}.`);
-    const { error } = await admin
-      .from("reward_claim_requests")
-      .update({
-        status: "paid",
-        approved_at: claim?.approved_at || nowIso,
-        paid_at: nowIso,
-        resolved_at: nowIso,
-        resolved_by_wallet: "treasury:auto",
-        tx_hash: txHash,
-        failure_reason: null,
-        admin_note: note,
-      })
-      .eq("id", claim.id);
-    if (error) throw error;
-    return { attempted: true, paid: true, txHash, message: `Sent ${options.amountText} ${options.rewardCurrency} to ${walletAddress} via native transfer.` };
+    if (lastPreSubmitError) throw lastPreSubmitError;
+    throw new Error('Treasury payout failed before transaction submission.');
   } catch (error) {
     const message = error instanceof Error ? error.message : "Auto-payout failed.";
     await recordAutoPayFailure(admin, claim, nowIso, message, { adminNote: pendingNote, txHash: submittedTxHash || null });

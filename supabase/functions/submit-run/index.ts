@@ -123,6 +123,16 @@ Deno.serve(async (req) => {
       })
     );
 
+    const hardenedStats = hardenRunStats({
+      waveReached,
+      wavesCleared,
+      portalHpLeft,
+      goldOnHand,
+      result,
+      heroes,
+      stats,
+    });
+
     const validationError = validateRunSubmission({
       clientRunId,
       waveReached,
@@ -134,7 +144,7 @@ Deno.serve(async (req) => {
       mode,
       result,
       heroes,
-      stats,
+      stats: hardenedStats,
       completedAt,
       runStartedAt,
       chainId,
@@ -189,7 +199,7 @@ Deno.serve(async (req) => {
       gold_on_hand: goldOnHand,
       premium_jewels: premiumJewels,
       heroes_json: heroes,
-      stats_json: stats,
+      stats_json: hardenedStats,
       run_started_at: runStartedAt,
       completed_at: completedAt,
       chain_id: chainId,
@@ -533,6 +543,152 @@ async function touchWalletSession(admin: SupabaseClient, token: string) {
   }
 }
 
+
+
+function hardenRunStats(input: {
+  waveReached: number;
+  wavesCleared: number;
+  portalHpLeft: number;
+  goldOnHand: number;
+  result: string;
+  heroes: unknown[];
+  stats: Record<string, unknown>;
+}) {
+  const source = input.stats && typeof input.stats === 'object' ? input.stats : {};
+  const wavesStartedFloor = Math.max(input.waveReached, input.wavesCleared);
+  const wavesCompletedCap = Math.max(0, input.wavesCleared);
+  const wavesStartedCap = Math.max(wavesStartedFloor, wavesCompletedCap);
+  const heroRows = Array.isArray(input.heroes) ? input.heroes : [];
+  let aggregateHeroCount = 0;
+  let aggregateSatelliteCount = 0;
+  let aggregateWalletHeroCount = 0;
+  let warriorCount = 0;
+  let spellbowCount = 0;
+  let sageCount = 0;
+
+  for (const hero of heroRows) {
+    const row = hero && typeof hero === 'object' ? hero as Record<string, unknown> : null;
+    if (!row) continue;
+    const type = sliceText(row.type, 40, '').toLowerCase();
+    const count = sanitizeInt(row.count);
+    aggregateHeroCount += count;
+    aggregateSatelliteCount += Math.min(count, sanitizeInt(row.satellites));
+    aggregateWalletHeroCount += Math.min(count, sanitizeInt(row.walletHeroCount));
+    if (type === 'warrior') warriorCount += count;
+    if (type === 'spellbow') spellbowCount += count;
+    if (type === 'sage') sageCount += count;
+  }
+
+  const safeHeroCapacity = Math.max(aggregateHeroCount, 1) * Math.max(wavesCompletedCap, 1);
+  const killsCap = Math.max(5000, wavesStartedCap * 1000 + 5000);
+  const heroDamageCap = Math.max(1_000_000, wavesStartedCap * 1_000_000 + 5_000_000);
+  const supportHealingCap = Math.max(250_000, safeHeroCapacity * 50_000);
+  const goldSpendCap = Math.max(250_000, sanitizeInt(source.dfkGoldBurnedTotal || source.dfk_gold_burned_total) * 4 + wavesStartedCap * 50_000 + 250_000);
+  const goldEarnedCap = Math.max(goldSpendCap, input.goldOnHand + goldSpendCap + wavesStartedCap * 25_000 + 250_000);
+  const relicChoiceCap = Math.max(10, wavesStartedCap * 5 + 25);
+  const upgradeCap = Math.max(25, wavesStartedCap * 10 + 50);
+  const abilityTriggerCap = Math.max(100, wavesStartedCap * 100 + 500);
+  const manualAbilityCap = Math.max(50, wavesStartedCap * 50 + 250);
+  const bossCap = Math.min(killsCap, Math.max(10, wavesStartedCap * 5 + 25));
+
+  const out: Record<string, unknown> = {
+    towerCount: clampInt(source.towerCount, 0, 32, aggregateHeroCount),
+    satelliteCount: clampInt(source.satelliteCount, 0, aggregateHeroCount, aggregateSatelliteCount),
+    playerBarriersPlaced: clampInt(source.playerBarriersPlaced, 0, 2000),
+    randomObstacles: clampInt(source.randomObstacles, 0, 2000),
+    barrierRefits: clampInt(source.barrierRefits, 0, 2000),
+    hireCount: clampInt(source.hireCount, 0, 32),
+    crashed: Boolean(source.crashed),
+    usedWalletHeroes: Boolean(source.usedWalletHeroes || source.used_wallet_heroes || aggregateWalletHeroCount > 0),
+    usedWalletHeroCount: clampInt(source.usedWalletHeroCount || source.used_wallet_hero_count, 0, aggregateHeroCount, aggregateWalletHeroCount),
+    dfkGoldBurnedTotal: clampInt(source.dfkGoldBurnedTotal || source.dfk_gold_burned_total, 0, 50_000_000),
+
+    killsTotal: clampInt(source.killsTotal, 0, killsCap),
+    killsElite: clampInt(source.killsElite, 0, killsCap),
+    killsBoss: clampInt(source.killsBoss, 0, bossCap),
+    heroKills: clampInt(source.heroKills, 0, killsCap),
+    abilityKills: clampInt(source.abilityKills, 0, killsCap),
+    killsSlowed: clampInt(source.killsSlowed, 0, killsCap),
+    killsBurning: clampInt(source.killsBurning, 0, killsCap),
+    killsStunned: clampInt(source.killsStunned, 0, killsCap),
+    killsQuickSpawn: clampInt(source.killsQuickSpawn, 0, killsCap),
+    killsNearPortal: clampInt(source.killsNearPortal, 0, killsCap),
+    killsNearStatue: clampInt(source.killsNearStatue, 0, killsCap),
+    killsMultiWave: clampInt(source.killsMultiWave, 0, killsCap),
+    killsPortalBelow75: clampInt(source.killsPortalBelow75, 0, killsCap),
+    killsPortalBelow25: clampInt(source.killsPortalBelow25, 0, killsCap),
+    critKills: clampInt(source.critKills, 0, killsCap),
+    championKills: clampInt(source.championKills, 0, killsCap),
+
+    heroesDeployed: clampInt(source.heroesDeployed, 0, Math.max(aggregateHeroCount + sanitizeInt(source.hireCount), sanitizeInt(source.hireCount), aggregateHeroCount)),
+    wavesWithWarrior: clampInt(source.wavesWithWarrior, 0, warriorCount > 0 ? wavesCompletedCap : 0),
+    wavesWithSpellbow: clampInt(source.wavesWithSpellbow, 0, spellbowCount > 0 ? wavesCompletedCap : 0),
+    wavesWithSage: clampInt(source.wavesWithSage, 0, sageCount > 0 ? wavesCompletedCap : 0),
+    heroDamage: clampInt(source.heroDamage, 0, heroDamageCap),
+    supportHealing: clampInt(source.supportHealing, 0, supportHealingCap),
+    heroAbilityTriggers: clampInt(source.heroAbilityTriggers, 0, abilityTriggerCap),
+    manualHeroAbilityTriggers: clampInt(source.manualHeroAbilityTriggers, 0, manualAbilityCap),
+    heroAliveWaves: clampInt(source.heroAliveWaves, 0, safeHeroCapacity),
+    barriersPlaced: clampInt(source.barriersPlaced, 0, 2000, sanitizeInt(source.playerBarriersPlaced)),
+    barrierBlocks: clampInt(source.barrierBlocks, 0, Math.max(5000, wavesStartedCap * 50 + 500)),
+    barrierReroutes: clampInt(source.barrierReroutes, 0, Math.max(5000, wavesStartedCap * 50 + 500)),
+    wavesAllBarriersPlaced: clampInt(source.wavesAllBarriersPlaced, 0, wavesCompletedCap),
+    wavesZeroBarrierLoss: clampInt(source.wavesZeroBarrierLoss, 0, wavesCompletedCap),
+    runsAllBarriersPlaced: clampInt(source.runsAllBarriersPlaced, 0, 1),
+    portalMoves: clampInt(source.portalMoves, 0, Math.max(25, wavesStartedCap)),
+    wavesAfterPortalMove: clampInt(source.wavesAfterPortalMove, 0, wavesCompletedCap),
+
+    wavesStarted: clampInt(source.wavesStarted, 0, wavesStartedCap, wavesStartedFloor),
+    wavesCompleted: clampInt(source.wavesCompleted, 0, wavesCompletedCap, wavesCompletedCap),
+    wavesPast20: clampInt(source.wavesPast20, 0, Math.max(0, wavesCompletedCap - 20), Math.max(0, wavesCompletedCap - 20)),
+    wavesPast30: clampInt(source.wavesPast30, 0, Math.max(0, wavesCompletedCap - 30), Math.max(0, wavesCompletedCap - 30)),
+    wavesMulti2: clampInt(source.wavesMulti2, 0, wavesCompletedCap),
+    wavesMulti3: clampInt(source.wavesMulti3, 0, wavesCompletedCap),
+    multiWaveBonusTriggers: clampInt(source.multiWaveBonusTriggers, 0, wavesStartedCap),
+    wavesFinishedNoRestart: clampInt(source.wavesFinishedNoRestart, 0, wavesCompletedCap),
+    runsReach10: clampInt(source.runsReach10, 0, input.waveReached >= 10 ? 1 : 0, input.waveReached >= 10 ? 1 : 0),
+    runsReach20: clampInt(source.runsReach20, 0, input.waveReached >= 20 ? 1 : 0, input.waveReached >= 20 ? 1 : 0),
+
+    goldSpent: clampInt(source.goldSpent, 0, goldSpendCap),
+    goldEarned: clampInt(source.goldEarned, 0, goldEarnedCap),
+    heroesHired: clampInt(source.heroesHired, 0, Math.max(sanitizeInt(source.hireCount), 0)),
+    upgrades: clampInt(source.upgrades, 0, upgradeCap),
+    avaxSpent: clampInt(source.avaxSpent, 0, 1_000_000_000),
+    dailyEliteQuestsCompleted: clampInt(source.dailyEliteQuestsCompleted, 0, 7),
+    relicChoicesOpened: clampInt(source.relicChoicesOpened, 0, relicChoiceCap),
+  };
+
+  out.killsElite = Math.min(sanitizeInt(out.killsElite), sanitizeInt(out.killsTotal));
+  out.killsBoss = Math.min(sanitizeInt(out.killsBoss), sanitizeInt(out.killsTotal));
+  out.heroKills = Math.min(sanitizeInt(out.heroKills), sanitizeInt(out.killsTotal));
+  out.abilityKills = Math.min(sanitizeInt(out.abilityKills), sanitizeInt(out.killsTotal));
+  out.killsSlowed = Math.min(sanitizeInt(out.killsSlowed), sanitizeInt(out.killsTotal));
+  out.killsBurning = Math.min(sanitizeInt(out.killsBurning), sanitizeInt(out.killsTotal));
+  out.killsStunned = Math.min(sanitizeInt(out.killsStunned), sanitizeInt(out.killsTotal));
+  out.killsQuickSpawn = Math.min(sanitizeInt(out.killsQuickSpawn), sanitizeInt(out.killsTotal));
+  out.killsNearPortal = Math.min(sanitizeInt(out.killsNearPortal), sanitizeInt(out.killsTotal));
+  out.killsNearStatue = Math.min(sanitizeInt(out.killsNearStatue), sanitizeInt(out.killsTotal));
+  out.killsMultiWave = Math.min(sanitizeInt(out.killsMultiWave), sanitizeInt(out.killsTotal));
+  out.killsPortalBelow75 = Math.min(sanitizeInt(out.killsPortalBelow75), sanitizeInt(out.killsTotal));
+  out.killsPortalBelow25 = Math.min(sanitizeInt(out.killsPortalBelow25), sanitizeInt(out.killsTotal));
+  out.critKills = Math.min(sanitizeInt(out.critKills), sanitizeInt(out.killsTotal));
+  out.championKills = Math.min(sanitizeInt(out.championKills), sanitizeInt(out.killsTotal));
+  out.manualHeroAbilityTriggers = Math.min(sanitizeInt(out.manualHeroAbilityTriggers), sanitizeInt(out.heroAbilityTriggers));
+  out.wavesMulti2 = Math.min(sanitizeInt(out.wavesMulti2), sanitizeInt(out.wavesCompleted));
+  out.wavesMulti3 = Math.min(sanitizeInt(out.wavesMulti3), sanitizeInt(out.wavesMulti2));
+  out.multiWaveBonusTriggers = Math.min(sanitizeInt(out.multiWaveBonusTriggers), sanitizeInt(out.wavesStarted));
+  out.goldSpent = Math.min(sanitizeInt(out.goldSpent), goldSpendCap);
+  out.goldEarned = Math.min(sanitizeInt(out.goldEarned), goldEarnedCap);
+  return out;
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback?: number) {
+  const parsed = Number(value);
+  const base = Number.isFinite(parsed) ? Math.round(parsed) : Math.round(Number(fallback || 0));
+  if (base < min) return min;
+  if (base > max) return max;
+  return base;
+}
 
 function validateRunSubmission(input: {
   clientRunId: string;

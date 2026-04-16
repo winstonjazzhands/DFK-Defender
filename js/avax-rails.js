@@ -487,8 +487,8 @@ function updateTreasuryUi() {
   const s = state.treasurySummary;
   if (totalEl) totalEl.textContent = `Lifetime In · AVAX: ${formatAvaxFromWei(s.lifetimeAvaxInWei || '0')} · JEWEL: ${formatJewelFromWei(s.lifetimeJewelInWei || '0')}`;
   if (todayEl) todayEl.textContent = `Lifetime Out · AVAX: ${formatRewardAmount(s.lifetimeAvaxOut || '0', 'AVAX')} · JEWEL: ${formatRewardAmount(s.lifetimeJewelOut || '0', 'Jewel')}`;
-  if (breakdownEl) breakdownEl.textContent = `Bundles: ${formatShortAvaxFromWei(s.entryFeeWei || '0')} · Gold swaps: ${formatShortAvaxFromWei(s.goldSwapWei || '0')} · Hero hires: ${formatShortAvaxFromWei(s.heroHireWei || '0')} · Burned gold: ${Math.max(0, Number(s.lifetimeBurnedGold || 0)).toLocaleString()}`;
-  if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} · Hero hires: ${Number(s.heroHireCount || 0)} · Lifetime tracked runs: ${Number(s.lifetimeTrackedRuns || 0).toLocaleString()}`;
+  if (breakdownEl) breakdownEl.textContent = `Bundles · AVAX: ${formatShortAvaxFromWei(s.entryFeeAvaxWei || s.entryFeeWei || '0')} · JEWEL: ${formatJewelFromWei(s.entryFeeJewelWei || '0').replace(/\s+Jewel$/, '')} · Gold swaps · AVAX: ${formatShortAvaxFromWei(s.goldSwapAvaxWei || '0')} · JEWEL: ${formatJewelFromWei(s.goldSwapJewelWei || '0').replace(/\s+Jewel$/, '')} · Hero hires · AVAX: ${formatShortAvaxFromWei(s.heroHireAvaxWei || '0')} · JEWEL: ${formatJewelFromWei(s.heroHireJewelWei || '0').replace(/\s+Jewel$/, '')} · Burned gold: ${Math.max(0, Number(s.lifetimeBurnedGold || 0)).toLocaleString()}`;
+  if (countEl) countEl.textContent = `Confirmed payments: ${Number(s.confirmedCount || 0)} · Gold swaps: ${Number(s.goldSwapCount || 0)} (${Number(s.goldSwapAvaxCount || 0)} AVAX / ${Number(s.goldSwapJewelCount || 0)} JEWEL) · Hero hires: ${Number(s.heroHireCount || 0)} (${Number(s.heroHireAvaxCount || 0)} AVAX / ${Number(s.heroHireJewelCount || 0)} JEWEL) · Lifetime tracked runs: ${Number(s.lifetimeTrackedRuns || 0).toLocaleString()}`;
   renderRewardClaimsAdmin();
 }
 

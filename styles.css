@@ -7205,6 +7205,16 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
     white-space: nowrap !important;
   }
 
+
+  .tile-pure-energy-label {
+    font-size: 6px !important;
+    letter-spacing: -0.1px !important;
+    line-height: 0.95 !important;
+    white-space: nowrap !important;
+    transform: scaleX(0.9);
+    transform-origin: center center;
+  }
+
   .tile-archer-shadow-label {
     font-size: 6px !important;
     line-height: 0.82 !important;
@@ -9213,3 +9223,55 @@ body #bountyModal .intro-body.bounty-body {
 
 
 .burned-gold-raffle-display{margin-top:0;display:inline-flex;align-items:center;justify-content:center;white-space:normal;line-height:1.2;text-align:center;word-break:break-word;overflow-wrap:anywhere;padding-top:.55rem;padding-bottom:.55rem;font-size:.84rem}
+
+
+.bounty-progress-row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:10px 0 6px;font-size:12px;opacity:.92}
+.bounty-progress-copy{color:#efe6ff}
+.bounty-progress-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 10px}
+.bounty-progress-bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,rgba(112,235,168,.95),rgba(224,198,84,.95))}
+
+
+/* V10.5.1 dailies-bounties integrated modal sizing */
+#questsModal .intro-modal-card,
+#bountyModal .intro-modal-card {
+  width: min(1368px, calc(100vw - 24px)) !important;
+  max-width: min(1368px, calc(100vw - 24px)) !important;
+}
+
+#questsModal .intro-body,
+#bountyModal .intro-body {
+  font-size: 0.9em;
+}
+
+#questsModal .modal-top-toggle-btn,
+#bountyModal .modal-top-toggle-btn,
+#questsModal .bounty-card-title,
+#bountyModal .bounty-card-title,
+#questsModal .bounty-card-copy,
+#bountyModal .bounty-card-copy,
+#questsModal .bounty-tier-label,
+#bountyModal .bounty-tier-label,
+#questsModal .bounty-tier-index,
+#bountyModal .bounty-tier-index,
+#questsModal .bounty-reward-pill,
+#bountyModal .bounty-reward-pill,
+#questsModal .bounty-state-chip,
+#bountyModal .bounty-state-chip,
+#questsModal .bounty-chain-note,
+#bountyModal .bounty-chain-note,
+#questsModal .bounty-claimant,
+#bountyModal .bounty-claimant,
+#questsModal .bounty-claim-btn,
+#bountyModal .bounty-claim-btn,
+#questsModal .bounty-progress-row,
+#bountyModal .bounty-progress-row,
+#questsModal .bounty-strip-kicker,
+#bountyModal .bounty-strip-kicker,
+#questsModal .bounty-strip-copy,
+#bountyModal .bounty-strip-copy,
+#questsModal .bounty-strip-badge,
+#bountyModal .bounty-strip-badge,
+#questsModal .bounty-status-banner,
+#bountyModal .bounty-status-banner {
+  font-size: 0.9em !important;
+}

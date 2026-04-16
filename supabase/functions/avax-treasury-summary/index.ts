@@ -25,6 +25,25 @@ function sumWei(rows: Array<{ expected_amount_wei?: string | number | null; amou
   return rows.reduce((total, row) => total + BigInt(String((row && (row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei)) || '0')), 0n).toString();
 }
 
+function sumWeiBy(rows: Array<{ expected_amount_wei?: string | number | null; amount_wei?: string | number | null; paid_amount_wei?: string | number | null }>, predicate: (row: any) => boolean) {
+  return rows.reduce((total, row) => predicate(row) ? total + BigInt(String((row && (row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei)) || '0')) : total, 0n).toString();
+}
+
+function normalizeCurrency(value: unknown) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizeStatus(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isCompletedRewardLike(row: { status?: unknown; paid_at?: unknown; payout_status?: unknown; tx_hash?: unknown; payout_tx_hash?: unknown }) {
+  return normalizeStatus(row.status) === 'paid'
+    || normalizeStatus(row.payout_status) === 'paid'
+    || !!String(row.paid_at || '').trim()
+    || !!String(row.tx_hash || row.payout_tx_hash || '').trim();
+}
+
 function normalizeDecimalString(value: unknown) {
   const text = String(value ?? '').trim();
   if (!text) return '0';
@@ -119,56 +138,108 @@ Deno.serve(async (req) => {
 
     const [
       { data: sessionRows, error: sessionError },
+      { data: legacyAvaxRows, error: legacyAvaxError },
       { data: tokenRows, error: tokenError },
+      { data: tokenSessionRows, error: tokenSessionError },
       burnRows,
       { count: lifetimeTrackedRunsCount, error: runCountError },
       { data: latestRaffleWinner, error: latestRaffleWinnerError },
       { data: latestAvaxRaffleWinner, error: latestAvaxRaffleWinnerError },
-      { data: paidClaimRows, error: paidClaimRowsError },
+      { data: rewardClaimRows, error: rewardClaimRowsError },
+      { data: raffleRows, error: raffleRowsError },
     ] = await Promise.all([
       admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed'),
+      admin.from('avax_payment_verifications').select('*'),
       admin.from('dfk_token_payments').select('*'),
+      admin.from('dfk_token_payment_sessions').select('*').eq('status', 'verified'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
       admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
       admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('reward_claim_requests').select('reward_currency, amount_value, amount_text, status').eq('status', 'paid'),
+      admin.from('reward_claim_requests').select('id, reward_currency, amount_value, amount_text, status, paid_at, tx_hash'),
+      admin.from('daily_raffle_results').select('claim_id, reward_currency, reward_amount, payout_status, payout_tx_hash'),
     ]);
 
     logNonMissingError('avax-treasury-summary sessionRows query failed', sessionError, 'crypto_payment_sessions');
+    logNonMissingError('avax-treasury-summary legacy AVAX rows query failed', legacyAvaxError, 'avax_payment_verifications');
     logNonMissingError('avax-treasury-summary tokenRows query failed', tokenError, 'dfk_token_payments');
+    logNonMissingError('avax-treasury-summary token session rows query failed', tokenSessionError, 'dfk_token_payment_sessions');
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
     logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
     logNonMissingError('avax-treasury-summary latest AVAX raffle winner query failed', latestAvaxRaffleWinnerError, 'daily_raffle_results');
-    logNonMissingError('avax-treasury-summary paid reward claims query failed', paidClaimRowsError, 'reward_claim_requests');
+    logNonMissingError('avax-treasury-summary reward claims query failed', rewardClaimRowsError, 'reward_claim_requests');
+    logNonMissingError('avax-treasury-summary raffle rows query failed', raffleRowsError, 'daily_raffle_results');
 
-    const safeSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
-    const safeTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
-    const safePaidClaimRows = Array.isArray(paidClaimRows) ? paidClaimRows : [];
+    const primarySessionRows = Array.isArray(sessionRows) ? sessionRows : [];
+    const fallbackLegacyAvaxRows = Array.isArray(legacyAvaxRows) ? legacyAvaxRows : [];
+    const safeSessionRows = primarySessionRows.length
+      ? primarySessionRows
+      : fallbackLegacyAvaxRows.map((row) => ({
+          ...row,
+          status: 'confirmed',
+          confirmed_at: row.verified_at || row.confirmed_at || row.created_at || null,
+          amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
+        }));
+    const primaryTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
+    const verifiedTokenSessions = Array.isArray(tokenSessionRows) ? tokenSessionRows : [];
+    const paidTokenHashes = new Set(primaryTokenRows.map((row: any) => String(row?.tx_hash || '').trim().toLowerCase()).filter(Boolean));
+    const paidTokenSessionIds = new Set(primaryTokenRows.map((row: any) => String(row?.payment_session_id || '').trim()).filter(Boolean));
+    const safeTokenRows = primaryTokenRows.concat(verifiedTokenSessions
+      .filter((row: any) => {
+        const txHash = String(row?.tx_hash || '').trim().toLowerCase();
+        const sessionId = String(row?.id || '').trim();
+        if (txHash && paidTokenHashes.has(txHash)) return false;
+        if (sessionId && paidTokenSessionIds.has(sessionId)) return false;
+        return true;
+      })
+      .map((row: any) => ({
+        ...row,
+        paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei || '0',
+      })));
+    const safeRewardClaimRows = Array.isArray(rewardClaimRows) ? rewardClaimRows : [];
+    const safeRaffleRows = Array.isArray(raffleRows) ? raffleRows : [];
     const today = new Date().toISOString().slice(0, 10);
     const confirmed = []
-      .concat(safeSessionRows.map((row) => ({
+      .concat(safeSessionRows.map((row: any) => ({
         kind: row.kind,
+        currency: 'AVAX',
         amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
         confirmed_at: row.verified_at || row.confirmed_at,
       })))
-      .concat(safeTokenRows.map((row) => ({
+      .concat(safeTokenRows.map((row: any) => ({
         kind: row.kind,
+        currency: 'JEWEL',
         amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
         confirmed_at: row.verified_at || row.confirmed_at,
       })));
     const todayRows = confirmed.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
     const entryRows = confirmed.filter((row) => String(row.kind || '') === 'entry_fee');
-    const goldRows = confirmed.filter((row) => String(row.kind || '') === 'gold_swap');
+    const goldRows = confirmed.filter((row) => {
+      const kind = String(row.kind || '').trim();
+      return kind === 'gold_swap' || kind === 'jewel_gold_swap';
+    });
     const heroRows = confirmed.filter((row) => {
-      const kind = String(row.kind || '');
-      return kind === 'hero_hire' || kind === 'milestone_hero_hire';
+      const kind = String(row.kind || '').trim();
+      return kind === 'hero_hire' || kind === 'milestone_hero_hire' || kind === 'jewel_extra_hero' || kind === 'jewel_milestone_hero_hire';
     });
     const burnEntries = Array.isArray(burnRows) ? burnRows : [];
     const lifetimeAvaxInWei = sumWei(safeSessionRows);
     const lifetimeJewelInWei = sumWei(safeTokenRows);
-    const lifetimeAvaxOut = sumRewardAmounts(safePaidClaimRows, 'AVAX');
-    const lifetimeJewelOut = sumRewardAmounts(safePaidClaimRows, 'JEWEL');
+
+    const completedRewardClaims = safeRewardClaimRows.filter((row: any) => isCompletedRewardLike(row));
+    const completedClaimIds = new Set(completedRewardClaims.map((row: any) => String(row?.id || '').trim()).filter(Boolean));
+    const unclaimedCompletedRaffles = safeRaffleRows.filter((row: any) => {
+      if (!isCompletedRewardLike(row)) return false;
+      const claimId = String(row?.claim_id || '').trim();
+      return !claimId || !completedClaimIds.has(claimId);
+    }).map((row: any) => ({
+      reward_currency: row.reward_currency,
+      amount_value: row.reward_amount,
+      amount_text: row.reward_amount == null ? null : String(row.reward_amount),
+    }));
+    const completedOutgoingRows = completedRewardClaims.concat(unclaimedCompletedRaffles);
+    const lifetimeAvaxOut = sumRewardAmounts(completedOutgoingRows, 'AVAX');
+    const lifetimeJewelOut = sumRewardAmounts(completedOutgoingRows, 'JEWEL');
     const todayBurnRows = burnEntries.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
     const lifetimeBurnedGold = burnEntries.reduce((total, row) => total + (Number((row && (row.burn_amount ?? row.amount)) || 0) || 0), 0);
@@ -187,11 +258,23 @@ Deno.serve(async (req) => {
       lifetimeJewelOut,
       todayConfirmedWei: sumWei(todayRows),
       entryFeeWei: sumWei(entryRows),
+      entryFeeAvaxWei: sumWeiBy(entryRows, (row) => row.currency === 'AVAX'),
+      entryFeeJewelWei: sumWeiBy(entryRows, (row) => row.currency === 'JEWEL'),
       goldSwapWei: sumWei(goldRows),
+      goldSwapAvaxWei: sumWeiBy(goldRows, (row) => row.currency === 'AVAX'),
+      goldSwapJewelWei: sumWeiBy(goldRows, (row) => row.currency === 'JEWEL'),
       heroHireWei: sumWei(heroRows),
+      heroHireAvaxWei: sumWeiBy(heroRows, (row) => row.currency === 'AVAX'),
+      heroHireJewelWei: sumWeiBy(heroRows, (row) => row.currency === 'JEWEL'),
       entryFeeCount: entryRows.length,
+      entryFeeAvaxCount: entryRows.filter((row) => row.currency === 'AVAX').length,
+      entryFeeJewelCount: entryRows.filter((row) => row.currency === 'JEWEL').length,
       goldSwapCount: goldRows.length,
+      goldSwapAvaxCount: goldRows.filter((row) => row.currency === 'AVAX').length,
+      goldSwapJewelCount: goldRows.filter((row) => row.currency === 'JEWEL').length,
       heroHireCount: heroRows.length,
+      heroHireAvaxCount: heroRows.filter((row) => row.currency === 'AVAX').length,
+      heroHireJewelCount: heroRows.filter((row) => row.currency === 'JEWEL').length,
       lifetimeTrackedRuns,
       lifetimeBurnedGold,
       todayBurnedGold,

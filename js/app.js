@@ -732,7 +732,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       name: 'Pirate',
       letter: 'PIR',
       hp: 308,
-      damage: 39,
+      damage: 38.22,
       attackInterval: 1.25,
       range: 3,
       autoAttack: true,
@@ -1378,6 +1378,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       claimed: {},
       metrics: {},
     },
+    weeklyBountyProgress: {
+      weekKey: '',
+      playerKey: '',
+      metrics: {},
+    },
   };
 
   function now() { return game.virtualNow || Date.now(); }
@@ -1425,7 +1430,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
 
 
   const DAILY_QUEST_GOAL_MULTIPLIER = 5.625;
-  const DAILY_QUEST_BOARD_VERSION = 4;
+  const DAILY_QUEST_BOARD_VERSION = 5;
   const DAILY_QUEST_TIER_CONFIG = Object.freeze({
     free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', rewardAvax: 0, goalMultiplier: 0.75, count: 5, unlocksRewardedQuests: true, tierLabel: 'Unlock Quest' }),
     standard: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', rewardAvax: 0.0006, goalMultiplier: 1.5, count: 3, requiresFreeCompletion: true, tierLabel: 'Daily Quest' }),
@@ -1671,6 +1676,312 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     };
   }
 
+
+  const WEEKLY_BOUNTY_PROGRESS_VERSION = 3;
+
+  function getWeeklyBountyWeekKey(input = new Date()) {
+    const date = input instanceof Date ? new Date(input.getTime()) : new Date(input || Date.now());
+    const utcDay = date.getUTCDay();
+    const diffToMonday = (utcDay + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - diffToMonday);
+    date.setUTCHours(0, 0, 0, 0);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function nextWeekIso(weekKey) {
+    const date = new Date(`${String(weekKey || '')}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setUTCDate(date.getUTCDate() + 7);
+    return date.toISOString();
+  }
+
+  function getWeeklyBountyStorageKey(playerKey, weekKey) {
+    return `dfkDefenderWeeklyBountyProgress:v${WEEKLY_BOUNTY_PROGRESS_VERSION}:${playerKey}:${weekKey}`;
+  }
+
+  function createEmptyWeeklyBountyMetrics() {
+    return {
+      killsTotal: 0,
+      killsElite: 0,
+      killsBoss: 0,
+      heroKills: 0,
+      abilityKills: 0,
+      killsSlowed: 0,
+      killsBurning: 0,
+      killsStunned: 0,
+      killsQuickSpawn: 0,
+      killsNearPortal: 0,
+      killsNearStatue: 0,
+      killsMultiWave: 0,
+      killsPortalBelow75: 0,
+      killsPortalBelow25: 0,
+      critKills: 0,
+      heroesDeployed: 0,
+      wavesWithWarrior: 0,
+      wavesWithSpellbow: 0,
+      wavesWithSage: 0,
+      heroDamage: 0,
+      supportHealing: 0,
+      heroAbilityTriggers: 0,
+      manualHeroAbilityTriggers: 0,
+      championKills: 0,
+      heroAliveWaves: 0,
+      wavesWithTwoHeroes: 0,
+      barriersPlaced: 0,
+      barrierBlocks: 0,
+      barrierReroutes: 0,
+      wavesAllBarriersPlaced: 0,
+      wavesZeroBarrierLoss: 0,
+      runsAllBarriersPlaced: 0,
+      portalMoves: 0,
+      wavesAfterPortalMove: 0,
+      wavesStarted: 0,
+      wavesCompleted: 0,
+      wavesPast20: 0,
+      wavesPast30: 0,
+      wavesMulti2: 0,
+      wavesMulti3: 0,
+      multiWaveBonusTriggers: 0,
+      wavesFinishedNoRestart: 0,
+      runsReach10: 0,
+      runsReach20: 0,
+      goldSpent: 0,
+      goldEarned: 0,
+      heroesHired: 0,
+      upgrades: 0,
+      avaxSpent: 0,
+      dailyEliteQuestsCompleted: 0,
+      relicChoicesOpened: 0,
+    };
+  }
+
+  function persistWeeklyBountyProgress() {
+    try {
+      const state = game.weeklyBountyProgress || {};
+      if (!state.playerKey || !state.weekKey) return;
+      localStorage.setItem(getWeeklyBountyStorageKey(state.playerKey, state.weekKey), JSON.stringify({ metrics: state.metrics || createEmptyWeeklyBountyMetrics() }));
+    } catch (_error) {}
+  }
+
+  function ensureWeeklyBountyProgress(force = false) {
+    const playerKey = getDailyQuestPlayerKey();
+    const weekKey = getWeeklyBountyWeekKey();
+    const state = game.weeklyBountyProgress || (game.weeklyBountyProgress = {});
+    if (!force && state.playerKey === playerKey && state.weekKey === weekKey && state.metrics && Object.keys(state.metrics).length) return state;
+    let stored = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(getWeeklyBountyStorageKey(playerKey, weekKey)) || 'null');
+    } catch (_error) {
+      stored = null;
+    }
+    state.playerKey = playerKey;
+    state.weekKey = weekKey;
+    state.metrics = { ...createEmptyWeeklyBountyMetrics(), ...(stored && stored.metrics ? stored.metrics : {}) };
+    persistWeeklyBountyProgress();
+    return state;
+  }
+
+  function getWeeklyBountyMetric(metric) {
+    const state = ensureWeeklyBountyProgress();
+    return Math.max(0, Number(state.metrics && state.metrics[metric] || 0) || 0);
+  }
+
+  function updateWeeklyBountyMetric(metric, amount, mode = 'add') {
+    if (!metric) return;
+    const state = ensureWeeklyBountyProgress();
+    if (!state.metrics) state.metrics = createEmptyWeeklyBountyMetrics();
+    const currentValue = Number(state.metrics[metric] || 0) || 0;
+    const incoming = Number(amount || 0) || 0;
+    const nextValue = mode === 'max'
+      ? Math.max(currentValue, incoming)
+      : Math.max(0, currentValue + incoming);
+    state.metrics[metric] = nextValue;
+    persistWeeklyBountyProgress();
+    if ((els.bountyModal && !els.bountyModal.classList.contains('hidden')) || game.questBoardView === 'bounty') renderBountyBoard();
+  }
+
+  function getWeeklyBountyProgressValue(entry) {
+    if (!entry || !entry.metric) return 0;
+    return getWeeklyBountyMetric(entry.metric);
+  }
+
+  function getWeeklyBountyClaimNames(entry) {
+    if (!entry) return [];
+    if (Array.isArray(entry.claimants)) return entry.claimants.filter(Boolean).map((value) => String(value || '').trim()).filter(Boolean);
+    return [];
+  }
+
+
+
+  function formatWeeklyBountyRewardValue(value) {
+    const numeric = Number(value || 0) || 0;
+    return numeric.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+
+  const WEEKLY_BOUNTY_DIFFICULTY = Object.freeze({
+    heavy: Object.freeze({ key: 'heavy', label: 'Heavy', selectionWeight: 0.9, rewardAvax: 0.03, rewardJewel: 35 }),
+    medium: Object.freeze({ key: 'medium', label: 'Medium', selectionWeight: 1.08, rewardAvax: 0.02, rewardJewel: 24 }),
+    low: Object.freeze({ key: 'low', label: 'Light', selectionWeight: 1.2, rewardAvax: 0.008, rewardJewel: 10 }),
+  });
+
+  function buildWeeklyBounty(entry) {
+    const difficultyKey = String(entry && entry.difficulty || 'medium');
+    const difficulty = WEEKLY_BOUNTY_DIFFICULTY[difficultyKey] || WEEKLY_BOUNTY_DIFFICULTY.medium;
+    const rewardAvax = Number(difficulty.rewardAvax || 0) || 0;
+    const rewardJewel = Math.max(0, Number(difficulty.rewardJewel || 0) || 0);
+    const rewardAvaxText = `${formatWeeklyBountyRewardValue(rewardAvax)} AVAX`;
+    const rewardJewelText = `${formatWeeklyBountyRewardValue(rewardJewel)} JEWEL`;
+    return Object.freeze({
+      ...entry,
+      goal: Math.max(1, Math.round(Number(entry && entry.goal || 0) || 0)),
+      difficulty: difficultyKey,
+      difficultyLabel: difficulty.label,
+      selectionWeight: Number(entry && entry.selectionWeight || difficulty.selectionWeight || 1) || 1,
+      rewardAvax,
+      rewardJewel,
+      rewardAvaxText,
+      rewardJewelText,
+      rewardPairText: `${rewardAvaxText} or ${rewardJewelText}`,
+      reward: `${rewardAvaxText} or ${rewardJewelText}`,
+      rewardText: `${rewardAvaxText} or ${rewardJewelText}`,
+      claimLimit: Math.max(1, Number(entry && entry.claimLimit || 3) || 3),
+      isMultiWave: !!(entry && entry.isMultiWave),
+      status: String(entry && entry.status || 'open'),
+      claimCount: Math.max(0, Number(entry && entry.claimCount || 0) || 0),
+      claimants: Array.isArray(entry && entry.claimants) ? entry.claimants.slice() : [],
+      viewerHasClaimed: !!(entry && entry.viewerHasClaimed),
+    });
+  }
+
+  function pickWeightedWeeklyBounty(pool, rng) {
+    const entries = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    if (!entries.length) return null;
+    const totalWeight = entries.reduce((sum, entry) => sum + Math.max(0.01, Number(entry.selectionWeight || 1) || 1), 0);
+    let roll = rng() * totalWeight;
+    for (const entry of entries) {
+      roll -= Math.max(0.01, Number(entry.selectionWeight || 1) || 1);
+      if (roll <= 0) return entry;
+    }
+    return entries[entries.length - 1] || null;
+  }
+
+  const WEEKLY_BOUNTY_POOL = Object.freeze([
+    buildWeeklyBounty({ id: 'defeat_10000_enemies', title: 'Defeat 10,000 enemies', detail: 'Defeat 10,000 enemies this week.', metric: 'killsTotal', metricLabel: 'Enemies defeated', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 10000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'defeat_5000_with_heroes', title: 'Defeat 5,000 enemies with heroes', detail: 'Defeat 5,000 enemies with hero attacks and hero damage.', metric: 'heroKills', metricLabel: 'Hero kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 5000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'defeat_5000_with_abilities', title: 'Defeat 5,000 enemies using abilities', detail: 'Finish 5,000 enemies with hero and champion abilities.', metric: 'abilityKills', metricLabel: 'Ability kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 5000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'defeat_2000_near_statue', title: 'Defeat 2,000 enemies near the statue', detail: 'Defeat 2,000 enemies near the statue this week.', metric: 'killsNearStatue', metricLabel: 'Statue-zone kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 2000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'defeat_1500_multiwave', title: 'Defeat 1,500 enemies during multi-wave bonus', detail: 'Defeat 1,500 enemies while 2+ live waves are active.', metric: 'killsMultiWave', metricLabel: 'Multi-wave kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 1500, difficulty: 'low', isMultiWave: true, selectionWeight: 1.35 }),
+    buildWeeklyBounty({ id: 'warrior_175_waves', title: 'Win 175 waves with a warrior deployed', detail: 'Clear 175 waves while a warrior is deployed.', metric: 'wavesWithWarrior', metricLabel: 'Waves with warrior', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 175, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'spellbow_175_waves', title: 'Win 175 waves with a spellbow deployed', detail: 'Clear 175 waves while a spellbow is deployed.', metric: 'wavesWithSpellbow', metricLabel: 'Waves with spellbow', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 175, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'sage_175_waves', title: 'Win 175 waves with a sage deployed', detail: 'Clear 175 waves while a sage is deployed.', metric: 'wavesWithSage', metricLabel: 'Waves with sage', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 175, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'hero_damage_500k', title: 'Deal 1,000,000 total damage with heroes', detail: 'Deal 1,000,000 total damage with heroes this week.', metric: 'heroDamage', metricLabel: 'Hero damage', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 1000000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'champion_3000_kills', title: 'Kill 3,000 enemies with champion units', detail: 'Let champion units finish 3,000 enemies.', metric: 'championKills', metricLabel: 'Champion kills', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 3000, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'place_200_barriers', title: 'Place 200 barriers', detail: 'Place 200 barriers this week.', metric: 'barriersPlaced', metricLabel: 'Barriers placed', category: 'strategy', categoryLabel: 'Defense / Strategy', goal: 200, difficulty: 'low' }),
+    buildWeeklyBounty({ id: 'complete_100_multiwave', title: 'Complete 100 waves during multi-wave (2+)', detail: 'Complete 100 waves while 2+ live waves are active.', metric: 'wavesMulti2', metricLabel: '2+ wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 100, difficulty: 'low', isMultiWave: true, selectionWeight: 1.4 }),
+    buildWeeklyBounty({ id: 'complete_200_multiwave', title: 'Complete 200 waves during multi-wave (2+)', detail: 'Complete 200 waves while 2+ live waves are active.', metric: 'wavesMulti2', metricLabel: '2+ wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 200, difficulty: 'low', isMultiWave: true, selectionWeight: 1.45 }),
+    buildWeeklyBounty({ id: 'complete_50_threewave', title: 'Complete 50 waves during 3-wave pressure', detail: 'Complete 50 waves while three live waves are active.', metric: 'wavesMulti3', metricLabel: '3-wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 50, difficulty: 'low', isMultiWave: true, selectionWeight: 1.35 }),
+    buildWeeklyBounty({ id: 'trigger_500_multiwave_bonus', title: 'Trigger multi-wave bonus 500 times', detail: 'Trigger the multi-wave bonus 500 times this week.', metric: 'multiWaveBonusTriggers', metricLabel: 'Bonus triggers', category: 'progression', categoryLabel: 'Wave / Progression', goal: 500, difficulty: 'low', isMultiWave: true, selectionWeight: 1.5 }),
+
+    buildWeeklyBounty({ id: 'defeat_2000_elite', title: 'Defeat 2,000 elite enemies', detail: 'Defeat 2,000 elite enemies this week.', metric: 'killsElite', metricLabel: 'Elite enemies defeated', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 2000, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'defeat_5000_multiwave', title: 'Defeat 5,000 enemies during multi-wave bonus', detail: 'Defeat 5,000 enemies while 2+ live waves are active.', metric: 'killsMultiWave', metricLabel: 'Multi-wave kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 5000, difficulty: 'medium', isMultiWave: true, selectionWeight: 1.25 }),
+    buildWeeklyBounty({ id: 'deploy_heroes_200', title: 'Deploy heroes 200 times', detail: 'Deploy heroes 200 times this week.', metric: 'heroesDeployed', metricLabel: 'Hero deployments', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 200, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'support_heal_250k', title: 'Heal 250,000 total HP with support heroes', detail: 'Restore 250,000 total HP with support heroes.', metric: 'supportHealing', metricLabel: 'Support healing', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 250000, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'manual_trigger_1400_abilities', title: 'Manually trigger hero abilities 1,400 times', detail: 'Manually trigger 1,400 hero abilities this week.', metric: 'manualHeroAbilityTriggers', metricLabel: 'Manual abilities triggered', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 1400, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'hero_alive_300_waves', title: 'Keep a hero alive for 300 waves total', detail: 'Stack up 300 hero-alive wave counts.', metric: 'heroAliveWaves', metricLabel: 'Hero-alive waves', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 300, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'complete_550_past_20', title: 'Complete 550 waves past wave 20', detail: 'Finish 550 waves numbered 21 or higher.', metric: 'wavesPast20', metricLabel: 'Waves beyond 20', category: 'progression', categoryLabel: 'Wave / Progression', goal: 550, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'complete_150_threewave', title: 'Complete 150 waves during 3-wave pressure', detail: 'Complete 150 waves with three live waves.', metric: 'wavesMulti3', metricLabel: '3-wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 150, difficulty: 'medium', isMultiWave: true, selectionWeight: 1.2 }),
+    buildWeeklyBounty({ id: 'complete_300_multiwave', title: 'Complete 300 waves during multi-wave (2+)', detail: 'Complete 300 waves while 2+ live waves are active.', metric: 'wavesMulti2', metricLabel: '2+ wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 300, difficulty: 'medium', isMultiWave: true, selectionWeight: 1.25 }),
+    buildWeeklyBounty({ id: 'trigger_250_multiwave_bonus', title: 'Trigger multi-wave bonus 250 times', detail: 'Trigger the multi-wave bonus 250 times this week.', metric: 'multiWaveBonusTriggers', metricLabel: 'Bonus triggers', category: 'progression', categoryLabel: 'Wave / Progression', goal: 250, difficulty: 'medium', isMultiWave: true, selectionWeight: 1.3 }),
+    buildWeeklyBounty({ id: 'reach_wave_20_250_runs', title: 'Reach wave 20 in 250 runs', detail: 'Reach wave 20 in 250 different runs.', metric: 'runsReach20', metricLabel: 'Runs reaching wave 20', category: 'progression', categoryLabel: 'Wave / Progression', goal: 250, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'spend_300k_gold', title: 'Spend 300,000 gold', detail: 'Spend 300,000 gold this week.', metric: 'goldSpent', metricLabel: 'Gold spent', category: 'economy', categoryLabel: 'Economy / Activity', goal: 300000, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'earn_450k_gold', title: 'Earn 450,000 gold', detail: 'Earn 450,000 gold this week.', metric: 'goldEarned', metricLabel: 'Gold earned', category: 'economy', categoryLabel: 'Economy / Activity', goal: 450000, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'hire_200_heroes', title: 'Hire 200 heroes', detail: 'Hire 200 heroes this week.', metric: 'heroesHired', metricLabel: 'Heroes hired', category: 'economy', categoryLabel: 'Economy / Activity', goal: 200, difficulty: 'medium' }),
+    buildWeeklyBounty({ id: 'open_175_relic_choices', title: 'Open 175 relic choices', detail: 'Open 175 relic choice windows this week.', metric: 'relicChoicesOpened', metricLabel: 'Relic choices opened', category: 'economy', categoryLabel: 'Economy / Activity', goal: 175, difficulty: 'medium' }),
+
+    buildWeeklyBounty({ id: 'defeat_75_bosses', title: 'Defeat 75 boss enemies', detail: 'Defeat 75 boss enemies this week.', metric: 'killsBoss', metricLabel: 'Bosses defeated', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 75, difficulty: 'heavy' }),
+    buildWeeklyBounty({ id: 'complete_150_past_30', title: 'Complete 150 waves past wave 30', detail: 'Finish 150 waves numbered 31 or higher.', metric: 'wavesPast30', metricLabel: 'Waves beyond 30', category: 'progression', categoryLabel: 'Wave / Progression', goal: 150, difficulty: 'heavy' }),
+    buildWeeklyBounty({ id: 'complete_1100_waves', title: 'Complete 1,100 waves', detail: 'Finish 1,100 waves this week.', metric: 'wavesCompleted', metricLabel: 'Waves completed', category: 'progression', categoryLabel: 'Wave / Progression', goal: 1100, difficulty: 'heavy' }),
+    buildWeeklyBounty({ id: 'start_1100_waves', title: 'Start 1,100 waves', detail: 'Start 1,100 waves this week.', metric: 'wavesStarted', metricLabel: 'Waves started', category: 'progression', categoryLabel: 'Wave / Progression', goal: 1100, difficulty: 'heavy' }),
+    buildWeeklyBounty({ id: 'trigger_300_multiwave_bonus', title: 'Trigger multi-wave bonus 300 times', detail: 'Trigger the multi-wave bonus 300 times this week.', metric: 'multiWaveBonusTriggers', metricLabel: 'Bonus triggers', category: 'progression', categoryLabel: 'Wave / Progression', goal: 300, difficulty: 'heavy', isMultiWave: true, selectionWeight: 1.2 }),
+  ]);
+
+  function pickWeeklyBountyTierEntries(pool, count, rng, usedIds, options = {}) {
+    const chosen = [];
+    const requiredMultiWave = !!options.requireMultiWave;
+    const pickOne = (candidates) => {
+      const available = (Array.isArray(candidates) ? candidates : []).filter((entry) => entry && !usedIds.has(entry.id));
+      if (!available.length) return null;
+      const previousCategory = chosen.length ? String(chosen[chosen.length - 1].category || '') : '';
+      const withoutRepeat = previousCategory ? available.filter((entry) => String(entry.category || '') !== previousCategory) : available;
+      return pickWeightedWeeklyBounty(withoutRepeat.length ? withoutRepeat : available, rng);
+    };
+    if (requiredMultiWave) {
+      const multiWavePick = pickOne((Array.isArray(pool) ? pool : []).filter((entry) => entry && entry.isMultiWave));
+      if (multiWavePick) {
+        chosen.push(multiWavePick);
+        usedIds.add(multiWavePick.id);
+      }
+    }
+    while (chosen.length < count) {
+      const picked = pickOne(pool);
+      if (!picked) break;
+      chosen.push(picked);
+      usedIds.add(picked.id);
+    }
+    return chosen;
+  }
+
+  function pickWeeklyBountyEntries(weekKey) {
+    const rng = seededRandom(`weekly-bounty:${weekKey}`);
+    const usedIds = new Set();
+    const lightPool = WEEKLY_BOUNTY_POOL.filter((entry) => String(entry.difficulty || '') === 'low');
+    const mediumPool = WEEKLY_BOUNTY_POOL.filter((entry) => String(entry.difficulty || '') === 'medium');
+    const heavyPool = WEEKLY_BOUNTY_POOL.filter((entry) => String(entry.difficulty || '') === 'heavy');
+    return [
+      ...pickWeeklyBountyTierEntries(lightPool, 3, rng, usedIds, { requireMultiWave: true }),
+      ...pickWeeklyBountyTierEntries(mediumPool, 3, rng, usedIds, { requireMultiWave: true }),
+      ...pickWeeklyBountyTierEntries(heavyPool, 1, rng, usedIds),
+    ].slice(0, 7);
+  }
+
+  function getClientWeeklyBountyEntries(weekKey, serverEntries = []) {
+    const baseEntries = pickWeeklyBountyEntries(weekKey).map((entry) => ({ ...entry }));
+    if (!Array.isArray(serverEntries) || !serverEntries.length) return baseEntries;
+    const byId = new Map();
+    for (const rawEntry of serverEntries) {
+      if (!rawEntry) continue;
+      const id = String(rawEntry.id || '').trim();
+      if (!id) continue;
+      byId.set(id, rawEntry);
+    }
+    return baseEntries.map((entry) => {
+      const serverEntry = byId.get(String(entry.id || '').trim());
+      if (!serverEntry) return entry;
+      const claimants = Array.isArray(serverEntry.claimants)
+        ? serverEntry.claimants.filter((name) => !!String(name || '').trim())
+        : (Array.isArray(serverEntry.claimNames) ? serverEntry.claimNames.filter((name) => !!String(name || '').trim()) : []);
+      return {
+        ...entry,
+        ...serverEntry,
+        claimants,
+        claimNames: claimants,
+        claimCount: Math.max(0, Number(serverEntry.claimCount ?? claimants.length) || 0),
+        claimLimit: Math.max(1, Number(serverEntry.claimLimit || entry.claimLimit || 3) || 3),
+        viewerHasClaimed: !!serverEntry.viewerHasClaimed,
+        rewardAvax: Number(serverEntry.rewardAvax ?? entry.rewardAvax ?? 0) || 0,
+        rewardJewel: Math.max(0, Number(serverEntry.rewardJewel ?? entry.rewardJewel ?? 0) || 0),
+        rewardAvaxText: String(serverEntry.rewardAvaxText || entry.rewardAvaxText || `${formatWeeklyBountyRewardValue(Number(serverEntry.rewardAvax ?? entry.rewardAvax ?? 0) || 0)} AVAX`),
+        rewardJewelText: String(serverEntry.rewardJewelText || entry.rewardJewelText || `${formatWeeklyBountyRewardValue(Number(serverEntry.rewardJewel ?? entry.rewardJewel ?? 0) || 0)} JEWEL`),
+        rewardPairText: String(serverEntry.rewardPairText || entry.rewardPairText || `${serverEntry.rewardAvaxText || entry.rewardAvaxText} or ${serverEntry.rewardJewelText || entry.rewardJewelText}`),
+        reward: String(serverEntry.rewardPairText || serverEntry.reward || entry.rewardPairText || entry.reward || '0.0005 AVAX or 5 JEWEL'),
+        rewardText: String(serverEntry.rewardPairText || serverEntry.rewardText || serverEntry.reward || entry.rewardPairText || entry.reward || '0.0005 AVAX or 5 JEWEL'),
+        status: String(serverEntry.status || entry.status || 'open'),
+      };
+    });
+  }
+
+
   function seededRandom(seed) {
     let h = 2166136261 >>> 0;
     for (let i = 0; i < seed.length; i += 1) {
@@ -1813,7 +2124,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       board.progress[quest.id] = Math.max(Number(board.progress[quest.id] || 0), nextValue);
     }
     persistDailyQuestBoard();
-    if (els.questsModal && !els.questsModal.classList.contains('hidden')) renderDailyQuestsBoard();
+    updateWeeklyBountyMetric(metric, amount, mode);
+    const questsModalVisible = !!(els.questsModal && !els.questsModal.classList.contains('hidden'));
+    if (questsModalVisible && game.questBoardView !== 'bounty') renderDailyQuestsBoard();
   }
 
 
@@ -1915,6 +2228,7 @@ async function claimDailyQuest(questId) {
     const result = await requestRewardClaim(claimPayload);
     board.claimed[questId] = true;
     persistDailyQuestBoard();
+    if (quest.tierKey === 'elite' || quest.tierKey === 'standard') updateWeeklyBountyMetric('dailyEliteQuestsCompleted', 1);
     if (!isConnectedWalletOnAvax() && Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
     const payoutResult = await waitForRewardClaimPayout(claimPayload, result);
     if (payoutResult && (String(payoutResult.status || '').toLowerCase() === 'paid' || String(payoutResult.txHash || '').trim())) {
@@ -2118,7 +2432,7 @@ function formatQuestResetCountdown(dateKey) {
     }).join('');
     const rewardClaimBanner = !canSubmitRewardClaims()
       ? '<div class="bounty-status-banner">Connect your wallet and enable run tracking to send daily reward claims to the backend.</div>'
-      : '<div class="bounty-status-banner">Claimed quests are also logged in the private rewards panel for payout review.</div>';
+      : '<div class="bounty-status-banner"></div>';
     const errorBanner = board.error ? `<div class="bounty-status-banner is-error">${escapeHtml(board.error)}</div>` : '';
     const showQuestTestReset = canUseDailyQuestTestReset(board.playerKey);
     const testCycleText = Number(board.testCycle || 0) > 0 ? ` • Test cycle ${Number(board.testCycle || 0)}` : '';
@@ -2137,21 +2451,14 @@ function formatQuestResetCountdown(dateKey) {
     els.questsBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
-          <div class="bounty-strip-kicker">Ten daily quests roll every UTC day</div>
-          <p class="bounty-strip-copy">You get 5 easy 0 Jewel unlock quests, 3 harder 2 Jewel quests, and 2 elite 3 Jewel quests. Finish all five 0 Jewel quests before the reward quests can begin.</p>
+          <div class="bounty-strip-kicker">Today's progress • ${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed</div>
+          <p class="bounty-strip-copy">Player: ${escapeHtml(board.playerKey)}${escapeHtml(testCycleText)} • 4x 0 Jewel · 3x 2 Jewel · 2x 3 Jewel • Nine daily quests roll every UTC day. You get 4 easy 0 Jewel unlock quests, 3 harder 2 Jewel quests, and 2 elite 3 Jewel quests. Finish all five 0 Jewel quests before the reward quests unlock. If your wallet is not whitelisted, your quest rewards will require manual approval before payout. To get whitelisted, contact winstonjazzhands in the DFK Discord.</p>
         </div>
-        <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)}</div>
+        <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)} • ${board.dateKey}</div>
       </div>
       ${rewardClaimBanner}
       ${errorBanner}
       ${testResetControls}
-      <div class="tracked-runs-hero-strip quests-summary-strip">
-        <div>
-          <div class="bounty-strip-kicker">Today's progress</div>
-          <p class="bounty-strip-copy">${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed • Player: ${escapeHtml(board.playerKey)}${escapeHtml(testCycleText)} • 5x 0 Jewel · 3x 2 Jewel · 2x 3 Jewel</p>
-        </div>
-        <div class="bounty-strip-badge">${board.dateKey}</div>
-      </div>
       <div class="bounty-grid quests-grid">${cards}</div>
     `;
     try { syncTopMenuWalletResources(); } catch (_error) {}
@@ -4578,6 +4885,11 @@ function renderDamageReport() {
     syncPersistentKnownRelics();
     game.continueOfferUsed = false;
     game.continueOfferPending = false;
+    game.portalMovedThisRun = false;
+    game.portalPickedUpForMove = false;
+    game.weeklyBountyRunBarriersCounted = false;
+    game.weeklyBountyRunReached10 = false;
+    game.weeklyBountyRunReached20 = false;
     game.continueSnapshot = null;
     game.attackLines = [];
     game.explosionEffects = [];
@@ -4928,13 +5240,10 @@ function renderDamageReport() {
   }
 
   function buildFunctionAuthHeaders(key, token, includeJson = true) {
-    const headers = { apikey: key };
+    const headers = { apikey: key, Authorization: `Bearer ${key}` };
     if (includeJson) headers['Content-Type'] = 'application/json';
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
       headers['x-session-token'] = token;
-    } else {
-      headers.Authorization = `Bearer ${key}`;
     }
     return headers;
   }
@@ -4948,7 +5257,10 @@ function renderDamageReport() {
       if (!token) throw new Error('Enable run tracking before claiming a bounty.');
     }
     const endpoint = `${url}/functions/v1/${functionName}`;
-    const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
+    const normalizedPayload = payload && typeof payload === 'object' ? { ...payload } : {};
+    if (requireAuth && token && !normalizedPayload.sessionToken) {
+      normalizedPayload.sessionToken = token;
+    }
 
     const isBoardRead = functionName === BOUNTY_BOARD_FUNCTION && !requireAuth;
     if (isBoardRead) {
@@ -5263,77 +5575,106 @@ function canSubmitRewardClaims() {
     showStatusOverlay();
   }
 
+
   function renderBountyBoard() {
     const bountyTargetBody = (game.questBoardView === 'bounty' && els.questsBody) ? els.questsBody : els.bountyBody;
     if (!bountyTargetBody) return;
     const state = game.bountyBoard || {};
+    ensureWeeklyBountyProgress();
     if (state.loading && !state.entries.length) {
-      bountyTargetBody.innerHTML = '<div class="bounty-status-banner">Loading bounty board…</div>';
+      bountyTargetBody.innerHTML = '<div class="bounty-status-banner">Loading weekly bounties…</div>';
       return;
     }
     if (state.error && !state.entries.length) {
       bountyTargetBody.innerHTML = `<div class="bounty-status-banner is-error">${state.error}</div>`;
       return;
     }
-    const cards = (state.entries || []).map((entry, index) => {
-      const cardClass = getBountyCardClass(entry.status);
-      const nowIso = new Date().toISOString();
-      const stateLabel = getBountyStateLabel(entry, nowIso);
-      const showDetails = Boolean(entry.revealed);
-      const rewardText = showDetails ? entry.reward : 'Locked';
-      const titleText = showDetails ? entry.title : 'Locked Bounty';
-      const detailText = entry.status === 'claimed'
-        ? `${showDetails ? entry.detail : 'Bounty claimed.'}`
-        : entry.status === 'open'
-          ? entry.detail
-          : entry.status === 'cooldown' && entry.revealAt
-            ? 'The next bounty unlocks 24 hours after the last claim.'
-            : 'Complete earlier bounty to unlock the next.';
-      const claimantText = entry.claimedByDisplay ? `Claimed by ${entry.claimedByDisplay}` : 'Tracked run required';
-      const eligibilityText = entry.status === 'open'
-        ? (entry.viewerEligible ? `Eligible tracked run found: wave ${entry.requiredWave}+` : `Tracked run must reach wave ${entry.requiredWave}`)
-        : claimantText;
-      const claimButton = entry.status === 'open'
-        ? `<button type="button" class="bounty-claim-btn" data-bounty-id="${entry.id}" ${entry.viewerCanClaim && !state.claiming ? '' : 'disabled'}>${state.claiming ? 'Claiming…' : (entry.viewerCanClaim ? 'Claim Bounty' : 'Claim Locked')}</button>`
-        : '';
+    const activeWeekKey = String(state.weekKey || getWeeklyBountyWeekKey());
+    const entries = Array.isArray(state.entries) && state.entries.length
+      ? state.entries
+      : getClientWeeklyBountyEntries(activeWeekKey, []);
+    const cards = entries.map((entry, index) => {
+      const progress = getWeeklyBountyProgressValue(entry);
+      const goal = Math.max(0, Number(entry.goal || 0) || 0);
+      const claimLimit = Math.max(1, Number(entry.claimLimit || 3) || 3);
+      const claimCount = Math.max(0, Number(entry.claimCount || 0) || 0);
+      const claimNames = getWeeklyBountyClaimNames(entry);
+      const viewerHasClaimed = !!entry.viewerHasClaimed;
+      const full = claimCount >= claimLimit;
+      const complete = progress >= goal && goal > 0;
+      const canClaim = !!getConnectedWalletAddress() && !viewerHasClaimed && !full && complete && canSubmitRewardClaims();
+      const status = full ? 'claimed' : (complete ? 'open' : 'locked');
+      const cardClass = getBountyCardClass(status);
+      const progressPct = goal > 0 ? Math.min(100, Math.round((progress / goal) * 100)) : 0;
+      const stateLabel = full
+        ? 'Closed'
+        : viewerHasClaimed
+          ? 'Claimed'
+          : (complete ? 'Ready' : 'In Progress');
+      const detailText = entry.detail || 'Weekly bounty progress carries all week for this wallet.';
+      const difficultyText = entry.difficultyLabel ? ` • ${entry.difficultyLabel}` : '';
+
+      const namesMarkup = claimNames.length
+        ? `<div class="bounty-claimant">Claimed by <strong>${claimNames.map((name) => escapeHtml(name)).join('</strong>, <strong>')}</strong></div>`
+        : '<div class="bounty-claimant">No claims yet this week. Each wallet can claim a bounty once, and each bounty can only be claimed by 3 unique wallets.</div>';
+      const buttonText = viewerHasClaimed
+        ? 'Claimed'
+        : full
+          ? 'Closed'
+          : complete
+            ? `Claim ${escapeHtml(entry.reward || '0.0125 AVAX')}`
+            : 'Keep Playing';
+      const claimActions = viewerHasClaimed
+        ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
+        : (canClaim
+          ? `<div class="bounty-claim-actions">
+              <button type="button" class="bounty-claim-btn" data-bounty-id="${escapeHtml(entry.id)}" data-reward-currency="AVAX" ${state.claiming ? 'disabled' : ''}>Claim ${escapeHtml(entry.rewardAvaxText || 'AVAX')}</button>
+              <button type="button" class="bounty-claim-btn bounty-claim-btn-alt" data-bounty-id="${escapeHtml(entry.id)}" data-reward-currency="JEWEL" ${state.claiming ? 'disabled' : ''}>Claim ${escapeHtml(entry.rewardJewelText || 'JEWEL')}</button>
+            </div>`
+          : `<button type="button" class="bounty-claim-btn" data-bounty-id="${escapeHtml(entry.id)}" disabled>${escapeHtml(buttonText)}</button>`);
       return `
         <article class="bounty-card ${cardClass}">
           <div class="bounty-card-top">
             <div class="bounty-tier-wrap">
-              <div class="bounty-tier-label">Bounty ${String(entry.tier || '').padStart(2, '0')}</div>
+              <div class="bounty-tier-label">Weekly Bounty</div>
               <div class="bounty-tier-index">${index + 1}</div>
             </div>
-            <div class="bounty-reward-pill ${cardClass}">${rewardText}</div>
+            <div class="bounty-reward-pill ${cardClass}">${escapeHtml(entry.rewardPairText || entry.reward || '0.0005 AVAX or 5 JEWEL')}</div>
           </div>
-          <h3 class="bounty-card-title">${titleText}</h3>
-          <p class="bounty-card-copy">${detailText}</p>
+          <h3 class="bounty-card-title">${escapeHtml(entry.title || 'Weekly Bounty')}</h3>
+          <div class="bounty-progress-row">
+            <div class="bounty-progress-copy">${progress.toLocaleString('en-US')} / ${goal.toLocaleString('en-US')}</div>
+            <div class="bounty-progress-copy">${claimCount}/${claimLimit} claimed</div>
+          </div>
+          <div class="bounty-progress-bar" aria-hidden="true"><span style="width:${progressPct}%;"></span></div>
           <div class="bounty-card-footer">
             <span class="bounty-state-chip ${cardClass}">${stateLabel}</span>
-            <span class="bounty-chain-note">${eligibilityText}</span>
+            <span class="bounty-chain-note">${escapeHtml(entry.categoryLabel || 'Weekly Challenge')} • ${escapeHtml(entry.metricLabel || 'Tracked progress')}</span>
           </div>
-          ${entry.claimedByDisplay ? `<div class="bounty-claimant">Claimed by <strong>${entry.claimedByDisplay}</strong></div>` : ''}
-          ${claimButton}
+          ${namesMarkup}
+          ${claimActions}
         </article>
       `;
     }).join('');
     const banner = state.error ? `<div class="bounty-status-banner is-error">${state.error}</div>` : '';
-    const nextRevealText = state.nextRevealAt
-      ? `Next reveal in ${formatBountyCountdown(state.nextRevealAt, new Date().toISOString())}`
-      : 'Current bounty is live';
+    const resetText = state.nextRevealAt
+      ? `Weekly reset in ${formatBountyCountdown(state.nextRevealAt, new Date().toISOString())}`
+      : 'Weekly reset every Monday 00:00 UTC';
     bountyTargetBody.innerHTML = `
       <div class="bounty-hero-strip">
         <div>
-          <div class="bounty-strip-kicker">Community challenge ladder</div>
-          <p class="bounty-strip-copy">Only tracked runs can claim bounties. When a bounty is claimed, the next one stays hidden for 24 hours before it opens.</p>
+          <div class="bounty-strip-kicker">Seven weekly bounties roll every Monday</div>
+          <p class="bounty-strip-copy">Seven weekly bounties roll every Monday: 3 light, 3 medium, and 1 heavy. Each bounty can be claimed by up to 3 unique wallets, each wallet can claim a given bounty once, and every claim must choose either AVAX or JEWEL.</p>
         </div>
-        <div class="bounty-strip-badge">${nextRevealText}</div>
+        <div class="bounty-strip-badge">${resetText}</div>
       </div>
       ${banner}
-      <div class="bounty-grid">${cards}</div>
+      <div class="bounty-grid">${cards || '<div class="bounty-status-banner">No active weekly bounties found.</div>'}</div>
     `;
   }
 
   function startBountyCountdownTick() {
+
     if (game.bountyBoard.tickTimer) clearInterval(game.bountyBoard.tickTimer);
     game.bountyBoard.tickTimer = setInterval(() => {
       if (!els.bountyModal || els.bountyModal.classList.contains('hidden')) return;
@@ -5350,15 +5691,19 @@ function canSubmitRewardClaims() {
   async function refreshBountyBoard() {
     game.bountyBoard.loading = true;
     game.bountyBoard.error = '';
+    game.bountyBoard.weekKey = getWeeklyBountyWeekKey();
+    game.bountyBoard.entries = getClientWeeklyBountyEntries(game.bountyBoard.weekKey, Array.isArray(game.bountyBoard.entries) ? game.bountyBoard.entries : []);
+    game.bountyBoard.nextRevealAt = nextWeekIso(game.bountyBoard.weekKey);
     renderBountyBoard();
     try {
       const walletAddress = getConnectedWalletAddress();
       const response = await callBountyFunction(BOUNTY_BOARD_FUNCTION, walletAddress ? { walletAddress } : {});
-      game.bountyBoard.entries = Array.isArray(response.entries) ? response.entries : [];
+      game.bountyBoard.entries = getClientWeeklyBountyEntries(game.bountyBoard.weekKey, Array.isArray(response.entries) ? response.entries : []);
       game.bountyBoard.runs = Array.isArray(response.runs) ? response.runs : [];
       game.bountyBoard.currentTimeIso = response.currentTime || new Date().toISOString();
-      game.bountyBoard.nextRevealAt = response.nextRevealAt || null;
+      game.bountyBoard.nextRevealAt = response.nextRevealAt || nextWeekIso(game.bountyBoard.weekKey);
     } catch (error) {
+      game.bountyBoard.entries = getClientWeeklyBountyEntries(game.bountyBoard.weekKey, []);
       game.bountyBoard.error = error && error.message ? error.message : 'Failed to load bounty board.';
     } finally {
       game.bountyBoard.loading = false;
@@ -5367,7 +5712,7 @@ function canSubmitRewardClaims() {
     }
   }
 
-  async function claimActiveBounty() {
+  async function claimActiveBounty(bountyId = '', rewardCurrency = '') {
     if (game.bountyBoard.claiming) return;
     const walletAddress = getConnectedWalletAddress();
     if (!walletAddress) {
@@ -5378,7 +5723,13 @@ function canSubmitRewardClaims() {
     game.bountyBoard.error = '';
     renderBountyBoard();
     try {
-      const result = await callBountyFunction(CLAIM_BOUNTY_FUNCTION, { walletAddress }, true);
+      const targetEntry = (Array.isArray(game.bountyBoard?.entries) ? game.bountyBoard.entries : []).find((entry) => String(entry && entry.id || '') === String(bountyId || '')) || null;
+      const result = await callBountyFunction(CLAIM_BOUNTY_FUNCTION, {
+        walletAddress,
+        bountyId,
+        rewardCurrency,
+        progressValue: targetEntry ? getWeeklyBountyProgressValue(targetEntry) : 0,
+      }, true);
       showBanner(result && result.message ? result.message : 'Bounty claimed.', 2600);
       if (result && (String(result.status || '').toLowerCase() === 'paid' || String(result.txHash || '').trim())) {
         refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
@@ -6508,7 +6859,8 @@ function canSubmitRewardClaims() {
     const waited = getChampionWavesWaited();
     const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
     const placement = getChampionDeployPreview(waited);
-    const quickButton = game.selectedChampionConfirmed && !deployed
+    const quickDeployAvailable = !!selected && !deployed && (game.selectedChampionConfirmed || Number(game.waveNumber || 0) > 0);
+    const quickButton = quickDeployAvailable
       ? `<button id="championQuickDeployBtn" type="button" class="wallet-btn secondary champion-quick-deploy-btn"${placement.ready && !game.placingHeroType ? '' : ' disabled'}>${placement.ready ? 'Deploy now' : placement.text}</button>`
       : '';
     preview.innerHTML = `<div class="champion-collapsed-preview-card"><img class="champion-collapsed-preview-portrait" src="${getChampionPortraitImage(hero, definition.key || '')}" alt="${escapeHtml(definition.label || 'Champion')}"><div class="champion-collapsed-preview-meta"><div class="champion-collapsed-preview-class">${escapeHtml(definition.label || 'Champion')}</div><div class="champion-collapsed-preview-line">Lvl ${escapeHtml(String(hero.level || 1))}</div>${quickButton}</div></div>`;
@@ -6576,13 +6928,16 @@ function canSubmitRewardClaims() {
       if (game.selectedChampionConfirmed && game.selectedChampionKey) {
         const lockedMatch = game.championRoster.find((entry) => entry && entry.key === game.selectedChampionKey);
         if (lockedMatch) {
+          game.selectedChampionKey = lockedMatch.key;
           game.selectedChampionHeroId = String(lockedMatch.hero.id);
           game.selectedChampionSnapshot = { key: lockedMatch.key, hero: { ...lockedMatch.hero }, definition: lockedMatch.definition };
         }
       } else {
         game.selectedChampionKey = game.championRoster[0].key;
         game.selectedChampionHeroId = String(game.championRoster[0].hero.id);
-        if (!game.selectedChampionConfirmed) game.championModalForceChoice = true;
+        if (!game.selectedChampionConfirmed && Number(game.waveNumber || 0) === 0 && !game.runningWave) {
+          game.championModalForceChoice = false;
+        }
       }
     }
     if (!game.championRoster.length && !game.selectedChampionConfirmed) {
@@ -6593,6 +6948,27 @@ function canSubmitRewardClaims() {
       game.championModalForceChoice = false;
     }
     renderChampionPanel();
+  }
+
+  function ensureChampionSelectionReady(options = {}) {
+    const roster = Array.isArray(game.championRoster) ? game.championRoster : [];
+    if (!roster.length) return null;
+    let selected = getSelectedChampionRecord();
+    if (!selected) {
+      const preferred = roster[0];
+      game.selectedChampionKey = preferred.key;
+      game.selectedChampionHeroId = String(preferred.hero.id);
+      if (!game.selectedChampionConfirmed || !game.selectedChampionSnapshot) {
+        game.selectedChampionSnapshot = { key: preferred.key, hero: { ...preferred.hero }, definition: preferred.definition };
+      }
+      selected = getSelectedChampionRecord() || preferred;
+    }
+    if (selected && options.autoConfirm && !game.selectedChampionConfirmed) {
+      game.selectedChampionConfirmed = true;
+      game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
+      game.championModalForceChoice = false;
+    }
+    return selected;
   }
 
   function renderChampionCards(container, options = {}) {
@@ -6659,16 +7035,20 @@ function canSubmitRewardClaims() {
   }
 
   function showChampionModal(forceOpen = false) {
-    if (!els.championModal || !(game.championRoster || []).length) return;
+    if (!els.championModal || !(game.championRoster || []).length) return false;
     if (game.selectedChampionConfirmed) {
       const selected = getSelectedChampionRecord();
       showBanner(selected ? `${selected.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
-      return;
+      return false;
     }
     if (!canChooseChampionNow()) {
       showBanner('Choose your champion before the first wave starts.', 2000);
-      return;
+      return false;
     }
+    if (game.runningWave || Number(game.waveNumber || 0) !== 0) {
+      return false;
+    }
+    ensureChampionSelectionReady({ autoConfirm: false });
     try {
       hideRewardPayoutNoticeModal();
       closeIntroModal();
@@ -6691,7 +7071,8 @@ function canSubmitRewardClaims() {
     if (championCard) championCard.style.pointerEvents = 'auto';
     els.championModal.classList.remove('hidden');
     els.championModal.setAttribute('aria-hidden', 'false');
-    if (!forceOpen && !game.championModalForceChoice && game.selectedChampionConfirmed) return;
+    if (!forceOpen && !game.championModalForceChoice && game.selectedChampionConfirmed) return false;
+    return true;
   }
 
   function hideChampionModal() {
@@ -6808,12 +7189,13 @@ function canSubmitRewardClaims() {
         : '';
     }
     if (els.deployChampionBtn) {
-      const selected = getSelectedChampionRecord();
+      const selected = ensureChampionSelectionReady({ autoConfirm: false });
       const waited = getChampionWavesWaited();
       const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
       const required = getChampionRequiredWaitWaves();
       const ready = waited >= required && !deployed;
-      els.deployChampionBtn.disabled = !selected || !game.selectedChampionConfirmed || deployed || waited < required || !!game.placingHeroType;
+      const canAutoConfirmForDeploy = Number(game.waveNumber || 0) > 0;
+      els.deployChampionBtn.disabled = !selected || deployed || waited < required || !!game.placingHeroType || (!game.selectedChampionConfirmed && !canAutoConfirmForDeploy);
       els.deployChampionBtn.textContent = 'Deploy';
       els.deployChampionBtn.classList.toggle('hidden', !!game.championPanelCollapsed && ready);
     }
@@ -6825,11 +7207,27 @@ function canSubmitRewardClaims() {
   }
 
   function beginChampionPlacement() {
-    const selected = getSelectedChampionRecord();
+    const inRun = Number(game.waveNumber || 0) > 0 || game.runningWave;
+    const selected = ensureChampionSelectionReady({ autoConfirm: inRun });
     const waited = getChampionWavesWaited();
     if (!selected) {
-      showChampionModal(true);
+      if (canChooseChampionNow()) {
+        showChampionModal(true);
+      } else {
+        showBanner('No champion is available for this run.', 1800);
+      }
       return;
+    }
+    if (!game.selectedChampionConfirmed) {
+      if (canChooseChampionNow()) {
+        showChampionModal(true);
+        showBanner('Lock in your champion before the run begins.', 2000);
+      } else {
+        game.selectedChampionConfirmed = true;
+        game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
+        game.championModalForceChoice = false;
+      }
+      if (!game.selectedChampionConfirmed) return;
     }
     if (game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId)) {
       showBanner('Champion is already on the field.', 1500);
@@ -6840,12 +7238,15 @@ function canSubmitRewardClaims() {
       showBanner(`Champion deployment unlocks after ${required} waited wave${required === 1 ? '' : 's'}. Current wait: ${waited}.`, 1800);
       return;
     }
+    hideChampionLockModal();
+    hideChampionModal();
     game.placingHeroType = selected.definition.towerType;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = null;
     game.placingWalletHeroId = null;
     showBanner(`Place ${selected.definition.label} on any open tile. Champions ignore the normal hero cap.`, 2200);
+    renderChampionPanel();
     render();
   }
 
@@ -7057,9 +7458,11 @@ function canSubmitRewardClaims() {
     if (els.questDailyToggleBtn) els.questDailyToggleBtn.classList.toggle('active', !bountyMode);
     if (els.questBountyToggleBtn) els.questBountyToggleBtn.classList.toggle('active', bountyMode);
     const questsTitle = document.getElementById('questsTitle');
-    if (questsTitle) questsTitle.textContent = bountyMode ? 'Bounties' : 'Dailies / Bounties';
+    if (questsTitle) questsTitle.textContent = bountyMode ? 'Weekly Bounties' : 'Daily Quests';
+    if (els.questsBtn) els.questsBtn.textContent = '✅ Dailies / Bounties';
+    if (els.mobileFuncQuestsBtn) els.mobileFuncQuestsBtn.textContent = 'Dailies / Bounties';
     const questsKicker = document.querySelector('#questsModal .intro-kicker');
-    if (questsKicker) questsKicker.textContent = bountyMode ? 'DFK Defender Bounties' : 'DFK Defender Daily Rewards';
+    if (questsKicker) questsKicker.textContent = bountyMode ? 'DFK Defender Weekly Bounties' : 'DFK Defender Daily Rewards';
   }
 
   function renderIntroPage() {
@@ -7380,58 +7783,74 @@ function canSubmitRewardClaims() {
         } catch (_error) {}
       }
 
-      function createFallbackJsonRpcProvider(urls, chainId) {
+      function createRpcProviderList(urls, chainId) {
         const list = Array.isArray(urls) ? urls.filter(Boolean) : [urls].filter(Boolean);
-        if (!list.length) return null;
-        const providers = list.map((url) => new window.ethers.JsonRpcProvider(url, chainId, { staticNetwork: true }));
-        if (providers.length === 1) return providers[0];
-        return new window.ethers.FallbackProvider(providers.map((provider, index) => ({ provider, priority: index + 1, weight: 1, stallTimeout: 1200 })));
+        return list.map((url) => new window.ethers.JsonRpcProvider(url, chainId, { staticNetwork: true }));
+      }
+
+      async function withRpcProviderFailover(label, providers, runner) {
+        const attempts = [];
+        for (const provider of providers.filter(Boolean)) {
+          try {
+            return await runner(provider);
+          } catch (error) {
+            attempts.push(error);
+            console.warn(`${label} provider attempt failed`, {
+              chainId: Number(provider?._network?.chainId || 0),
+              url: provider && provider.connection && provider.connection.url ? provider.connection.url : '',
+              message: error && error.message ? error.message : String(error || 'Unknown error'),
+            });
+          }
+        }
+        throw attempts[attempts.length - 1] || new Error(`${label} provider unavailable`);
       }
 
       async function loadDfkWalletHeroes() {
-        const provider = walletProvider && walletChainId === DFK_CHAIN_ID
-          ? walletProvider
-          : createFallbackJsonRpcProvider(DFK_CHAIN_RPC_FALLBACKS, DFK_CHAIN_ID);
-        const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
-        const balance = Number(await contract.balanceOf(address));
-        const ids = [];
-        const indexBatchSize = 80;
-        for (let start = 0; start < balance; start += indexBatchSize) {
-          const count = Math.min(indexBatchSize, balance - start);
-          const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
-          ids.push(...batchIds);
-        }
-        const heroBatchSize = 20;
-        for (let start = 0; start < ids.length; start += heroBatchSize) {
-          const batch = ids.slice(start, start + heroBatchSize);
-          const batchHeroes = await Promise.all(batch.map(async (heroId) => {
-            const core = await contract.getHeroV3(heroId);
-            const classId = Number(core.info.class);
-            const subClassId = Number(core.info.subClass);
-            const heroIdText = heroId.toString();
-            let imageUrl = '';
-            try {
-              const tokenUri = await contract.tokenURI(heroId);
-              imageUrl = await readHeroMetadataImage(tokenUri);
-            } catch (_error) {}
-            return normalizeWalletHeroRecord({
-              id: heroIdText,
-              normalizedId: heroIdText,
-              chainKey: 'dfk',
-              type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
-              classId,
-              className: getDfKClassName(classId),
-              subClassId,
-              subClassName: getDfKClassName(subClassId),
-              rarity: Number(core.info.rarity || 0),
-              rarityName: getDfKRarityName(Number(core.info.rarity || 0)),
-              level: Math.max(1, Number(core.state.level || 1)),
-              imageUrl,
-            });
-          }));
-          for (const hero of batchHeroes.filter(Boolean)) heroesByKey.set(getWalletHeroKey(hero), hero);
-        }
-        commitWalletHeroRoster(heroesByKey);
+        const providers = walletProvider && walletChainId === DFK_CHAIN_ID
+          ? [walletProvider, ...createRpcProviderList(DFK_CHAIN_RPC_FALLBACKS, DFK_CHAIN_ID)]
+          : createRpcProviderList(DFK_CHAIN_RPC_FALLBACKS, DFK_CHAIN_ID);
+        await withRpcProviderFailover('DFK hero load', providers, async (provider) => {
+          const contract = new window.ethers.Contract(DFK_HERO_CORE_ADDRESS, DFK_HERO_CORE_ABI, provider);
+          const balance = Number(await contract.balanceOf(address));
+          const ids = [];
+          const indexBatchSize = 80;
+          for (let start = 0; start < balance; start += indexBatchSize) {
+            const count = Math.min(indexBatchSize, balance - start);
+            const batchIds = await Promise.all(Array.from({ length: count }, (_, i) => contract.tokenOfOwnerByIndex(address, start + i)));
+            ids.push(...batchIds);
+          }
+          const heroBatchSize = 20;
+          for (let start = 0; start < ids.length; start += heroBatchSize) {
+            const batch = ids.slice(start, start + heroBatchSize);
+            const batchHeroes = await Promise.all(batch.map(async (heroId) => {
+              const core = await contract.getHeroV3(heroId);
+              const classId = Number(core.info.class);
+              const subClassId = Number(core.info.subClass);
+              const heroIdText = heroId.toString();
+              let imageUrl = '';
+              try {
+                const tokenUri = await contract.tokenURI(heroId);
+                imageUrl = await readHeroMetadataImage(tokenUri);
+              } catch (_error) {}
+              return normalizeWalletHeroRecord({
+                id: heroIdText,
+                normalizedId: heroIdText,
+                chainKey: 'dfk',
+                type: DFK_BASE_CLASS_TO_SLOT[classId] || '',
+                classId,
+                className: getDfKClassName(classId),
+                subClassId,
+                subClassName: getDfKClassName(subClassId),
+                rarity: Number(core.info.rarity || 0),
+                rarityName: getDfKRarityName(Number(core.info.rarity || 0)),
+                level: Math.max(1, Number(core.state.level || 1)),
+                imageUrl,
+              });
+            }));
+            for (const hero of batchHeroes.filter(Boolean)) heroesByKey.set(getWalletHeroKey(hero), hero);
+          }
+          commitWalletHeroRoster(heroesByKey);
+        });
       }
 
       async function loadMetisWalletHeroes() {
@@ -7842,6 +8261,7 @@ function canSubmitRewardClaims() {
         if (tower.isSoulSplit) {
           heroLabel.classList.add('tile-torn-soul-label');
           if (isPureEnergyArchon(tower)) {
+            heroLabel.classList.add('tile-pure-energy-label');
             heroLabel.style.color = '#ffffff';
             heroLabel.style.textShadow = '0 0 12px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,0.95), 0 0 34px rgba(224,245,255,0.88)';
           } else if (isTornSoulArchon(tower)) {
@@ -8835,11 +9255,11 @@ function canSubmitRewardClaims() {
     const cost = getNextHireCost(false);
     const canHireNow = !reachedStandardHeroCap && !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
     updateMobileHireNotice(canHireNow);
-    const championSelected = getSelectedChampionRecord();
+    const championSelected = ensureChampionSelectionReady({ autoConfirm: false });
     const championWaited = getChampionWavesWaited();
     const championRequired = getChampionRequiredWaitWaves();
     const championDeployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
-    const championReady = !!(championSelected && game.selectedChampionConfirmed && !championDeployed && championWaited >= championRequired && !game.placingHeroType);
+    const championReady = !!(championSelected && !championDeployed && championWaited >= championRequired && !game.placingHeroType && (game.selectedChampionConfirmed || Number(game.waveNumber || 0) > 0));
 
     if (championReady) {
       const championCard = document.createElement('div');
@@ -9121,6 +9541,7 @@ function canSubmitRewardClaims() {
     };
     game.runWalletConnected = !!getConnectedWalletAddress();
     game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
+    game.portalPickedUpForMove = true;
     setInstruction('Move the 2x2 portal to a new location. After placing it again, continue setup.');
     log('Portal picked up for repositioning before wave 1.');
     return true;
@@ -9149,6 +9570,11 @@ function canSubmitRewardClaims() {
       game.phase = SETUP_PHASES.OBSTACLES;
       setInstruction(`Place ${getTargetPlayerObstacleCount()} obstacles. Do not block every path. You can move the portal before wave 1.`);
     }
+    if (Number(game.waveNumber || 0) > 0 || game.portalPickedUpForMove) {
+      game.portalMovedThisRun = true;
+      updateWeeklyBountyMetric('portalMoves', 1);
+    }
+    game.portalPickedUpForMove = false;
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
     return true;
   }
@@ -9168,6 +9594,7 @@ function canSubmitRewardClaims() {
     tileAt(x, y).obstacle = 'player';
     tileAt(x, y).treeVariant = getRandomTreeVariant();
     game.playerObstacleCount += 1;
+    updateWeeklyBountyMetric('barriersPlaced', 1);
     log(`Placed obstacle ${game.playerObstacleCount}/${getTargetPlayerObstacleCount()} at (${x + 1}, ${y + 1}).`);
     if (game.playerObstacleCount >= getTargetPlayerObstacleCount()) {
       const hasWarrior = game.towers.some(t => t.type === 'warrior');
@@ -10167,6 +10594,7 @@ function canSubmitRewardClaims() {
       game.jewel = Math.max(0, Number(game.jewel || 0) - cost);
       updateQuestMetric('goldSpent', cost);
       updateQuestMetric('heroesPlaced', 1);
+      updateWeeklyBountyMetric('heroesDeployed', 1);
       if (usesBonusHire) game.bonusHeroHireCharges = Math.max(0, game.bonusHeroHireCharges - 1);
       game.placingWalletHeroId = null;
       const placementVerb = pendingMilestonePlacement
@@ -10175,6 +10603,7 @@ function canSubmitRewardClaims() {
       log(`${placementVerb} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+      if (cost > 0 || pendingMilestonePlacement || usesBonusHire) updateWeeklyBountyMetric('heroesHired', 1);
       if (tower.isChampion) {
         game.selectedChampionConfirmed = true;
         log(`Champion deployed: ${tower.name} for ${tower.championAllowedDuration} waves after waiting ${getChampionWavesWaited()} waves.`);
@@ -11635,6 +12064,10 @@ function canSubmitRewardClaims() {
     if (firstWaveInBatch) {
       game.activeWaveBase = Number(game.waveNumber || 0);
       game.runningWave = true;
+      if (!game.weeklyBountyRunBarriersCounted && getCurrentPlacedBarrierCount() >= getTargetPlayerObstacleCount()) {
+        updateWeeklyBountyMetric('runsAllBarriersPlaced', 1);
+        game.weeklyBountyRunBarriersCounted = true;
+      }
       game.pendingSpawns = [];
       game.waveStartAt = now();
       game.relicChoices = [];
@@ -11653,6 +12086,8 @@ function canSubmitRewardClaims() {
     game.nextWavePlan = null;
     stageUpcomingWavePlan(true);
     const liveCount = getLiveWaveCount();
+    updateWeeklyBountyMetric('wavesStarted', 1);
+    if (liveCount >= 2) updateWeeklyBountyMetric('multiWaveBonusTriggers', 1);
     const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
     const liveWaveGoldBonusText = liveWaveGoldBonusLabel ? ` ${liveWaveGoldBonusLabel} kill rewards active.` : '';
     setInstruction(`Waves ${Math.max(1, game.activeWaveBase + 1)}-${game.waveNumber} are live (${liveCount}/3). Defend the portal.${liveWaveGoldBonusText}`);
@@ -11757,6 +12192,8 @@ function canSubmitRewardClaims() {
     const sourceMutation = plan?.sourceMutation || null;
     if (sourceMutation && sourceMutation.apply) sourceMutation.apply(enemy);
     enemy.spawnWaveNumber = sourceWaveNumber;
+    enemy.spawnedAt = now();
+    enemy.sourceElite = !!plan?.sourceElite || !!plan?.eliteSkitter || !!plan?.bossWaveSkitter || !!plan?.finalSkyTerror;
     enemy.spawnMaxHp = enemy.maxHp;
     enemy.visualSizePx = computeEnemyVisualSizeFromSpawnHp(enemy.spawnMaxHp, sourceWaveNumber);
 
@@ -12107,10 +12544,28 @@ function canSubmitRewardClaims() {
     return game.pendingSpawns && game.pendingSpawns.every(s => s.spawned);
   }
 
-  function applyWaveClearRewards(clearedWave) {
+  function applyWaveClearRewards(clearedWave, context = null) {
     markProgress(`Wave ${clearedWave} cleared.`);
     log(`Wave ${clearedWave} cleared.`);
+    const liveWaveCountAtClear = Math.max(0, Number(context && context.liveWaveCountAtClear));
     updateQuestMetric('wavesClearedTotal', 1);
+    updateWeeklyBountyMetric('wavesCompleted', 1);
+    updateWeeklyBountyMetric('wavesFinishedNoRestart', game.continueOfferUsed ? 0 : 1);
+    if (Number(clearedWave || 0) > 20) updateWeeklyBountyMetric('wavesPast20', 1);
+    if (Number(clearedWave || 0) > 30) updateWeeklyBountyMetric('wavesPast30', 1);
+    if (liveWaveCountAtClear >= 2) updateWeeklyBountyMetric('wavesMulti2', 1);
+    if (liveWaveCountAtClear >= 3) updateWeeklyBountyMetric('wavesMulti3', 1);
+    const livingCoreHeroes = (game.towers || []).filter((tower) => tower && tower.hp > 0 && !tower.isSatellite && !tower.isChampion && ['warrior', 'archer', 'wizard', 'priest', 'seer', 'pirate'].includes(String(tower.type || '')));
+    if (livingCoreHeroes.some((tower) => tower.type === 'warrior')) updateWeeklyBountyMetric('wavesWithWarrior', 1);
+    if (livingCoreHeroes.some((tower) => tower.type === 'archer')) updateWeeklyBountyMetric('wavesWithSpellbow', 1);
+    if (livingCoreHeroes.some((tower) => tower.type === 'seer')) updateWeeklyBountyMetric('wavesWithSage', 1);
+    if (livingCoreHeroes.length >= 2) updateWeeklyBountyMetric('wavesWithTwoHeroes', 1);
+    updateWeeklyBountyMetric('heroAliveWaves', livingCoreHeroes.length);
+    if (getCurrentPlacedBarrierCount() >= getTargetPlayerObstacleCount()) {
+      updateWeeklyBountyMetric('wavesAllBarriersPlaced', 1);
+      updateWeeklyBountyMetric('wavesZeroBarrierLoss', 1);
+    }
+    if (game.portalMovedThisRun) updateWeeklyBountyMetric('wavesAfterPortalMove', 1);
     updateQuestMetric('maxWave', Number(clearedWave || 0), 'max');
     if (clearedWave > 0 && clearedWave % 5 === 0) updateQuestMetric('bossWavesCleared', 1);
     if (clearedWave === 5 && !game.milestoneJewelsGranted[5]) {
@@ -12160,6 +12615,7 @@ function canSubmitRewardClaims() {
   }
 
   function finishWave() {
+    const liveWaveCountAtClear = Math.max(0, getLiveWaveCount());
     const clearedPlans = (Array.isArray(game.activeWavePlans) && game.activeWavePlans.length
       ? game.activeWavePlans.map(plan => cloneContinueData(plan))
       : [{ waveNumber: game.waveNumber }])
@@ -12173,8 +12629,10 @@ function canSubmitRewardClaims() {
     game.waveNumber = finalWaveNumber;
     game.activeWaveBase = finalWaveNumber;
     for (const plan of clearedPlans) {
-      applyWaveClearRewards(Number(plan.waveNumber || 0));
+      applyWaveClearRewards(Number(plan.waveNumber || 0), { liveWaveCountAtClear });
     }
+    if (finalWaveNumber >= 10) if (!game.weeklyBountyRunReached10) { updateWeeklyBountyMetric('runsReach10', 1); game.weeklyBountyRunReached10 = true; }
+    if (finalWaveNumber >= 20) if (!game.weeklyBountyRunReached20) { updateWeeklyBountyMetric('runsReach20', 1); game.weeklyBountyRunReached20 = true; }
     const milestoneHeroOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneHeroOffer(plan.waveNumber) ? getMilestoneHeroOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
     const milestoneBarrierOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneBarrierOffer(plan.waveNumber) ? getMilestoneBarrierOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
     if (milestoneHeroOfferConfig) {
@@ -12231,6 +12689,7 @@ function canSubmitRewardClaims() {
     game.relicChoices = choices;
     const swapOpened = openDfkgoldSwapOffer('start');
     const hasChoices = Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
+    if (hasChoices) updateWeeklyBountyMetric('relicChoicesOpened', 1);
     if (!hasChoices && !swapOpened) {
       game.startingRelicPending = false;
       els.startWaveBtn.disabled = false;
@@ -12248,6 +12707,7 @@ function canSubmitRewardClaims() {
     game.relicChoices = choices;
     const swapOpened = openDfkgoldSwapOffer(reason);
     const hasChoices = Array.isArray(game.relicChoices) && game.relicChoices.length > 0;
+    if (hasChoices) updateWeeklyBountyMetric('relicChoicesOpened', 1);
     if (!hasChoices && !swapOpened) return false;
     showBanner(hasChoices ? 'Relic Shop Open' : 'Premium swap available', 2500);
     return true;
@@ -14344,6 +14804,20 @@ function canSubmitRewardClaims() {
       else if (enemySizeKey === 'medium') updateQuestMetric('killsMedium', 1);
       else updateQuestMetric('killsSmall', 1);
     }
+    if (enemy.sourceElite || enemy.isBoss || enemy.isFlyingSiege || enemy.isBossWaveSkitter) updateWeeklyBountyMetric('killsElite', 1);
+    if (enemy.killedBy && enemy.killedBy !== 'statue') updateWeeklyBountyMetric('heroKills', 1);
+    if (String(enemy.lastHitMethod || 'basic_attack') !== 'basic_attack') updateWeeklyBountyMetric('abilityKills', 1);
+    if (enemy.debuffs && getEnemySlowPercent(enemy) > 0) updateWeeklyBountyMetric('killsSlowed', 1);
+    if (enemy.debuffs && enemy.debuffs.burning) updateWeeklyBountyMetric('killsBurning', 1);
+    if (enemy.debuffs && enemy.debuffs.stunned) updateWeeklyBountyMetric('killsStunned', 1);
+    if (enemy.spawnedAt && (now() - Number(enemy.spawnedAt || 0)) <= 1000) updateWeeklyBountyMetric('killsQuickSpawn', 1);
+    if (portalDistance(enemy) <= 2) updateWeeklyBountyMetric('killsNearPortal', 1);
+    if ((game.towers || []).some((tower) => isStatueTower(tower) && tower.hp > 0 && dist(tower, enemy) <= 1)) updateWeeklyBountyMetric('killsNearStatue', 1);
+    if (getLiveWaveCount() >= 2) updateWeeklyBountyMetric('killsMultiWave', 1);
+    const portalPct = Number(game.portalHp || 0) / 2500;
+    if (portalPct < 0.75) updateWeeklyBountyMetric('killsPortalBelow75', 1);
+    if (portalPct < 0.25) updateWeeklyBountyMetric('killsPortalBelow25', 1);
+    if (String(enemy.killedBy || '').startsWith('champion_')) updateWeeklyBountyMetric('championKills', 1);
     updateQuestMetric('goldEarned', jewel);
     const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
     log(`${enemy.name} died. +${formatJewel(jewel)} Gold${liveWaveGoldBonusLabel ? ` (${liveWaveGoldBonusLabel} live bonus)` : ''}.`);
@@ -14363,10 +14837,13 @@ function canSubmitRewardClaims() {
     enemy.hp -= damage;
     if (sourceTower) {
       enemy.killedBy = sourceTower.type;
+      enemy.lastHitMethod = String(damageMethod?.key || 'basic_attack');
       const methodKey = String(damageMethod?.key || 'basic_attack');
       const methodLabel = String(damageMethod?.label || 'Basic Attack');
       recordTowerDamage(sourceTower, appliedDamage, methodKey, methodLabel);
       updateQuestMetric('damageTotal', appliedDamage);
+      if (!sourceTower.isSatellite && !isStatueTower(sourceTower)) updateWeeklyBountyMetric('heroDamage', appliedDamage);
+      const baseDamage = Math.max(1, Number(sourceTower.damage || 0) || 0);
     }
     if (sourceTower) {
       const towerCanPullAggro = sourceTower.type === 'warrior' || isStatueTower(sourceTower);
@@ -14434,7 +14911,10 @@ function canSubmitRewardClaims() {
     const sourceTowerId = options && options.sourceTowerId ? options.sourceTowerId : null;
     if (sourceTowerId) {
       const sourceTower = getTowerById(sourceTowerId);
-      if (sourceTower) sourceTower.healingDone = Math.max(0, Number(sourceTower.healingDone || 0)) + healed;
+      if (sourceTower) {
+        sourceTower.healingDone = Math.max(0, Number(sourceTower.healingDone || 0)) + healed;
+        if (['priest', 'seer', 'champion_sage'].includes(String(sourceTower.type || ''))) updateWeeklyBountyMetric('supportHealing', healed);
+      }
     }
     markProgress(`${tower.name} was healed.`);
     if (message && chance(0.2)) log(`${message} for ${Math.round(healed)}.`);
@@ -14894,7 +15374,11 @@ function canSubmitRewardClaims() {
     if (tower.type === 'warrior') mult *= game.modifiers.warriorCooldown;
     tower.abilityReadyAt[abilityKey] = now() + cooldown * 1000 * mult;
     tower.abilityGlobalReadyAt = now() + TOWER_ABILITY_CHAIN_DELAY_MS;
-    if (!opts.auto) log(`${tower.name} used ${abilityKey.replaceAll('_', ' ')}.`);
+    updateWeeklyBountyMetric('heroAbilityTriggers', 1);
+    if (!opts.auto) {
+      updateWeeklyBountyMetric('manualHeroAbilityTriggers', 1);
+      log(`${tower.name} used ${abilityKey.replaceAll('_', ' ')}.`);
+    }
     render();
     return true;
   }
@@ -14925,6 +15409,8 @@ function canSubmitRewardClaims() {
   function syncStartWaveBonusIndicator() {
     if (!els.startWaveBonusIndicator) return;
     const liveCount = getLiveWaveCount();
+    updateWeeklyBountyMetric('wavesStarted', 1);
+    if (liveCount >= 2) updateWeeklyBountyMetric('multiWaveBonusTriggers', 1);
     const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
     if (liveCount >= 2 && liveWaveGoldBonusLabel) {
       els.startWaveBonusIndicator.textContent = `Multiwave Bonus ${liveWaveGoldBonusLabel}`;
@@ -15233,6 +15719,8 @@ function canSubmitRewardClaims() {
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
   });
+  if (els.bountyBtn) els.bountyBtn.classList.add('hidden');
+  if (els.mobileFuncBountyBtn) els.mobileFuncBountyBtn.classList.add('hidden');
   els.questsBtn?.addEventListener('click', () => {
     openQuestsModal();
   });
@@ -15275,8 +15763,8 @@ function canSubmitRewardClaims() {
   });
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
   els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
-  els.mobileFuncBountyBtn?.addEventListener('click', () => els.bountyBtn?.click());
-  els.mobileFuncQuestsBtn?.addEventListener('click', () => els.questsBtn?.click());
+  els.mobileFuncBountyBtn?.addEventListener('click', () => openBountyModal());
+  els.mobileFuncQuestsBtn?.addEventListener('click', () => { game.questBoardView = 'quests'; openQuestsModal(); });
   els.mobileFuncKnownRelicsBtn?.addEventListener('click', () => els.knownRelicsBtn?.click());
   els.mobileFuncStartBtn?.addEventListener('click', () => els.startWaveBtn?.click());
   els.mobileFuncSkipBtn?.addEventListener('click', () => els.skipSetupBtn?.click());
@@ -15381,12 +15869,22 @@ function canSubmitRewardClaims() {
     game.trackedRunsSortMode = sortSelect.value || 'date_desc';
     renderTrackedRunsBoard();
   });
-  els.bountyBody?.addEventListener('click', (event) => {
+  function handleBountyClaimButtonClick(event) {
     const claimBtn = event.target instanceof Element ? event.target.closest('.bounty-claim-btn') : null;
-    if (!claimBtn) return;
-    claimActiveBounty().catch(() => {});
+    if (!claimBtn) return false;
+    const bountyId = String(claimBtn.getAttribute('data-bounty-id') || '').trim();
+    const rewardCurrency = String(claimBtn.getAttribute('data-reward-currency') || '').trim().toUpperCase();
+    if (!bountyId || !rewardCurrency || claimBtn.hasAttribute('disabled')) return true;
+    event.preventDefault();
+    event.stopPropagation();
+    claimActiveBounty(bountyId, rewardCurrency).catch(() => {});
+    return true;
+  }
+  els.bountyBody?.addEventListener('click', (event) => {
+    handleBountyClaimButtonClick(event);
   });
   els.questsBody?.addEventListener('click', (event) => {
+    if (handleBountyClaimButtonClick(event)) return;
     const target = event.target instanceof Element ? event.target : null;
     const resetBtn = target ? target.closest('[data-reset-daily-quests="true"]') : null;
     if (resetBtn) {
@@ -15908,3 +16406,59 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+
+/* === UI TWEAK PATCH === */
+const style = document.createElement('style');
+style.innerHTML = `
+/* make the status pill text fit on one line */
+.quest-card .bounty-strip-badge,
+.bounty-card .bounty-strip-badge,
+.quests-grid .bounty-strip-badge,
+.quests-summary-strip .bounty-strip-badge {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  min-width: 4.8rem !important;
+  width: 4.8rem !important;
+  max-width: 4.8rem !important;
+  min-height: 2.1rem !important;
+  padding: 0.2rem 0.45rem !important;
+  font-size: 0.7rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+}
+.quest-card .bounty-strip-kicker,
+.bounty-card .bounty-strip-kicker {
+  font-size: 0.74em !important;
+  line-height: 1.05 !important;
+}
+.bounty-strip-copy {
+  font-size: 0.84em !important;
+  line-height: 1.2 !important;
+}
+
+/* reduce vertical space between quest tiles */
+.quests-grid {
+  row-gap: 0.5rem !important;
+}
+.quest-card,
+.bounty-card {
+  padding-top: 0.68rem !important;
+  padding-bottom: 0.68rem !important;
+  min-height: unset !important;
+  transform: none !important;
+}
+
+/* make the dailies / bounties lightwindow taller */
+.lightwindow, .modal, .overlay-container {
+  min-height: 140% !important;
+}
+`;
+document.head.appendChild(style);
+/* === END UI TWEAK PATCH === */
