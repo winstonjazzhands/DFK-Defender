@@ -1992,7 +1992,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     buildWeeklyBounty({ id: 'champion_3000_kills', title: 'Kill 3,000 enemies with champion units', detail: 'Let champion units finish 3,000 enemies.', metric: 'championKills', metricLabel: 'Champion kills', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 3000, difficulty: 'low' }),
     buildWeeklyBounty({ id: 'place_500_barriers', title: 'Place 500 barriers', detail: 'Place 500 barriers this week.', metric: 'barriersPlaced', metricLabel: 'Barriers placed', category: 'strategy', categoryLabel: 'Defense / Strategy', goal: 500, difficulty: 'low' }),
     buildWeeklyBounty({ id: 'complete_200_multiwave', title: 'Complete 200 waves during multi-wave (2+)', detail: 'Complete 200 waves while 2+ live waves are active.', metric: 'wavesMulti2', metricLabel: '2+ wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 200, difficulty: 'low', isMultiWave: true, selectionWeight: 1.45 }),
-    buildWeeklyBounty({ id: 'trigger_3000_multiwave_bonus', title: 'Trigger multi-wave bonus 3,000 times', detail: 'Trigger the multi-wave bonus 3,000 times this week.', metric: 'multiWaveBonusTriggers', metricLabel: 'Bonus triggers', category: 'progression', categoryLabel: 'Wave / Progression', goal: 3000, difficulty: 'low', isMultiWave: true, selectionWeight: 1.5 }),
+    buildWeeklyBounty({ id: 'trigger_500_multiwave_bonus', title: 'Trigger multi-wave bonus 500 times', detail: 'Trigger the multi-wave bonus 500 times this week.', metric: 'multiWaveBonusTriggers', metricLabel: 'Bonus triggers', category: 'progression', categoryLabel: 'Wave / Progression', goal: 500, difficulty: 'low', isMultiWave: true, selectionWeight: 1.5 }),
     buildWeeklyBounty({ id: 'defeat_4000_multiwave', title: 'Defeat 4,000 enemies during multi-wave bonus', detail: 'Defeat 4,000 enemies while 2+ live waves are active.', metric: 'killsMultiWave', metricLabel: 'Multi-wave kills', category: 'combat', categoryLabel: 'Combat / Kill-Based', goal: 4000, difficulty: 'low', isMultiWave: true, selectionWeight: 1.35 }),
     buildWeeklyBounty({ id: 'complete_200_threewave', title: 'Complete 200 waves during 3-wave pressure', detail: 'Complete 200 waves while three live waves are active.', metric: 'wavesMulti3', metricLabel: '3-wave clears', category: 'progression', categoryLabel: 'Wave / Progression', goal: 200, difficulty: 'low', isMultiWave: true, selectionWeight: 1.35 }),
     buildWeeklyBounty({ id: 'warrior_250_waves', title: 'Win 250 waves with a warrior deployed', detail: 'Clear 250 waves while a warrior is deployed.', metric: 'wavesWithWarrior', metricLabel: 'Waves with warrior', category: 'hero', categoryLabel: 'Hero Usage / Performance', goal: 250, difficulty: 'low' }),
@@ -6193,7 +6193,8 @@ function canSubmitRewardClaims() {
       ? `Weekly reset in ${formatBountyCountdown(state.nextRevealAt, new Date().toISOString())}`
       : 'Weekly reset every Monday 00:00 UTC';
     const showBountyTestReset = canUseBountyProgressTestReset(getConnectedWalletAddress());
-    const resetBountyWalletValue = escapeHtml(String(state.resetWalletInput || getConnectedWalletAddress() || ''));
+    const hasBountyResetWalletInput = Object.prototype.hasOwnProperty.call(state, 'resetWalletInput');
+    const resetBountyWalletValue = escapeHtml(String(hasBountyResetWalletInput ? (state.resetWalletInput || '') : ''));
     const testResetControls = showBountyTestReset
       ? `<div class="tracked-runs-hero-strip quests-summary-strip" style="margin-top:12px;">
           <div>
@@ -8109,15 +8110,22 @@ function canSubmitRewardClaims() {
   }
 
   function updateQuestBoardToggle() {
-    const bountyMode = game.questBoardView === 'bounty';
+    game.questBoardView = 'quests';
+    const bountyMode = false;
     if (els.questDailyToggleBtn) els.questDailyToggleBtn.classList.toggle('active', !bountyMode);
-    if (els.questBountyToggleBtn) els.questBountyToggleBtn.classList.toggle('active', bountyMode);
+    if (els.questBountyToggleBtn) {
+      els.questBountyToggleBtn.classList.remove('active');
+      els.questBountyToggleBtn.disabled = true;
+      els.questBountyToggleBtn.setAttribute('aria-disabled', 'true');
+      els.questBountyToggleBtn.textContent = 'Bounties coming soon <3';
+      els.questBountyToggleBtn.title = 'Bounties are temporarily offline while they are being hardened.';
+    }
     const questsTitle = document.getElementById('questsTitle');
-    if (questsTitle) questsTitle.textContent = bountyMode ? 'Weekly Bounties' : 'Daily Quests';
+    if (questsTitle) questsTitle.textContent = 'Daily Quests';
     if (els.questsBtn) els.questsBtn.textContent = '✅ Dailies / Bounties';
     if (els.mobileFuncQuestsBtn) els.mobileFuncQuestsBtn.textContent = 'Dailies / Bounties';
     const questsKicker = document.querySelector('#questsModal .intro-kicker');
-    if (questsKicker) questsKicker.textContent = bountyMode ? 'DFK Defender Weekly Bounties' : 'DFK Defender Daily Rewards';
+    if (questsKicker) questsKicker.textContent = 'DFK Defender Daily Rewards';
   }
 
   function renderIntroPage() {
@@ -16094,8 +16102,6 @@ function canSubmitRewardClaims() {
   function syncStartWaveBonusIndicator() {
     if (!els.startWaveBonusIndicator) return;
     const liveCount = getLiveWaveCount();
-    updateWeeklyBountyMetric('wavesStarted', 1);
-    if (liveCount >= 2) updateWeeklyBountyMetric('multiWaveBonusTriggers', 1);
     const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
     if (liveCount >= 2 && liveWaveGoldBonusLabel) {
       els.startWaveBonusIndicator.textContent = `Multiwave Bonus ${liveWaveGoldBonusLabel}`;
@@ -16415,10 +16421,9 @@ function canSubmitRewardClaims() {
     updateQuestBoardToggle();
   });
   els.questBountyToggleBtn?.addEventListener('click', () => {
-    game.questBoardView = 'bounty';
-    renderBountyBoard();
-    refreshBountyBoard().catch(() => {});
+    game.questBoardView = 'quests';
     updateQuestBoardToggle();
+    showBanner('Bounties coming soon <3', 1400);
   });
   els.trackedRunsBtn?.addEventListener('click', () => {
     openTrackedRunsModal();
@@ -16586,7 +16591,8 @@ function canSubmitRewardClaims() {
     const resetBtn = target ? target.closest('[data-reset-weekly-bounty-progress="true"]') : null;
     if (!resetBtn) return;
     if (!canUseBountyProgressTestReset()) return;
-    const targetWallet = normalizeAddress(game.bountyBoard.resetWalletInput || getConnectedWalletAddress() || '');
+    const resetWalletInput = document.querySelector('[data-reset-bounty-wallet-input="true"]');
+    const targetWallet = normalizeAddress((resetWalletInput instanceof HTMLInputElement ? resetWalletInput.value : '') || game.bountyBoard.resetWalletInput || '');
     if (!isLikelyWalletAddress(targetWallet)) {
       showBanner('Enter a valid wallet address to reset.', 2600);
       return;
@@ -16601,7 +16607,8 @@ function canSubmitRewardClaims() {
     const bountyResetBtn = target ? target.closest('[data-reset-weekly-bounty-progress="true"]') : null;
     if (bountyResetBtn) {
       if (!canUseBountyProgressTestReset()) return;
-      const targetWallet = normalizeAddress(game.bountyBoard.resetWalletInput || getConnectedWalletAddress() || '');
+      const resetWalletInput = document.querySelector('[data-reset-bounty-wallet-input="true"]');
+      const targetWallet = normalizeAddress((resetWalletInput instanceof HTMLInputElement ? resetWalletInput.value : '') || game.bountyBoard.resetWalletInput || '');
       if (!isLikelyWalletAddress(targetWallet)) {
         showBanner('Enter a valid wallet address to reset.', 2600);
         return;

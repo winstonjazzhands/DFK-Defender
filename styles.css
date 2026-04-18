@@ -9353,3 +9353,19 @@ body.reward-payout-notice-open #rewardPayoutNoticeModal button,
 body.reward-payout-notice-open #rewardPayoutNoticeModal a {
   pointer-events: auto;
 }
+
+
+#questsModal .modal-top-toggle-btn.bounty-soon-toggle,
+#questsModal .modal-top-toggle-btn.bounty-soon-toggle:disabled {
+  background: linear-gradient(180deg, rgba(84, 88, 96, 0.92), rgba(46, 49, 55, 0.96));
+  border-color: rgba(190, 196, 205, 0.28);
+  color: rgba(232, 236, 242, 0.78);
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+#questsModal .modal-top-toggle-btn.bounty-soon-toggle:hover,
+#questsModal .modal-top-toggle-btn.bounty-soon-toggle:focus-visible {
+  transform: none;
+  box-shadow: none;
+}

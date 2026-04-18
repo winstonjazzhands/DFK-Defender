@@ -7,6 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+type RowLike = Record<string, unknown>;
+
 function createAdmin() {
   return createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -15,33 +17,58 @@ function createAdmin() {
   );
 }
 
-
 function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
-
-function sumWei(rows: Array<{ expected_amount_wei?: string | number | null; amount_wei?: string | number | null; paid_amount_wei?: string | number | null }>) {
-  return rows.reduce((total, row) => total + BigInt(String((row && (row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei)) || '0')), 0n).toString();
+function isMissingRelationError(error: unknown, relationName: string) {
+  const code = String((error as { code?: string } | null)?.code || '').trim();
+  const message = String((error as { message?: string } | null)?.message || '').toLowerCase();
+  return code === 'PGRST205' || (message.includes('relation') && message.includes(relationName.toLowerCase()) && message.includes('does not exist'));
 }
 
-function sumWeiBy(rows: Array<{ expected_amount_wei?: string | number | null; amount_wei?: string | number | null; paid_amount_wei?: string | number | null }>, predicate: (row: any) => boolean) {
-  return rows.reduce((total, row) => predicate(row) ? total + BigInt(String((row && (row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei)) || '0')) : total, 0n).toString();
+function logNonMissingError(label: string, error: unknown, relationName: string) {
+  if (!error || isMissingRelationError(error, relationName)) return;
+  console.error(label, error);
 }
 
-function normalizeCurrency(value: unknown) {
-  return String(value || '').trim().toUpperCase();
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
 }
 
 function normalizeStatus(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
 
-function isCompletedRewardLike(row: { status?: unknown; paid_at?: unknown; payout_status?: unknown; tx_hash?: unknown; payout_tx_hash?: unknown }) {
-  return normalizeStatus(row.status) === 'paid'
-    || normalizeStatus(row.payout_status) === 'paid'
-    || !!String(row.paid_at || '').trim()
-    || !!String(row.tx_hash || row.payout_tx_hash || '').trim();
+function normalizeKind(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeHash(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeCurrency(value: unknown) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function getWeiLike(row: RowLike) {
+  return BigInt(String(row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei ?? '0'));
+}
+
+function sumWei(rows: RowLike[]) {
+  return rows.reduce((total, row) => total + getWeiLike(row), 0n).toString();
+}
+
+function sumWeiBy(rows: RowLike[], predicate: (row: RowLike) => boolean) {
+  return rows.reduce((total, row) => predicate(row) ? total + getWeiLike(row) : total, 0n).toString();
 }
 
 function normalizeDecimalString(value: unknown) {
@@ -69,45 +96,45 @@ function addPositiveDecimalStrings(a: unknown, b: unknown) {
   return `${whole.toString()}${frac ? `.${frac}` : ''}`;
 }
 
-function sumRewardAmounts(rows: Array<{ amount_value?: string | number | null; amount_text?: string | null; reward_currency?: string | null }>, currency: 'JEWEL' | 'AVAX') {
+function sumRewardAmounts(rows: Array<{ amount_value?: unknown; amount_text?: unknown; reward_currency?: unknown }>, currency: 'JEWEL' | 'AVAX') {
   let total = '0';
   for (const row of rows) {
-    const rowCurrency = String(row?.reward_currency || '').trim().toUpperCase();
-    if (rowCurrency !== currency) continue;
-    const amountValue = row?.amount_value;
-    if (amountValue != null && String(amountValue).trim()) {
-      total = addPositiveDecimalStrings(total, amountValue);
+    if (normalizeCurrency(row.reward_currency) !== currency) continue;
+    if (row.amount_value != null && String(row.amount_value).trim()) {
+      total = addPositiveDecimalStrings(total, row.amount_value);
       continue;
     }
-    const match = String(row?.amount_text || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    const match = String(row.amount_text || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
     if (match?.[1]) total = addPositiveDecimalStrings(total, match[1]);
   }
   return total;
 }
 
-function isMissingRelationError(error: unknown, relationName: string) {
-  const code = String((error as { code?: string } | null)?.code || '').trim();
-  const message = String((error as { message?: string } | null)?.message || '').toLowerCase();
-  return code === 'PGRST205' || (message.includes('relation') && message.includes(relationName.toLowerCase()) && message.includes('does not exist'));
+function isCompletedRewardLike(row: RowLike) {
+  return normalizeStatus(row.status) === 'paid'
+    || normalizeStatus(row.payout_status) === 'paid'
+    || !!String(row.paid_at || '').trim()
+    || !!String(row.tx_hash || row.payout_tx_hash || '').trim();
 }
 
-function logNonMissingError(label: string, error: unknown, relationName: string) {
-  if (!error || isMissingRelationError(error, relationName)) return;
-  console.error(label, error);
+function getKindBucket(kindValue: unknown) {
+  const kind = normalizeKind(kindValue);
+  if (['entry_fee', 'bundle', 'bundle_purchase', 'run_bundle', 'paid_bundle'].includes(kind)) return 'entry';
+  if (['gold_swap', 'jewel_gold_swap'].includes(kind)) return 'gold';
+  if (['hero_hire', 'extra_hero', 'milestone_hero_hire', 'jewel_extra_hero', 'jewel_milestone_hero_hire'].includes(kind)) return 'hero';
+  return 'other';
 }
 
-
-async function fetchPaginatedBurnRows(admin: ReturnType<typeof createAdmin>) {
+async function fetchPaginatedRows(admin: ReturnType<typeof createAdmin>, relationName: string, columns: string, apply?: (query: any) => any) {
+  const rows: any[] = [];
   const pageSize = 1000;
-  const rows: Array<{ burn_amount?: number | string | null; amount?: number | string | null; confirmed_at?: string | null }> = [];
   let from = 0;
   while (true) {
-    const { data, error } = await admin
-      .from('dfk_gold_burns')
-      .select('burn_amount, amount, confirmed_at')
-      .range(from, from + pageSize - 1);
+    let query: any = admin.from(relationName).select(columns).range(from, from + pageSize - 1);
+    if (apply) query = apply(query);
+    const { data, error } = await query;
     if (error) {
-      if (isMissingRelationError(error, 'dfk_gold_burns')) return rows;
+      if (isMissingRelationError(error, relationName)) return rows;
       throw error;
     }
     const batch = Array.isArray(data) ? data : [];
@@ -118,6 +145,67 @@ async function fetchPaginatedBurnRows(admin: ReturnType<typeof createAdmin>) {
   return rows;
 }
 
+async function fetchPaginatedBurnRows(admin: ReturnType<typeof createAdmin>) {
+  return fetchPaginatedRows(admin, 'dfk_gold_burns', 'burn_amount, amount, confirmed_at');
+}
+
+function dedupeAvaxRows(currentRows: any[], legacyRows: any[]) {
+  const out: any[] = [];
+  const seen = new Set<string>();
+  for (const row of currentRows || []) {
+    const key = firstText(
+      row?.id,
+      normalizeHash(row?.payment_tx_hash),
+      `${normalizeKind(row?.kind)}:${String(row?.confirmed_at || row?.created_at || '')}:${String(row?.expected_amount_wei || row?.paid_amount_wei || row?.amount_wei || '0')}`,
+    );
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(row);
+  }
+  for (const row of legacyRows || []) {
+    const normalized = {
+      ...row,
+      status: 'confirmed',
+      confirmed_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
+      amount_wei: row?.paid_amount_wei || row?.expected_amount_wei || row?.amount_wei || '0',
+      payment_tx_hash: row?.payment_tx_hash || row?.tx_hash || null,
+    };
+    const key = firstText(
+      normalizeHash(normalized.payment_tx_hash),
+      `${normalizeKind(normalized.kind)}:${String(normalized.confirmed_at || '')}:${String(normalized.amount_wei || '0')}`,
+    );
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function mergeTokenRows(tokenRows: any[], tokenSessionRows: any[]) {
+  const safeTokenRows = Array.isArray(tokenRows) ? tokenRows.slice() : [];
+  const paidTokenHashes = new Set(safeTokenRows.map((row) => normalizeHash(row?.tx_hash)).filter(Boolean));
+  const paidTokenSessionIds = new Set(safeTokenRows.map((row) => String(row?.payment_session_id || '').trim()).filter(Boolean));
+  const verifiedTokenSessions = (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => {
+    const status = normalizeStatus(row?.status);
+    return status === 'verified' || status === 'confirmed' || !!String(row?.verified_at || '').trim() || !!String(row?.tx_hash || '').trim();
+  });
+  for (const row of verifiedTokenSessions) {
+    const txHash = normalizeHash(row?.tx_hash);
+    const sessionId = String(row?.id || '').trim();
+    if (txHash && paidTokenHashes.has(txHash)) continue;
+    if (sessionId && paidTokenSessionIds.has(sessionId)) continue;
+    safeTokenRows.push({
+      ...row,
+      payment_asset: row?.payment_asset || 'native_jewel',
+      payment_session_id: row?.id,
+      paid_amount_wei: row?.paid_amount_wei || row?.expected_amount_wei || row?.amount_wei || '0',
+      verified_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
+      confirmed_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
+    });
+  }
+  return safeTokenRows;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
   try {
@@ -126,133 +214,90 @@ Deno.serve(async (req) => {
     const sessionResult = await loadValidWalletSession(admin, req, corsHeaders);
     if ('response' in sessionResult) return sessionResult.response;
     const session = sessionResult.session;
-    const walletAddress = normalizeAddress(body.walletAddress || session.wallet_address);
+    const walletAddress = normalizeAddress((body as RowLike).walletAddress || session.wallet_address);
     const treasuryAddress = normalizeAddress(Deno.env.get('DFK_AVAX_TREASURY_ADDRESS') || '0xab45288409900be5ef23c19726a30c28268495ad');
     const privateAdminWallets = (Deno.env.get('DFK_PRIVATE_ADMIN_WALLETS') || `${treasuryAddress},0x971bdacd04ef40141ddb6ba175d4f76665103c81`)
       .split(',')
       .map((value) => normalizeAddress(value))
       .filter(Boolean);
+
     if (!walletAddress) return json({ error: 'walletAddress is required.' }, 400);
     if (walletAddress !== normalizeAddress(session.wallet_address)) return json({ error: 'Wallet mismatch.' }, 401);
     if (!privateAdminWallets.includes(walletAddress)) return json({ error: 'Treasury access only.' }, 403);
 
     const [
-      { data: sessionRows, error: sessionError },
-      { data: legacyAvaxRows, error: legacyAvaxError },
-      { data: tokenRows, error: tokenError },
-      { data: tokenSessionRows, error: tokenSessionError },
+      sessionRows,
+      legacyAvaxRows,
+      tokenRows,
+      tokenSessionRows,
+      rewardClaimRows,
+      raffleRows,
       burnRows,
       { count: lifetimeTrackedRunsCount, error: runCountError },
       { data: latestRaffleWinner, error: latestRaffleWinnerError },
       { data: latestAvaxRaffleWinner, error: latestAvaxRaffleWinnerError },
-      { data: rewardClaimRows, error: rewardClaimRowsError },
-      { data: raffleRows, error: raffleRowsError },
     ] = await Promise.all([
-      admin.from('crypto_payment_sessions').select('*').eq('status', 'confirmed'),
-      admin.from('avax_payment_verifications').select('*'),
-      admin.from('dfk_token_payments').select('*'),
-      admin.from('dfk_token_payment_sessions').select('*').eq('status', 'verified'),
+      fetchPaginatedRows(admin, 'crypto_payment_sessions', '*', (query) => query.eq('status', 'confirmed')),
+      fetchPaginatedRows(admin, 'avax_payment_verifications', '*'),
+      fetchPaginatedRows(admin, 'dfk_token_payments', '*'),
+      fetchPaginatedRows(admin, 'dfk_token_payment_sessions', '*', (query) => query.in('status', ['verified', 'confirmed'])),
+      fetchPaginatedRows(admin, 'reward_claim_requests', 'id, reward_currency, amount_value, amount_text, status, paid_at, tx_hash'),
+      fetchPaginatedRows(admin, 'daily_raffle_results', 'claim_id, reward_currency, reward_amount, payout_status, payout_tx_hash'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
       admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
       admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('reward_claim_requests').select('id, reward_currency, amount_value, amount_text, status, paid_at, tx_hash'),
-      admin.from('daily_raffle_results').select('claim_id, reward_currency, reward_amount, payout_status, payout_tx_hash'),
     ]);
 
-    logNonMissingError('avax-treasury-summary sessionRows query failed', sessionError, 'crypto_payment_sessions');
-    logNonMissingError('avax-treasury-summary legacy AVAX rows query failed', legacyAvaxError, 'avax_payment_verifications');
-    logNonMissingError('avax-treasury-summary tokenRows query failed', tokenError, 'dfk_token_payments');
-    logNonMissingError('avax-treasury-summary token session rows query failed', tokenSessionError, 'dfk_token_payment_sessions');
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
     logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
     logNonMissingError('avax-treasury-summary latest AVAX raffle winner query failed', latestAvaxRaffleWinnerError, 'daily_raffle_results');
-    logNonMissingError('avax-treasury-summary reward claims query failed', rewardClaimRowsError, 'reward_claim_requests');
-    logNonMissingError('avax-treasury-summary raffle rows query failed', raffleRowsError, 'daily_raffle_results');
 
-    const primarySessionRows = Array.isArray(sessionRows) ? sessionRows : [];
-    const fallbackLegacyAvaxRows = Array.isArray(legacyAvaxRows) ? legacyAvaxRows : [];
-    const safeSessionRows = primarySessionRows.length
-      ? primarySessionRows
-      : fallbackLegacyAvaxRows.map((row) => ({
-          ...row,
-          status: 'confirmed',
-          confirmed_at: row.verified_at || row.confirmed_at || row.created_at || null,
-          amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
-        }));
-    const primaryTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
-    const rawTokenSessionRows = Array.isArray(tokenSessionRows) ? tokenSessionRows : [];
-    const verifiedTokenSessions = rawTokenSessionRows.filter((row: any) => {
-      const status = String(row?.status || '').trim().toLowerCase();
-      return status === 'verified' || status === 'confirmed' || !!String(row?.verified_at || '').trim() || !!String(row?.tx_hash || '').trim();
-    });
-    const paidTokenHashes = new Set(primaryTokenRows.map((row: any) => String(row?.tx_hash || '').trim().toLowerCase()).filter(Boolean));
-    const paidTokenSessionIds = new Set(primaryTokenRows.map((row: any) => String(row?.payment_session_id || '').trim()).filter(Boolean));
-    const safeTokenRows = primaryTokenRows.concat(verifiedTokenSessions
-      .filter((row: any) => {
-        const txHash = String(row?.tx_hash || '').trim().toLowerCase();
-        const sessionId = String(row?.id || '').trim();
-        if (txHash && paidTokenHashes.has(txHash)) return false;
-        if (sessionId && paidTokenSessionIds.has(sessionId)) return false;
-        return true;
-      })
-      .map((row: any) => ({
-        ...row,
-        kind: row.kind,
-        payment_asset: row.payment_asset || 'native_jewel',
-        payment_session_id: row.id,
-        paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
-        verified_at: row.verified_at || row.confirmed_at || row.created_at || null,
-        confirmed_at: row.verified_at || row.confirmed_at || row.created_at || null,
-      })));
+    const safeSessionRows = dedupeAvaxRows(sessionRows || [], legacyAvaxRows || []);
+    const safeTokenRows = mergeTokenRows(tokenRows || [], tokenSessionRows || []);
     const safeRewardClaimRows = Array.isArray(rewardClaimRows) ? rewardClaimRows : [];
     const safeRaffleRows = Array.isArray(raffleRows) ? raffleRows : [];
-    const today = new Date().toISOString().slice(0, 10);
+    const safeBurnRows = Array.isArray(burnRows) ? burnRows : [];
+
     const confirmed = []
-      .concat(safeSessionRows.map((row: any) => ({
+      .concat(safeSessionRows.map((row) => ({
         kind: row.kind,
         currency: 'AVAX',
         amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
-        confirmed_at: row.verified_at || row.confirmed_at,
+        confirmed_at: row.confirmed_at || row.verified_at || row.created_at || null,
       })))
-      .concat(safeTokenRows.map((row: any) => ({
+      .concat(safeTokenRows.map((row) => ({
         kind: row.kind,
         currency: 'JEWEL',
         amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
-        confirmed_at: row.verified_at || row.confirmed_at,
+        confirmed_at: row.confirmed_at || row.verified_at || row.created_at || null,
       })));
-    const todayRows = confirmed.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
-    const entryRows = confirmed.filter((row) => String(row.kind || '') === 'entry_fee');
-    const goldRows = confirmed.filter((row) => {
-      const kind = String(row.kind || '').trim();
-      return kind === 'gold_swap' || kind === 'jewel_gold_swap';
-    });
-    const heroRows = confirmed.filter((row) => {
-      const kind = String(row.kind || '').trim();
-      return kind === 'hero_hire' || kind === 'milestone_hero_hire' || kind === 'jewel_extra_hero' || kind === 'jewel_milestone_hero_hire';
-    });
-    const burnEntries = Array.isArray(burnRows) ? burnRows : [];
-    const lifetimeAvaxInWei = sumWei(safeSessionRows);
-    const lifetimeJewelInWei = sumWei(safeTokenRows);
 
-    const completedRewardClaims = safeRewardClaimRows.filter((row: any) => isCompletedRewardLike(row));
-    const completedClaimIds = new Set(completedRewardClaims.map((row: any) => String(row?.id || '').trim()).filter(Boolean));
-    const unclaimedCompletedRaffles = safeRaffleRows.filter((row: any) => {
-      if (!isCompletedRewardLike(row)) return false;
-      const claimId = String(row?.claim_id || '').trim();
-      return !claimId || !completedClaimIds.has(claimId);
-    }).map((row: any) => ({
-      reward_currency: row.reward_currency,
-      amount_value: row.reward_amount,
-      amount_text: row.reward_amount == null ? null : String(row.reward_amount),
-    }));
-    const completedOutgoingRows = completedRewardClaims.concat(unclaimedCompletedRaffles);
-    const lifetimeAvaxOut = sumRewardAmounts(completedOutgoingRows, 'AVAX');
-    const lifetimeJewelOut = sumRewardAmounts(completedOutgoingRows, 'JEWEL');
-    const todayBurnRows = burnEntries.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRows = confirmed.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
+    const entryRows = confirmed.filter((row) => getKindBucket(row.kind) === 'entry');
+    const goldRows = confirmed.filter((row) => getKindBucket(row.kind) === 'gold');
+    const heroRows = confirmed.filter((row) => getKindBucket(row.kind) === 'hero');
+
+    const completedRewardClaims = safeRewardClaimRows.filter((row) => isCompletedRewardLike(row));
+    const completedClaimIds = new Set(completedRewardClaims.map((row) => String(row.id || '').trim()).filter(Boolean));
+    const completedRaffleRows = safeRaffleRows
+      .filter((row) => isCompletedRewardLike(row))
+      .filter((row) => {
+        const claimId = String(row.claim_id || '').trim();
+        return !claimId || !completedClaimIds.has(claimId);
+      })
+      .map((row) => ({
+        reward_currency: row.reward_currency,
+        amount_value: row.reward_amount,
+        amount_text: row.reward_amount == null ? null : String(row.reward_amount),
+      }));
+    const completedOutgoingRows = completedRewardClaims.concat(completedRaffleRows);
+
+    const todayBurnRows = safeBurnRows.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
-    const lifetimeBurnedGold = burnEntries.reduce((total, row) => total + (Number((row && (row.burn_amount ?? row.amount)) || 0) || 0), 0);
-    const todayBurnedGold = todayBurnRows.reduce((total, row) => total + (Number((row && (row.burn_amount ?? row.amount)) || 0) || 0), 0);
+    const lifetimeBurnedGold = safeBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
+    const todayBurnedGold = todayBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
 
     return json({
       ok: true,
@@ -261,10 +306,10 @@ Deno.serve(async (req) => {
       confirmedCount: confirmed.length,
       todayConfirmedCount: todayRows.length,
       totalConfirmedWei: sumWei(confirmed),
-      lifetimeAvaxInWei,
-      lifetimeJewelInWei,
-      lifetimeAvaxOut,
-      lifetimeJewelOut,
+      lifetimeAvaxInWei: sumWei(safeSessionRows),
+      lifetimeJewelInWei: sumWei(safeTokenRows),
+      lifetimeAvaxOut: sumRewardAmounts(completedOutgoingRows, 'AVAX'),
+      lifetimeJewelOut: sumRewardAmounts(completedOutgoingRows, 'JEWEL'),
       todayConfirmedWei: sumWei(todayRows),
       entryFeeWei: sumWei(entryRows),
       entryFeeAvaxWei: sumWeiBy(entryRows, (row) => row.currency === 'AVAX'),
@@ -287,10 +332,21 @@ Deno.serve(async (req) => {
       lifetimeTrackedRuns,
       lifetimeBurnedGold,
       todayBurnedGold,
-      burnedGoldCount: burnEntries.length,
+      burnedGoldCount: safeBurnRows.length,
       todayBurnedGoldCount: todayBurnRows.length,
       latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? latestRaffleWinner : null,
       latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? latestAvaxRaffleWinner : null,
+      diagnostics: {
+        currentAvaxRows: Array.isArray(sessionRows) ? sessionRows.length : 0,
+        legacyAvaxRows: Array.isArray(legacyAvaxRows) ? legacyAvaxRows.length : 0,
+        mergedAvaxRows: safeSessionRows.length,
+        tokenRows: Array.isArray(tokenRows) ? tokenRows.length : 0,
+        tokenSessionRows: Array.isArray(tokenSessionRows) ? tokenSessionRows.length : 0,
+        mergedTokenRows: safeTokenRows.length,
+        rewardClaimRows: safeRewardClaimRows.length,
+        raffleRows: safeRaffleRows.length,
+        burnRows: safeBurnRows.length,
+      },
     });
   } catch (error) {
     if (error instanceof Response) return error;
