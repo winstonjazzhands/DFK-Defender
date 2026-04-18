@@ -239,6 +239,24 @@
     return name || null;
   }
 
+  function getErrorMessage(error) {
+    if (!error) return '';
+    const message = [
+      error.message,
+      error.shortMessage,
+      error.reason,
+      error?.data?.message,
+      error?.error?.message,
+      error?.info?.error?.message,
+    ].find((value) => typeof value === 'string' && value.trim());
+    return String(message || '').trim();
+  }
+
+  function isNoProfileLookupMiss(error) {
+    const message = getErrorMessage(error).toLowerCase();
+    return message.includes('no profile found') || message.includes('profile not found');
+  }
+
   async function resolveProfileNameViaRpc(address) {
     if (!address || !window.ethers) return null;
     const normalized = normalizeAddress(address);
@@ -275,18 +293,29 @@
           try {
             const name = await attempt();
             if (name) return name;
-          } catch (_error) {
+          } catch (error) {
+            if (isNoProfileLookupMiss(error)) return null;
             // try next call shape
           }
         }
         return null;
       };
 
+      const rpcResult = await withRpcFallback(DFK_CONFIG, tryProvider).catch((error) => {
+        if (isNoProfileLookupMiss(error)) return null;
+        throw error;
+      });
+      if (rpcResult) return rpcResult;
+
       if (Number(state.activeChainId || 0) === Number(DFK_CONFIG.chainId || 0) && state.selectedProvider) {
-        return await tryProvider(new window.ethers.BrowserProvider(state.selectedProvider));
+        try {
+          return await tryProvider(new window.ethers.BrowserProvider(state.selectedProvider));
+        } catch (error) {
+          if (isNoProfileLookupMiss(error)) return null;
+        }
       }
 
-      return await withRpcFallback(DFK_CONFIG, tryProvider);
+      return null;
     } catch (_error) {
       return null;
     }
@@ -460,7 +489,42 @@
     throw new Error('Switch your wallet to DFK Chain or Avalanche C-Chain and try again.');
   }
 
+
+  async function retryPendingRunUploadsForConnectedWallet() {
+    const walletAddress = state.address ? normalizeAddress(state.address) : '';
+    if (!walletAddress || !window.DFKRunTracker || typeof window.DFKRunTracker.flushPendingRuns !== 'function') {
+      return null;
+    }
+    renderInfo('Retrying pending tracked runs…');
+    try {
+      const result = await window.DFKRunTracker.flushPendingRuns({
+        address: walletAddress,
+        interactive: true,
+        force: true,
+      });
+      const pending = result && Number.isFinite(Number(result.pending)) ? Number(result.pending) : null;
+      const uploaded = result && Number.isFinite(Number(result.uploaded)) ? Number(result.uploaded) : 0;
+      if (pending === 0) {
+        renderInfo(uploaded > 0 ? 'Pending tracked runs uploaded.' : 'No pending tracked runs.');
+      } else {
+        renderInfo(`Retried pending tracked runs. ${pending} still pending.`);
+      }
+      if (typeof window.DFKRunTracker.refreshSummary === 'function') {
+        window.DFKRunTracker.refreshSummary().catch(() => null);
+      }
+      return result;
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Pending run retry failed.';
+      renderInfo(message);
+      throw error;
+    }
+  }
+
   async function connectWallet() {
+    if (state.address) {
+      await retryPendingRunUploadsForConnectedWallet();
+      return state.address;
+    }
     if (typeof window.DFKDefenseBeforeConnect === 'function') {
       const allowed = await window.DFKDefenseBeforeConnect();
       if (allowed === false) return null;

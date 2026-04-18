@@ -69,6 +69,96 @@ function formatAmountText(amountValue: number | null, rewardCurrency: string | n
 
 const PRIVATE_DAILY_QUEST_TEST_RESET_WALLET = '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
 
+async function findQualifyingRunForClaim(admin: ReturnType<typeof createAdmin>, walletAddress: string, dayStartIso: string) {
+  const attempts = [
+    {
+      label: 'completed_at',
+      build: () => admin
+        .from('runs')
+        .select('id, wave_reached, completed_at, created_at, run_started_at')
+        .eq('wallet_address', walletAddress)
+        .gte('completed_at', dayStartIso)
+        .gt('wave_reached', 0)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    },
+    {
+      label: 'created_at',
+      build: () => admin
+        .from('runs')
+        .select('id, wave_reached, completed_at, created_at, run_started_at')
+        .eq('wallet_address', walletAddress)
+        .gte('created_at', dayStartIso)
+        .gt('wave_reached', 0)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    },
+    {
+      label: 'run_started_at',
+      build: () => admin
+        .from('runs')
+        .select('id, wave_reached, completed_at, created_at, run_started_at')
+        .eq('wallet_address', walletAddress)
+        .gte('run_started_at', dayStartIso)
+        .gt('wave_reached', 0)
+        .order('run_started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    },
+  ];
+
+  const diagnostics: Record<string, string> = {};
+  for (const attempt of attempts) {
+    const { data, error } = await attempt.build();
+    if (error) {
+      diagnostics[attempt.label] = error.message || 'query_failed';
+      continue;
+    }
+    if (data?.id) {
+      return { run: data, matchedOn: attempt.label, diagnostics };
+    }
+  }
+
+  const latestAttempts = [
+    {
+      label: 'latest_completed_at',
+      build: () => admin
+        .from('runs')
+        .select('id, wave_reached, completed_at, created_at, run_started_at')
+        .eq('wallet_address', walletAddress)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    },
+    {
+      label: 'latest_created_at',
+      build: () => admin
+        .from('runs')
+        .select('id, wave_reached, completed_at, created_at, run_started_at')
+        .eq('wallet_address', walletAddress)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    },
+  ];
+
+  for (const attempt of latestAttempts) {
+    const { data, error } = await attempt.build();
+    if (error) {
+      diagnostics[attempt.label] = error.message || 'query_failed';
+      continue;
+    }
+    if (data?.id) {
+      return { run: null, matchedOn: '', diagnostics, latestRun: data, latestRunSource: attempt.label };
+    }
+  }
+
+  return { run: null, matchedOn: '', diagnostics, latestRun: null, latestRunSource: '' };
+}
+
+
 async function getWhitelistDecision(
   admin: ReturnType<typeof createAdmin>,
   walletAddress: string,
@@ -165,17 +255,28 @@ Deno.serve(async (req) => {
     dayStart.setUTCHours(0, 0, 0, 0);
     const claimDay = dayStart.toISOString().slice(0, 10);
 
-    const { data: qualifyingRun, error: runError } = await admin
-      .from('runs')
-      .select('id, wave_reached, completed_at')
-      .eq('wallet_address', walletAddress)
-      .gte('completed_at', dayStart.toISOString())
-      .gt('wave_reached', 0)
-      .order('completed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (runError) throw runError;
-    if (!qualifyingRun?.id) return json({ error: 'Complete at least one tracked run today before claiming a daily reward.' }, 409);
+    const qualifyingRunLookup = await findQualifyingRunForClaim(admin, walletAddress, dayStart.toISOString());
+    const qualifyingRun = qualifyingRunLookup.run;
+    if (!qualifyingRun?.id) {
+      const latestTrackedAt = String(
+        qualifyingRunLookup.latestRun?.completed_at
+          || qualifyingRunLookup.latestRun?.created_at
+          || qualifyingRunLookup.latestRun?.run_started_at
+          || ''
+      ).trim() || null;
+      const latestWaveReached = Number(qualifyingRunLookup.latestRun?.wave_reached || 0) || 0;
+      return json({
+        error: 'Complete at least one tracked run after 00:00 UTC before claiming a daily reward.',
+        code: 'no_qualifying_run_today',
+        dayStartUtc: dayStart.toISOString(),
+        latestTrackedRunAt: latestTrackedAt,
+        latestTrackedRunWave: latestWaveReached,
+        diagnostics: qualifyingRunLookup.diagnostics,
+        hint: latestTrackedAt
+          ? `Latest tracked run was ${latestTrackedAt}. Reward claims unlock after a tracked run in the current UTC day.`
+          : 'No qualifying tracked run was found in the current UTC day.',
+      }, 409);
+    }
 
     const amountValue = Number.isFinite(requestedRewardAmountValue) && requestedRewardAmountValue > 0
       ? requestedRewardAmountValue
@@ -284,6 +385,7 @@ Deno.serve(async (req) => {
       whitelistReason: whitelistDecision.reason,
       testResetCycle: authorizedTestResetCycle || null,
       message,
+      qualifyingRunMatchedOn: qualifyingRunLookup.matchedOn || 'completed_at',
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Failed to submit reward claim.' }, 500);

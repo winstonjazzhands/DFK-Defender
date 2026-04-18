@@ -60,3 +60,30 @@ After that, do one fresh burn test and check `public.dfk_gold_burns`.
 - `submit-run` now rejects obviously impossible payloads, including invalid run timing, mismatched tower counts, malformed hero aggregates, and extreme out-of-range values.
 - Runs that arrive implausibly fast for their cleared wave count are rejected server-side.
 - Rapid-fire run spam is rate-limited per wallet over a rolling 10-minute window.
+
+
+## High-value run secure submission
+
+For runs at wave 30 and above, deploy `run-submit-challenge` alongside `submit-run` and set `RUN_SUBMIT_CHALLENGE_SECRET` in Supabase Edge Function secrets. This enables the final signature flow and lets high-value runs stay recoverable locally until the backend confirms receipt.
+
+## Duplicate submission hardening
+
+- `RUN_SUBMIT_CHALLENGE_SECRET` must be set in Supabase Edge Function secrets. Do not rely on any fallback secret.
+- Apply the latest database migration so `public.runs` enforces a unique normalized `client_run_id`; this is what blocks duplicate run inserts even if the same payload is replayed.
+
+
+## Weekly bounty test reset
+
+A new Edge Function, `bounty-reset-progress`, was added for the private test wallet. It clears the current week's bounty claim requests, weekly bounty claim slots, and tracked runs for that wallet only.
+
+If you want a wallet other than the built-in test wallet to use this button, set this optional secret before deploying the function:
+
+```
+BOUNTY_TEST_RESET_WALLET=0xyourwallethere
+```
+
+You need to deploy this function after updating the build:
+
+```
+npx supabase functions deploy bounty-reset-progress --no-verify-jwt
+```

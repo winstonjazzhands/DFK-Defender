@@ -5735,6 +5735,33 @@ body.leaderboard-open {
   opacity: 1;
 }
 
+.bounty-claim-btn.is-submitting {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bounty-claim-btn-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.bounty-claim-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 242, 207, 0.28);
+  border-top-color: rgba(255, 242, 207, 0.98);
+  animation: bounty-claim-spin 0.8s linear infinite;
+}
+
+@keyframes bounty-claim-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .bounty-status-banner {
   padding: 12px 14px;
   border-radius: 14px;
@@ -9227,8 +9254,13 @@ body #bountyModal .intro-body.bounty-body {
 
 .bounty-progress-row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:10px 0 6px;font-size:12px;opacity:.92}
 .bounty-progress-copy{color:#efe6ff}
-.bounty-progress-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 10px}
-.bounty-progress-bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,rgba(112,235,168,.95),rgba(224,198,84,.95))}
+.bounty-progress-bar{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 10px}
+.bounty-progress-bar-solid,.bounty-progress-bar-pending{position:absolute;top:0;height:100%;border-radius:999px}
+.bounty-progress-bar-solid{left:0;display:block;background:linear-gradient(90deg,rgba(112,235,168,.95),rgba(224,198,84,.95))}
+.bounty-progress-bar-pending{display:block;background:linear-gradient(90deg,rgba(112,235,168,.28),rgba(224,198,84,.28));border:1px solid rgba(230,203,104,.35);box-sizing:border-box}
+.bounty-state-chip.is-pending-submission{background:rgba(255,217,102,.12);border-color:rgba(255,217,102,.35);color:#f3e0a2}
+.bounty-pending-note{font-size:12px;line-height:1.4;color:rgba(255,245,214,.8);margin:-4px 0 10px}
+.bounty-strip-copy-subtle{opacity:.88;max-width:920px}
 
 
 /* V10.5.1 dailies-bounties integrated modal sizing */
@@ -9274,4 +9306,50 @@ body #bountyModal .intro-body.bounty-body {
 #questsModal .bounty-status-banner,
 #bountyModal .bounty-status-banner {
   font-size: 0.9em !important;
+}
+
+
+/* V10.5.2 quest/bounty modal click hardening */
+#questsModal,
+#bountyModal {
+  z-index: 120120 !important;
+  pointer-events: auto !important;
+  touch-action: auto;
+}
+
+#questsModal .intro-modal-card,
+#bountyModal .intro-modal-card,
+#questsModal .intro-body,
+#bountyModal .intro-body,
+#questsModal button,
+#bountyModal button {
+  pointer-events: auto !important;
+}
+
+body.intro-open #avaxTreasuryPanel,
+body.intro-open #treasuryFlyoutBackdrop {
+  pointer-events: none !important;
+}
+
+
+#rewardPayoutNoticeModal.reward-payout-notice-modal {
+  z-index: 120220 !important;
+  pointer-events: auto;
+}
+#rewardPayoutNoticeModal.reward-payout-notice-modal .intro-modal-card {
+  pointer-events: auto;
+  width: min(760px, calc(100vw - 28px));
+  max-width: 760px;
+}
+body.reward-payout-notice-open #questsModal,
+body.reward-payout-notice-open #bountyModal {
+  pointer-events: none;
+}
+body.reward-payout-notice-open #rewardPayoutNoticeModal {
+  pointer-events: auto;
+}
+body.reward-payout-notice-open #rewardPayoutNoticeModal .intro-modal-card,
+body.reward-payout-notice-open #rewardPayoutNoticeModal button,
+body.reward-payout-notice-open #rewardPayoutNoticeModal a {
+  pointer-events: auto;
 }

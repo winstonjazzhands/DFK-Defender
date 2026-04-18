@@ -686,7 +686,7 @@ function loadCachedBalance() {
       }
 
       if (!response.ok) {
-        const message = json && json.error ? json.error : `${name} failed.`;
+        const message = json && (json.error || json.message || json.failureReason) ? String(json.error || json.message || json.failureReason) : `${name} failed.`;
         const requestId = response.headers.get('x-request-id') || response.headers.get('cf-ray') || '';
         const errorCode = json && (json.code || json.errorCode || json.reason) ? String(json.code || json.errorCode || json.reason) : '';
         console.warn('[avax-rails] function call failed', {
@@ -953,9 +953,12 @@ function loadCachedBalance() {
       }
 
       if (response && response.txHash) {
-        setStatus(`Treasury payout sent: ${shortHash(response.txHash)}`, 'good');
-      } else if (response && response.message) {
-        setStatus(`Treasury: ${response.message}`, response.status === 'paid' ? 'good' : 'warn');
+        const suffix = response && response.payoutAttemptId ? ` · ${String(response.payoutAttemptId)}` : '';
+        setStatus(`Treasury payout sent: ${shortHash(response.txHash)}${suffix}`, 'good');
+      } else if (response && (response.failureReason || response.message)) {
+        const detail = String(response.failureReason || response.message || '').trim();
+        const requestTag = response && response.requestId ? ` [${String(response.requestId)}]` : '';
+        setStatus(`Treasury: ${detail}${requestTag}`, response.status === 'paid' ? 'good' : 'warn');
       }
       try {
         if (window.refreshTopMenuData) window.refreshTopMenuData();

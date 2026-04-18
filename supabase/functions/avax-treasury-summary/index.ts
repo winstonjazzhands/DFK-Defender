@@ -181,7 +181,11 @@ Deno.serve(async (req) => {
           amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
         }));
     const primaryTokenRows = Array.isArray(tokenRows) ? tokenRows : [];
-    const verifiedTokenSessions = Array.isArray(tokenSessionRows) ? tokenSessionRows : [];
+    const rawTokenSessionRows = Array.isArray(tokenSessionRows) ? tokenSessionRows : [];
+    const verifiedTokenSessions = rawTokenSessionRows.filter((row: any) => {
+      const status = String(row?.status || '').trim().toLowerCase();
+      return status === 'verified' || status === 'confirmed' || !!String(row?.verified_at || '').trim() || !!String(row?.tx_hash || '').trim();
+    });
     const paidTokenHashes = new Set(primaryTokenRows.map((row: any) => String(row?.tx_hash || '').trim().toLowerCase()).filter(Boolean));
     const paidTokenSessionIds = new Set(primaryTokenRows.map((row: any) => String(row?.payment_session_id || '').trim()).filter(Boolean));
     const safeTokenRows = primaryTokenRows.concat(verifiedTokenSessions
@@ -194,7 +198,12 @@ Deno.serve(async (req) => {
       })
       .map((row: any) => ({
         ...row,
-        paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei || '0',
+        kind: row.kind,
+        payment_asset: row.payment_asset || 'native_jewel',
+        payment_session_id: row.id,
+        paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
+        verified_at: row.verified_at || row.confirmed_at || row.created_at || null,
+        confirmed_at: row.verified_at || row.confirmed_at || row.created_at || null,
       })));
     const safeRewardClaimRows = Array.isArray(rewardClaimRows) ? rewardClaimRows : [];
     const safeRaffleRows = Array.isArray(raffleRows) ? raffleRows : [];

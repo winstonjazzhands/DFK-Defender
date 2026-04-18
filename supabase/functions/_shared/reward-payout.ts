@@ -31,6 +31,23 @@ type ReceiptLike = {
   gasUsed?: unknown;
 };
 
+function payoutLog(event: string, payload: Record<string, unknown>) {
+  try { console.log(`[reward-payout] ${event} ${JSON.stringify(payload)}`); } catch (_error) { console.log(`[reward-payout] ${event}`); }
+}
+
+function payoutErrorLog(event: string, payload: Record<string, unknown>) {
+  try { console.error(`[reward-payout] ${event} ${JSON.stringify(payload)}`); } catch (_error) { console.error(`[reward-payout] ${event}`); }
+}
+
+function summarizeError(error: unknown) {
+  if (error instanceof Error) return { name: error.name || "Error", message: error.message || "Unknown error" };
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    return { name: String(value.name || "Error"), message: String(value.message || value.error || "[object Object]"), code: value.code == null ? undefined : String(value.code), details: value.details == null ? undefined : String(value.details), hint: value.hint == null ? undefined : String(value.hint) };
+  }
+  return { name: "Error", message: String(error || "Unknown error") };
+}
+
 function stringifyReceiptStatus(status: unknown) {
   if (typeof status === "bigint") return status.toString();
   if (typeof status === "string") return status.trim().toLowerCase();
@@ -249,9 +266,10 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
   const privateKey = String(TREASURY_PRIVATE_KEY || "").trim();
   const walletAddress = normalizeAddress(claim?.wallet_address);
   const nowIso = new Date().toISOString();
+  const payoutAttemptId = `payout_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
   if (!privateKey) {
-    return { attempted: false, paid: false, message: "Auto-payout signer is not configured." };
+    return { attempted: false, paid: false, message: "Auto-payout signer is not configured.", payoutAttemptId };
   }
   if (!isValidPrivateKey(privateKey)) {
     throw new Error("TREASURY_PRIVATE_KEY is not a valid 32-byte hex key.");
@@ -265,8 +283,12 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
 
   let submittedTxHash = "";
   let pendingNote = String(claim?.admin_note || "").trim();
+  let failureStage = 'init';
+
+  payoutLog('start', { payoutAttemptId, claimId: claim.id, rewardCurrency: options.rewardCurrency, amountText: options.amountText, walletAddress, treasuryAddress: options.treasuryAddress });
 
   try {
+    failureStage = 'preflight';
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     if (!isAddressEqual(account.address, options.treasuryAddress as `0x${string}`)) {
       throw new Error(`TREASURY_PRIVATE_KEY does not match ${options.rewardCurrency} treasury address. Derived ${account.address}.`);
@@ -276,19 +298,29 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
     let lastPreSubmitError: unknown = null;
 
     for (const rpcUrl of rpcCandidates) {
+      failureStage = 'rpc_preflight';
       try {
         const publicClient = createPublicClient({ chain: options.chain, transport: http(rpcUrl, { timeout: 45000 }) });
         const walletClient = createWalletClient({ account, chain: options.chain, transport: http(rpcUrl, { timeout: 45000 }) });
+        const payoutWei = parseUnits(options.amountText, 18);
+        const treasuryBalance = await publicClient.getBalance({ address: options.treasuryAddress as `0x${string}` });
+        payoutLog('rpc-preflight-ok', { payoutAttemptId, claimId: claim.id, rpcUrl, treasuryBalanceWei: treasuryBalance.toString(), payoutWei: payoutWei.toString() });
+        if (treasuryBalance < payoutWei) {
+          throw new Error(`${options.rewardCurrency} treasury balance is too low for this payout. balanceWei=${treasuryBalance.toString()} payoutWei=${payoutWei.toString()}`);
+        }
 
+        failureStage = 'submit_tx';
         const txHash = await walletClient.sendTransaction({
           account,
           chain: options.chain,
           to: walletAddress as `0x${string}`,
-          value: parseUnits(options.amountText, 18),
+          value: payoutWei,
         });
         submittedTxHash = txHash;
+        payoutLog('tx-submitted', { payoutAttemptId, claimId: claim.id, rpcUrl, txHash });
 
-        pendingNote = appendNote(claim?.admin_note, `Treasury payout submitted on-chain via ${rpcUrl}. Tx: ${txHash}`);
+        failureStage = 'write_submitted';
+        pendingNote = appendNote(claim?.admin_note, `Treasury payout submitted on-chain via ${rpcUrl}. Attempt ${payoutAttemptId}. Tx: ${txHash}`);
         const { error: pendingError } = await admin
           .from("reward_claim_requests")
           .update({
@@ -303,7 +335,9 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
           .eq("id", claim.id);
         if (pendingError) throw pendingError;
 
+        failureStage = 'wait_receipt';
         const receipt = await waitForReceiptWithBackoff(publicClient, txHash);
+        payoutLog('receipt-observed', { payoutAttemptId, claimId: claim.id, txHash, receipt: describeReceipt(receipt) });
         if (isReceiptReverted(receipt)) {
           throw new Error(`Treasury payout transaction failed on-chain. ${describeReceipt(receipt)}`);
         }
@@ -311,7 +345,8 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
           throw new Error(`Treasury payout receipt status was inconclusive. ${describeReceipt(receipt)}`);
         }
 
-        const note = appendNote(pendingNote, `Auto-paid ${options.amountText} ${options.rewardCurrency} via treasury native transfer. ${describeReceipt(receipt)}.`);
+        failureStage = 'write_paid';
+        const note = appendNote(pendingNote, `Auto-paid ${options.amountText} ${options.rewardCurrency} via treasury native transfer. Attempt ${payoutAttemptId}. ${describeReceipt(receipt)}.`);
         const { error } = await admin
           .from("reward_claim_requests")
           .update({
@@ -326,9 +361,12 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
           })
           .eq("id", claim.id);
         if (error) throw error;
-        return { attempted: true, paid: true, txHash, message: `Sent ${options.amountText} ${options.rewardCurrency} to ${walletAddress} via native transfer.` };
+        payoutLog('completed', { payoutAttemptId, claimId: claim.id, txHash, rewardCurrency: options.rewardCurrency });
+        return { attempted: true, paid: true, txHash, payoutAttemptId, message: `Sent ${options.amountText} ${options.rewardCurrency} to ${walletAddress} via native transfer.` };
       } catch (rpcError) {
-        if (submittedTxHash) throw rpcError;
+        const summary = summarizeError(rpcError);
+        payoutErrorLog('rpc-attempt-failed', { payoutAttemptId, claimId: claim.id, rewardCurrency: options.rewardCurrency, stage: failureStage, rpcUrl, txHash: submittedTxHash || null, error: summary });
+        if (submittedTxHash) throw new Error(`[${failureStage}] ${summary.message}`);
         lastPreSubmitError = rpcError;
         if (!isRetryableRpcError(rpcError)) throw rpcError;
       }
@@ -337,9 +375,11 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
     if (lastPreSubmitError) throw lastPreSubmitError;
     throw new Error('Treasury payout failed before transaction submission.');
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Auto-payout failed.";
+    const summary = summarizeError(error);
+    const message = `[${failureStage}] ${summary.message || 'Auto-payout failed.'}`;
+    payoutErrorLog('failed', { payoutAttemptId, claimId: claim.id, rewardCurrency: options.rewardCurrency, stage: failureStage, txHash: submittedTxHash || null, error: summary });
     await recordAutoPayFailure(admin, claim, nowIso, message, { adminNote: pendingNote, txHash: submittedTxHash || null });
-    return { attempted: true, paid: false, message, txHash: submittedTxHash || null };
+    return { attempted: true, paid: false, message, txHash: submittedTxHash || null, payoutAttemptId, failureStage, failureReason: message };
   }
 }
 

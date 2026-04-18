@@ -25,6 +25,32 @@ function cleanName(value: unknown) {
   return name || null;
 }
 
+function getErrorMessage(error: unknown) {
+  if (!error || typeof error !== 'object') return '';
+  const source = error as {
+    message?: unknown;
+    shortMessage?: unknown;
+    reason?: unknown;
+    data?: { message?: unknown };
+    error?: { message?: unknown };
+    info?: { error?: { message?: unknown } };
+  };
+  const message = [
+    source.message,
+    source.shortMessage,
+    source.reason,
+    source.data?.message,
+    source.error?.message,
+    source.info?.error?.message,
+  ].find((value) => typeof value === 'string' && value.trim());
+  return typeof message === 'string' ? message.trim() : '';
+}
+
+function isNoProfileLookupMiss(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes('no profile found') || message.includes('profile not found');
+}
+
 async function resolveChainDisplayName(address: string) {
   const provider = new JsonRpcProvider(DFK_CHAIN_RPC_URL, 53935, { staticNetwork: true });
   const contract = new Contract(DFK_PROFILES_ADDRESS, PROFILES_ABI, provider);
@@ -61,7 +87,8 @@ async function resolveChainDisplayName(address: string) {
     try {
       const name = await attempt();
       if (name) return name;
-    } catch (_error) {
+    } catch (error) {
+      if (isNoProfileLookupMiss(error)) return null;
       // continue
     }
   }

@@ -9,8 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+function json(payload: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json', ...extraHeaders } });
+}
+
+function logAdmin(event: string, payload: Record<string, unknown>) {
+  try { console.log(`[reward-claims-admin] ${event} ${JSON.stringify(payload)}`); } catch (_error) { console.log(`[reward-claims-admin] ${event}`); }
 }
 
 
@@ -540,7 +544,8 @@ async function listWhitelist(admin: ReturnType<typeof createAdmin>) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
+  const requestId = `rewardadm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: { ...corsHeaders, 'x-request-id': requestId } });
   try {
     const admin = createAdmin();
     const body = await req.json().catch(() => ({}));
@@ -557,27 +562,38 @@ Deno.serve(async (req) => {
     if (!privateAdminWallets.includes(walletAddress)) return json({ error: 'Unauthorized.' }, 403);
 
     const action = String(body.action || 'list').trim().toLowerCase();
+    logAdmin('request', { requestId, action, walletAddress, pathname: new URL(req.url).pathname, method: req.method });
     if (action === 'update_status') {
-      return json(await updateClaimStatus(admin, walletAddress, body as Record<string, unknown>));
+      const result = await updateClaimStatus(admin, walletAddress, body as Record<string, unknown>);
+      logAdmin('update-status:success', { requestId, action, claimId: result.claimId, status: result.status });
+      return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
     }
     if (action === 'approve_and_pay') {
-      return json(await approveAndPayClaim(admin, walletAddress, body as Record<string, unknown>));
+      const result = await approveAndPayClaim(admin, walletAddress, body as Record<string, unknown>) as Record<string, unknown>;
+      logAdmin('approve-and-pay:result', { requestId, action, claimId: result.claimId || null, status: result.status || null, txHash: result.txHash || null, payoutAttemptId: result.payoutAttemptId || null, failureReason: result.failureReason || null });
+      return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
     }
     if (action === 'whitelist_upsert') {
-      return json(await upsertWhitelist(admin, body as Record<string, unknown>));
+      const result = await upsertWhitelist(admin, body as Record<string, unknown>);
+      return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
     }
     if (action === 'whitelist_list') {
-      return json(await listWhitelist(admin));
+      const result = await listWhitelist(admin);
+      return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
     }
     if (action === 'whitelist_delete') {
-      return json(await deleteWhitelist(admin, body as Record<string, unknown>));
+      const result = await deleteWhitelist(admin, body as Record<string, unknown>);
+      return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
     }
 
     const limit = Math.max(1, Math.min(100, Number(body.limit || 25) || 25));
     const timeframe = String(body.timeframe || 'all').trim().toLowerCase();
-    return json(await listClaims(admin, limit, timeframe));
+    const result = await listClaims(admin, limit, timeframe);
+    return json({ ...result, requestId }, 200, { 'x-request-id': requestId });
   } catch (error) {
     if (error instanceof Response) return error;
-    return json({ error: error instanceof Error ? error.message : 'Failed to load reward claims.' }, 500);
+    const message = error instanceof Error ? error.message : 'Failed to load reward claims.';
+    logAdmin('request:failed', { requestId, error: message });
+    return json({ error: message, requestId }, 500, { 'x-request-id': requestId });
   }
 });

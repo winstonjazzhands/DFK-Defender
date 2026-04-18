@@ -157,7 +157,15 @@
       var message = json && (json.error || json.message)
         ? (json.error || json.message)
         : (responseText || response.statusText || 'Request failed');
-      throw new Error(functionName + ': ' + response.status + ' ' + message);
+      if (typeof message !== 'string') {
+        try { message = JSON.stringify(message); } catch (e) { message = String(message); }
+      }
+      var detail = json && json.error_detail ? json.error_detail : null;
+      var err = new Error(functionName + ': ' + response.status + ' ' + message);
+      err.responseBody = responseText;
+      err.responseJson = json;
+      err.errorDetail = detail;
+      throw err;
     }
     return json;
   }

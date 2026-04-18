@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { extractSessionToken, loadValidWalletSession, normalizeAddress, validateSessionContext } from '../_shared/wallet-session.ts';
-import { Contract, JsonRpcProvider } from 'npm:ethers@6';
+import { Contract, JsonRpcProvider, verifyMessage } from 'npm:ethers@6';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +11,9 @@ const corsHeaders = {
 
 const DFK_CHAIN_RPC_URL = Deno.env.get('DFK_CHAIN_RPC_URL') || 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc';
 const DFK_PROFILES_ADDRESS = '0xC4cD8C09D1A90b21Be417be91A81603B03993E81';
+const RUN_SUBMIT_CHALLENGE_SECRET = Deno.env.get('RUN_SUBMIT_CHALLENGE_SECRET') || '';
+const SECURE_RUN_WAVE_THRESHOLD = Number(Deno.env.get('DFK_SECURE_RUN_SIGNATURE_WAVE_THRESHOLD') || 30);
+
 const PROFILES_ABI = [
   'function getNames(address[] _addresses) view returns (string[])',
   'function addressToProfile(address) view returns (address owner, string name, uint64 created, uint256 nftId, uint256 collectionId, string picUri)',
@@ -63,7 +66,8 @@ async function resolveChainDisplayName(address: string) {
     try {
       const name = await attempt();
       if (name) return name;
-    } catch (_error) {
+    } catch (error) {
+      if (isNoProfileLookupMiss(error)) return null;
       // continue
     }
   }
@@ -73,15 +77,21 @@ async function resolveChainDisplayName(address: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders });
 
+  const requestId = makeRequestId('submitrun');
+
   try {
     const token = extractSessionToken(req);
     if (!token || /^sb_(publishable|anon)_/i.test(token)) {
+      console.warn('submit-run missing session token', { requestId, tokenFingerprint: fingerprintToken(token) });
       return json({ error: 'Valid session token required.', code: 'missing_session_token' }, 401);
     }
 
     const admin = createAdmin();
     const sessionResult = await loadValidWalletSession(admin, req, corsHeaders, { validateContext: true });
-    if ('response' in sessionResult) return sessionResult.response;
+    if ('response' in sessionResult) {
+      console.warn('submit-run session rejected', { requestId, tokenFingerprint: fingerprintToken(token) });
+      return sessionResult.response;
+    }
     const session = sessionResult.session;
 
     const body = await safeReadJson(req);
@@ -91,12 +101,23 @@ Deno.serve(async (req) => {
 
     const bodyRow = body as Record<string, unknown>;
     const walletAddress = normalizeAddress(bodyRow.walletAddress as string);
+    console.log('submit-run request', {
+      requestId,
+      walletAddress: summarizeAddress(walletAddress),
+      clientRunId: String(bodyRow.clientRunId || '').trim() || null,
+      chainId: bodyRow.chainId ?? null,
+      mode: bodyRow.mode ?? null,
+      result: bodyRow.result ?? null,
+      waveReached: bodyRow.waveReached ?? null,
+      wavesCleared: bodyRow.wavesCleared ?? null,
+      tokenFingerprint: fingerprintToken(token),
+    });
     if (!walletAddress) return json({ error: 'walletAddress is required.', code: 'wallet_required' }, 400);
     if (walletAddress !== normalizeAddress(session.wallet_address)) {
       return json({ error: 'Wallet mismatch.', code: 'wallet_mismatch' }, 401);
     }
 
-    const clientRunId = String(bodyRow.clientRunId || '').trim();
+    const clientRunId = normalizeClientRunId(bodyRow.clientRunId);
     if (!clientRunId) {
       return json({ error: 'clientRunId is required.', code: 'client_run_id_required' }, 400);
     }
@@ -154,6 +175,27 @@ Deno.serve(async (req) => {
       return json({ error: validationError.error, code: validationError.code, details: validationError.details }, 400);
     }
 
+    if (Math.max(waveReached, wavesCleared) >= SECURE_RUN_WAVE_THRESHOLD) {
+      const secureValidation = await validateSecureRunSubmission(bodyRow, {
+        walletAddress,
+        clientRunId,
+        waveReached,
+        wavesCleared,
+        completedAt,
+        runStartedAt,
+        gameVersion,
+        mode,
+        result,
+        chainId,
+        portalHpLeft,
+        goldOnHand,
+        premiumJewels,
+        heroes,
+        stats: hardenedStats,
+      });
+      if (secureValidation) return secureValidation;
+    }
+
     const rateLimit = await checkRunSubmissionRate(admin, walletAddress, completedAt);
     if (rateLimit) return rateLimit;
 
@@ -177,6 +219,7 @@ Deno.serve(async (req) => {
 
     const duplicate = await runAlreadyExists(admin, walletAddress, clientRunId);
     if (duplicate.exists) {
+      console.log('submit-run duplicate', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: duplicate.id || null });
       await syncPlayerSummaryFromRuns(admin, walletAddress, {
         displayName: resolvedDisplayName,
         lastRunAt: completedAt,
@@ -206,6 +249,7 @@ Deno.serve(async (req) => {
     });
 
     if (insertResult.duplicate) {
+      console.log('submit-run duplicate-after-insert', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: insertResult.id || duplicate.id || null });
       await touchWalletSession(admin, token);
       return json({ ok: true, duplicate: true, runId: insertResult.id || duplicate.id || null, clientRunId }, 200);
     }
@@ -217,10 +261,11 @@ Deno.serve(async (req) => {
     });
 
     await touchWalletSession(admin, token);
+    console.log('submit-run success', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: insertResult.id || null });
     return json({ ok: true, runId: insertResult.id || null, clientRunId }, 200);
   } catch (error) {
     const details = normalizeError(error);
-    console.error('submit-run fatal error', details);
+    console.error('submit-run fatal error', { requestId, ...details });
     return json({
       error: details.message || 'Run submission failed.',
       code: details.code,
@@ -692,6 +737,235 @@ function clampInt(value: unknown, min: number, max: number, fallback?: number) {
   return base;
 }
 
+
+async function validateSecureRunSubmission(
+  bodyRow: Record<string, unknown>,
+  payload: {
+    walletAddress: string;
+    clientRunId: string;
+    waveReached: number;
+    wavesCleared: number;
+    completedAt: string;
+    runStartedAt: string | null;
+    gameVersion: string;
+    mode: string;
+    result: string;
+    chainId: number;
+    portalHpLeft: number;
+    goldOnHand: number;
+    premiumJewels: number;
+    heroes: unknown[];
+    stats: Record<string, unknown>;
+  },
+) {
+  if (!RUN_SUBMIT_CHALLENGE_SECRET) {
+    return json({ error: 'Secure run submission is not configured on the server.', code: 'secure_submission_not_configured' }, 500);
+  }
+
+  const secureRow = bodyRow.secureSubmission && typeof bodyRow.secureSubmission === 'object'
+    ? bodyRow.secureSubmission as Record<string, unknown>
+    : null;
+  if (!secureRow) {
+    return json({ error: 'High-value runs require a fresh final signature.', code: 'secure_submission_required' }, 401);
+  }
+
+  const challengeToken = String(secureRow.challengeToken || '').trim();
+  const signature = String(secureRow.signature || '').trim();
+  const message = String(secureRow.message || '').trim();
+  const payloadHash = String(secureRow.payloadHash || '').trim();
+  if (!challengeToken || !signature || !message || !payloadHash) {
+    return json({ error: 'Secure submission payload was incomplete.', code: 'secure_submission_incomplete' }, 401);
+  }
+
+  const expectedPayloadHash = await hashRunPayloadForSecureSubmission(payload);
+  if (payloadHash !== expectedPayloadHash) {
+    return json({ error: 'Secure submission payload hash mismatch.', code: 'secure_payload_hash_mismatch' }, 401);
+  }
+
+  const tokenPayload = await verifySignedChallengeToken(challengeToken, RUN_SUBMIT_CHALLENGE_SECRET);
+  if (!tokenPayload) {
+    return json({ error: 'Secure submission challenge was invalid.', code: 'secure_challenge_invalid' }, 401);
+  }
+  if (String(tokenPayload.type || '') != 'dfk_secure_run_submit') {
+    return json({ error: 'Secure submission challenge type was invalid.', code: 'secure_challenge_invalid_type' }, 401);
+  }
+  if (normalizeAddress(tokenPayload.walletAddress) != payload.walletAddress) {
+    return json({ error: 'Secure submission wallet mismatch.', code: 'secure_wallet_mismatch' }, 401);
+  }
+  if (normalizeClientRunId(tokenPayload.clientRunId) != payload.clientRunId) {
+    return json({ error: 'Secure submission run mismatch.', code: 'secure_run_mismatch' }, 401);
+  }
+  if (String(tokenPayload.payloadHash || '') != expectedPayloadHash) {
+    return json({ error: 'Secure submission challenge hash mismatch.', code: 'secure_challenge_hash_mismatch' }, 401);
+  }
+  if (Number(tokenPayload.waveReached || 0) != payload.waveReached) {
+    return json({ error: 'Secure submission wave mismatch.', code: 'secure_challenge_wave_mismatch' }, 401);
+  }
+  if (String(tokenPayload.completedAt || '') != payload.completedAt) {
+    return json({ error: 'Secure submission completion time mismatch.', code: 'secure_challenge_completed_at_mismatch' }, 401);
+  }
+  const expiresAt = Date.parse(String(tokenPayload.expiresAt || ''));
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return json({ error: 'Secure submission challenge expired.', code: 'secure_challenge_expired' }, 401);
+  }
+
+  const origin = String(tokenPayload.origin || '').trim() || null;
+  const expectedMessage = buildSecureRunSubmitMessage({
+    origin,
+    walletAddress: payload.walletAddress,
+    clientRunId: payload.clientRunId,
+    waveReached: payload.waveReached,
+    completedAt: payload.completedAt,
+    payloadHash: expectedPayloadHash,
+    challengeId: String(tokenPayload.challengeId || ''),
+    expiresAt: String(tokenPayload.expiresAt || ''),
+  });
+  if (message != expectedMessage) {
+    return json({ error: 'Secure submission message mismatch.', code: 'secure_message_mismatch' }, 401);
+  }
+
+  let recoveredAddress = '';
+  try {
+    recoveredAddress = normalizeAddress(verifyMessage(message, signature));
+  } catch (_error) {
+    return json({ error: 'Secure submission signature could not be verified.', code: 'secure_signature_invalid' }, 401);
+  }
+  if (recoveredAddress != payload.walletAddress) {
+    return json({ error: 'Secure submission signature wallet mismatch.', code: 'secure_signature_wallet_mismatch' }, 401);
+  }
+
+  return null;
+}
+
+function buildSecurePayloadForHash(payload: {
+  walletAddress: string;
+  clientRunId: string;
+  runStartedAt: string | null;
+  completedAt: string;
+  gameVersion: string;
+  mode: string;
+  result: string;
+  chainId: number;
+  waveReached: number;
+  wavesCleared: number;
+  portalHpLeft: number;
+  goldOnHand: number;
+  premiumJewels: number;
+  heroes: unknown[];
+  stats: Record<string, unknown>;
+}) {
+  return canonicalize({
+    walletAddress: payload.walletAddress,
+    clientRunId: payload.clientRunId,
+    runStartedAt: payload.runStartedAt,
+    completedAt: payload.completedAt,
+    gameVersion: payload.gameVersion,
+    mode: payload.mode,
+    result: payload.result,
+    chainId: payload.chainId,
+    waveReached: payload.waveReached,
+    wavesCleared: payload.wavesCleared,
+    portalHpLeft: payload.portalHpLeft,
+    goldOnHand: payload.goldOnHand,
+    premiumJewels: payload.premiumJewels,
+    heroes: payload.heroes,
+    stats: payload.stats,
+  });
+}
+
+async function hashRunPayloadForSecureSubmission(payload: Parameters<typeof buildSecurePayloadForHash>[0]) {
+  const text = JSON.stringify(buildSecurePayloadForHash(payload));
+  return await sha256Base64Url(text);
+}
+
+function buildSecureRunSubmitMessage(input: {
+  origin: string | null;
+  walletAddress: string;
+  clientRunId: string;
+  waveReached: number;
+  completedAt: string;
+  payloadHash: string;
+  challengeId: string;
+  expiresAt: string;
+}) {
+  const origin = String(input.origin || 'DFK Defender').trim();
+  const host = origin.replace(/^https?:\/\//i, '').replace(/\/$/, '') || 'DFK Defender';
+  return [
+    `${host} wants you to securely submit this high-value DFK Defender run:`,
+    input.walletAddress,
+    '',
+    `Run ID: ${input.clientRunId}`,
+    `Wave Reached: ${input.waveReached}`,
+    `Completed At: ${input.completedAt}`,
+    `Payload Hash: ${input.payloadHash}`,
+    `Challenge ID: ${input.challengeId}`,
+    `Expires At: ${input.expiresAt}`,
+    '',
+    'Sign to authorize secure submission of this saved run.',
+    'No blockchain transaction will be sent.',
+    '',
+    `URI: ${origin}`,
+    'Version: 1',
+  ].join('\n');
+}
+
+function canonicalize(value: unknown): unknown {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) return value.map((entry) => canonicalize(entry));
+  if (typeof value === 'object') {
+    const row = value as Record<string, unknown>;
+    return Object.keys(row).sort().reduce<Record<string, unknown>>((acc, key) => {
+      if (row[key] === undefined) return acc;
+      acc[key] = canonicalize(row[key]);
+      return acc;
+    }, {});
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) return null;
+  return value;
+}
+
+async function sha256Base64Url(input: string) {
+  const bytes = new TextEncoder().encode(String(input || ''));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return bytesToBase64Url(new Uint8Array(digest));
+}
+
+function bytesToBase64Url(bytes: Uint8Array) {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlToBytes(value: string) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function signChallengeToken(payload: Record<string, unknown>, secret: string) {
+  const encodedPayload = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(encodedPayload));
+  return `${encodedPayload}.${bytesToBase64Url(new Uint8Array(signature))}`;
+}
+
+async function verifySignedChallengeToken(token: string, secret: string) {
+  const [payloadPart, signaturePart] = String(token || '').split('.');
+  if (!payloadPart || !signaturePart) return null;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+  const valid = await crypto.subtle.verify('HMAC', key, base64UrlToBytes(signaturePart), new TextEncoder().encode(payloadPart));
+  if (!valid) return null;
+  const jsonText = new TextDecoder().decode(base64UrlToBytes(payloadPart));
+  try {
+    return JSON.parse(jsonText) as Record<string, unknown>;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function validateRunSubmission(input: {
   clientRunId: string;
   waveReached: number;
@@ -741,8 +1015,10 @@ function validateRunSubmission(input: {
     if (durationMs > 24 * 60 * 60_000) {
       return { error: 'Run duration exceeds the maximum allowed tracked session length.', code: 'run_duration_too_long' };
     }
-    const minDurationMs = Math.max(0, (input.wavesCleared - 5) * 10_000);
-    if (durationMs + 20_000 < minDurationMs) {
+    const minDurationMs = input.wavesCleared <= 25
+      ? 0
+      : Math.max(0, (input.wavesCleared - 5) * 4_000);
+    if (minDurationMs > 0 && durationMs + 60_000 < minDurationMs) {
       return {
         error: 'Run finished faster than allowed by leaderboard validation.',
         code: 'run_duration_too_short',
@@ -836,7 +1112,7 @@ function validateRunSubmission(input: {
     return { error: 'dfkGoldBurnedTotal is out of range.', code: 'invalid_dfk_gold_burned_total' };
   }
 
-  const conservativeGoldCeiling = Math.max(250000, input.wavesCleared * 25000 + dfkGoldBurnedTotal * 2 + 250000);
+  const conservativeGoldCeiling = Math.max(500000, input.wavesCleared * 100000 + dfkGoldBurnedTotal * 4 + 1_000_000);
   if (input.goldOnHand > conservativeGoldCeiling) {
     return {
       error: 'goldOnHand exceeds the conservative leaderboard validation ceiling.',
@@ -888,6 +1164,32 @@ function cleanName(value: unknown) {
   return name || null;
 }
 
+function getErrorMessage(error: unknown) {
+  if (!error || typeof error !== 'object') return '';
+  const source = error as {
+    message?: unknown;
+    shortMessage?: unknown;
+    reason?: unknown;
+    data?: { message?: unknown };
+    error?: { message?: unknown };
+    info?: { error?: { message?: unknown } };
+  };
+  const message = [
+    source.message,
+    source.shortMessage,
+    source.reason,
+    source.data?.message,
+    source.error?.message,
+    source.info?.error?.message,
+  ].find((value) => typeof value === 'string' && value.trim());
+  return typeof message === 'string' ? message.trim() : '';
+}
+
+function isNoProfileLookupMiss(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes('no profile found') || message.includes('profile not found');
+}
+
 function sliceText(value: unknown, limit: number, fallback = '') {
   const text = typeof value === 'string' ? value.trim() : '';
   return (text || fallback).slice(0, limit);
@@ -918,6 +1220,11 @@ function normalizeError(error: unknown) {
   return { message: String(error || 'Run submission failed.'), code: null, details: null, hint: null, name: null };
 }
 
+
+function normalizeClientRunId(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function safeIsoDate(value: unknown) {
   if (!value) return null;
   const date = new Date(String(value));
@@ -946,4 +1253,20 @@ function createAdmin() {
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+function makeRequestId(prefix: string) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function fingerprintToken(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  return `${text.slice(0, 6)}…${text.slice(-4)}`;
+}
+
+function summarizeAddress(value: unknown) {
+  const text = normalizeAddress(value);
+  if (!text) return null;
+  return `${text.slice(0, 6)}…${text.slice(-4)}`;
 }
