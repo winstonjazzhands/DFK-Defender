@@ -5,7 +5,9 @@ const DFK_BASE_CLASS_TO_SLOT: Record<number, string> = Object.freeze({
   3: 'archer',
   4: 'priest',
   5: 'wizard',
+  6: 'monk',
   7: 'pirate',
+  8: 'berserker',
   25: 'seer',
 });
 

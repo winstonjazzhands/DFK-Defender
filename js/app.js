@@ -541,6 +541,7 @@ function getRandomTree(){
   const REDUCED_DAMAGE_GROWTH_FACTOR = 0.85;
   const ARCHER_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR * 1.03);
   const PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * REDUCED_DAMAGE_GROWTH_FACTOR);
+  const MONK_BERSERKER_DAMAGE_GROWTH_PER_LEVEL = 1 + ((1.05 - 1) * 0.85);
   const ICE_AURA_BASE_SLOW = 0.12;
   const ICE_AURA_SLOW_PER_LEVEL = 0.004;
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
@@ -555,14 +556,14 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const SLOW_TOTEM_PERCENT = 0.35;
   const STARBOARD_CANNONS_BASE_DAMAGE = 40;
   const ABILITY_DAMAGE_PER_LEVEL = 3;
-  const PRAYER_OF_HEALING_BASE_AMOUNT = 127;
-  const SEER_PASSIVE_HEAL_PERCENT_BASE = 0.01;
-  const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.02;
+  const PRAYER_OF_HEALING_HEAL_PERCENT = 0.03;
+  const SEER_PASSIVE_HEAL_PERCENT_BASE = 0.005;
+  const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.01;
   const SEER_PASSIVE_HEAL_INTERVAL_MS = 2000;
   const SAGE_GLOW_HEAL_INTERVAL_MS = 5000;
   const SAGE_GLOW_HEAL_PERCENT = 0.02;
   const WARSTONE_BASE_DAMAGE = 38;
-  const CHRONO_PURGE_BASE_DAMAGE = 20;
+  const CHRONO_PURGE_BASE_DAMAGE = 32;
   const CHRONO_PURGE_DAMAGE_BONUS_PER_LEVEL = 0.01;
   const CHRONO_PURGE_BONUS_DAMAGE_TAKEN = 0.10;
   const CHRONO_PURGE_DURATION_SECONDS = 6;
@@ -603,6 +604,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const STATUE_EXPLOSION_GIF_SIZE_MULTIPLIER = 2.0;
   const GREEN_FIRE_GIF_PATH = 'assets/green-fire.gif';
 const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
+  const BERSERKER_AXE_IMAGE_PATH = 'assets/berserker-axe.png';
   const SPELLBOW_LIGHTNING_SHAFT_IMAGE_PATH = 'assets/lightning-shaft.png';
   const SPELLBOW_A_LOT_OF_ARROWS_IMAGE_PATH = 'assets/spellbow-alot-of-arrows.png';
   const SAGE_ROSE_PROJECTILE_IMAGE_PATH = 'assets/kiss-from-a-rose.png';
@@ -613,6 +615,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const CANNONBALL_IMAGE_PATH = 'assets/cannonball.png';
   const DRAGOON_SPEAR_SWING_IMAGE_PATH = 'assets/swinging-dragoon-spear.png';
   const DRAGOON_SPEAR_THROW_IMAGE_PATH = 'assets/throwing-dragoon-spear.png';
+  const MONK_FAST_FISTS_IMAGE_PATH = 'assets/monk-fast-fists.png';
   const CHAMPION_AUTO_ABILITY_DELAY_MS = 2000;
   const TOWER_ABILITY_CHAIN_DELAY_MS = 1500;
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
@@ -649,6 +652,12 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const RANDOM_OBSTACLE_COUNT = 9;
   const PLAYER_OBSTACLE_COUNT = 9;
   const GLOBAL_HERO_DAMAGE_MULTIPLIER = 0.95;
+  const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
+  const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
+  const MONK_PARTNER_RANGE_BONUS = 1;
+  const BERSERKER_WANDER_MIN_WAVES = 14;
+  const BERSERKER_WANDER_MAX_WAVES = 20;
+  const BERSERKER_WANDER_DURATION_WAVES = 7;
 
   const TOWER_TEMPLATES = {
     warrior: {
@@ -710,7 +719,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       abilities: [
         { key: 'temporal_restoration', name: 'Temporal Restoration', cooldown: 0, passive: true },
         { key: 'warstone', name: 'Warstone', cooldown: 9 },
-        { key: 'chrono_purge', name: 'Chrono Purge', cooldown: 11 },
+        { key: 'chrono_purge', name: 'Chrono Purge', cooldown: 9.5 },
         { key: 'evasion', name: 'Evasion', cooldown: 0, passive: true },
       ],
     },
@@ -744,6 +753,38 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
         { key: 'kraken', name: 'Kraken', cooldown: 0 },
       ],
       passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
+    },
+    monk: {
+      name: 'Monk',
+      letter: 'MNK',
+      hp: 344,
+      damage: 29,
+      attackInterval: 0.95,
+      range: 1,
+      autoAttack: true,
+      abilities: [
+        { key: 'fast_fists', name: 'Fast Fists', cooldown: 4 },
+        { key: 'windmill_kick', name: 'Windmill Kick', cooldown: 8 },
+        { key: 'levitation', name: 'Levitation', cooldown: 0, passive: true },
+        { key: 'training_partner', name: 'Training Partner', cooldown: 0, passive: true },
+      ],
+      passive: '',
+    },
+    berserker: {
+      name: 'Berserker',
+      letter: 'BRK',
+      hp: 488,
+      damage: 53,
+      attackInterval: 1.3,
+      range: 1,
+      autoAttack: true,
+      abilities: [
+        { key: 'two_handed_swing', name: 'Two-Handed Swing', cooldown: 12 },
+        { key: 'see_the_moon', name: 'See the Moon', cooldown: 12 },
+        { key: 'high_as_a_kite', name: 'High as a Kite', cooldown: 0, passive: true },
+        { key: 'eye_gouge', name: 'Eye Gouge', cooldown: 0, passive: true },
+      ],
+      passive: '',
     },
     champion_dreadknight: {
       name: 'Dreadknight', letter: 'DK', hp: 2400, damage: 120, attackInterval: 1.0, range: 1, autoAttack: true,
@@ -907,8 +948,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'repair_statue', name: 'Repair Statue', desc: 'Spend 100 Gold to patch the Statue back together and restore 13% of its health.', cost: 120, rarity: 'common', apply: game => repairAllStatues(game, 0.13) },
     { id: 'repair_portal', name: 'Repair Portal', desc: 'Spend 100 Gold to reinforce the portal and restore 11% of its health.', cost: 120, rarity: 'common', apply: game => repairPortalPercent(game, 0.11) },
     { id: 'fire_fiend', name: 'Fire Fiend', desc: 'Spend 200 Gold to feed the Wizard hotter fuel and make Fireball cooldown 1 second shorter.', cost: 200, rarity: 'rare', apply: game => game.modifiers.fireballCooldownAdjust += 1 },
-    { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase his health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
-    { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve himself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
+    { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase her health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
+    { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve herself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
     { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => buffTowerType(game, 'pirate', { rangeAdd: 1 }) },
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and improve attack speed by 15%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.85 },
@@ -1023,6 +1064,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     seerIntroModal: document.getElementById('seerIntroModal'),
     closeSeerIntroBtn: document.getElementById('closeSeerIntroBtn'),
     seerIntroOkBtn: document.getElementById('seerIntroOkBtn'),
+    seerIntroLearnMoreBtn: document.getElementById('seerIntroLearnMoreBtn'),
     avaxTreasuryPanel: document.getElementById('avaxTreasuryPanel'),
     avaxTreasuryPanelToggle: document.getElementById('avaxTreasuryPanelToggle'),
     buttonsPanel: document.getElementById('buttonsPanel'),
@@ -4376,16 +4418,17 @@ function formatQuestResetCountdown(dateKey) {
     body.innerHTML = sections.join('');
     actions.innerHTML = '';
     if (heroOffer) {
-      const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+      const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'];
       const goldAvailable = walletDfkgold >= Number(heroOffer.burnCost || 0);
       const canLaunchHire = hasWallet && (useAvax || goldAvailable || jewelAvailable);
       for (const type of heroTypes) {
         const t = TOWER_TEMPLATES[type];
+        const currentTypeCount = (game.towers || []).filter((tower) => tower && tower.type === type && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length;
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'small-action milestone-hero-offer-btn';
         btn.textContent = milestoneTxnPending ? 'Submitting…' : ((game.dfkGoldSwapPending || game.jewelTradePending) ? 'Waiting…' : `${t.name} L${heroOffer.heroLevel}`);
-        btn.disabled = milestoneTxnPending || !canLaunchHire || game.dfkGoldSwapPending || game.jewelTradePending;
+        btn.disabled = milestoneTxnPending || !canLaunchHire || game.dfkGoldSwapPending || game.jewelTradePending || (type === 'monk' && currentTypeCount >= 2);
         btn.title = '';
         btn.addEventListener('click', () => {
           beginMilestoneHeroHireFlow(type).catch((error) => console.error(error));
@@ -5160,6 +5203,8 @@ function renderDamageReport() {
       seer: 'seer',
       priest: 'priest',
       pirate: 'pirate',
+      monk: 'seer',
+      berserker: 'warrior',
     })[type] || 'default';
   }
 
@@ -6541,217 +6586,193 @@ function canSubmitRewardClaims() {
 
   const INTRO_PAGES = [
     {
-      title: 'DFK Defender at a Glance',
+      title: 'Core Gameplay',
       body: `
         <div class="intro-section-card">
-          <p><span class="intro-highlight">DFK Defender</span> is a tower defense game built around <span class="intro-highlight">active play</span>, not passive setups.</p>
-          <p>Instead of placing units and waiting, you are constantly repositioning heroes, timing abilities, and reacting to each wave in real time.</p>
-          <p><span class="intro-highlight">Objective</span> — Defend the portal for as many waves as possible. Your main score is your <span class="intro-highlight">best wave reached</span>.</p>
-        </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">What Makes It Different</p>
+          <p><span class="intro-highlight">DFK Defender</span> is a hybrid tower defense and hero strategy game.</p>
           <ul class="intro-compact-list">
-            <li>The <span class="intro-highlight">Warrior</span> is the only hero that can stop enemy movement.</li>
-            <li>All other heroes must let enemies pass through them, so your run depends on frontline control instead of walling off the map.</li>
-            <li><span class="intro-highlight">Statues</span>, <span class="intro-highlight">Torn Souls</span>, and <span class="intro-highlight">Archer Shadows</span> add extra layers of tactical planning instead of simple stat scaling.</li>
-            <li><span class="intro-highlight">Relics</span> can shift your whole plan by changing sustain, damage, range, and long-run scaling.</li>
+            <li>Place up to <span class="intro-highlight">9 barriers</span> to control enemy pathing.</li>
+            <li>Enemies follow the route you create.</li>
+            <li><span class="intro-highlight">Warrior is the only unit that blocks enemies.</span></li>
+            <li>All other heroes deal damage but do not stop movement.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Wallet Connection and Run Tracking</p>
+          <p class="intro-page-subheading">Multi-Wave Bonus</p>
           <ul class="intro-compact-list">
-            <li>Connect your wallet to link your runs to your wallet address.</li>
-            <li>No transaction is required just to connect or track runs.</li>
-            <li>If run tracking is enabled and you leave mid-run, the run ends and your current wave is saved.</li>
-            <li>This prevents players from dodging bad endings by closing the game without recording the result.</li>
+            <li>2 Waves Active → <span class="intro-highlight">1.25× Gold</span></li>
+            <li>3 Waves Active → <span class="intro-highlight">1.5× Gold</span></li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Leaderboard</p>
+          <p class="intro-page-subheading">Core Rules</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Primary ranking</span> — Best Wave</li>
-            <li><span class="intro-highlight">Secondary stat</span> — Runs</li>
-            <li>Name priority is <span class="intro-highlight">Vanity Name → In-game Name → Wallet</span>.</li>
-            <li>Sorting lets you compare peak performance or total attempts.</li>
+            <li>Pathing determines survival.</li>
+            <li>Positioning affects damage efficiency.</li>
+            <li>Enemy priority: <span class="intro-highlight">Statue (if active)</span>, then <span class="intro-highlight">Portal</span>.</li>
           </ul>
         </div>
       `,
     },
     {
-      title: 'Warrior and Statue',
+      title: 'Hero Roles (Part 1)',
       body: `
         <div class="intro-section-card">
-          <p><span class="intro-highlight">Warrior</span> is your front-line tank and main path control tool.</p>
+          <p class="intro-page-subheading">Warrior</p>
           <ul class="intro-compact-list">
-            <li>The Warrior is the one hero built to block enemies directly.</li>
-            <li>He can move <span class="intro-highlight">1 tile</span> at a time.</li>
-            <li>He has a <span class="intro-highlight">5 second</span> move cooldown.</li>
-            <li>He is allowed to move in ways that block the path.</li>
+            <li>Blocks enemies.</li>
+            <li>Can place a <span class="intro-highlight">Statue</span>.</li>
+            <li><span class="intro-highlight">Only one Statue can exist at a time per Warrior on the field.</span></li>
+            <li>Statue draws enemy priority over the portal.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Warrior Skills</p>
+          <p class="intro-page-subheading">Archer</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Gladiator Strike</span> — Passive bonus hit that also heals the Warrior.</li>
-            <li><span class="intro-highlight">Whirlwind</span> — Heavy adjacent area damage.</li>
-            <li><span class="intro-highlight">Rapid Onslaught</span> — Short burst of faster attacks.</li>
+            <li>Long-range damage.</li>
+            <li>Uses a <span class="intro-highlight">Shadow satellite</span> to extend coverage and increase total output.</li>
+            <li>Every <span class="intro-highlight">12 cleared waves</span>, Assassin's Training grants <span class="intro-highlight">1 Archer Shadow charge</span>, which can be used during prep to place a Shadow on any valid open tile.</li>
+            <li>The Shadow acts as an independent damage source, dealing <span class="intro-highlight">75% of the parent Archer's damage</span>, has <span class="intro-highlight">50% of a normal Archer's max HP</span>, and is created at <span class="intro-highlight">half the Archer's level</span> (rounded down, minimum level 1).</li>
+            <li><span class="intro-highlight">Shadow upgrades cost 50% more</span> than a standard Archer.</li>
+            <li>Shadows fade over time: after <span class="intro-highlight">5 waves</span> they become 25% translucent, after <span class="intro-highlight">10 waves</span> they become 50% translucent, and after <span class="intro-highlight">13 waves</span> they fully dissipate.</li>
+            <li>The tile shows remaining duration. After a Shadow disappears, <span class="intro-highlight">12 additional waves</span> must be cleared to generate another charge.</li>
+            <li>At <span class="intro-highlight">Level 100</span>, newly created Shadows last <span class="intro-highlight">3 additional waves</span>.</li>
           </ul>
         </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Statue</p>
-          <ul class="intro-compact-list">
-            <li>Generated from the Warrior as a separate placement charge.</li>
-            <li>Starts with <span class="intro-highlight">double the Warrior's current HP</span> when created.</li>
-            <li>Cannot move.</li>
-            <li>Cannot be healed.</li>
-            <li>Enemies strongly prefer to attack a reachable Statue.</li>
-            <li>If a Statue cannot realistically be reached, enemies ignore it.</li>
-            <li>When a Statue dies, it triggers a <span class="intro-highlight">red fire explosion</span>.</li>
-          </ul>
-          <p>Use the Warrior and Statue to stall bosses, hold dangerous lanes, and buy time for your damage heroes.</p>
-        </div>
-      `,
-    },
-    {
-      title: 'Archer and Archer Shadow',
-      body: `
-        <div class="intro-section-card">
-          <p><span class="intro-highlight">Archer</span> is your long-range damage specialist. The Archer gives you safe, steady pressure from behind the line and helps thin waves before they reach the Warrior.</p>
-          <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Multi-Shot</span> — 3 arrows for split burst damage.</li>
-            <li><span class="intro-highlight">Rapid Shot</span> — Short burst of faster attacks.</li>
-            <li><span class="intro-highlight">Piercing Shot</span> — Line shot that can hit up to 3 enemies.</li>
-          </ul>
-        </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Archer Shadow Rules</p>
-          <ul class="intro-compact-list">
-            <li>An Archer must survive for <span class="intro-highlight">12 cleared waves</span> before earning an Archer Shadow charge.</li>
-            <li>The Archer Shadow is a temporary ethereal helper placed during prep.</li>
-            <li>It starts at level 1 with half max HP.</li>
-            <li>It deals <span class="intro-highlight">75% of the parent Archer's damage</span>.</li>
-            <li>It lasts for <span class="intro-highlight">9 cleared waves total</span>.</li>
-            <li>After 3 cleared waves it fades to about 25% translucency.</li>
-            <li>After 7 cleared waves it fades to about 50% translucency.</li>
-            <li>After 9 cleared waves it dissipates completely and triggers <span class="intro-highlight">green fire</span>.</li>
-            <li>Once it is gone, that Archer must survive 12 more cleared waves before earning the next one.</li>
-          </ul>
-          <p>Archer Shadows reward planning. Keep your main Archer alive, place the shadow where it can shoot safely for several waves, and treat it like extra backline value rather than disposable damage.</p>
-        </div>
-      `,
-    },
-    {
-      title: 'Wizard, Priest, and Pirate',
-      body: `
         <div class="intro-section-card">
           <p class="intro-page-subheading">Wizard</p>
-          <p>The Wizard deals damage and <span class="intro-highlight">slows enemies</span>, making her one of your best control heroes.</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Firebolt</span> — Reliable direct spell damage that scales with Wizard level.</li>
-            <li><span class="intro-highlight">Ice Aura</span> — Passive slow around the Wizard that grows stronger with level.</li>
-            <li><span class="intro-highlight">Torn Soul</span> — The wizard uses dark magic to create a shadow of herself. It attacks for half damage and detonates when an enemy passes through it.</li>
-            <li><span class="intro-highlight">Fireball</span> — Area damage for clustered enemies that scales harder with Wizard level.</li>
-            <li><span class="intro-highlight">Frost Lance</span> — Heavy hit that is stronger against slowed targets.</li>
+            <li>Area damage.</li>
+            <li>Uses a <span class="intro-highlight">Torn Soul satellite</span> to increase total damage output.</li>
+            <li>Every <span class="intro-highlight">15 cleared waves</span>, the Wizard gains <span class="intro-highlight">1 Torn Soul charge</span>, which can be used during prep to place a Torn Soul on any valid open tile.</li>
+            <li>Torn Soul acts as an independent damage source dealing <span class="intro-highlight">50% of the Wizard's damage</span> and remains active until triggered.</li>
+            <li><span class="intro-highlight">Torn Soul evolves into:</span> Archon — Level 40, Pure Energy — Level 100.</li>
+            <li>When an enemy passes through the Torn Soul tile, it <span class="intro-highlight">detonates for 4464 damage</span>, then leaves <span class="intro-highlight">purple fire for 10.0 seconds</span> in a <span class="intro-highlight">1-tile radius</span>.</li>
+            <li>At <span class="intro-highlight">Level 40 (Archon)</span>: +50% attack damage and 2× explosion power.</li>
+            <li>At <span class="intro-highlight">Level 100 (Pure Energy)</span>: +50% additional damage, +10% attack speed, 50% longer burn duration, wider detonation fire radius, and no further leveling.</li>
+            <li>Torn Soul is destroyed when triggered. Total output includes passive attacks, explosion damage, and burn damage over time.</li>
           </ul>
-          <p>Torn Souls work best when placed where enemies are guaranteed to pass through them. They are strongest as planned pressure points, not random drops.</p>
+        </div>
+      `,
+    },
+    {
+      title: 'Hero Roles (Part 2)',
+      body: `
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Pirate</p>
+          <ul class="intro-compact-list">
+            <li>Burst damage that applies damage amplification, bleed, and gold scaling.</li>
+            <li><span class="intro-highlight">Steal</span>: +15% gold from Pirate kills.</li>
+            <li><span class="intro-highlight">Bloody Bastard</span>: Every 10th basic attack applies bleed for 10 seconds, dealing 3% of target max HP per second and applying a 5% slow. Basic attacks prioritize non-bleeding enemies when possible.</li>
+            <li><span class="intro-highlight">Warning Shot</span>: Hits enemies in a 2-tile area for 37 damage and causes them to take 30% more damage for 20 seconds. Cooldown: 7.0s.</li>
+            <li><span class="intro-highlight">Starboard Cannons</span>: Fires 4 cannonballs, each dealing 57 damage in a small splash area. Damage increases by +1 per level. Cooldown: 8.0s.</li>
+            <li><span class="intro-highlight">Kraken</span>: Applies a 10 second area effect dealing 20 damage per second and slowing enemies by 90%. This is an unlock ability and is 100% stronger with a 50% longer cooldown. Cooldown: 9.0s.</li>
+          </ul>
         </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Priest</p>
-          <p>The Priest exists to <span class="intro-highlight">heal and support the Warrior</span>. She keeps your frontline standing long enough for the rest of your team to matter.</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Prayer of Healing</span> — Heals nearby allies with a stronger base heal.</li>
-            <li><span class="intro-highlight">Slow Totem</span> — Manual totem that slows enemies within 2 tiles for 45 seconds.</li>
-            <li><span class="intro-highlight">Swiftness</span> — Attack speed boost for nearby allies.</li>
-            <li><span class="intro-highlight">Healing Aura</span> — Passive healing at higher level.</li>
-            <li><span class="intro-highlight">Divine Soldier</span> — Starting at level 10, reduces <span class="intro-highlight">Prayer of Healing</span> cooldown by 0.1s per level to a minimum of 1.0s.</li>
+            <li>Healing and support using active healing, passive sustain, and area control.</li>
+            <li><span class="intro-highlight">Prayer of Healing</span>: Heals all allies within 5 tiles for 3% of max HP. Cooldown: 5.0s.</li>
+            <li><span class="intro-highlight">Swiftness</span>: Increases attack speed of nearby allies by 50% for 8 seconds. This is an unlock ability and is 100% stronger with a 50% longer cooldown. Cooldown: 45.0s.</li>
+            <li><span class="intro-highlight">Blinding Light Totem</span>: Every 10 cleared waves, gains 1 Totem charge that can be placed for 7 waves. Enemies inside are slowed by 25% and have 10% reduced attack speed, with effects lingering for 5 seconds after leaving.</li>
+            <li><span class="intro-highlight">Healing Aura</span> (Level 15): Heals allies within 2 tiles for 38 HP per second, increasing by +2 HP per second per level. Always active once unlocked.</li>
+            <li><span class="intro-highlight">Divine Soldier</span> (Level 10): Reduces Prayer of Healing cooldown by 0.1s per level, to a minimum of 1.0s.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Pirate</p>
-          <p>The Pirate deals damage and <span class="intro-highlight">slows enemies</span>, giving you another strong answer to packed waves.</p>
+          <p class="intro-page-subheading">Seer</p>
           <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Warning Shot</span> — Blasts enemies in a 2-tile area for 50% Pirate damage and makes them take more damage from attacks.</li>
-            <li><span class="intro-highlight">Starboard Cannons</span> — Splash damage into a small cluster that scales harder with Pirate level.</li>
-            <li><span class="intro-highlight">Kraken</span> — Wide damaging zone with a stronger slow, lower damage, and a shorter cooldown.</li>
-            <li><span class="intro-highlight">Bloody Bastard</span> — Passive bleed, slow, and extra Gold value on Pirate kills.</li>
-          </ul>
-        </div>
-      `,
-    },
-    {
-      title: 'Enemies and Targeting Rules',
-      body: `
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Enemy Types</p>
-          <ul class="intro-compact-list">
-            <li><span class="intro-highlight">Standard enemies</span> — Balanced baseline pressure.</li>
-            <li><span class="intro-highlight">Large enemies</span> — Higher health and more dangerous once scaling ramps up.</li>
-            <li><span class="intro-highlight">Skitters</span> — Slower, high-HP enemies that explode on death.</li>
-            <li><span class="intro-highlight">Bosses</span> — Major pressure spikes that test your control and damage.</li>
-          </ul>
-        </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Skitter Notes</p>
-          <ul class="intro-compact-list">
-            <li>Skitters are <span class="intro-highlight">50% slower</span> than before.</li>
-            <li>They have much more health than a normal small enemy.</li>
-            <li>They explode on death.</li>
-            <li>Their explosion damage was reduced by <span class="intro-highlight">25%</span>.</li>
-          </ul>
-        </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Boss Pressure</p>
-          <ul class="intro-compact-list">
-            <li>Boss waves are the main survival checks.</li>
-            <li>At <span class="intro-highlight">wave 30</span>, you get <span class="intro-highlight">2 full-size bosses</span>.</li>
-            <li>That same wave pressure also adds about <span class="intro-highlight">33% more Skitters</span>.</li>
-          </ul>
-        </div>
-        <div class="intro-section-card">
-          <p class="intro-page-subheading">Targeting Rules</p>
-          <ul class="intro-compact-list">
-            <li>Enemies want to reach the portal.</li>
-            <li>If a Statue is reachable, they strongly prefer it.</li>
-            <li>If a Statue is unreachable, they ignore it.</li>
-            <li>Warriors are your main direct path-control unit.</li>
+            <li>Hybrid damage and support that provides healing, debuffs, and defensive effects.</li>
+            <li><span class="intro-highlight">Temporal Restoration</span>: Heals all friendly heroes and Statues for 0.5% max HP every 2 seconds, improving to 1.0% every 2 seconds at level 20.</li>
+            <li><span class="intro-highlight">Evasion</span> (Level 20): 10% of attacks against the Warrior and Statues miss completely. Missed attacks display “MISS”.</li>
+            <li><span class="intro-highlight">Warstone</span>: Drops star-metal rocks on 3 tiles, hitting up to 3 enemies per tile for 50 damage, increasing by +1 damage per level. Cooldown: 9.0s.</li>
+            <li><span class="intro-highlight">Chrono Purge</span>: Hits enemies across 2 tiles, up to 3 enemies per tile, for 33 damage each and causes them to take 10% more damage for 6 seconds. Starts at 32 damage and gains scaling after level 10. Cooldown: 9.5s.</li>
           </ul>
         </div>
       `,
     },
     {
-      title: 'Scaling, Relics, and Strategy Basics',
+      title: 'New Heroes',
       body: `
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Economy and Scaling</p>
+          <p class="intro-page-subheading">Berserker</p>
           <ul class="intro-compact-list">
-            <li>Gold comes from kills.</li>
-            <li>Early economy matters because weak early scaling usually turns into a failed midgame.</li>
-            <li>As waves rise, enemy speed, health, and pressure increase.</li>
-            <li>The <span class="intro-highlight">Level Cap This Wave</span> limits how high a hero can be upgraded right now.</li>
+            <li>High burst damage unit with a timed state that removes player control.</li>
+            <li><span class="intro-highlight">High as a Kite (KITE)</span>: Triggers randomly every 14–20 waves and lasts 7 waves.</li>
+            <li>While active, damage increases and the Berserker <span class="intro-highlight">cannot be moved</span>.</li>
+            <li><span class="intro-highlight">Two-Handed Swing</span>: Frontal cleave attack with a 12 second cooldown.</li>
+            <li>KITE triggers automatically. Only damage output changes during KITE.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Relics Change the Run</p>
+          <p class="intro-page-subheading">Monk</p>
           <ul class="intro-compact-list">
-            <li>Relics do more than add stats — they can change how you position, scale, and survive.</li>
-            <li>Some relics improve <span class="intro-highlight">frontline sustain</span>, making the Warrior and Priest harder to break.</li>
-            <li>Some improve <span class="intro-highlight">damage or range</span>, making Archers, Wizards, or Pirates safer and stronger.</li>
-            <li>Others reward long-run planning by making your control tools and helper units more valuable.</li>
+            <li>Area-of-effect melee unit with increased effectiveness when paired.</li>
+            <li><span class="intro-highlight">Pair Synergy</span> becomes active when 2 Monks are deployed.</li>
+            <li><span class="intro-highlight">Fast Fists</span>: Hits all enemies within 1 tile for 2× base damage.</li>
+            <li><span class="intro-highlight">Windmill Kick</span>: Hits enemies in a 2-tile arc for 1.5× base damage.</li>
+            <li>Fast Fists hits all enemies simultaneously. Windmill Kick has wider but weaker coverage. Visual effects may exceed actual range.</li>
+          </ul>
+        </div>
+      `,
+    },
+    {
+      title: 'Web3 & Rewards',
+      body: `
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Wallet Connection</p>
+          <ul class="intro-compact-list">
+            <li>Connect wallet to enable tracking.</li>
+            <li>Requires signature (no gas).</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p class="intro-page-subheading">Practical Strategy</p>
+          <p class="intro-page-subheading">Guest vs Connected</p>
           <ul class="intro-compact-list">
-            <li>Keep Archers alive long enough to earn satellites.</li>
-            <li>Use Warrior and Statue to buy time, not just to soak damage.</li>
-            <li>Place Torn Souls where enemy traffic is predictable.</li>
-            <li>Do not let Skitter deaths happen carelessly inside your whole formation.</li>
-            <li>Protect Wizards, Priests, Pirates, and Archers from direct collapse.</li>
-            <li>Adapt to the relics you find instead of forcing the same build every run.</li>
+            <li><span class="intro-highlight">Guest Mode</span>: Not tracked and no rewards.</li>
+            <li><span class="intro-highlight">Connected Mode</span>: Tracked and eligible for rewards.</li>
           </ul>
         </div>
         <div class="intro-section-card">
-          <p>The run usually ends when the defense loses structure, not when one number was slightly too low. Good runs come from stable lanes, protected damage, smart control, and recognizing what your relics enable.</p>
+          <p class="intro-page-subheading">Tracked Runs</p>
+          <ul class="intro-compact-list">
+            <li>Saved on completion.</li>
+            <li>May require signature.</li>
+            <li>Failed runs may remain pending.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Daily Quests</p>
+          <ul class="intro-compact-list">
+            <li>Reset at <span class="intro-highlight">00:00 UTC</span>.</li>
+            <li>Structure: <span class="intro-highlight">4 unlock</span>, <span class="intro-highlight">3 standard</span>, <span class="intro-highlight">2 elite</span>.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Weekly Bounties — COMING SOON</p>
+          <ul class="intro-compact-list">
+            <li>Not active yet.</li>
+            <li>Planned: 7 bounties, 3 claims per bounty, and <span class="intro-highlight">3 unique wallets required</span>.</li>
+            <li>Planned rewards: Light → 0.01 AVAX / 12 JEWEL, Medium → 0.02 AVAX / 24 JEWEL, Heavy → 0.03 AVAX / 35 JEWEL.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Rewards &amp; Payouts</p>
+          <ul class="intro-compact-list">
+            <li>Paid from treasury.</li>
+            <li>Whitelisted wallets pay faster.</li>
+            <li>Non-whitelisted wallets require approval.</li>
+          </ul>
+        </div>
+        <div class="intro-section-card">
+          <p class="intro-page-subheading">Supported Networks &amp; Notes</p>
+          <ul class="intro-compact-list">
+            <li>Avalanche C-Chain and DFK Chain.</li>
+            <li>Switching modes ends the run.</li>
+            <li>Only connected runs count.</li>
+            <li>Guest runs do not qualify for rewards.</li>
+          </ul>
         </div>
       `,
     },
@@ -6769,6 +6790,8 @@ function canSubmitRewardClaims() {
     sage: 'assets/hero_tile_sage.png',
     dragoon: 'assets/hero_tile_dragoon.png',
     spellbow: 'assets/hero_tile_spellbow.png',
+    monk: 'assets/hero_tile_monk.png',
+    berserker: 'assets/hero_tile_berserker.png',
     champion_dreadknight: 'assets/hero_tile_dreadknight.png',
     champion_sage: 'assets/hero_tile_sage.png',
     champion_dragoon: 'assets/hero_tile_dragoon.png',
@@ -6786,6 +6809,8 @@ function canSubmitRewardClaims() {
     sage: 'SAGE',
     dragoon: 'DRAGOON',
     spellbow: 'SPELLBOW',
+    monk: 'MONK',
+    berserker: 'BERSERKER',
     champion_dreadknight: 'DREADKNIGHT',
     champion_sage: 'SAGE',
     champion_dragoon: 'DRAGOON',
@@ -6810,7 +6835,9 @@ function canSubmitRewardClaims() {
     3: 'archer',
     4: 'priest',
     5: 'wizard',
+    6: 'monk',
     7: 'pirate',
+    8: 'berserker',
     25: 'seer',
   });
   const DFK_CLASS_NAMES = Object.freeze({
@@ -6843,7 +6870,7 @@ function canSubmitRewardClaims() {
     },
   });
   const CHAMPION_CLASS_LOOKUP = Object.freeze({ dreadknight: 'dreadknight', sage: 'sage', dragoon: 'dragoon', spellbow: 'spellbow' });
-  const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+  const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'];
   const DFK_GOLD_CONTRACT_ADDRESS = '0x576C260513204392F0eC0bc865450872025CB1cA';
   const DFK_GOLD_DECIMALS = 3;
   const DFK_GOLD_SWAP_COST = 10000;
@@ -7385,7 +7412,7 @@ function canSubmitRewardClaims() {
   }
 
   function isMeleeHeroType(type) {
-    return ['warrior', 'archer', 'pirate', 'champion_dreadknight', 'champion_dragoon'].includes(String(type || ''));
+    return ['warrior', 'archer', 'pirate', 'monk', 'berserker', 'champion_dreadknight', 'champion_dragoon'].includes(String(type || ''));
   }
 
   function hasSageChampionMeleeBuff(tower) {
@@ -8389,6 +8416,8 @@ function canSubmitRewardClaims() {
       tower.hp = tower.maxHp * hpRatio;
       if (tower.isChampion || String(tower.type || '').startsWith('champion_')) {
         tower.damage = getChampionDamageForLevel(tower, tower.level, 1.05);
+      } else if (tower.type === 'monk' || tower.type === 'berserker') {
+        tower.damage *= MONK_BERSERKER_DAMAGE_GROWTH_PER_LEVEL;
       } else {
         tower.damage *= 1.05;
       }
@@ -8660,7 +8689,7 @@ function canSubmitRewardClaims() {
     } else if (game.walletHeroLoadError) {
       els.walletHeroBonusStatus.textContent = game.walletHeroLoadError;
     } else if (!(game.walletHeroRoster || []).length) {
-      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, or Pirate heroes were found on DFK Chain or Metis for this wallet.';
+      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, Pirate, Monk, or Berserker heroes were found on DFK Chain or Metis for this wallet.';
     } else {
       const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
       els.walletHeroBonusStatus.textContent = `${selectedCount} wallet hero bonus${selectedCount === 1 ? '' : 'es'} armed. Selected heroes place for free and start at their onchain level.`;
@@ -8805,6 +8834,7 @@ function canSubmitRewardClaims() {
       if (rangeTiles.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('range-tile', `range-${selectedTower.type}`);
       if (moveTargets.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('move-target');
       const tower = tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
+      const ghostBerserker = (!tower) ? (game.towers || []).find((entry) => entry && entry.type === 'berserker' && entry.hp > 0 && entry.berserkerGhostTile && entry.berserkerGhostTile.x === tile.x && entry.berserkerGhostTile.y === tile.y) : null;
       if (tower) tile.el.classList.add(`tile-hero-${tower.type}`);
       const enemiesHere = game.enemies.filter(e => e.x === tile.x && e.y === tile.y).slice(0, 3);
 
@@ -8814,11 +8844,28 @@ function canSubmitRewardClaims() {
         small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
 
+        let stackedBuffBadgeCount = 0;
+        const usesVerticalBuffStack = tower.type === 'monk' || tower.type === 'berserker';
+        const appendStackedBuffBadge = (text, title = '', extraClass = 'tile-buff-indicator tile-buff-indicator-sage') => {
+          const badge = document.createElement('div');
+          badge.className = extraClass;
+          badge.textContent = text;
+          if (title) badge.title = title;
+          badge.style.top = `${16 + (stackedBuffBadgeCount * 10)}px`;
+          stackedBuffBadgeCount += 1;
+          tile.el.appendChild(badge);
+          return badge;
+        };
+
         if (hasDragoonLeadershipBuff(tower)) {
-          const leadershipBadge = document.createElement('div');
-          leadershipBadge.className = 'tile-small tile-small-right tile-dragoon-lead-badge';
-          leadershipBadge.textContent = 'LEAD+';
-          tile.el.appendChild(leadershipBadge);
+          if (usesVerticalBuffStack) {
+            appendStackedBuffBadge('LEAD', 'Leadership active');
+          } else {
+            const leadershipBadge = document.createElement('div');
+            leadershipBadge.className = 'tile-small tile-small-right tile-dragoon-lead-badge';
+            leadershipBadge.textContent = 'LEAD+';
+            tile.el.appendChild(leadershipBadge);
+          }
         }
         if (hasDragoonOverpowerBuff(tower)) {
           tile.el.classList.add('tile-inspired-clean');
@@ -8962,12 +9009,40 @@ function canSubmitRewardClaims() {
         }
         tile.el.appendChild(heroLabel);
 
+        if (tower.trainingPartnerActive) {
+          if (usesVerticalBuffStack) {
+            appendStackedBuffBadge('PAIR', 'Training Partner active');
+          } else {
+            const monkBadge = document.createElement('div');
+            monkBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
+            monkBadge.textContent = 'PAIR';
+            monkBadge.title = 'Training Partner active';
+            tile.el.appendChild(monkBadge);
+          }
+        }
+        if (tower.berserkerMoonActive) {
+          if (usesVerticalBuffStack) {
+            appendStackedBuffBadge('KITE', 'High as a Kite active');
+          } else {
+            const moonBadge = document.createElement('div');
+            moonBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
+            moonBadge.style.top = '24px';
+            moonBadge.textContent = 'KITE';
+            moonBadge.title = 'High as a Kite active';
+            tile.el.appendChild(moonBadge);
+          }
+        }
         if (hasSageChampionBuff(tower) || hasSageChampionMeleeBuff(tower)) {
-          const sageBuffBadge = document.createElement('div');
-          sageBuffBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
-          sageBuffBadge.textContent = 'GLOW+';
-          sageBuffBadge.title = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage. Archer and Pirate count as melee for Sage protection.';
-          tile.el.appendChild(sageBuffBadge);
+          const glowTitle = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage. Archer, Pirate, Monk, and Berserker count as melee for Sage protection.';
+          if (usesVerticalBuffStack) {
+            appendStackedBuffBadge('GLOW', glowTitle);
+          } else {
+            const sageBuffBadge = document.createElement('div');
+            sageBuffBadge.className = 'tile-buff-indicator tile-buff-indicator-sage';
+            sageBuffBadge.textContent = 'GLOW+';
+            sageBuffBadge.title = glowTitle;
+            tile.el.appendChild(sageBuffBadge);
+          }
         }
 
         const hpBar = document.createElement('div');
@@ -9008,6 +9083,16 @@ function canSubmitRewardClaims() {
           const wavesLeft = Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower));
           etherealNote.textContent = `Ethereal • ${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
           hover.appendChild(etherealNote);
+        } else if (tower.type === 'monk' && tower.trainingPartnerActive) {
+          const monkNote = document.createElement('div');
+          monkNote.className = 'tile-hover-meta';
+          monkNote.textContent = 'Training Partner active • +25% damage • +25% speed • +1 range';
+          hover.appendChild(monkNote);
+        } else if (tower.type === 'berserker' && tower.berserkerMoonActive) {
+          const moonNote = document.createElement('div');
+          moonNote.className = 'tile-hover-meta';
+          moonNote.textContent = `High as a Kite active • returns after wave ${Math.max(0, Number(tower.berserkerMoonReturnWave || 0))}`;
+          hover.appendChild(moonNote);
         } else if (tower.isSoulSplit) {
           const soulSplitNote = document.createElement('div');
           soulSplitNote.className = 'tile-hover-meta';
@@ -9044,6 +9129,22 @@ function canSubmitRewardClaims() {
         tile.el.appendChild(hover);
       }
 
+
+      if (ghostBerserker) {
+        tile.el.classList.add('tile-hero-berserker');
+        const ghostPortrait = document.createElement('img');
+        ghostPortrait.className = 'tile-hero-portrait tile-ethereal-hero';
+        ghostPortrait.alt = 'Ghost Berserker';
+        ghostPortrait.draggable = false;
+        ghostPortrait.src = getDefaultHeroImageForType('berserker');
+        ghostPortrait.style.opacity = '0.38';
+        tile.el.appendChild(ghostPortrait);
+        const ghostLabel = document.createElement('div');
+        ghostLabel.className = 'tile-hero-label tile-ethereal-label';
+        ghostLabel.textContent = 'GHOST';
+        ghostLabel.style.opacity = '0.78';
+        tile.el.appendChild(ghostLabel);
+      }
 
       if (tile.obstacle && !tower) {
         const label = document.createElement('div');
@@ -9774,7 +9875,7 @@ function canSubmitRewardClaims() {
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
-    els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.moveBtn.disabled = isStatueTower(tower) || (tower.type === 'berserker' && tower.berserkerMoonActive) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
     updateHeroActionDisabledState();
@@ -9848,7 +9949,7 @@ function canSubmitRewardClaims() {
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
-    els.moveBtn.disabled = isStatueTower(tower) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    els.moveBtn.disabled = isStatueTower(tower) || (tower.type === 'berserker' && tower.berserkerMoonActive) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
     updateHeroActionDisabledState();
@@ -9923,7 +10024,7 @@ function canSubmitRewardClaims() {
     const pendingMilestonePlacement = game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType
       ? { ...game.pendingMilestoneHeroPlacement }
       : null;
-    const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate'];
+    const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'];
     const reachedStandardHeroCap = hasReachedStandardHeroBoardCap(true);
     const suppressStartingWarriorHire = shouldHideWarriorHireDuringStartingPlacement();
     const normalAvailable = heroTypes.filter(type => {
@@ -9957,6 +10058,7 @@ function canSubmitRewardClaims() {
       card.className = 'card hire-button-card';
       const btn = document.createElement('button');
       const pendingThisType = game.placingHeroType === type;
+      const placedCountOfType = (game.towers || []).filter((tower) => tower && tower.type === type && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length;
       const selectedWalletHero = !usesBonus ? getSelectedWalletHero(type) : null;
       const effectiveCost = usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus);
       const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
@@ -9969,7 +10071,7 @@ function canSubmitRewardClaims() {
           : blockedByCap
             ? `${labelPrefix} ${t.name} (Cap Reached)`
             : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''}${usesBonus ? ' (Free)' : ` (${formatJewel(effectiveCost)} Gold)`}`;
-      btn.disabled = forceDisabled || blockedByCap || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
+      btn.disabled = forceDisabled || blockedByCap || (type === 'monk' && placedCountOfType >= 2 && !pendingMilestonePlacement) || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
       if (pendingMilestonePlacement && pendingMilestonePlacement.heroType === type) {
         btn.textContent = pendingThisType
           ? `Placing… ${t.name} L${Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1))} (Free)`
@@ -10001,11 +10103,15 @@ function canSubmitRewardClaims() {
             return;
           }
           if (type === 'warrior' && shouldHideWarriorHireDuringStartingPlacement()) {
-            showBanner('Your selected Warrior is your free starting Warrior. Place him during setup instead of hiring a second Warrior on wave 1.', 2200);
+            showBanner('Your selected Warrior is your free starting Warrior. Place her during setup instead of hiring a second Warrior on wave 1.', 2200);
             return;
           }
           if (!usesBonus && hasReachedStandardHeroBoardCap(true) && !(type === 'warrior' && canAlwaysFieldOneWarrior())) {
             showBanner(`You can only field ${MAX_STANDARD_HEROES_ON_BOARD} heroes until a milestone hire offer appears.`, 1800);
+            return;
+          }
+          if (type === 'monk' && (game.towers || []).filter((tower) => tower && tower.type === 'monk' && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length >= 2) {
+            showBanner('Only two Monks can take the field at once.', 1600);
             return;
           }
           if ((Number(game.jewel || 0) + 1e-9) < effectiveCost) {
@@ -10396,7 +10502,7 @@ function canSubmitRewardClaims() {
 
   function isOpenForTower(x, y) {
     const tile = tileAt(x, y);
-    return !!tile && !tile.obstacle && !tile.portal && !tile.towerId && tile.type !== 'spawn';
+    return !!tile && !tile.obstacle && !tile.portal && !tile.towerId && tile.type !== 'spawn' && !isReservedGhostTile(x, y);
   }
 
   function existsPathFromBreachToTargets(targets) {
@@ -10440,6 +10546,8 @@ function canSubmitRewardClaims() {
         if (this.buffs.rapid_onslaught) mult *= (1 + (this.buffs.rapid_onslaught.strength ?? 1));
         if (this.buffs.rapid_shot) mult *= (1 + (this.buffs.rapid_shot.bonus ?? 0.8));
         if (this.buffs.swiftness) mult *= (1 + (this.buffs.swiftness.bonus ?? 0.25));
+        if (this.buffs.monkPartner) mult *= (Number(this.buffs.monkPartner.speedMult || MONK_PARTNER_SPEED_MULTIPLIER));
+        if (this.buffs.berserkerMoon) mult *= 1.5;
         if (this.buffs.blizzardSlow) mult *= 0.5;
         if (game.modifiers.sacredAura && isNearPriest(this)) mult *= 1.04;
         if (hasSageChampionBuff(this)) mult *= 1.2;
@@ -10461,11 +10569,104 @@ function canSubmitRewardClaims() {
     if (tower.isChampion) ensureChampionAutoAbilityState(tower);
     if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
+    if (type === 'berserker') tower.nextBerserkerWanderWave = Number(game.waveNumber || 0) + (BERSERKER_WANDER_MIN_WAVES + Math.floor(Math.random() * ((BERSERKER_WANDER_MAX_WAVES - BERSERKER_WANDER_MIN_WAVES) + 1)));
     return tower;
   }
 
   function isNearPriest(tower) {
     return game.towers.some(t => t.type === 'priest' && t.id !== tower.id && dist(t, tower) <= 2);
+  }
+
+  function getActiveMonks() {
+    return (game.towers || []).filter((tower) => tower && tower.type === 'monk' && tower.hp > 0 && !tower.isSatellite);
+  }
+
+  function syncMonkTrainingPartnerState() {
+    const monks = getActiveMonks();
+    const empowered = monks.length >= 2;
+    monks.forEach((monk) => {
+      if (!monk.buffs) monk.buffs = {};
+      if (empowered) applyBuff(monk, 'monkPartner', 1.2, { speedMult: MONK_PARTNER_SPEED_MULTIPLIER, badgeText: 'PAIR' });
+      else delete monk.buffs.monkPartner;
+      monk.trainingPartnerActive = empowered;
+    });
+  }
+
+  function isReservedGhostTile(x, y, ignoreTowerId = null) {
+    return (game.towers || []).some((tower) => tower && tower.type === 'berserker' && tower.hp > 0 && tower.berserkerGhostTile && tower.id !== ignoreTowerId && tower.berserkerGhostTile.x === x && tower.berserkerGhostTile.y === y);
+  }
+
+  function getBerserkerFrontlineTile(tower) {
+    const spawnTiles = getSpawnTiles().slice().sort((a, b) => Math.abs(a.y - tower.y) - Math.abs(b.y - tower.y));
+    for (const spawn of spawnTiles) {
+      const candidate = { x: Math.min(WIDTH - 1, spawn.x + 1), y: spawn.y };
+      if (!inBounds(candidate.x, candidate.y)) continue;
+      const tile = tileAt(candidate.x, candidate.y);
+      if (!tile || tile.portal || tile.obstacle || tile.type === 'spawn') continue;
+      const occupied = (game.towers || []).some((entry) => entry && entry.id !== tower.id && entry.x === candidate.x && entry.y === candidate.y && entry.hp > 0);
+      if (occupied) continue;
+      return candidate;
+    }
+    return null;
+  }
+
+  function scheduleNextBerserkerWander(tower, baseWave = Number(game.waveNumber || 0)) {
+    tower.nextBerserkerWanderWave = Number(baseWave || 0) + (BERSERKER_WANDER_MIN_WAVES + Math.floor(Math.random() * ((BERSERKER_WANDER_MAX_WAVES - BERSERKER_WANDER_MIN_WAVES) + 1)));
+  }
+
+  function startBerserkerWander(tower) {
+    if (!tower || tower.type !== 'berserker' || tower.berserkerMoonActive) return false;
+    const destination = getBerserkerFrontlineTile(tower);
+    if (!destination) return false;
+    tower.berserkerOrigin = { x: tower.x, y: tower.y };
+    tower.berserkerGhostTile = { x: tower.x, y: tower.y };
+    tower.berserkerMoonActive = true;
+    tower.berserkerMoonReturnWave = Number(game.waveNumber || 0) + BERSERKER_WANDER_DURATION_WAVES;
+    const fromTile = tileAt(tower.x, tower.y);
+    if (fromTile) fromTile.towerId = null;
+    tower.x = destination.x;
+    tower.y = destination.y;
+    const toTile = tileAt(destination.x, destination.y);
+    if (toTile) toTile.towerId = tower.id;
+    applyBuff(tower, 'berserkerMoon', 9999, { badgeText: 'KITE' });
+    showBanner('Berserker wandered to the front', 1800);
+    return true;
+  }
+
+  function returnBerserkerFromWander(tower) {
+    if (!tower || tower.type !== 'berserker' || !tower.berserkerMoonActive) return false;
+    const origin = tower.berserkerOrigin || tower.berserkerGhostTile;
+    if (!origin || !inBounds(origin.x, origin.y)) return false;
+    const currentTile = tileAt(tower.x, tower.y);
+    if (currentTile) currentTile.towerId = null;
+    tower.x = origin.x;
+    tower.y = origin.y;
+    const originTile = tileAt(origin.x, origin.y);
+    if (originTile) originTile.towerId = tower.id;
+    tower.berserkerMoonActive = false;
+    tower.berserkerMoonReturnWave = 0;
+    tower.berserkerOrigin = null;
+    tower.berserkerGhostTile = null;
+    if (tower.buffs) delete tower.buffs.berserkerMoon;
+    scheduleNextBerserkerWander(tower);
+    showBanner('Berserker came back to her senses', 1600);
+    return true;
+  }
+
+  function handleWaveClearHeroPassives(clearedWave) {
+    syncMonkTrainingPartnerState();
+    for (const tower of (game.towers || [])) {
+      if (!tower || tower.hp <= 0) continue;
+      if (tower.type === 'berserker') {
+        if (tower.berserkerMoonActive && Number(clearedWave || 0) >= Number(tower.berserkerMoonReturnWave || 0)) {
+          returnBerserkerFromWander(tower);
+          continue;
+        }
+        if (!tower.berserkerMoonActive && Number(clearedWave || 0) >= Number(tower.nextBerserkerWanderWave || 0)) {
+          if (!startBerserkerWander(tower)) scheduleNextBerserkerWander(tower, Number(clearedWave || 0));
+        }
+      }
+    }
   }
 
   function getAbilityIndex(tower, abilityKey) {
@@ -10491,6 +10692,14 @@ function canSubmitRewardClaims() {
       eagle_nest: 1,
       soul_split: 1,
       slow_totem: 1,
+      fast_fists: 1,
+      windmill_kick: 1,
+      levitation: 1,
+      training_partner: 1,
+      two_handed_swing: 1,
+      see_the_moon: 1,
+      high_as_a_kite: 1,
+      eye_gouge: 1,
     };
     if (String(abilityKey || '').startsWith('champion_')) return 1;
     if (explicit[abilityKey] != null) return explicit[abilityKey];
@@ -10626,9 +10835,9 @@ function canSubmitRewardClaims() {
     }
   }
 
-  function getPrayerOfHealingAmount(tower) {
-    const level = Math.max(1, tower?.level || 1);
-    return (PRAYER_OF_HEALING_BASE_AMOUNT + ((level - 1) * 5)) * game.modifiers.priestHealing;
+  function getPrayerOfHealingAmount(targetTower) {
+    const maxHp = Math.max(0, Number(targetTower?.maxHp || 0));
+    return maxHp * PRAYER_OF_HEALING_HEAL_PERCENT * game.modifiers.priestHealing;
   }
 
   function getSeerPassiveHealPercent(tower) {
@@ -10694,13 +10903,16 @@ function canSubmitRewardClaims() {
   function getAbilityDescription(tower, abilityKey) {
     const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
     const stronger = powerMult > 1 ? ' This is an unlock skill, so it is 100% stronger and has 50% longer cooldown.' : '';
-    const common = ` Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}. Cooldown: ${getAbilityCooldownSeconds(tower, abilityKey).toFixed(1)}s.`;
+    const isPassiveAbility = !!tower.template.abilities.find(a => a.key === abilityKey)?.passive;
+    const common = isPassiveAbility
+      ? ` Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.`
+      : ` Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}. Cooldown: ${getAbilityCooldownSeconds(tower, abilityKey).toFixed(1)}s.`;
     const scale = '';
     const d = ((tower.type === 'wizard_satellite' || tower.type === 'torn_soul') ? tower.damage * 0.5 : tower.damage);
     const hp = tower.maxHp;
     const map = {
       gladiator_strike: `Passive. Every 18 Warrior basic attacks, Gladiator Strike triggers on the hit target for ${Math.round(((Number(tower.baseDamage || TOWER_TEMPLATES.warrior.damage || 0) * 2.3) + Math.max(0, (d * 2.3) - (Number(tower.baseDamage || TOWER_TEMPLATES.warrior.damage || 0) * 2.3)) * 0.85))} bonus damage and heals ${Math.round(((Number(TOWER_TEMPLATES.warrior.hp || 0) * 0.05) + Math.max(0, (hp * 0.05) - (Number(TOWER_TEMPLATES.warrior.hp || 0) * 0.05)) * 0.75))} HP. This passive unlocks at level 1 and is always on.${scale}`,
-      new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of himself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals 2.5x the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 11% of its max HP.' : ''}${scale}`,
+      new_blood: `Passive. Every 5 cleared waves, the Warrior gains 1 Statue charge. The Warrior uses old battle magic to create a statue of herself that stops enemies until they destroy it. A Statue does not attack, cannot be moved, cannot be healed, and enters the field at full strength. Its maximum health equals 2.5x the Warrior's current health when summoned, and it begins at 100% of that total.${game.modifiers.explodingStatue ? ' Exploding Statue relic: when a Statue dies, it explodes in a 2-tile radius for 11% of its max HP.' : ''}${scale}`,
       whirlwind: `Hits adjacent enemies for ${Math.round(60 * powerMult)} damage.${stronger}${common}${game.modifiers.whirlwindCooldownAdjust ? `<br><strong>Blade Dancer active:</strong> cooldown reduced by ${game.modifiers.whirlwindCooldownAdjust.toFixed(1)}s.` : ''}${scale}`,
       shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
@@ -10716,12 +10928,20 @@ function canSubmitRewardClaims() {
       frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every 2 seconds. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every 2 seconds.${common}${scale}`,
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
-      chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10. Cooldown: ${getAbilityCooldownSeconds(tower, 'chrono_purge').toFixed(1)}s.${common}${scale}`,
+      chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10.${common}${scale}`,
       evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage. Any attack that misses will show "MISS" on the Warrior or Statue.${common}${scale}`,
-      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(getPrayerOfHealingAmount(tower))} HP. This scales by +5 HP per Priest level, starting at ${PRAYER_OF_HEALING_BASE_AMOUNT} HP on level 1.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of this amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
+      fast_fists: `Punches every enemy within 1 tile for ${Math.round(d * 2)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'fast_fists').toFixed(1)}s.${common}${scale}`,
+      windmill_kick: `Spins through all enemies within 2 tiles for ${Math.round(d * 1.5)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'windmill_kick').toFixed(1)}s.${common}${scale}`,
+      levitation: `Passive. Monk ignores movement cooldown and can float from skirmish to skirmish without resting.${common}${scale}`,
+      training_partner: `Passive. When two Monks are fielded, both gain +25% damage, +25% speed, and +1 range.${common}${scale}`,
+      two_handed_swing: `Smashes up to 10 enemies within 2 tiles for ${Math.round(d * 1.75)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'two_handed_swing').toFixed(1)}s.${common}${scale}`,
+      see_the_moon: `Freezes enemies within 2 tiles in fear for 3s. Feared enemies take 25% more damage during that time. Cooldown: ${getAbilityCooldownSeconds(tower, 'see_the_moon').toFixed(1)}s.${common}${scale}`,
+      high_as_a_kite: `Passive. Every 14-20 cleared waves, Berserker charges to the front for 7 waves and leaves behind a ghost on her original tile. While away she deals 2x damage and attacks 1.5x faster.${common}${scale}`,
+      eye_gouge: `Passive. Berserker hits have a 25% chance to blind targets. Blinded enemies have a 25% chance to miss their attacks.${common}${scale}`,
+      prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(PRAYER_OF_HEALING_HEAL_PERCENT * 100)}% of each target's max HP.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of that amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Support Satellite. Every 10 cleared waves, the Priest gains 1 Blinding Light Totem charge. Place it on any open tile for ${BLINDING_LIGHT_TOTEM_DURATION_WAVES} waves. Enemies in the aura are slowed by ${(BLINDING_LIGHT_TOTEM_SLOW_PERCENT * 100).toFixed(0)}%, their attack speed is slowed by ${(BLINDING_LIGHT_TOTEM_ATTACK_SLOW_PERCENT * 100).toFixed(0)}%, and both effects linger for ${BLINDING_LIGHT_TOTEM_LINGER_SECONDS}s after leaving. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
-      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(2 * tower.level)} HP each second. This scales directly with Priest level, so every level adds +2 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${common}${scale}`,
+      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(24 + tower.level)} HP each second. This starts at 25 HP per second on level 1, and every Priest level adds +1 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: ${getAbilityCooldownSeconds(tower, 'warning_shot').toFixed(1)}s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'starboard_cannons').toFixed(1)}s.${common}${scale}`,
@@ -11052,7 +11272,7 @@ function canSubmitRewardClaims() {
     if (tower) {
       if (tower.type === 'warrior' && canRepositionWarriorPreStart()) {
         if (pickupWarriorForReposition(tower)) {
-          showBanner('Warrior picked up. Place him on a new tile.', 1400);
+          showBanner('Warrior picked up. Place her on a new tile.', 1400);
           render();
           return;
         }
@@ -11161,9 +11381,9 @@ function canSubmitRewardClaims() {
     }
 
     let replacedExistingStatue = false;
-    const existingOwnedStatue = (isSatellitePlacement && sourceTower?.type === 'warrior')
-      ? game.towers.find(t => isStatueTower(t) && t.satelliteOwnerId === sourceTower.id)
-      : null;
+    const existingOwnedStatues = (isSatellitePlacement && sourceTower?.type === 'warrior')
+      ? game.towers.filter(t => isStatueTower(t) && t.satelliteOwnerId === sourceTower.id)
+      : [];
 
     if (isSatellitePlacement && sourceTower?.type === 'priest') {
       addSlowTotem(sourceTower, { x, y });
@@ -11265,8 +11485,12 @@ function canSubmitRewardClaims() {
       return;
     }
 
-    if (isStatueTower(tower) && existingOwnedStatue && existingOwnedStatue.id !== tower.id) {
-      replacedExistingStatue = removeTower(existingOwnedStatue) || replacedExistingStatue;
+    if (isStatueTower(tower) && existingOwnedStatues.length) {
+      existingOwnedStatues.forEach(existingStatue => {
+        if (existingStatue && existingStatue.id !== tower.id) {
+          replacedExistingStatue = removeTower(existingStatue) || replacedExistingStatue;
+        }
+      });
     }
 
     if (isSatellitePlacement) {
@@ -11307,6 +11531,7 @@ function canSubmitRewardClaims() {
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = null;
+    syncMonkTrainingPartnerState();
     render();
   }
 
@@ -11320,6 +11545,7 @@ function canSubmitRewardClaims() {
 
   function getMoveTargetsForTower(tower) {
     if (isStatueTower(tower)) return [];
+    if (tower?.type === 'berserker' && tower.berserkerMoonActive) return [];
     const moveRange = getMoveRangeForTower(tower);
     const targets = [];
     for (let y = 0; y < HEIGHT; y += 1) {
@@ -11338,12 +11564,14 @@ function canSubmitRewardClaims() {
   function getSelectedRangeTiles(tower) {
     const tiles = [];
     const radius = Math.max(1, Number(tower.range || 1));
-    for (let y = tower.y - radius; y <= tower.y + radius; y += 1) {
-      for (let x = tower.x - radius; x <= tower.x + radius; x += 1) {
+    const effectiveRadius = tower.type === 'monk' && tower.trainingPartnerActive ? radius + MONK_PARTNER_RANGE_BONUS : radius;
+    const loopRadius = Math.max(1, effectiveRadius);
+    for (let y = tower.y - loopRadius; y <= tower.y + loopRadius; y += 1) {
+      for (let x = tower.x - loopRadius; x <= tower.x + loopRadius; x += 1) {
         if (!inBounds(x, y)) continue;
         if (x === tower.x && y === tower.y) continue;
         const probe = { x, y };
-        const inRange = tower.type === 'warrior' ? chebyshevDist(tower, probe) <= 1 : dist(tower, probe) <= radius;
+        const inRange = ['warrior', 'monk', 'berserker'].includes(tower.type) ? chebyshevDist(tower, probe) <= loopRadius : dist(tower, probe) <= effectiveRadius;
         if (!inRange) continue;
         tiles.push(probe);
       }
@@ -11375,6 +11603,7 @@ function canSubmitRewardClaims() {
 
   function moveTower(tower, nx, ny) {
     if (isStatueTower(tower)) return false;
+    if (tower?.type === 'berserker' && tower.berserkerMoonActive) return false;
     if (!getMoveTargetsForTower(tower).some(p => p.x === nx && p.y === ny)) return false;
     if (!isOpenForTower(nx, ny)) return false;
     if (isStatueTower(tower) && !moveWouldPreservePath(tower, nx, ny)) return false;
@@ -11382,9 +11611,10 @@ function canSubmitRewardClaims() {
     tower.x = nx;
     tower.y = ny;
     tileAt(nx, ny).towerId = tower.id;
-    tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5000 : 30000);
+    tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5000 : (tower.type === 'monk' ? 0 : 30000));
     tower.attackCooldownMs = 1000;
     log(`${tower.name} moved to (${nx + 1}, ${ny + 1}).`);
+    syncMonkTrainingPartnerState();
     return true;
   }
 
@@ -13243,7 +13473,7 @@ function canSubmitRewardClaims() {
     if (Number(clearedWave || 0) > 30) updateWeeklyBountyMetric('wavesPast30', 1);
     if (liveWaveCountAtClear >= 2) updateWeeklyBountyMetric('wavesMulti2', 1);
     if (liveWaveCountAtClear >= 3) updateWeeklyBountyMetric('wavesMulti3', 1);
-    const livingCoreHeroes = (game.towers || []).filter((tower) => tower && tower.hp > 0 && !tower.isSatellite && !tower.isChampion && ['warrior', 'archer', 'wizard', 'priest', 'seer', 'pirate'].includes(String(tower.type || '')));
+    const livingCoreHeroes = (game.towers || []).filter((tower) => tower && tower.hp > 0 && !tower.isSatellite && !tower.isChampion && ['warrior', 'archer', 'wizard', 'priest', 'seer', 'pirate', 'monk', 'berserker'].includes(String(tower.type || '')));
     if (livingCoreHeroes.some((tower) => tower.type === 'warrior')) updateWeeklyBountyMetric('wavesWithWarrior', 1);
     if (livingCoreHeroes.some((tower) => tower.type === 'archer')) updateWeeklyBountyMetric('wavesWithSpellbow', 1);
     if (livingCoreHeroes.some((tower) => tower.type === 'seer')) updateWeeklyBountyMetric('wavesWithSage', 1);
@@ -13318,6 +13548,7 @@ function canSubmitRewardClaims() {
     game.activeWaveBase = finalWaveNumber;
     for (const plan of clearedPlans) {
       applyWaveClearRewards(Number(plan.waveNumber || 0), { liveWaveCountAtClear });
+      handleWaveClearHeroPassives(Number(plan.waveNumber || 0));
     }
     if (finalWaveNumber >= 10) if (!game.weeklyBountyRunReached10) { updateWeeklyBountyMetric('runsReach10', 1); game.weeklyBountyRunReached10 = true; }
     if (finalWaveNumber >= 20) if (!game.weeklyBountyRunReached20) { updateWeeklyBountyMetric('runsReach20', 1); game.weeklyBountyRunReached20 = true; }
@@ -13640,14 +13871,18 @@ function canSubmitRewardClaims() {
       }
       return;
     }
-    const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight')
+    const target = (tower.type === 'warrior' || tower.type === 'champion_dreadknight' || tower.type === 'berserker')
       ? nearestEnemyForWarrior(tower)
-      : (tower.type === 'champion_spellbow'
-        ? (getPortalPriorityEnemies(1)[0] || null)
-        : nearestEnemyInRange(tower, tower.range));
+      : (tower.type === 'monk'
+        ? nearestEnemyInRange(tower, Number(tower.range || 1) + (tower.trainingPartnerActive ? MONK_PARTNER_RANGE_BONUS : 0))
+        : (tower.type === 'champion_spellbow'
+          ? (getPortalPriorityEnemies(1)[0] || null)
+          : nearestEnemyInRange(tower, tower.range)));
     if (!target) return;
     let damage = tower.damage;
     if (tower.type === 'seer') damage *= getSeerDamageMultiplier();
+    if (tower.type === 'monk' && tower.trainingPartnerActive) damage *= MONK_PARTNER_DAMAGE_MULTIPLIER;
+    if (tower.type === 'berserker' && tower.berserkerMoonActive) damage *= 2;
     if (tower.type === 'champion_sage') damage *= 1.25;
     if (tower.type === 'champion_spellbow') damage *= 1.2;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
@@ -13876,7 +14111,7 @@ function canSubmitRewardClaims() {
       const tickAt = tower.auraTickAt || 0;
       if (now() >= tickAt) {
         const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
-        const auraHeal = 2 * tower.level;
+        const auraHeal = 24 + tower.level;
         auraTargets.forEach(target => healTower(target, auraHeal, null, { sourceTowerId: tower.id }));
         if (game.modifiers.sacredSculpting) {
           const statueTargets = game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
@@ -14624,6 +14859,40 @@ function canSubmitRewardClaims() {
     return { startedAt, durationMs, until: startedAt + durationMs };
   }
 
+  function createBerserkerTwoHandedSwingEffect(sourceTower, opts = {}) {
+    if (!sourceTower) return null;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 1200;
+    createProjectileEffect({
+      kind: 'berserker-two-handed-swing',
+      centerTileX: sourceTower.x,
+      centerTileY: sourceTower.y,
+      startedAt,
+      durationMs,
+      until: startedAt + durationMs,
+      imagePath: opts.imagePath || BERSERKER_AXE_IMAGE_PATH,
+      opacityFloor: 1,
+    });
+    return { startedAt, durationMs, until: startedAt + durationMs };
+  }
+
+  function createMonkFastFistsEffect(sourceTower, opts = {}) {
+    if (!sourceTower) return null;
+    const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
+    const durationMs = Number.isFinite(Number(opts.durationMs)) ? Number(opts.durationMs) : 700;
+    createProjectileEffect({
+      kind: 'monk-fast-fists',
+      centerTileX: sourceTower.x,
+      centerTileY: sourceTower.y,
+      startedAt,
+      durationMs,
+      until: startedAt + durationMs,
+      imagePath: opts.imagePath || MONK_FAST_FISTS_IMAGE_PATH,
+      opacityFloor: 0.9,
+    });
+    return { startedAt, durationMs, until: startedAt + durationMs };
+  }
+
   function createSeismicWaveEffect(sourceTower, opts = {}) {
     if (!sourceTower) return null;
     const startedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : now();
@@ -14942,6 +15211,109 @@ function canSubmitRewardClaims() {
         core.style.background = 'radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(178,220,255,0.2) 48%, rgba(178,220,255,0) 78%)';
         core.style.filter = 'blur(2px)';
         els.enemyLayer.appendChild(core);
+        continue;
+      }
+
+      if (effect.kind === 'berserker-two-handed-swing') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        if (!centerPos) continue;
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const tileSize = Math.max(centerPos.width, centerPos.height);
+        const windupEnd = 0.42;
+        const swingEnd = 0.62;
+        const holdEnd = 0.83;
+        let x = centerX;
+        let y = centerY - (tileSize * 0.16);
+        let angle = -60;
+        let opacity = 1;
+        let scale = 1;
+        if (progress <= windupEnd) {
+          const t = progress / Math.max(0.001, windupEnd);
+          const shiver = Math.sin(t * Math.PI * 7) * (1 - (t * 0.55));
+          x = centerX + (tileSize * 0.10) + (shiver * tileSize * 0.014);
+          y = centerY - (tileSize * 0.76) + (Math.cos(t * Math.PI * 5) * tileSize * 0.012);
+          angle = 58 + (shiver * 4.5);
+        } else if (progress <= swingEnd) {
+          const t = (progress - windupEnd) / Math.max(0.001, swingEnd - windupEnd);
+          const eased = 1 - Math.pow(1 - t, 3);
+          x = centerX + (tileSize * 0.10) - (tileSize * 0.34 * eased);
+          y = centerY - (tileSize * 0.76) + (tileSize * 0.98 * eased);
+          angle = 58 - (118 * eased);
+          scale = 1 + (0.06 * eased);
+        } else if (progress <= holdEnd) {
+          const t = (progress - swingEnd) / Math.max(0.001, holdEnd - swingEnd);
+          const eased = 1 - Math.pow(1 - t, 2);
+          x = centerX - (tileSize * 0.24) - (tileSize * 0.03 * eased);
+          y = centerY + (tileSize * 0.20) + (tileSize * 0.03 * eased);
+          angle = -60 - (6 * eased);
+          scale = 1.06 - (0.02 * eased);
+        } else {
+          const t = (progress - holdEnd) / Math.max(0.001, 1 - holdEnd);
+          const eased = 1 - Math.pow(1 - t, 2);
+          x = centerX - (tileSize * 0.27);
+          y = centerY + (tileSize * 0.23);
+          angle = -66;
+          opacity = Math.max(0, 1 - eased);
+          scale = 1.04 - (0.02 * eased);
+        }
+        const sprite = document.createElement('img');
+        sprite.className = 'projectile-effect projectile-effect-berserker-axe';
+        sprite.src = effect.imagePath || BERSERKER_AXE_IMAGE_PATH;
+        sprite.alt = '';
+        sprite.draggable = false;
+        sprite.style.position = 'absolute';
+        sprite.style.pointerEvents = 'none';
+        sprite.style.left = `${x}px`;
+        sprite.style.top = `${y}px`;
+        sprite.style.width = `${Math.max(40, centerPos.width * 0.72)}px`;
+        sprite.style.height = `${Math.max(84, centerPos.height * 1.62)}px`;
+        sprite.style.transformOrigin = '50% 100%';
+        sprite.style.transform = `translate(-50%, -100%) rotate(${angle}deg) scale(${scale})`;
+        sprite.style.opacity = `${Math.max(0, opacity)}`;
+        sprite.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.32)) drop-shadow(0 0 12px rgba(140,95,55,0.35))';
+        (els.enemyLayer || els.grid).appendChild(sprite);
+        continue;
+      }
+
+      if (effect.kind === 'monk-fast-fists') {
+        const centerPos = getTilePixelPosition(effect.centerTileX, effect.centerTileY);
+        if (!centerPos) continue;
+        const centerX = centerPos.left + (centerPos.width / 2);
+        const centerY = centerPos.top + (centerPos.height / 2);
+        const tileSize = Math.max(centerPos.width, centerPos.height);
+        const maxTravel = tileSize * 2;
+        const extendProgress = 1 - Math.pow(1 - progress, 3.4);
+        const fadeProgress = progress < 0.82 ? 1 : Math.max(0, 1 - ((progress - 0.82) / 0.18));
+        const spriteWidth = Math.max(34, tileSize * 0.95);
+        const spriteHeight = Math.max(16, spriteWidth * 0.46);
+        const fists = [
+          { dx: 0, dy: -1, angle: -90 },
+          { dx: 1, dy: 0, angle: 180 },
+          { dx: 0, dy: 1, angle: 90 },
+          { dx: -1, dy: 0, angle: 0 },
+        ];
+        fists.forEach((fist, fistIndex) => {
+          const sprite = document.createElement('img');
+          sprite.className = 'projectile-effect projectile-effect-monk-fast-fist';
+          sprite.src = effect.imagePath || MONK_FAST_FISTS_IMAGE_PATH;
+          sprite.alt = '';
+          sprite.draggable = false;
+          sprite.style.position = 'absolute';
+          sprite.style.pointerEvents = 'none';
+          const travel = maxTravel * extendProgress;
+          const x = centerX + (fist.dx * travel);
+          const y = centerY + (fist.dy * travel);
+          sprite.style.left = `${x}px`;
+          sprite.style.top = `${y}px`;
+          sprite.style.width = `${spriteWidth}px`;
+          sprite.style.height = `${spriteHeight}px`;
+          sprite.style.transformOrigin = '50% 50%';
+          sprite.style.transform = `translate(-50%, -50%) rotate(${fist.angle}deg) scale(${1 + (extendProgress * 0.04)})`;
+          sprite.style.opacity = `${Math.max(0.22, fadeProgress - (fistIndex * 0.03))}`;
+          sprite.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.45)) drop-shadow(0 0 14px rgba(216,186,150,0.42))';
+          (els.enemyLayer || els.grid).appendChild(sprite);
+        });
         continue;
       }
 
@@ -15525,6 +15897,7 @@ function canSubmitRewardClaims() {
     }
     if (enemy.debuffs?.warning_shot) damage *= (1 + Number(enemy.debuffs.warning_shot.bonusDamageTaken || 0.3));
     if (enemy.debuffs?.chrono_purge) damage *= (1 + Number(enemy.debuffs.chrono_purge.bonusDamageTaken || CHRONO_PURGE_BONUS_DAMAGE_TAKEN));
+    if (enemy.debuffs?.berserkerFear) damage *= (1 + Number(enemy.debuffs.berserkerFear.bonusDamageTaken || 0.25));
     if (enemy.reductionUntil && now() < enemy.reductionUntil) damage *= 0.5;
     const appliedDamage = Math.max(0, Math.min(Number(enemy.hp || 0), Number(damage || 0)));
     enemy.hp -= damage;
@@ -15539,6 +15912,7 @@ function canSubmitRewardClaims() {
       const baseDamage = Math.max(1, Number(sourceTower.damage || 0) || 0);
     }
     if (sourceTower) {
+      if (sourceTower.type === 'berserker' && Math.random() < 0.25) applyDebuff(enemy, 'blind', 6, { missChance: 0.25, sourceTowerId: sourceTower.id });
       const towerCanPullAggro = sourceTower.type === 'warrior' || isStatueTower(sourceTower);
       const aggroGain = damage * (towerCanPullAggro ? 0.18 : 0.04);
       enemy.threat[sourceTower.id] = (enemy.threat[sourceTower.id] || 0) + aggroGain;
@@ -15575,6 +15949,11 @@ function canSubmitRewardClaims() {
       const seerSource = (gameState.towers || []).find((entry) => entry && entry.type === 'seer' && entry.hp > 0);
       if (seerSource) seerSource.damageAvoided = Math.max(0, Number(seerSource.damageAvoided || 0)) + Math.max(0, Number(damage || 0));
       if (message && chance(0.2)) log(`${tower.name} evaded the attack.`);
+      return 0;
+    }
+    if (attacker?.debuffs?.blind && Math.random() < Number(attacker.debuffs.blind.missChance || 0.25)) {
+      createHitFlash(tower.x, tower.y, 'warrior', 'MISS', { centerText: true, sizeMult: 1.15, duration: 500 });
+      if (message && chance(0.2)) log(`${attacker.name} missed ${tower.name}.`);
       return 0;
     }
     if (tower.type === 'warrior' && game.modifiers.shieldWall && game.towers.some(t => t.type === 'priest' && dist(t, tower) === 1)) {
@@ -15953,9 +16332,16 @@ function canSubmitRewardClaims() {
           ? game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 5 && t.hp < t.maxHp)
           : [];
         if (!allies.length && !statues.length) return false;
-        const healAmount = getPrayerOfHealingAmount(tower);
-        allies.forEach(a => { healTower(a, healAmount, null, { sourceTowerId: tower.id }); createTowerLine(tower, a, 'priest'); });
-        statues.forEach(a => { healTower(a, healAmount * 0.3, null, { allowStatue: true, sourceTowerId: tower.id }); createTowerLine(tower, a, 'priest'); });
+        allies.forEach(a => {
+          const healAmount = getPrayerOfHealingAmount(a);
+          healTower(a, healAmount, null, { sourceTowerId: tower.id });
+          createTowerLine(tower, a, 'priest');
+        });
+        statues.forEach(a => {
+          const healAmount = getPrayerOfHealingAmount(a);
+          healTower(a, healAmount * 0.3, null, { allowStatue: true, sourceTowerId: tower.id });
+          createTowerLine(tower, a, 'priest');
+        });
         return true;
       },
       slow_totem() {
@@ -16052,6 +16438,42 @@ function canSubmitRewardClaims() {
         if (!target) return false;
         const targets = game.enemies.filter(e => dist(e, target) <= 4);
         targets.forEach(e => applyDebuff(e, 'kraken', KRAKEN_DURATION_SECONDS, { damage: KRAKEN_BASE_DAMAGE * powerMult, percent: KRAKEN_SLOW_PERCENT, nextTickAt: now() + 1000, sourceTowerId: tower.id }));
+        return true;
+      },
+      fast_fists() {
+        const targets = game.enemies.filter((enemy) => chebyshevDist(enemy, tower) <= 1);
+        if (!targets.length) return false;
+        createMonkFastFistsEffect(tower);
+        createTileFlashArea(targets.map((enemy) => ({ x: enemy.x, y: enemy.y })), 'seer');
+        targets.forEach((enemy) => damageEnemy(tower, enemy, tower.damage * 2, `${tower.name} used Fast Fists`, { key: 'fast_fists', label: 'Fast Fists' }));
+        return true;
+      },
+      windmill_kick() {
+        const targets = game.enemies.filter((enemy) => dist(enemy, tower) <= 2);
+        if (!targets.length) return false;
+        createTileFlashArea(targets.map((enemy) => ({ x: enemy.x, y: enemy.y })), 'seer');
+        targets.forEach((enemy) => damageEnemy(tower, enemy, tower.damage * 1.5, `${tower.name} used Windmill Kick`, { key: 'windmill_kick', label: 'Windmill Kick' }));
+        return true;
+      },
+      two_handed_swing() {
+        const targets = game.enemies.filter((enemy) => dist(enemy, tower) <= 2)
+          .sort((a, b) => portalDistance(a) - portalDistance(b))
+          .slice(0, 10);
+        if (!targets.length) return false;
+        createBerserkerTwoHandedSwingEffect(tower, { durationMs: 1200 });
+        createTileFlashArea(targets.map((enemy) => ({ x: enemy.x, y: enemy.y })), 'warrior');
+        targets.forEach((enemy) => damageEnemy(tower, enemy, tower.damage * 1.75, `${tower.name} used Two-Handed Swing`, { key: 'two_handed_swing', label: 'Two-Handed Swing' }));
+        return true;
+      },
+      see_the_moon() {
+        const targets = game.enemies.filter((enemy) => dist(enemy, tower) <= 2);
+        if (!targets.length) return false;
+        createTileFlashArea(targets.map((enemy) => ({ x: enemy.x, y: enemy.y })), 'warrior');
+        targets.forEach((enemy) => {
+          tryApplyStun(enemy, 3, 1, { sourceTowerId: tower.id });
+          applyDebuff(enemy, 'berserkerFear', 3, { bonusDamageTaken: 0.25, sourceTowerId: tower.id });
+        });
+        showBanner('See the Moon', 900);
         return true;
       },
     };
@@ -16510,6 +16932,12 @@ function canSubmitRewardClaims() {
     els.seerIntroOkBtn.onclick = (event) => {
       swallowModalEvent(event);
       closeSeerIntroModal();
+    };
+  }
+  if (els.seerIntroLearnMoreBtn) {
+    els.seerIntroLearnMoreBtn.onclick = (event) => {
+      swallowModalEvent(event);
+      openIntroModal(0, 'intro');
     };
   }
   if (els.closeSeerIntroBtn) {
