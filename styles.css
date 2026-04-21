@@ -8652,6 +8652,131 @@ body.story-active #startModeModal.modal-primed-under-intro button {
   flex: 0 0 auto;
 }
 
+.treasury-summary-card{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(213,180,74,.22);
+  background:rgba(255,255,255,.04);
+}
+.treasury-summary-card-primary{
+  background:linear-gradient(180deg, rgba(78,56,18,.95), rgba(44,31,10,.95));
+  border-color:rgba(213,180,74,.42);
+  box-shadow:inset 0 1px 0 rgba(255,240,180,.08);
+}
+.treasury-summary-title{
+  display:block;
+  font-size:12px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#e5d08a;
+  margin-bottom:4px;
+}
+.treasury-summary-values{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 16px;
+  align-items:baseline;
+}
+.treasury-summary-value{
+  font-size:15px;
+  color:#f8f2d5;
+}
+.treasury-summary-value strong{
+  font-size:17px;
+  color:#fff6bf;
+}
+.treasury-summary-breakdown{
+  line-height:1.45;
+}
+.treasury-summary-breakdown strong{
+  color:#fff2b0;
+}
+.reward-claims-section-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.reward-claims-section-toggle{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#f7f0c6;
+  font:inherit;
+  font-weight:800;
+  padding:0;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.reward-claims-section-toggle .chev{
+  font-size:12px;
+  opacity:.9;
+}
+.reward-claims-admin-group.is-collapsed .reward-claims-section-body{
+  display:none;
+}
+.reward-spend-row{
+  grid-template-columns:minmax(0,1.6fr) repeat(4, auto) minmax(120px, auto);
+}
+.reward-spend-wallet{
+  max-width:220px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.reward-raffle-history-list{
+  display:grid;
+  gap:8px;
+}
+.reward-raffle-history-row{
+  display:grid;
+  grid-template-columns:110px minmax(0,1fr) auto auto;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+}
+.reward-raffle-day{
+  font-weight:800;
+  color:#fff2b0;
+}
+.reward-raffle-winner{
+  min-width:0;
+}
+.reward-raffle-winner-name{
+  font-weight:800;
+  color:#f8f2d5;
+}
+.reward-raffle-winner-wallet{
+  font-size:12px;
+  color:#cfc7aa;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.reward-raffle-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(104,82,214,.25);
+  border:1px solid rgba(167,151,255,.28);
+  font-size:11px;
+  font-weight:800;
+  color:#eee6ff;
+}
+.reward-raffle-status{
+  font-size:12px;
+  color:#d9d7c8;
+  white-space:nowrap;
+}
+
 .menu-resource-strip{
   margin:0 0 12px 0;
   padding:12px 14px;
@@ -9374,4 +9499,84 @@ body.reward-payout-notice-open #rewardPayoutNoticeModal a {
 #questsModal .modal-top-toggle-btn.bounty-soon-toggle:focus-visible {
   transform: none;
   box-shadow: none;
+}
+
+
+/* v46.9.1.146 tap responsiveness + quest modal scroll hardening */
+body.intro-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button,
+.wallet-btn,
+.intro-toggle,
+.leaderboard-flyout-btn,
+.mobile-bottom-btn,
+.mobile-ability-btn,
+.bounty-claim-btn,
+.intro-close,
+.wallet-panel-toggle,
+.wallet-top-refresh,
+.runlog-inline-toggle,
+[role="button"] {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#questsModal,
+#bountyModal,
+#questsModal .intro-modal-card,
+#bountyModal .intro-modal-card,
+#questsModal .intro-body,
+#bountyModal .intro-body,
+#questsModal .bounty-grid,
+#bountyModal .bounty-grid,
+#questsModal .quests-grid,
+#bountyModal .quests-grid {
+  touch-action: pan-y manipulation !important;
+}
+
+#questsModal .intro-modal-card,
+#bountyModal .intro-modal-card {
+  overflow: hidden;
+}
+
+#questsModal .intro-body,
+#bountyModal .intro-body {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+#questsModal .bounty-claim-btn,
+#bountyModal .bounty-claim-btn,
+#questsModal button,
+#bountyModal button {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  #questsModal,
+  #bountyModal {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 6px !important;
+  }
+
+  #questsModal .intro-modal-card,
+  #bountyModal .intro-modal-card {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+    max-height: calc((var(--app-vh, 1vh) * 100) - 12px) !important;
+    height: calc((var(--app-vh, 1vh) * 100) - 12px) !important;
+  }
+
+  #questsModal .intro-body,
+  #bountyModal .intro-body {
+    padding-bottom: max(28px, env(safe-area-inset-bottom) + 12px) !important;
+  }
 }

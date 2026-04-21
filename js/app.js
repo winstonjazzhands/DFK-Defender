@@ -2,13 +2,24 @@
 
 let lastTouchEnd = 0;
 
+function isInteractiveTouchTarget(target) {
+  try {
+    return !!target?.closest?.('button, a, input, select, textarea, label, summary, [role="button"], [data-quest-id], .intro-modal, .intro-modal-card, .intro-body, .bounty-claim-btn, .wallet-btn, .leaderboard-flyout-btn, .mobile-bottom-btn, .mobile-ability-btn');
+  } catch (_error) {
+    return false;
+  }
+}
+
 document.addEventListener('touchend', (event) => {
   const now = Date.now();
-  if (now - lastTouchEnd <= 300) {
+  const target = event.target;
+  const isRapidRepeat = (now - lastTouchEnd) <= 300;
+  const insideGameboard = !!target?.closest?.('#grid, .grid, #gameboard, .center-panel');
+  if (isRapidRepeat && insideGameboard && !isInteractiveTouchTarget(target)) {
     event.preventDefault();
   }
   lastTouchEnd = now;
-}, { passive: false });
+}, { passive: false, capture: true });
 
 // build: v46.9.1.117
 
@@ -3078,11 +3089,20 @@ function formatQuestResetCountdown(dateKey) {
         new Promise((_, reject) => window.setTimeout(() => reject(new Error('Wallet confirmation timed out. If you already approved it, use Refresh Wallet to recover the hero.')), 45000)),
       ]);
       if (paymentSessionId) {
+        enqueuePendingDfkJewelVerification({
+          paymentSessionId,
+          txHash: payment.txHash,
+          walletAddress,
+          amountWei: String(amountWei || '0'),
+          kind,
+          metadata: safeMetadata,
+        });
         try {
           const verifyResult = await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
             paymentSessionId,
             txHash: payment.txHash,
           });
+          removePendingDfkJewelVerification(paymentSessionId, payment.txHash);
           if (verifyResult && verifyResult.verifiedAt) {
             safeMetadata.verifiedAt = verifyResult.verifiedAt;
           }
@@ -3606,7 +3626,145 @@ function formatQuestResetCountdown(dateKey) {
   }
 
 
-  const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
+  
+  const DFK_JEWEL_VERIFY_QUEUE_STORAGE_KEY = 'dfk_defender_pending_jewel_verify_v1';
+
+  function normalizePendingDfkJewelVerification(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    const paymentSessionId = String(entry.paymentSessionId || '').trim();
+    const txHash = String(entry.txHash || '').trim().toLowerCase();
+    const walletAddress = normalizeAddress(entry.walletAddress);
+    const amountWei = String(entry.amountWei || entry.expectedAmountWei || '0').trim();
+    const kind = String(entry.kind || '').trim();
+    if (!paymentSessionId) return null;
+    if (!/^0x[a-f0-9]{64}$/.test(txHash)) return null;
+    if (!walletAddress || !kind) return null;
+    if (!/^\d+$/.test(amountWei)) return null;
+    const metadata = entry.metadata && typeof entry.metadata === 'object' ? { ...entry.metadata } : {};
+    return {
+      paymentSessionId,
+      txHash,
+      walletAddress,
+      amountWei,
+      kind,
+      metadata,
+      queuedAt: Math.max(0, Number(entry.queuedAt || Date.now())),
+      attempts: Math.max(0, Number(entry.attempts || 0)),
+      lastAttemptAt: Math.max(0, Number(entry.lastAttemptAt || 0)),
+    };
+  }
+
+  function readPendingDfkJewelVerificationQueue() {
+    try {
+      const raw = window.localStorage ? window.localStorage.getItem(DFK_JEWEL_VERIFY_QUEUE_STORAGE_KEY) : '';
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizePendingDfkJewelVerification).filter(Boolean);
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function writePendingDfkJewelVerificationQueue(queue) {
+    try {
+      const nextQueue = Array.isArray(queue) ? queue.map(normalizePendingDfkJewelVerification).filter(Boolean) : [];
+      if (!window.localStorage) return nextQueue;
+      if (!nextQueue.length) window.localStorage.removeItem(DFK_JEWEL_VERIFY_QUEUE_STORAGE_KEY);
+      else window.localStorage.setItem(DFK_JEWEL_VERIFY_QUEUE_STORAGE_KEY, JSON.stringify(nextQueue));
+      return nextQueue;
+    } catch (_error) {
+      return Array.isArray(queue) ? queue : [];
+    }
+  }
+
+  function enqueuePendingDfkJewelVerification(entry) {
+    const normalized = normalizePendingDfkJewelVerification(entry);
+    if (!normalized) return null;
+    const queue = readPendingDfkJewelVerificationQueue();
+    const existingIndex = queue.findIndex(item => item.paymentSessionId === normalized.paymentSessionId || item.txHash === normalized.txHash);
+    const nextEntry = existingIndex >= 0
+      ? {
+          ...queue[existingIndex],
+          ...normalized,
+          metadata: { ...(queue[existingIndex].metadata || {}), ...(normalized.metadata || {}) },
+          queuedAt: Math.min(Number(queue[existingIndex].queuedAt || Date.now()), Number(normalized.queuedAt || Date.now())),
+          attempts: Math.max(Number(queue[existingIndex].attempts || 0), Number(normalized.attempts || 0)),
+          lastAttemptAt: Math.max(Number(queue[existingIndex].lastAttemptAt || 0), Number(normalized.lastAttemptAt || 0)),
+        }
+      : normalized;
+    if (existingIndex >= 0) queue[existingIndex] = nextEntry;
+    else queue.push(nextEntry);
+    writePendingDfkJewelVerificationQueue(queue);
+    return nextEntry;
+  }
+
+  function removePendingDfkJewelVerification(paymentSessionId, txHash = '') {
+    const sessionId = String(paymentSessionId || '').trim();
+    const hash = String(txHash || '').trim().toLowerCase();
+    const queue = readPendingDfkJewelVerificationQueue().filter(item => {
+      if (sessionId && item.paymentSessionId === sessionId) return false;
+      if (hash && item.txHash === hash) return false;
+      return true;
+    });
+    writePendingDfkJewelVerificationQueue(queue);
+  }
+
+  async function flushPendingDfkJewelVerificationQueue(options = {}) {
+    if (game.pendingDfkJewelVerifyFlush) return;
+    const queue = readPendingDfkJewelVerificationQueue();
+    if (!queue.length) return;
+    game.pendingDfkJewelVerifyFlush = true;
+    let recoveredCount = 0;
+    try {
+      const remaining = [];
+      for (const entry of queue) {
+        try {
+          await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
+            paymentSessionId: entry.paymentSessionId,
+            txHash: entry.txHash,
+          });
+          removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
+          recoveredCount += 1;
+        } catch (error) {
+          remaining.push({
+            ...entry,
+            attempts: Math.max(0, Number(entry.attempts || 0)) + 1,
+            lastAttemptAt: Date.now(),
+          });
+          console.warn('[JEWEL trade] pending verification retry failed.', error);
+        }
+      }
+      writePendingDfkJewelVerificationQueue(remaining);
+      if (recoveredCount > 0) {
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') {
+          window.DFKCryptoRails.refreshTreasurySummary().catch(() => {});
+        }
+        if (options && options.notify) {
+          showBanner(`Recovered ${recoveredCount} pending JEWEL treasury save${recoveredCount === 1 ? '' : 's'}.`, 2600);
+        }
+        log(`Recovered ${recoveredCount} pending JEWEL treasury save${recoveredCount === 1 ? '' : 's'}.`);
+      }
+    } finally {
+      game.pendingDfkJewelVerifyFlush = false;
+    }
+  }
+
+  function startPendingDfkJewelVerificationQueueLoop() {
+    if (game.pendingDfkJewelVerifyQueueTimer) return;
+    flushPendingDfkJewelVerificationQueue({ notify: false }).catch(() => {});
+    game.pendingDfkJewelVerifyQueueTimer = window.setInterval(() => {
+      flushPendingDfkJewelVerificationQueue({ notify: false }).catch(() => {});
+    }, 45 * 1000);
+    window.addEventListener('online', () => {
+      flushPendingDfkJewelVerificationQueue({ notify: true }).catch(() => {});
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) flushPendingDfkJewelVerificationQueue({ notify: false }).catch(() => {});
+    });
+  }
+
+const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function normalizeBurnQueueItem(entry) {
     if (!entry || typeof entry !== 'object') return null;
@@ -6698,21 +6856,21 @@ function canSubmitRewardClaims() {
         <div class="intro-section-card">
           <p class="intro-page-subheading">Berserker</p>
           <ul class="intro-compact-list">
-            <li>High burst damage unit with a timed state that removes player control.</li>
-            <li><span class="intro-highlight">High as a Kite (KITE)</span>: Triggers randomly every 14–20 waves and lasts 7 waves.</li>
-            <li>While active, damage increases and the Berserker <span class="intro-highlight">cannot be moved</span>.</li>
-            <li><span class="intro-highlight">Two-Handed Swing</span>: Frontal cleave attack with a 12 second cooldown.</li>
-            <li>KITE triggers automatically. Only damage output changes during KITE.</li>
+            <li>High burst damage hero with fear, blind, and frontline pressure.</li>
+            <li><span class="intro-highlight">High as a Kite</span>: Every <span class="intro-highlight">14–20 cleared waves</span>, Berserker charges to the front for <span class="intro-highlight">7 waves</span> and leaves behind a ghost on her original tile. While away she deals <span class="intro-highlight">2× damage</span> and attacks <span class="intro-highlight">1.5× faster</span>.</li>
+            <li><span class="intro-highlight">Eye Gouge</span>: Berserker hits have a <span class="intro-highlight">25% chance</span> to blind targets. Blinded enemies have a <span class="intro-highlight">25% chance</span> to miss their attacks.</li>
+            <li><span class="intro-highlight">Two-Handed Swing</span>: Smashes up to <span class="intro-highlight">10 enemies</span> within <span class="intro-highlight">2 tiles</span> for <span class="intro-highlight">128 damage</span>. Cooldown: <span class="intro-highlight">12.0s</span>.</li>
+            <li><span class="intro-highlight">See the Moon</span>: Fears enemies within <span class="intro-highlight">2 tiles</span> for <span class="intro-highlight">3 seconds</span>. Feared enemies take <span class="intro-highlight">25% more damage</span> during that time. Cooldown: <span class="intro-highlight">12.0s</span>.</li>
           </ul>
         </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Monk</p>
           <ul class="intro-compact-list">
-            <li>Area-of-effect melee unit with increased effectiveness when paired.</li>
-            <li><span class="intro-highlight">Pair Synergy</span> becomes active when 2 Monks are deployed.</li>
-            <li><span class="intro-highlight">Fast Fists</span>: Hits all enemies within 1 tile for 2× base damage.</li>
-            <li><span class="intro-highlight">Windmill Kick</span>: Hits enemies in a 2-tile arc for 1.5× base damage.</li>
-            <li>Fast Fists hits all enemies simultaneously. Windmill Kick has wider but weaker coverage. Visual effects may exceed actual range.</li>
+            <li>Mobile melee area-damage hero built around constant repositioning and pair synergy.</li>
+            <li><span class="intro-highlight">Levitation</span>: Monk ignores movement cooldown and can float from skirmish to skirmish without resting.</li>
+            <li><span class="intro-highlight">Training Partner</span>: When <span class="intro-highlight">two Monks</span> are fielded, both gain <span class="intro-highlight">+25% damage</span>, <span class="intro-highlight">+25% speed</span>, and <span class="intro-highlight">+1 range</span>.</li>
+            <li><span class="intro-highlight">Fast Fists</span>: Punches every enemy within <span class="intro-highlight">1 tile</span> for <span class="intro-highlight">103 damage</span>. Cooldown: <span class="intro-highlight">4.0s</span>.</li>
+            <li><span class="intro-highlight">Windmill Kick</span>: Spins through all enemies within <span class="intro-highlight">2 tiles</span> for <span class="intro-highlight">77 damage</span>. Cooldown: <span class="intro-highlight">8.0s</span>.</li>
           </ul>
         </div>
       `,
@@ -8218,9 +8376,21 @@ function canSubmitRewardClaims() {
       syncStatusOverlayVisibility(true);
       return;
     }
+    const revealPrimedSeerIntro = !!(els.seerIntroModal && els.seerIntroModal.classList.contains('modal-primed-under-intro'));
+    if (revealPrimedSeerIntro) {
+      game.introOpen = true;
+      document.body.classList.add('intro-open');
+      setBoardInputLocked(true);
+      els.seerIntroModal.classList.remove('hidden');
+      els.seerIntroModal.setAttribute('aria-hidden', 'false');
+      els.seerIntroModal.classList.remove('modal-primed-under-intro');
+      syncStatusOverlayVisibility(true);
+      return;
+    }
     document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
     showStatusOverlay();
+    setBoardInputLocked(false);
   }
 
 
@@ -12593,6 +12763,9 @@ function canSubmitRewardClaims() {
     if (els.seerIntroModal) {
       els.seerIntroModal.classList.add('hidden');
       els.seerIntroModal.setAttribute('aria-hidden', 'true');
+      if (!options.keepPrimedUnderIntro) {
+        els.seerIntroModal.classList.remove('modal-primed-under-intro');
+      }
     }
     if (!options.keepBoardLocked) {
       setBoardInputLocked(false);
@@ -12622,6 +12795,7 @@ function canSubmitRewardClaims() {
     if (els.seerIntroModal) {
       els.seerIntroModal.classList.remove('hidden');
       els.seerIntroModal.setAttribute('aria-hidden', 'false');
+      els.seerIntroModal.classList.remove('modal-primed-under-intro');
     }
   }
 
@@ -16937,6 +17111,8 @@ function canSubmitRewardClaims() {
   if (els.seerIntroLearnMoreBtn) {
     els.seerIntroLearnMoreBtn.onclick = (event) => {
       swallowModalEvent(event);
+      if (els.seerIntroModal) els.seerIntroModal.classList.add('modal-primed-under-intro');
+      closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true, keepPrimedUnderIntro: true });
       openIntroModal(0, 'intro');
     };
   }
@@ -17317,6 +17493,7 @@ function canSubmitRewardClaims() {
   updateRelicSwapUi();
   startGlobalBurnedGoldRefreshLoop();
   startPendingDfkgoldBurnQueueLoop();
+  startPendingDfkJewelVerificationQueueLoop();
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();

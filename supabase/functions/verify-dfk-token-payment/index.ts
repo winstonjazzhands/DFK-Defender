@@ -32,6 +32,17 @@ Deno.serve(async (req) => {
     }
     if (Number(session.chain_id) !== DFK_CHAIN_ID) throw new Error("Session chain mismatch.");
 
+    const submittedAt = new Date().toISOString();
+    const { error: markSubmittedError } = await supabase
+      .from("dfk_token_payment_sessions")
+      .update({
+        tx_hash: txHash,
+        status: session.status === "verified" ? "verified" : "submitted",
+      })
+      .eq("id", session.id);
+
+    if (markSubmittedError) console.warn("verify-dfk-token-payment could not mark session submitted", markSubmittedError);
+
     const verified = await verifyNativeJewelTransferTx(
       txHash,
       session.wallet_address,

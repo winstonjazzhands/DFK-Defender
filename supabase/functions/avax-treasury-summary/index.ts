@@ -59,6 +59,17 @@ function normalizeCurrency(value: unknown) {
   return String(value || '').trim().toUpperCase();
 }
 
+function inferCurrency(row: Record<string, unknown>) {
+  const explicit = normalizeCurrency(row.reward_currency ?? row.currency ?? row.payment_asset);
+  if (explicit === 'AVAX' || explicit === 'JEWEL') return explicit;
+  const text = [row.amount_text, row.claim_type, row.source_ref, row.reason_text, row.admin_note, row.raffle_type]
+    .map((value) => String(value || '').toUpperCase())
+    .join(' ');
+  if (text.includes('AVAX')) return 'AVAX';
+  if (text.includes('JEWEL')) return 'JEWEL';
+  return '';
+}
+
 function getWeiLike(row: RowLike) {
   return BigInt(String(row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei ?? '0'));
 }
@@ -96,15 +107,15 @@ function addPositiveDecimalStrings(a: unknown, b: unknown) {
   return `${whole.toString()}${frac ? `.${frac}` : ''}`;
 }
 
-function sumRewardAmounts(rows: Array<{ amount_value?: unknown; amount_text?: unknown; reward_currency?: unknown }>, currency: 'JEWEL' | 'AVAX') {
+function sumRewardAmounts(rows: Array<Record<string, unknown>>, currency: 'JEWEL' | 'AVAX') {
   let total = '0';
   for (const row of rows) {
-    if (normalizeCurrency(row.reward_currency) !== currency) continue;
+    if (inferCurrency(row) !== currency) continue;
     if (row.amount_value != null && String(row.amount_value).trim()) {
       total = addPositiveDecimalStrings(total, row.amount_value);
       continue;
     }
-    const match = String(row.amount_text || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    const match = String(row.amount_text || row.reward_amount || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
     if (match?.[1]) total = addPositiveDecimalStrings(total, match[1]);
   }
   return total;
@@ -112,8 +123,10 @@ function sumRewardAmounts(rows: Array<{ amount_value?: unknown; amount_text?: un
 
 function isCompletedRewardLike(row: RowLike) {
   return normalizeStatus(row.status) === 'paid'
+    || normalizeStatus(row.status) === 'approved'
     || normalizeStatus(row.payout_status) === 'paid'
-    || !!String(row.paid_at || '').trim()
+    || normalizeStatus(row.payout_status) === 'approved'
+    || !!String(row.paid_at || row.approved_at || row.settled_at || '').trim()
     || !!String(row.tx_hash || row.payout_tx_hash || '').trim();
 }
 
@@ -181,24 +194,69 @@ function dedupeAvaxRows(currentRows: any[], legacyRows: any[]) {
   return out;
 }
 
+
+function getTokenSessionAmountWei(row: RowLike) {
+  return String(
+    row?.paid_amount_wei
+      ?? row?.expected_amount_wei
+      ?? row?.amount_wei
+      ?? ((row?.metadata as Record<string, unknown> | undefined)?.paid_amount_wei)
+      ?? ((row?.metadata as Record<string, unknown> | undefined)?.expected_amount_wei)
+      ?? '0',
+  );
+}
+
+function isTokenSessionSubmittedLike(row: RowLike) {
+  const status = normalizeStatus(row?.status);
+  return status === 'submitted'
+    || status === 'processing'
+    || status === 'broadcasted'
+    || status === 'broadcast'
+    || status === 'sent'
+    || status === 'pending';
+}
+
+function isCompletedTokenSessionLike(row: RowLike) {
+  const status = normalizeStatus(row?.status);
+  return status === 'verified'
+    || status === 'confirmed'
+    || status === 'paid'
+    || status === 'completed'
+    || status === 'approved'
+    || !!String(row?.verified_at || row?.confirmed_at || '').trim()
+    || !!String(row?.tx_hash || '').trim()
+    || !!String(row?.block_number || '').trim();
+}
+
+function shouldCountTokenSessionLike(row: RowLike) {
+  const amountWei = getTokenSessionAmountWei(row);
+  if (!/^\d+$/.test(String(amountWei || '').trim())) return false;
+  if (BigInt(String(amountWei || '0')) <= 0n) return false;
+  if (isCompletedTokenSessionLike(row)) return true;
+  const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+  return isTokenSessionSubmittedLike(row)
+    || !!String(row?.tx_hash || metadata?.txHash || metadata?.transactionHash || '').trim()
+    || !!String(row?.block_number || metadata?.blockNumber || '').trim();
+}
+
 function mergeTokenRows(tokenRows: any[], tokenSessionRows: any[]) {
   const safeTokenRows = Array.isArray(tokenRows) ? tokenRows.slice() : [];
   const paidTokenHashes = new Set(safeTokenRows.map((row) => normalizeHash(row?.tx_hash)).filter(Boolean));
   const paidTokenSessionIds = new Set(safeTokenRows.map((row) => String(row?.payment_session_id || '').trim()).filter(Boolean));
-  const verifiedTokenSessions = (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => {
-    const status = normalizeStatus(row?.status);
-    return status === 'verified' || status === 'confirmed' || !!String(row?.verified_at || '').trim() || !!String(row?.tx_hash || '').trim();
-  });
-  for (const row of verifiedTokenSessions) {
-    const txHash = normalizeHash(row?.tx_hash);
+  const countableTokenSessions = (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => shouldCountTokenSessionLike(row));
+  for (const row of countableTokenSessions) {
+    const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+    const txHash = normalizeHash(row?.tx_hash || metadata?.txHash || metadata?.transactionHash);
     const sessionId = String(row?.id || '').trim();
     if (txHash && paidTokenHashes.has(txHash)) continue;
     if (sessionId && paidTokenSessionIds.has(sessionId)) continue;
     safeTokenRows.push({
       ...row,
+      tx_hash: row?.tx_hash || metadata?.txHash || metadata?.transactionHash || null,
+      block_number: row?.block_number || metadata?.blockNumber || null,
       payment_asset: row?.payment_asset || 'native_jewel',
       payment_session_id: row?.id,
-      paid_amount_wei: row?.paid_amount_wei || row?.expected_amount_wei || row?.amount_wei || '0',
+      paid_amount_wei: getTokenSessionAmountWei(row),
       verified_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
       confirmed_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
     });
@@ -236,25 +294,30 @@ Deno.serve(async (req) => {
       { count: lifetimeTrackedRunsCount, error: runCountError },
       { data: latestRaffleWinner, error: latestRaffleWinnerError },
       { data: latestAvaxRaffleWinner, error: latestAvaxRaffleWinnerError },
+      { data: dailyRaffleHistory, error: dailyRaffleHistoryError },
     ] = await Promise.all([
       fetchPaginatedRows(admin, 'crypto_payment_sessions', '*', (query) => query.eq('status', 'confirmed')),
       fetchPaginatedRows(admin, 'avax_payment_verifications', '*'),
       fetchPaginatedRows(admin, 'dfk_token_payments', '*'),
-      fetchPaginatedRows(admin, 'dfk_token_payment_sessions', '*', (query) => query.in('status', ['verified', 'confirmed'])),
-      fetchPaginatedRows(admin, 'reward_claim_requests', 'id, reward_currency, amount_value, amount_text, status, paid_at, tx_hash'),
-      fetchPaginatedRows(admin, 'daily_raffle_results', 'claim_id, reward_currency, reward_amount, payout_status, payout_tx_hash'),
+      fetchPaginatedRows(admin, 'dfk_token_payment_sessions', '*'),
+      fetchPaginatedRows(admin, 'reward_claim_requests', '*'),
+      fetchPaginatedRows(admin, 'daily_raffle_results', '*'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
-      admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('daily_raffle_results').select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('*').order('raffle_day', { ascending: false }).limit(40),
     ]);
 
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
     logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
     logNonMissingError('avax-treasury-summary latest AVAX raffle winner query failed', latestAvaxRaffleWinnerError, 'daily_raffle_results');
+    logNonMissingError('avax-treasury-summary daily raffle history query failed', dailyRaffleHistoryError, 'daily_raffle_results');
 
     const safeSessionRows = dedupeAvaxRows(sessionRows || [], legacyAvaxRows || []);
     const safeTokenRows = mergeTokenRows(tokenRows || [], tokenSessionRows || []);
+    const currentSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
+    const avaxInRows = safeSessionRows.length > 0 ? safeSessionRows : currentSessionRows;
     const safeRewardClaimRows = Array.isArray(rewardClaimRows) ? rewardClaimRows : [];
     const safeRaffleRows = Array.isArray(raffleRows) ? raffleRows : [];
     const safeBurnRows = Array.isArray(burnRows) ? burnRows : [];
@@ -288,9 +351,13 @@ Deno.serve(async (req) => {
         return !claimId || !completedClaimIds.has(claimId);
       })
       .map((row) => ({
+        raffle_type: row.raffle_type,
         reward_currency: row.reward_currency,
         amount_value: row.reward_amount,
         amount_text: row.reward_amount == null ? null : String(row.reward_amount),
+        payout_status: row.payout_status,
+        payout_tx_hash: row.payout_tx_hash,
+        settled_at: row.settled_at,
       }));
     const completedOutgoingRows = completedRewardClaims.concat(completedRaffleRows);
 
@@ -306,7 +373,7 @@ Deno.serve(async (req) => {
       confirmedCount: confirmed.length,
       todayConfirmedCount: todayRows.length,
       totalConfirmedWei: sumWei(confirmed),
-      lifetimeAvaxInWei: sumWei(safeSessionRows),
+      lifetimeAvaxInWei: sumWei(avaxInRows),
       lifetimeJewelInWei: sumWei(safeTokenRows),
       lifetimeAvaxOut: sumRewardAmounts(completedOutgoingRows, 'AVAX'),
       lifetimeJewelOut: sumRewardAmounts(completedOutgoingRows, 'JEWEL'),
@@ -336,13 +403,19 @@ Deno.serve(async (req) => {
       todayBurnedGoldCount: todayBurnRows.length,
       latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? latestRaffleWinner : null,
       latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? latestAvaxRaffleWinner : null,
+      dailyRaffleHistory: Array.isArray(dailyRaffleHistory) && !isMissingRelationError(dailyRaffleHistoryError, 'daily_raffle_results') ? dailyRaffleHistory : [],
       diagnostics: {
         currentAvaxRows: Array.isArray(sessionRows) ? sessionRows.length : 0,
         legacyAvaxRows: Array.isArray(legacyAvaxRows) ? legacyAvaxRows.length : 0,
         mergedAvaxRows: safeSessionRows.length,
+        avaxInRowsUsed: avaxInRows.length,
         tokenRows: Array.isArray(tokenRows) ? tokenRows.length : 0,
         tokenSessionRows: Array.isArray(tokenSessionRows) ? tokenSessionRows.length : 0,
         mergedTokenRows: safeTokenRows.length,
+        tokenRowsWithTxHash: (Array.isArray(tokenRows) ? tokenRows : []).filter((row) => !!String(row?.tx_hash || '').trim()).length,
+        tokenSessionsCompletedLike: (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => isCompletedTokenSessionLike(row)).length,
+        tokenSessionsCountedLike: (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => shouldCountTokenSessionLike(row)).length,
+        tokenSessionsWithTxHash: (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => !!String(row?.tx_hash || row?.metadata?.txHash || row?.metadata?.transactionHash || '').trim()).length,
         rewardClaimRows: safeRewardClaimRows.length,
         raffleRows: safeRaffleRows.length,
         burnRows: safeBurnRows.length,
