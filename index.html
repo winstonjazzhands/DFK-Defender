@@ -306,6 +306,26 @@
 <button class="intro-toggle secondary-guide bounty-toggle hidden" id="bountyBtn" type="button">🏆 Weekly Bounties</button>
 </div>
 </div>
+<div aria-hidden="true" class="wallet-panel panel-lite collapsed hidden" id="replayPanel">
+<button aria-controls="replayPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="replayPanelToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="meta-title">Replay</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body replay-panel-body" id="replayPanelBody">
+<div id="replayPanelWarning" class="gold hidden replay-panel-warning"></div>
+<div id="replayPanelMeta" class="replay-panel-meta"></div>
+<div class="replay-panel-controls">
+<button id="replayPanelPrevBtn" type="button">◀ Prev wave</button>
+<button id="replayPanelPlayPauseBtn" type="button">Play</button>
+<button id="replayPanelNextBtn" type="button">Next wave ▶</button>
+<button id="replayPanelCopyLinkBtn" type="button">Copy share link</button>
+</div>
+<div id="replayPanelStepLabel" class="gold replay-panel-step"></div>
+<div id="replayPanelEvents" class="replay-panel-events"></div>
+</div>
+</div>
 <div class="wallet-panel panel-lite collapsed" id="walletPanel">
 <button aria-controls="walletPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="walletPanelToggle" type="button">
 <span class="wallet-panel-title-row">
@@ -334,6 +354,7 @@
 </div>
 <button class="wallet-btn secondary tracking-btn" id="enableTrackingBtn" type="button">Enable Run Tracking</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="disableTrackingBtn" type="button">Disable Run Tracking</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="clearStuckWavesBtn" type="button">Clear Stuck Waves</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
 
 
@@ -429,6 +450,7 @@
 <div class="action-group">
 <button disabled="" id="upgradeBtn">Level Up</button>
 <button disabled="" id="moveBtn">Move</button>
+<button class="secondary" disabled="" id="cancelActionBtn" type="button">Cancel Action</button>
 <button class="secondary desktop-only-inline" disabled="" id="maxLevelBtn">Max Lvl</button>
 <button aria-hidden="true" class="secondary hidden" disabled="" hidden="" id="rebuildBarriersBtn" tabindex="-1">Rebuild Barriers</button>
 </div>
@@ -792,6 +814,7 @@
 <button class="mobile-quick-btn mobile-quick-start" disabled="" id="mobileQuickStartBtn" type="button">Start</button>
 <button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickUpgradeBtn" type="button">Lvl</button>
 <button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickSatelliteBtn" type="button">Sat</button>
+<button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickCancelBtn" type="button">Cancel</button>
 <button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickMoveBtn" type="button">Move</button>
 <div aria-hidden="true" class="mobile-bottom-bar panel" id="mobileBottomBar">
 <button class="mobile-bottom-btn mobile-ability-btn" disabled="" id="mobileAbilityBtn1" type="button">A1</button>

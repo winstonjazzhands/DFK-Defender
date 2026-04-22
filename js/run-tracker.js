@@ -19,6 +19,7 @@
 
   const SESSION_TOKEN_STORAGE_KEY = 'dfk_wallet_session_token';
   const GLOBAL_QUEUE_STORAGE_KEY = 'dfkRunTrackerQueue:v2';
+  const QUEUE_RECORD_VERSION = 2;
 
   function persistSessionToken(token) {
     if (!token) return;
@@ -81,6 +82,13 @@
       ui.disableBtn.textContent = 'Disable Run Tracking';
       ui.disableBtn.classList.toggle('hidden', !showDisable);
       ui.disableBtn.setAttribute('aria-hidden', showDisable ? 'false' : 'true');
+    }
+    if (ui.clearStuckWavesBtn) {
+      const showClear = !!state.session;
+      ui.clearStuckWavesBtn.disabled = !showClear;
+      ui.clearStuckWavesBtn.textContent = 'Clear Stuck Waves';
+      ui.clearStuckWavesBtn.classList.toggle('hidden', !showClear);
+      ui.clearStuckWavesBtn.setAttribute('aria-hidden', showClear ? 'false' : 'true');
     }
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
@@ -256,9 +264,10 @@ function buildStatusText() {
     return `Run Tracking: High-value run pending secure submission (${secureCount}${secureCount === 1 ? ' run' : ' runs'}${uploadSuffix})`;
   }
   if (uploadCount > 0) {
+    const detail = `${uploadCount} pending upload${uploadCount === 1 ? '' : 's'} · stuck runs likely will not be accepted as tracked`;
     return isTrackingEnabled()
-      ? `Run Tracking: Ready (${uploadCount} pending upload${uploadCount === 1 ? '' : 's'})`
-      : `Run Tracking: Signature needed (${uploadCount} pending upload${uploadCount === 1 ? '' : 's'})`;
+      ? `Run Tracking: Ready (${detail})`
+      : `Run Tracking: Signature needed (${detail})`;
   }
   return isTrackingEnabled() ? 'Run Tracking: Ready' : 'Run Tracking: Signature needed';
 }
@@ -411,6 +420,9 @@ function hardenRunStatsForSubmission(input) {
     avaxSpent: clampInt(source.avaxSpent, 0, 1000000000),
     dailyEliteQuestsCompleted: clampInt(source.dailyEliteQuestsCompleted, 0, 7),
     relicChoicesOpened: clampInt(source.relicChoicesOpened, 0, relicChoiceCap),
+    foundRelicIds: Array.from(new Set((Array.isArray(source.foundRelicIds || source.found_relic_ids) ? (source.foundRelicIds || source.found_relic_ids) : [])
+      .map((value) => sliceText(value, 64, ''))
+      .filter(Boolean))).slice(0, 128),
   };
 
   out.killsElite = Math.min(sanitizeInt(out.killsElite), sanitizeInt(out.killsTotal));
@@ -473,6 +485,7 @@ async function sha256Base64Url(input) {
 
     const record = {
       queueId: base && base.queueId ? base.queueId : makeQueueId(),
+      formatVersion: QUEUE_RECORD_VERSION,
       walletAddress: normalized,
       clientRunId,
       status: nextStatus,
@@ -480,6 +493,8 @@ async function sha256Base64Url(input) {
       updatedAt: nowIso,
       uploadedAt: base && base.uploadedAt ? base.uploadedAt : null,
       attempts: Number(base && base.attempts ? base.attempts : 0),
+      repairAttempts: Number(base && base.repairAttempts ? base.repairAttempts : 0),
+      repairedAt: base && base.repairedAt ? base.repairedAt : null,
       nextRetryAt: base && base.nextRetryAt ? base.nextRetryAt : nowIso,
       lastError: base && base.lastError ? base.lastError : '',
       payload: {
@@ -576,7 +591,6 @@ function attachSecureSubmission(queueId, secureSubmission) {
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.key,
-      Authorization: `Bearer ${token || CONFIG.key}`,
     };
     if (token) headers['x-session-token'] = token;
     const response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
@@ -676,7 +690,7 @@ function attachSecureSubmission(queueId, secureSubmission) {
       clientRunId: String(source.clientRunId || '').trim().length >= 8 ? String(source.clientRunId).trim() : makeRunClientId(walletAddress || 'run'),
       completedAt,
       runStartedAt,
-      gameVersion: String(source.gameVersion || window.DFK_GAME_VERSION || 'V46.9.1.124').slice(0, 80),
+      gameVersion: String(source.gameVersion || window.DFK_GAME_VERSION || 'V46.9.1.146').slice(0, 80),
       mode,
       result,
       chainId: normalizedChainId,
@@ -751,6 +765,114 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     return status === 400 && /invalid_|wallet_required|client_run_id_required|invalid_body|invalid_game_version|invalid_chain_id|invalid_mode|invalid_result|invalid_completed_at|invalid_run_started_at|invalid_wave_reached|invalid_waves_cleared|invalid_portal_hp_left|invalid_gold_on_hand|invalid_premium_jewels|invalid_heroes_payload|invalid_hero_|invalid_total_hero_count|invalid_hire_count|invalid_barrier_stats|invalid_dfk_gold_burned_total|run_duration_too_short/.test(code);
   }
 
+  function isLegacyQueuedRun(queueItem) {
+    const version = Number(queueItem && queueItem.formatVersion || 0);
+    if (!version || version < QUEUE_RECORD_VERSION) return true;
+    const payloadVersion = String(queueItem && queueItem.payload && queueItem.payload.gameVersion || '').trim();
+    if (payloadVersion && String(window.DFK_GAME_VERSION || '').trim() && payloadVersion !== String(window.DFK_GAME_VERSION || '').trim()) return true;
+    return false;
+  }
+
+  function buildRetryPayload(queueItem, walletAddress, options = {}) {
+    const normalized = normalizeQueuedRunPayload((queueItem && queueItem.payload) || {}, walletAddress);
+    const base = {
+      walletAddress: normalized.walletAddress,
+      clientRunId: normalized.clientRunId,
+      completedAt: normalized.completedAt,
+      runStartedAt: normalized.runStartedAt,
+      gameVersion: String(window.DFK_GAME_VERSION || normalized.gameVersion || 'V46.9.1.146').slice(0, 80),
+      mode: normalized.mode,
+      result: normalized.result,
+      chainId: normalized.chainId,
+      waveReached: normalized.waveReached,
+      wavesCleared: normalized.wavesCleared,
+      portalHpLeft: normalized.portalHpLeft,
+      goldOnHand: normalized.goldOnHand,
+      premiumJewels: normalized.premiumJewels,
+      heroes: Array.isArray(normalized.heroes) ? normalized.heroes : [],
+      stats: normalized.stats,
+    };
+    if (!options.minimal) {
+      const foundRelics = Array.isArray(normalized.foundRelicIds)
+        ? normalized.foundRelicIds
+        : Array.isArray(normalized.stats && normalized.stats.foundRelicIds)
+          ? normalized.stats.foundRelicIds
+          : [];
+      if (foundRelics.length) base.foundRelicIds = Array.from(new Set(foundRelics.map((value) => sliceText(value, 64, '')).filter(Boolean))).slice(0, 128);
+    }
+    const secureRequired = requiresSecureSubmission(base);
+    if (!options.dropSecureSubmission && secureRequired && normalized.secureSubmission && normalized.secureSubmission.signature) {
+      base.secureSubmission = normalized.secureSubmission;
+    }
+    return base;
+  }
+
+  function persistRepairedQueueItem(queueItem, repairedPayload, extra = {}) {
+    const queue = readQueue();
+    const index = queue.findIndex((item) => item && item.queueId === (queueItem && queueItem.queueId));
+    if (index < 0) return queueItem;
+    const current = queue[index] || {};
+    queue[index] = {
+      ...current,
+      formatVersion: QUEUE_RECORD_VERSION,
+      updatedAt: new Date().toISOString(),
+      repairedAt: new Date().toISOString(),
+      repairAttempts: Number(current && current.repairAttempts ? current.repairAttempts : 0) + 1,
+      lastError: '',
+      nextRetryAt: new Date().toISOString(),
+      payload: {
+        ...(current && current.payload ? current.payload : {}),
+        ...repairedPayload,
+      },
+      ...extra,
+    };
+    writeQueue(queue);
+    return queue[index];
+  }
+
+  async function attemptAutomaticQueuedRunRepair(queueItem, walletAddress, options = {}) {
+    const sessionToken = state.session && state.session.sessionToken ? state.session.sessionToken : '';
+    if (!sessionToken) throw new Error('Run tracking session missing.');
+    let workingItem = queueItem;
+    const attempts = [
+      { minimal: false, dropSecureSubmission: false, label: 'normalized' },
+      { minimal: false, dropSecureSubmission: true, label: 'secure-reset' },
+      { minimal: true, dropSecureSubmission: true, label: 'minimal-safe' },
+    ];
+    let lastError = null;
+    for (const plan of attempts) {
+      try {
+        let payload = buildRetryPayload(workingItem, walletAddress, plan);
+        if (requiresSecureSubmission(payload)) {
+          if (plan.dropSecureSubmission || !payload.secureSubmission || !payload.secureSubmission.signature) {
+            if (!options.interactive) {
+              workingItem = persistRepairedQueueItem(workingItem, payload, {
+                status: 'pending_secure_signature',
+                lastError: 'This pending run was repaired automatically and needs a fresh secure signature.',
+                nextRetryAt: null,
+              });
+              const err = new Error('This pending run was repaired automatically and needs a fresh secure signature.');
+              err.secureSignatureRequired = true;
+              throw err;
+            }
+            payload.secureSubmission = null;
+            workingItem = persistRepairedQueueItem(workingItem, payload);
+            const refreshed = await requestSecureRunSignature(workingItem, walletAddress);
+            workingItem = refreshed || workingItem;
+            payload = buildRetryPayload(workingItem, walletAddress, { minimal: plan.minimal, dropSecureSubmission: false });
+          }
+        }
+        const result = await callFunction(CONFIG.submitFunction, payload, sessionToken);
+        persistRepairedQueueItem(workingItem, payload);
+        return { ok: true, result, repaired: true, queueItem: workingItem, strategy: plan.label };
+      } catch (repairError) {
+        lastError = repairError;
+        if (repairError && repairError.secureSignatureRequired) throw repairError;
+      }
+    }
+    throw lastError || new Error('Automatic pending run repair failed.');
+  }
+
 
   async function debugSession(options = {}) {
     if (!CONFIG.url || !CONFIG.key || !CONFIG.debugFunction) {
@@ -769,7 +891,6 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.key,
-      Authorization: `Bearer ${token || CONFIG.key}`,
     };
     if (token) headers['x-session-token'] = token;
     try {
@@ -1200,17 +1321,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           return { ok: false, queued: true, error: repairPrepMessage };
         }
       }
-      if (isRepairableRunPayloadError(error)) {
+      if (isRepairableRunPayloadError(error) || isLegacyQueuedRun(queueItem)) {
         try {
-          const repairedPayload = normalizeQueuedRunPayload(queueItem.payload, walletAddress);
-          upsertQueuedRun(repairedPayload, walletAddress);
-          const repaired = await callFunction(CONFIG.submitFunction, repairedPayload, state.session.sessionToken);
+          const repaired = await attemptAutomaticQueuedRunRepair(queueItem, walletAddress, { interactive });
           markQueuedRunUploaded(queueItem.queueId);
-          return { ok: true, queued: false, result: repaired, repaired: true };
+          return { ok: true, queued: false, result: repaired.result, repaired: true, repairStrategy: repaired.strategy };
         } catch (repairError) {
           const repairMessage = repairError && repairError.message ? repairError.message : message;
-          markQueuedRunFailed(queueItem.queueId, repairMessage);
-          return { ok: false, queued: true, error: repairMessage };
+          if (repairError && repairError.secureSignatureRequired) {
+            return { ok: false, queued: true, secureSignatureRequired: true, error: repairMessage };
+          }
+          markQueuedRunFailed(queueItem.queueId, repairMessage || 'This pending run was recorded on an older build and could not be repaired automatically.');
+          return { ok: false, queued: true, error: repairMessage || 'This pending run was recorded on an older build and could not be repaired automatically.' };
         }
       }
       markQueuedRunFailed(queueItem.queueId, message);
@@ -1382,7 +1504,6 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           headers: {
             'Content-Type': 'application/json',
             apikey: CONFIG.key,
-            Authorization: `Bearer ${String(state.session.sessionToken || '') || CONFIG.key}`,
             'x-session-token': String(state.session.sessionToken || ''),
           },
           body,
@@ -1474,6 +1595,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     ui.summary = qs('walletTrackingSummary');
     ui.enableBtn = qs('enableTrackingBtn');
     ui.disableBtn = qs('disableTrackingBtn');
+    ui.clearStuckWavesBtn = qs('clearStuckWavesBtn');
     ui.vanitySection = qs('walletVanitySection');
     ui.vanityInput = qs('walletVanityInput');
     ui.vanityStatus = qs('walletVanityStatus');
@@ -1511,6 +1633,38 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           await disableTracking();
         } catch (error) {
           applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad');
+        } finally {
+          render();
+        }
+      });
+    }
+    if (ui.clearStuckWavesBtn) {
+      ui.clearStuckWavesBtn.addEventListener('click', () => {
+        try {
+          const control = window.DFKDefenseGameControl;
+          const trackingAddress = normalizeAddress(state.address || getTrackingAddress() || '');
+          let waveResult = { cleared: false, reason: 'unavailable' };
+          if (control && typeof control.clearStuckWaves === 'function') {
+            waveResult = control.clearStuckWaves() || waveResult;
+          }
+          let queueRemoved = 0;
+          if (trackingAddress) {
+            const queueClearResult = clearWalletQueueState(trackingAddress) || {};
+            queueRemoved = Number(queueClearResult.removed || 0);
+          }
+          if (waveResult && waveResult.cleared && queueRemoved > 0) {
+            applyStatus(`Run Tracking: Ready. Cleared the stuck wave and removed ${queueRemoved} pending tracked run${queueRemoved === 1 ? '' : 's'}. Stuck runs likely will not be accepted as tracked runs.`, 'warn');
+          } else if (waveResult && waveResult.cleared) {
+            applyStatus('Run Tracking: Ready. Stuck wave cleared. This run will likely not be accepted as a tracked run.', 'warn');
+          } else if (queueRemoved > 0) {
+            applyStatus(`Run Tracking: Ready. Removed ${queueRemoved} pending stuck tracked run${queueRemoved === 1 ? '' : 's'}.`, 'warn');
+          } else if (!control || typeof control.clearStuckWaves !== 'function') {
+            applyStatus('Run Tracking: Clear stuck waves is unavailable on this build.', 'bad');
+          } else {
+            applyStatus('Run Tracking: Ready. No stuck wave or pending stuck runs found to clear.', isTrackingEnabled() ? 'good' : 'warn');
+          }
+        } catch (error) {
+          applyStatus(`Run Tracking: ${error.message || 'Failed to clear stuck wave.'}`, 'bad');
         } finally {
           render();
         }

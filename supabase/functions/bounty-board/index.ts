@@ -278,6 +278,7 @@ type WeeklyTrackedRunRow = {
   created_at?: string | null;
   run_started_at?: string | null;
   chain_id?: number | null;
+  replay_share_id?: string | null;
 };
 
 function isMissingColumnError(error: unknown) {
@@ -460,7 +461,7 @@ async function listWeeklyRunsForWallet(admin: ReturnType<typeof createAdmin>, wa
       if (!hadMissingColumn) {
         for (const walletFilter of walletFilters) {
           for (const useExactMatch of [true, false]) {
-            const rows = await fetchRows('id, wave_reached, waves_cleared, stats_json, completed_at, created_at, run_started_at, chain_id', 'completed_at', walletFilter, useExactMatch);
+            const rows = await fetchRows('id, wave_reached, waves_cleared, stats_json, heroes_json, completed_at, created_at, run_started_at, chain_id, replay_share_id', 'completed_at', walletFilter, useExactMatch);
             if (rows && rows.length > 0) return rows.slice();
           }
         }
@@ -486,10 +487,18 @@ function buildTrackedRunsForViewer(
       id: String(row.id || '').trim() || `run-${index + 1}`,
       runNumber: index + 1,
       bestWave: sanitizeInt(row.wave_reached),
+      waveReached: sanitizeInt(row.wave_reached),
+      wavesCleared: sanitizeInt(row.waves_cleared),
       completedAt: String(row.completed_at || '').trim() || null,
       createdAt: String(row.created_at || '').trim() || null,
       runStartedAt: String(row.run_started_at || '').trim() || null,
       chainId: sanitizeInt(row.chain_id) || null,
+      replayShareId: String(row.replay_share_id || '').trim() || '',
+      stats: row.stats_json && typeof row.stats_json === 'object' ? row.stats_json : {},
+      heroes: Array.isArray((row as Record<string, unknown>).heroes_json) ? (row as Record<string, unknown>).heroes_json : [],
+      foundRelicIds: row.stats_json && typeof row.stats_json === 'object' && Array.isArray((row.stats_json as Record<string, unknown>).foundRelicIds)
+        ? (row.stats_json as Record<string, unknown>).foundRelicIds
+        : [],
       used: false,
       claimedBountyId: '',
       claimedBountyTitle: '',

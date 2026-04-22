@@ -73,6 +73,17 @@ const STORY_SCREENS = [
 function injectPlayButtonIntoStory(textEl) {}
 
 const STORY_MUSIC_SRC = 'assets/intro-theme.mp3';
+const INITIAL_REPLAY_SHARE_ID = (() => {
+  try {
+    return String(new URL(window.location.href).searchParams.get('replay') || '').trim();
+  } catch (error) {
+    return '';
+  }
+})();
+
+function isReplayUrlView() {
+  return !!INITIAL_REPLAY_SHARE_ID;
+}
 const STORY_MUSIC_START_SECONDS = 0;
 const STORY_MUSIC_VOLUME = 0.2;
 let storyMusic = null;
@@ -308,7 +319,7 @@ function playStorySequence() {
         try {
           if (typeof window !== 'undefined') window.__dfkStartModePromptShown = true;
         } catch (error) {}
-        setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 100);
+        if (!isReplayUrlView()) setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 100);
       }
     }, Math.round(fadeMs / fadeSteps));
   }
@@ -487,6 +498,10 @@ function playStorySequence() {
 }
 
 window.addEventListener('load', () => {
+  if (isReplayUrlView()) {
+    try { document.body.classList.remove('intro-open'); document.body.classList.remove('story-active'); } catch (error) {}
+    return;
+  }
   try { document.body.classList.add('intro-open'); document.body.classList.add('story-active'); } catch (error) {}
   playStorySequence();
 });
@@ -559,6 +574,8 @@ const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
 const APP_VERSION = 'v10.3.3';
+const CURRENT_RUN_BUILD = 'V46.9.1.146';
+const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ICE_AURA_BASE_RANGE = 3;
@@ -601,10 +618,10 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
   const ENEMY_TILE_LIMITS = {
     boss: 9999,
-    large: 5,
-    medium: 8,
-    small: 10,
-    skitter: 10,
+    large: 6.25,
+    medium: 10,
+    small: 12.5,
+    skitter: 12.5,
   };
   const SKITTER_EXPLOSION_DAMAGE_MULTIPLIER = 42.1875;
   const EXPLODING_STATUE_RADIUS = 2;
@@ -663,6 +680,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const RANDOM_OBSTACLE_COUNT = 9;
   const PLAYER_OBSTACLE_COUNT = 9;
   const GLOBAL_HERO_DAMAGE_MULTIPLIER = 0.95;
+  const NON_WARRIOR_HERO_HP_MULTIPLIER = 0.5;
+  const GLOBAL_ENEMY_HP_MULTIPLIER = 1.08;
+  const GLOBAL_BOSS_MOVE_INTERVAL_MULTIPLIER = 1.05;
   const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
@@ -800,14 +820,14 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     champion_dreadknight: {
       name: 'Dreadknight', letter: 'DK', hp: 2400, damage: 120, attackInterval: 1.0, range: 1, autoAttack: true,
       abilities: [
-        { key: 'champion_big_sword', name: 'Damn Big Sword', cooldown: 3 },
-        { key: 'champion_crush', name: 'Crush', cooldown: 10 },
+        { key: 'champion_big_sword', name: 'Damn Big Sword', cooldown: 1 },
+        { key: 'champion_crush', name: 'Crush', cooldown: 8 },
         { key: 'champion_gauntlet', name: 'Controlling the Field', cooldown: 0, passive: true },
         { key: 'champion_dread', name: 'Dread', cooldown: 0, passive: true },
       ],
     },
     champion_sage: {
-      name: 'Sage', letter: 'SAG', hp: 1850, damage: 95, attackInterval: 1.1, range: 3, autoAttack: true,
+      name: 'Sage', letter: 'SAG', hp: 1850, damage: 76, attackInterval: 1.1, range: 3, autoAttack: true,
       abilities: [
         { key: 'champion_kiss_from_a_rose', name: 'Kiss From a Rose', cooldown: 5 },
         { key: 'champion_storm', name: 'Petal Storm', cooldown: 30 },
@@ -837,6 +857,12 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
 
   Object.values(TOWER_TEMPLATES).forEach((template) => {
     if (template && Number(template.damage || 0) > 0) template.damage *= GLOBAL_HERO_DAMAGE_MULTIPLIER;
+  });
+
+  ['archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'].forEach((heroKey) => {
+    const template = TOWER_TEMPLATES[heroKey];
+    if (!template) return;
+    template.hp = Math.max(1, Math.round(Number(template.hp || 0) * NON_WARRIOR_HERO_HP_MULTIPLIER));
   });
 
   const ENEMY_TEMPLATES = {
@@ -1133,6 +1159,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     mobileQuickStartBtn: document.getElementById('mobileQuickStartBtn'),
     mobileQuickUpgradeBtn: document.getElementById('mobileQuickUpgradeBtn'),
     mobileQuickMoveBtn: document.getElementById('mobileQuickMoveBtn'),
+    mobileQuickCancelBtn: document.getElementById('mobileQuickCancelBtn'),
     mobileQuickSatelliteBtn: document.getElementById('mobileQuickSatelliteBtn'),
     mobileFuncEasyBtn: document.getElementById('mobileFuncEasyBtn'),
     mobileFuncChallengeBtn: document.getElementById('mobileFuncChallengeBtn'),
@@ -1158,6 +1185,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     upgradeBtn: document.getElementById('upgradeBtn'),
     maxLevelBtn: document.getElementById('maxLevelBtn'),
     moveBtn: document.getElementById('moveBtn'),
+    cancelActionBtn: document.getElementById('cancelActionBtn'),
     rebuildBarriersBtn: document.getElementById('rebuildBarriersBtn'),
     enemyLayer: null,
     portalArt: null,
@@ -1278,6 +1306,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     championWaitAnchorWave: 0,
     championDeployedTowerId: null,
     championActiveUntilWave: 0,
+    championPlacementPending: null,
+    championLastReminderWaited: 0,
     championLockPending: false,
     lastChampionPanelWaveRendered: -1,
     lastTick: 0,
@@ -1409,6 +1439,15 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       startedAt: null,
       submitted: false,
       weeklyMetricsStart: createEmptyWeeklyBountyMetrics(),
+    },
+    replayCapture: null,
+    replayView: {
+      active: false,
+      data: null,
+      index: 0,
+      playing: false,
+      timer: null,
+      msPerStep: 1800,
     },
     damageReportVisible: false,
     damageReportCollapsed: false,
@@ -3050,6 +3089,7 @@ function formatQuestResetCountdown(dateKey) {
     showBanner('Recovered your reinforcement after wallet confirmation. It is ready in the Hire menu.', 3200);
     setInstruction(`Your reinforcement is ready in the Hire menu now. Place it whenever you are ready.`);
     render();
+    renderEnemyLayer();
     return true;
   }
 
@@ -3301,6 +3341,889 @@ function formatQuestResetCountdown(dateKey) {
     return true;
   }
 
+
+  function cloneReplayData(value) {
+    if (value == null) return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function sanitizeReplayText(value, fallback = '') {
+    return String(value == null ? fallback : value).trim();
+  }
+
+  function getReplayElapsedMs() {
+    const startedAt = Date.parse(String(game?.runTracking?.startedAt || ''));
+    if (!Number.isFinite(startedAt)) return 0;
+    return Math.max(0, Date.now() - startedAt);
+  }
+
+  function getReplayInitialState() {
+    return {
+      mode: game.mobileMode ? 'easy' : 'challenge',
+      chainId: Number(getConnectedWalletChainId() || 0) || Number(window.DFK_AVAX_CHAIN_ID || 43114),
+      walletConnected: !!getConnectedWalletAddress(),
+      selectedChampionKey: sanitizeReplayText(game.selectedChampionKey),
+      selectedChampionHeroId: sanitizeReplayText(game.selectedChampionHeroId),
+      selectedChampionConfirmed: !!game.selectedChampionConfirmed,
+    };
+  }
+
+  function buildReplayTowerState(tower) {
+    if (!tower) return null;
+    const saved = {
+      id: tower.id,
+      type: tower.type,
+      x: tower.x,
+      y: tower.y,
+      level: Number(tower.level || 1),
+      hp: Number(tower.hp || 0),
+      maxHp: Number(tower.maxHp || 0),
+      isSatellite: !!tower.isSatellite,
+      isChampion: !!tower.isChampion,
+      isSoulSplit: !!tower.isSoulSplit,
+      isStatue: !!tower.isStatue,
+      name: tower.name,
+      reportLabel: tower.reportLabel,
+      damage: Number(tower.damage || 0),
+      range: Number(tower.range || 0),
+      basicCooldown: Number(tower.basicCooldown || 0),
+      moveReadyAt: Number(tower.moveReadyAt || 0),
+      walletHeroId: tower.walletHeroId == null ? null : String(tower.walletHeroId),
+      walletHeroLevel: Number(tower.walletHeroLevel || 0),
+      championKey: tower.championKey || null,
+      championAllowedDuration: Number(tower.championAllowedDuration || 0),
+      championDeployedAtWave: Number(tower.championDeployedAtWave || 0),
+      customPortraitUrl: tower.customPortraitUrl || '',
+      satelliteOwnerId: tower.satelliteOwnerId || null,
+      summonedAtWave: Number(tower.summonedAtWave || 0),
+      extraLifetimeWaves: Number(tower.extraLifetimeWaves || 0),
+      buffs: cloneReplayData(tower.buffs || {}),
+      debuffs: cloneReplayData(tower.debuffs || {}),
+      abilityReadyAt: cloneReplayData(tower.abilityReadyAt || {}),
+      abilityGlobalReadyAt: Number(tower.abilityGlobalReadyAt || 0),
+      championAutoAbilityReadyAt: cloneReplayData(tower.championAutoAbilityReadyAt || {}),
+      satelliteCharges: Number(tower.satelliteCharges || 0),
+      berserkerMoonActive: !!tower.berserkerMoonActive,
+      trainingPartnerActive: !!tower.trainingPartnerActive,
+    };
+    return saved;
+  }
+
+  function buildReplayEnemyState(enemy) {
+    if (!enemy) return null;
+    const saved = cloneReplayData(enemy) || {};
+    saved.id = saved.id || `replay_enemy_${Math.random().toString(36).slice(2, 10)}`;
+    saved.type = saved.type || 'grunt';
+    saved.name = saved.name || (ENEMY_TEMPLATES[saved.type] && ENEMY_TEMPLATES[saved.type].name) || saved.type;
+    saved.cssClass = saved.cssClass || ((ENEMY_TEMPLATES[saved.type] && ENEMY_TEMPLATES[saved.type].typeClass) || (saved.isBoss ? 'boss' : 'grunt'));
+    saved.x = Number(saved.x || 0);
+    saved.y = Number(saved.y || 0);
+    saved.prevX = Number(saved.prevX != null ? saved.prevX : saved.x);
+    saved.prevY = Number(saved.prevY != null ? saved.prevY : saved.y);
+    saved.hp = Number(saved.hp || 0);
+    saved.maxHp = Math.max(saved.hp, Number(saved.maxHp || 0));
+    saved.damage = Number(saved.damage || 0);
+    saved.moveInterval = Number(saved.moveInterval || 1);
+    saved.attackInterval = Number(saved.attackInterval || 1);
+    saved.nextMoveAt = Number(saved.nextMoveAt || 0);
+    saved.moveStartedAt = Number(saved.moveStartedAt || 0);
+    saved.moveEndAt = Number(saved.moveEndAt || 0);
+    saved.nextAttackAt = Number(saved.nextAttackAt || 0);
+    saved.attacking = !!saved.attacking;
+    saved.debuffs = cloneReplayData(saved.debuffs || {});
+    saved.buffs = cloneReplayData(saved.buffs || {});
+    saved.threat = cloneReplayData(saved.threat || {});
+    saved.targetPath = Array.isArray(saved.targetPath) ? cloneReplayData(saved.targetPath) : [];
+    saved.isBoss = !!saved.isBoss || saved.cssClass === 'boss';
+    return saved;
+  }
+
+  function buildReplayWaveSnapshot(label = 'checkpoint') {
+    return {
+      label,
+      elapsedMs: getReplayElapsedMs(),
+      waveNumber: Number(game.waveNumber || 0),
+      runningWave: !!game.runningWave,
+      phase: game.phase,
+      portal: cloneReplayData(game.portal),
+      portalHp: Number(game.portalHp || 0),
+      jewel: Number(game.jewel || 0),
+      premiumJewels: Number(game.premiumJewels || 0),
+      playerObstacleCount: Number(game.playerObstacleCount || 0),
+      ownedRelics: Array.from(new Set((Array.isArray(game.ownedRelics) ? game.ownedRelics : []).map((relic) => sanitizeReplayText(relic && relic.id)).filter(Boolean))),
+      foundRelics: Array.from(new Set((Array.isArray(game.foundRelics) ? game.foundRelics : []).map((id) => sanitizeReplayText(id)).filter(Boolean))),
+      grid: snapshotGridState(),
+      towers: (Array.isArray(game.towers) ? game.towers : []).map(buildReplayTowerState).filter(Boolean),
+      enemies: (Array.isArray(game.enemies) ? game.enemies : []).map(buildReplayEnemyState).filter(Boolean),
+      champion: {
+        selectedChampionKey: sanitizeReplayText(game.selectedChampionKey),
+        selectedChampionHeroId: sanitizeReplayText(game.selectedChampionHeroId),
+        selectedChampionConfirmed: !!game.selectedChampionConfirmed,
+        championDeployedTowerId: game.championDeployedTowerId || null,
+        championActiveUntilWave: Number(game.championActiveUntilWave || 0),
+        championWaitAnchorWave: Number(game.championWaitAnchorWave || 0),
+      },
+    };
+  }
+
+  function beginReplayCapture() {
+    game.replayCapture = {
+      storageVersion: REPLAY_STORAGE_VERSION,
+      startedAt: new Date().toISOString(),
+      gameVersion: CURRENT_RUN_BUILD,
+      appVersion: APP_VERSION,
+      initialState: getReplayInitialState(),
+      events: [],
+      waveSnapshots: [],
+      lastBattleSnapshotAt: 0,
+    };
+  }
+
+  function ensureReplayCapture() {
+    if (!game.replayCapture) beginReplayCapture();
+    return game.replayCapture;
+  }
+
+  function recordReplayEvent(type, payload = {}) {
+    const capture = ensureReplayCapture();
+    capture.events.push({
+      t: getReplayElapsedMs(),
+      wave: Number(game.waveNumber || 0),
+      type: sanitizeReplayText(type),
+      payload: cloneReplayData(payload) || {},
+    });
+    if (capture.events.length > 6000) capture.events.shift();
+  }
+
+  function captureReplayWaveSnapshot(label = 'checkpoint') {
+    const capture = ensureReplayCapture();
+    const snapshot = buildReplayWaveSnapshot(label);
+    capture.waveSnapshots.push(snapshot);
+    if (capture.waveSnapshots.length > 600) capture.waveSnapshots.shift();
+    return snapshot;
+  }
+
+  function maybeCaptureReplayBattleSnapshot(current = Date.now()) {
+    if (!game.replayCapture || !game.runningWave) return false;
+    if (!Array.isArray(game.pendingSpawns) && !(Array.isArray(game.enemies) && game.enemies.length)) return false;
+    const liveEnemies = Array.isArray(game.enemies) ? game.enemies.filter((enemy) => enemy && Number(enemy.hp || 0) > 0).length : 0;
+    const pendingCount = Array.isArray(game.pendingSpawns) ? game.pendingSpawns.filter((plan) => plan && !plan.spawned).length : 0;
+    if (!liveEnemies && !pendingCount) return false;
+    const everyMs = 1500;
+    const lastAt = Number(game.replayCapture.lastBattleSnapshotAt || 0);
+    if (lastAt && (current - lastAt) < everyMs) return false;
+    game.replayCapture.lastBattleSnapshotAt = Number(current || Date.now());
+    captureReplayWaveSnapshot(`wave_${Number(game.waveNumber || 0)}_battle`);
+    return true;
+  }
+
+  function buildReplayPayload(result = 'loss') {
+    const capture = ensureReplayCapture();
+    if (!capture.waveSnapshots.length) captureReplayWaveSnapshot('start');
+    captureReplayWaveSnapshot(result === 'loss' ? 'game_over' : 'run_complete');
+    const shareSeed = sanitizeReplayText(game.runTracking?.clientRunId || `${Date.now()}`);
+    const compactShareId = shareSeed.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(-20) || Math.random().toString(36).slice(2, 14);
+    return {
+      storageVersion: REPLAY_STORAGE_VERSION,
+      shareId: compactShareId,
+      startedAt: capture.startedAt || new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      gameVersion: CURRENT_RUN_BUILD,
+      appVersion: APP_VERSION,
+      result: sanitizeReplayText(result, 'loss'),
+      initialState: cloneReplayData(capture.initialState) || {},
+      events: cloneReplayData(capture.events) || [],
+      waveSnapshots: cloneReplayData(capture.waveSnapshots) || [],
+    };
+  }
+
+  function buildReplayShareUrl(shareId) {
+    const safeShareId = sanitizeReplayText(shareId);
+    if (!safeShareId) return '';
+    try {
+      const base = new URL(window.location.href);
+      base.searchParams.set('replay', safeShareId);
+      base.searchParams.delete('trackedRuns');
+      base.hash = '';
+      return base.toString();
+    } catch (_error) {
+      return `${window.location.origin}${window.location.pathname}?replay=${encodeURIComponent(safeShareId)}`;
+    }
+  }
+
+
+  function formatCompactNumber(value) {
+    const num = Number(value || 0);
+    if (!Number.isFinite(num)) return '0';
+    return Math.round(num).toLocaleString();
+  }
+
+  function titleCaseToken(value) {
+    return String(value || '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (match) => match.toUpperCase());
+  }
+
+  function prettifyRelicId(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return titleCaseToken(raw);
+  }
+
+  function getRunStatsHeroNames(run) {
+    const heroes = Array.isArray(run && (run.heroes || run.heroes_json)) ? (run.heroes || run.heroes_json) : [];
+    const names = heroes.map((hero) => {
+      if (!hero || typeof hero !== 'object') return '';
+      return String(hero.className || hero.heroClass || hero.class || hero.name || hero.type || '').trim();
+    }).filter(Boolean);
+    return Array.from(new Set(names.map(titleCaseToken)));
+  }
+
+  function getRunStatsRelicNames(run) {
+    const stats = run && typeof (run.stats || run.stats_json) === 'object' ? (run.stats || run.stats_json) : {};
+    const ids = Array.isArray(run && (run.foundRelicIds || run.found_relic_ids || stats.foundRelicIds || stats.found_relic_ids))
+      ? (run.foundRelicIds || run.found_relic_ids || stats.foundRelicIds || stats.found_relic_ids)
+      : [];
+    return Array.from(new Set(ids.map(prettifyRelicId).filter(Boolean)));
+  }
+
+  function buildRunStatsReplayUrl(run) {
+    const replayShareId = sanitizeReplayText(run && (run.replayShareId || run.replay_share_id || getCachedTrackedRunReplayShareId(run.id)));
+    return replayShareId ? buildReplayShareUrl(replayShareId) : '';
+  }
+
+  function getRunStatsPayload(run) {
+    const directPayload = run && typeof run === 'object' && (Array.isArray(run.heroesUsed) || Array.isArray(run.relicsFound) || Object.prototype.hasOwnProperty.call(run, 'enemiesKilled') || Object.prototype.hasOwnProperty.call(run, 'damageDone'))
+      ? run
+      : null;
+    const stats = run && typeof (run.stats || run.stats_json) === 'object' ? (run.stats || run.stats_json) : {};
+    const heroesUsed = directPayload && Array.isArray(directPayload.heroesUsed)
+      ? Array.from(new Set(directPayload.heroesUsed.map((value) => String(value || '').trim()).filter(Boolean)))
+      : getRunStatsHeroNames(run);
+    const relicsFound = directPayload && Array.isArray(directPayload.relicsFound)
+      ? Array.from(new Set(directPayload.relicsFound.map((value) => String(value || '').trim()).filter(Boolean)))
+      : getRunStatsRelicNames(run);
+    const waveReached = Number((directPayload && directPayload.waveReached) || (run && (run.bestWave || run.waveReached || run.wave_reached || run.wavesCleared || run.waves_cleared || stats.wavesCompleted)) || 0) || 0;
+    const enemiesKilled = Number((directPayload && directPayload.enemiesKilled) || (run && (run.killsTotal || run.enemiesKilled || stats.killsTotal || stats.enemiesKilled || stats.heroKills || stats.abilityKills)) || 0) || 0;
+    const damageDone = Number((directPayload && directPayload.damageDone) || (run && (run.damageTotal || run.heroDamage || run.damageDone || stats.damageTotal || stats.heroDamage || stats.damageDone)) || 0) || 0;
+    const safeRunId = String(run && (run.runId || run.id) || '').trim();
+    const cached = safeRunId ? getCachedTrackedRunStats(safeRunId) : null;
+    return {
+      runId: safeRunId,
+      shortId: String((directPayload && directPayload.shortId) || (run && (run.shortId || run.id)) || '').slice(0, 8) || 'unknown',
+      runNumber: Number((directPayload && directPayload.runNumber) || (run && run.runNumber) || 0) || 0,
+      chainLabel: String((directPayload && directPayload.chainLabel) || getTrackedRunChainLabel(run && (run.chainId || run.chain_id)) || (cached && cached.chainLabel) || 'Chain Unknown'),
+      completedAt: String((directPayload && directPayload.completedAt) || formatTrackedRunTimestamp(run && (run.completedAt || run.completed_at || run.createdAt || run.created_at || run.runStartedAt || run.run_started_at || null)) || (cached && cached.completedAt) || ''),
+      waveReached,
+      enemiesKilled,
+      damageDone,
+      heroesUsed: heroesUsed.length ? heroesUsed : Array.isArray(cached && cached.heroesUsed) ? cached.heroesUsed : [] ,
+      relicsFound: relicsFound.length ? relicsFound : Array.isArray(cached && cached.relicsFound) ? cached.relicsFound : [] ,
+      replayUrl: String((directPayload && directPayload.replayUrl) || buildRunStatsReplayUrl(run) || (cached && cached.replayUrl) || ''),
+    };
+  }
+
+
+  function encodeRunStatsButtonPayload(run) {
+    try {
+      return encodeURIComponent(JSON.stringify(getRunStatsPayload(run || {})));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function decodeRunStatsButtonPayload(raw) {
+    try {
+      const decoded = decodeURIComponent(String(raw || '').trim());
+      return decoded ? JSON.parse(decoded) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function showQueuedRunStatsModal(runLike, attempts) {
+    const remaining = Number.isFinite(attempts) ? attempts : 0;
+    const opened = openRunStatsModal(runLike).catch(() => false);
+    Promise.resolve(opened).then((ok) => {
+      if (ok) return;
+      if (remaining <= 0) return;
+      window.setTimeout(() => showQueuedRunStatsModal(runLike, remaining - 1), 220);
+    }).catch(() => {
+      if (remaining <= 0) return;
+      window.setTimeout(() => showQueuedRunStatsModal(runLike, remaining - 1), 220);
+    });
+  }
+
+  function ensureRunStatsModalElements() {
+    if (document.getElementById('runStatsModal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'runStatsModal';
+    modal.className = 'run-stats-backdrop hidden';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="run-stats-modal-card" role="dialog" aria-modal="true" aria-labelledby="runStatsTitle">
+        <button aria-label="Close run stats" class="intro-close" id="closeRunStatsBtn" type="button">×</button>
+        <h2 id="runStatsTitle">Run Stats</h2>
+        <div id="runStatsBody" class="run-stats-body"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) closeRunStatsModal();
+    });
+    modal.querySelector('#closeRunStatsBtn')?.addEventListener('click', closeRunStatsModal);
+  }
+
+  function closeRunStatsModal() {
+    const modal = document.getElementById('runStatsModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  async function openRunStatsModal(runLike) {
+    ensureRunStatsModalElements();
+    const modal = document.getElementById('runStatsModal');
+    const body = document.getElementById('runStatsBody');
+    if (!modal || !body) return false;
+    const data = getRunStatsPayload(runLike || {});
+    const heroMarkup = data.heroesUsed.length ? data.heroesUsed.map((name) => `<span class="run-stats-chip">${escapeHtml(name)}</span>`).join('') : '<span class="run-stats-empty">No hero data recorded.</span>';
+    const relicMarkup = data.relicsFound.length ? data.relicsFound.map((name) => `<span class="run-stats-chip">${escapeHtml(name)}</span>`).join('') : '<span class="run-stats-empty">No relics found.</span>';
+    const replayButton = data.replayUrl
+      ? `<button type="button" class="tracked-run-replay-copy run-stats-copy-btn" id="runStatsCopyReplayBtn" data-copy-replay-url="${escapeHtml(data.replayUrl)}">Copy Replay Link</button><span class="run-stats-copy-state" id="runStatsCopyState"></span>`
+      : `<div class="run-stats-empty">Replay not available for this run yet.</div>`;
+    body.innerHTML = `
+      <div class="run-stats-headline">
+        <div>
+          <div class="tracked-run-label">Run ${data.runNumber || '—'}</div>
+          <div class="tracked-run-id">#${escapeHtml(data.shortId)}</div>
+        </div>
+        <div class="tracked-run-meta-pill">${escapeHtml(data.chainLabel)}</div>
+      </div>
+      <div class="run-stats-meta-line">${escapeHtml(data.completedAt || 'Unknown date')}</div>
+      <div class="run-stats-grid">
+        <div class="card"><div class="run-stats-kicker">Wave reached</div><div class="run-stats-value">${formatCompactNumber(data.waveReached)}</div></div>
+        <div class="card"><div class="run-stats-kicker">Enemies killed</div><div class="run-stats-value">${formatCompactNumber(data.enemiesKilled)}</div></div>
+        <div class="card"><div class="run-stats-kicker">Damage dealt</div><div class="run-stats-value">${formatCompactNumber(data.damageDone)}</div></div>
+      </div>
+      <div class="card run-stats-section"><div class="run-stats-kicker">Heroes used</div><div class="run-stats-chip-row">${heroMarkup}</div></div>
+      <div class="card run-stats-section"><div class="run-stats-kicker">Relics found</div><div class="run-stats-chip-row">${relicMarkup}</div></div>
+      <div class="card run-stats-section"><div class="run-stats-kicker">Replay</div><div class="run-stats-actions">${replayButton}</div></div>
+    `;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    const copyBtn = document.getElementById('runStatsCopyReplayBtn');
+    const copyState = document.getElementById('runStatsCopyState');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        const replayUrl = String(copyBtn.getAttribute('data-copy-replay-url') || '').trim();
+        const copied = replayUrl ? await writeTextToClipboard(replayUrl) : false;
+        if (copyState) copyState.textContent = copied ? 'Copied' : 'Could not copy';
+        showBanner(copied ? 'Replay URL copied.' : 'Could not copy replay URL.', 2200);
+      };
+    }
+    return true;
+  }
+
+  function syncReplayInteractionState() {
+    const isReplay = !!(game && game.replayView && game.replayView.active);
+    const targets = [els.startWaveBtn, els.autoStartBtn, els.restartBtn, els.mobileFuncRestartBtn];
+    for (const el of targets) {
+      if (!el) continue;
+      if (isReplay) {
+        el.dataset.replayDisabled = el.disabled ? '1' : '0';
+        el.disabled = true;
+        el.classList.add('is-replay-disabled');
+      } else {
+        if (el.dataset.replayDisabled === '0') el.disabled = false;
+        delete el.dataset.replayDisabled;
+        el.classList.remove('is-replay-disabled');
+      }
+    }
+  }
+
+  const TRACKED_RUN_REPLAY_CACHE_KEY = 'dfkTrackedRunReplayShareIds';
+
+  function loadTrackedRunReplayCache() {
+    try {
+      const raw = localStorage.getItem(TRACKED_RUN_REPLAY_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function saveTrackedRunReplayCache(cache) {
+    try {
+      localStorage.setItem(TRACKED_RUN_REPLAY_CACHE_KEY, JSON.stringify(cache && typeof cache === 'object' ? cache : {}));
+    } catch (_error) {}
+  }
+
+  function cacheTrackedRunReplayShareId(runId, shareId) {
+    const safeRunId = String(runId || '').trim();
+    const safeShareId = sanitizeReplayText(shareId);
+    if (!safeRunId || !safeShareId) return;
+    const cache = loadTrackedRunReplayCache();
+    cache[safeRunId] = safeShareId;
+    saveTrackedRunReplayCache(cache);
+  }
+
+  function getCachedTrackedRunReplayShareId(runId) {
+    const safeRunId = String(runId || '').trim();
+    if (!safeRunId) return '';
+    const cache = loadTrackedRunReplayCache();
+    return sanitizeReplayText(cache[safeRunId] || '');
+  }
+
+  const TRACKED_RUN_STATS_CACHE_KEY = 'dfkTrackedRunStatsCache';
+
+  function loadTrackedRunStatsCache() {
+    try {
+      const raw = localStorage.getItem(TRACKED_RUN_STATS_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function saveTrackedRunStatsCache(cache) {
+    try {
+      localStorage.setItem(TRACKED_RUN_STATS_CACHE_KEY, JSON.stringify(cache && typeof cache === 'object' ? cache : {}));
+    } catch (_error) {}
+  }
+
+  function cacheTrackedRunStats(runLike) {
+    const safeRunId = String(runLike && runLike.id || '').trim();
+    if (!safeRunId) return;
+    const payload = getRunStatsPayload(runLike || {});
+    const cache = loadTrackedRunStatsCache();
+    cache[safeRunId] = {
+      runId: safeRunId,
+      shortId: payload.shortId,
+      runNumber: payload.runNumber,
+      chainLabel: payload.chainLabel,
+      completedAt: payload.completedAt,
+      waveReached: payload.waveReached,
+      enemiesKilled: payload.enemiesKilled,
+      damageDone: payload.damageDone,
+      heroesUsed: Array.isArray(payload.heroesUsed) ? payload.heroesUsed.slice(0, 64) : [],
+      relicsFound: Array.isArray(payload.relicsFound) ? payload.relicsFound.slice(0, 64) : [],
+      replayUrl: payload.replayUrl,
+      replayShareId: sanitizeReplayText(runLike && (runLike.replayShareId || runLike.replay_share_id || '')),
+    };
+    saveTrackedRunStatsCache(cache);
+  }
+
+  function getCachedTrackedRunStats(runId) {
+    const safeRunId = String(runId || '').trim();
+    if (!safeRunId) return null;
+    const cache = loadTrackedRunStatsCache();
+    const entry = cache && typeof cache === 'object' ? cache[safeRunId] : null;
+    return entry && typeof entry === 'object' ? entry : null;
+  }
+
+  async function writeTextToClipboard(value) {
+    const text = String(value || '').trim();
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_error) {}
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', 'readonly');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.pointerEvents = 'none';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      return !!copied;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async function copyReplayShareUrl(shareId) {
+    const url = buildReplayShareUrl(shareId);
+    return writeTextToClipboard(url);
+  }
+
+  function createReplayTowerFromSnapshot(savedTower) {
+    const tower = createTower(savedTower.type, savedTower.x, savedTower.y);
+    Object.assign(tower, cloneReplayData(savedTower) || {});
+    tower.template = TOWER_TEMPLATES[tower.type] || tower.template;
+    tower.abilities = tower.template?.abilities || savedTower.abilities || [];
+    tower.abilityReadyAt = { ...(savedTower.abilityReadyAt || {}) };
+    tower.abilityGlobalReadyAt = Math.max(0, Number(savedTower.abilityGlobalReadyAt || 0));
+    for (const ability of tower.abilities) {
+      if (!(ability.key in tower.abilityReadyAt)) tower.abilityReadyAt[ability.key] = 0;
+    }
+    if (tower.isChampion) {
+      tower.championAutoAbilityReadyAt = { ...(savedTower.championAutoAbilityReadyAt || {}) };
+      ensureChampionAutoAbilityState(tower);
+    }
+    if (!tower.damageByMethod) tower.damageByMethod = {};
+    if (!tower.buffs) tower.buffs = {};
+    if (!tower.debuffs) tower.debuffs = {};
+    return tower;
+  }
+
+  function applyReplaySnapshot(snapshot) {
+    if (!snapshot) return false;
+    initGrid();
+    applyGridSnapshot(snapshot.grid || []);
+    game.portal = cloneReplayData(snapshot.portal) || null;
+    if (game.portal) {
+      for (let py = Number(game.portal.y || 0); py < Number(game.portal.y || 0) + Number(game.portal.height || 2); py += 1) {
+        for (let px = Number(game.portal.x || 0); px < Number(game.portal.x || 0) + Number(game.portal.width || 2); px += 1) {
+          const portalTile = tileAt(px, py);
+          if (portalTile) portalTile.portal = true;
+        }
+      }
+    }
+    game.portalHp = Number(snapshot.portalHp || 0);
+    game.jewel = Number(snapshot.jewel || 0);
+    game.premiumJewels = Number(snapshot.premiumJewels || 0);
+    game.playerObstacleCount = Number(snapshot.playerObstacleCount || 0);
+    game.waveNumber = Number(snapshot.waveNumber || 0);
+    game.phase = snapshot.runningWave ? SETUP_PHASES.BATTLE : (snapshot.phase || SETUP_PHASES.BATTLE);
+    game.runningWave = false;
+    game.pendingSpawns = null;
+    game.activeMutation = null;
+    game.currentPattern = null;
+    game.activeWavePlans = [];
+    game.activeWaveBase = Number(snapshot.waveNumber || 0);
+    game.countdownMs = 0;
+    game.selectedId = null;
+    game.movingTowerId = null;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.placingSatelliteSourceId = null;
+    game.hoveredTowerId = null;
+    game.relicChoices = [];
+    game.ownedRelics = (Array.isArray(snapshot.ownedRelics) ? snapshot.ownedRelics : []).map((id) => RELICS.find((relic) => relic && relic.id === id)).filter(Boolean);
+    game.foundRelics = Array.isArray(snapshot.foundRelics) ? [...snapshot.foundRelics] : [];
+    game.towers = (Array.isArray(snapshot.towers) ? snapshot.towers : []).map(createReplayTowerFromSnapshot);
+    game.enemies = (Array.isArray(snapshot.enemies) ? snapshot.enemies : []).map(buildReplayEnemyState).filter(Boolean);
+    game.nextEnemyId = Math.max(1, game.enemies.reduce((maxId, enemy) => {
+      const match = String(enemy && enemy.id || '').match(/^e(\d+)$/);
+      return match ? Math.max(maxId, Number(match[1]) + 1) : maxId;
+    }, 1));
+    game.championDeployedTowerId = snapshot.champion && snapshot.champion.championDeployedTowerId ? snapshot.champion.championDeployedTowerId : null;
+    game.championActiveUntilWave = Number(snapshot.champion && snapshot.champion.championActiveUntilWave || 0);
+    game.championWaitAnchorWave = Number(snapshot.champion && snapshot.champion.championWaitAnchorWave || 0);
+    game.selectedChampionKey = sanitizeReplayText(snapshot.champion && snapshot.champion.selectedChampionKey);
+    game.selectedChampionHeroId = sanitizeReplayText(snapshot.champion && snapshot.champion.selectedChampionHeroId);
+    game.selectedChampionConfirmed = !!(snapshot.champion && snapshot.champion.selectedChampionConfirmed);
+    game.attackLines = [];
+    game.explosionEffects = [];
+    game.projectileEffects = [];
+    game.slowTotems = [];
+    game.pendingManualAbilityPlacement = null;
+    game.mobileMode = false;
+    setBoardInputLocked(true);
+    syncStartWaveButtonState();
+    updateTopbar();
+    if (typeof updateRelicUI === "function") {
+      updateRelicUI();
+    } else if (typeof updateRelicSwapUi === "function") {
+      updateRelicSwapUi();
+    }
+    render();
+    return true;
+  }
+
+  function getReplayUiTargets() {
+    const targets = [];
+    const modal = document.getElementById('replayViewerModal');
+    if (modal) {
+      targets.push({
+        kind: 'modal',
+        root: modal,
+        warning: document.getElementById('replayViewerWarning'),
+        meta: document.getElementById('replayViewerMeta'),
+        title: document.getElementById('replayViewerTitle'),
+        playPause: document.getElementById('replayPlayPauseBtn'),
+        events: document.getElementById('replayViewerEvents'),
+        step: document.getElementById('replayViewerStepLabel')
+      });
+    }
+    const panel = document.getElementById('replayPanel');
+    if (panel) {
+      targets.push({
+        kind: 'panel',
+        root: panel,
+        warning: document.getElementById('replayPanelWarning'),
+        meta: document.getElementById('replayPanelMeta'),
+        title: document.getElementById('replayPanelToggle'),
+        playPause: document.getElementById('replayPanelPlayPauseBtn'),
+        events: document.getElementById('replayPanelEvents'),
+        step: document.getElementById('replayPanelStepLabel')
+      });
+    }
+    return targets;
+  }
+
+  function ensureReplayPanelElements() {
+    const panel = document.getElementById('replayPanel');
+    if (!panel) return;
+    const prev = document.getElementById('replayPanelPrevBtn');
+    const next = document.getElementById('replayPanelNextBtn');
+    const play = document.getElementById('replayPanelPlayPauseBtn');
+    const copy = document.getElementById('replayPanelCopyLinkBtn');
+    if (prev && !prev.dataset.replayBound) {
+      prev.dataset.replayBound = '1';
+      prev.addEventListener('click', () => stepReplayViewer(-1));
+    }
+    if (next && !next.dataset.replayBound) {
+      next.dataset.replayBound = '1';
+      next.addEventListener('click', () => stepReplayViewer(1));
+    }
+    if (play && !play.dataset.replayBound) {
+      play.dataset.replayBound = '1';
+      play.addEventListener('click', toggleReplayViewerPlayback);
+    }
+    if (copy && !copy.dataset.replayBound) {
+      copy.dataset.replayBound = '1';
+      copy.addEventListener('click', async () => {
+        const shareId = game.replayView && game.replayView.data ? sanitizeReplayText(game.replayView.data.shareId) : '';
+        const ok = await copyReplayShareUrl(shareId);
+        showBanner(ok ? 'Replay link copied.' : 'Could not copy replay link.', 2000);
+      });
+    }
+  }
+
+  function ensureReplayViewerElements() {
+    if (document.getElementById('replayViewerModal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'replayViewerModal';
+    modal.className = 'intro-modal hidden';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="intro-modal-card panel" style="max-width:920px; width:min(92vw, 920px); max-height:88vh; overflow:auto;">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Run Playback</div>
+            <h2 id="replayViewerTitle">Replay Viewer</h2>
+          </div>
+          <button id="replayViewerCloseBtn" type="button" class="intro-close" aria-label="Close replay viewer">×</button>
+        </div>
+        <div class="intro-body">
+          <div id="replayViewerWarning" class="gold hidden" style="margin-bottom:10px;"></div>
+          <div id="replayViewerMeta" style="margin-bottom:10px;"></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <button id="replayPrevBtn" type="button">◀ Prev wave</button>
+            <button id="replayPlayPauseBtn" type="button">Play</button>
+            <button id="replayNextBtn" type="button">Next wave ▶</button>
+            <button id="replayCopyLinkBtn" type="button">Copy share link</button>
+          </div>
+          <div id="replayViewerStepLabel" class="gold" style="margin-bottom:10px;"></div>
+          <div id="replayViewerEvents" style="display:grid; gap:8px;"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#replayViewerCloseBtn')?.addEventListener('click', closeReplayViewer);
+    modal.addEventListener('click', (event) => { if (event.target === modal) closeReplayViewer(); });
+    modal.querySelector('#replayPrevBtn')?.addEventListener('click', () => stepReplayViewer(-1));
+    modal.querySelector('#replayNextBtn')?.addEventListener('click', () => stepReplayViewer(1));
+    modal.querySelector('#replayPlayPauseBtn')?.addEventListener('click', toggleReplayViewerPlayback);
+    modal.querySelector('#replayCopyLinkBtn')?.addEventListener('click', async () => {
+      const shareId = game.replayView && game.replayView.data ? sanitizeReplayText(game.replayView.data.shareId) : '';
+      const ok = await copyReplayShareUrl(shareId);
+      showBanner(ok ? 'Replay link copied.' : 'Could not copy replay link.', 2000);
+    });
+  }
+
+  function renderReplayViewerEvents(snapshot) {
+    const replay = game.replayView && game.replayView.data ? game.replayView.data : null;
+    const targets = getReplayUiTargets();
+    if (!targets.length) return;
+    if (!replay || !snapshot) {
+      targets.forEach(({ events, step }) => {
+        if (events) events.innerHTML = '<div class="card"><p>No replay data loaded.</p></div>';
+        if (step) step.textContent = '';
+      });
+      return;
+    }
+    const wave = Number(snapshot.waveNumber || 0);
+    const events = (Array.isArray(replay.events) ? replay.events : []).filter((event) => Number(event.wave || 0) === wave);
+    const stepText = `Viewing wave ${wave}${snapshot.label ? ` • ${snapshot.label.replace(/_/g, ' ')}` : ''}`;
+    const html = events.length
+      ? events.map((event) => `<div class="card"><strong>${String(event.type || '').replace(/_/g, ' ')}</strong><div>${escapeHtml(JSON.stringify(event.payload || {}))}</div></div>`).join('')
+      : '<div class="card"><p>No logged actions for this step.</p></div>';
+    targets.forEach(({ events: eventsRoot, step }) => {
+      if (step) step.textContent = stepText;
+      if (eventsRoot) eventsRoot.innerHTML = html;
+    });
+  }
+
+  function syncReplayViewerUi() {
+    const replay = game.replayView && game.replayView.data ? game.replayView.data : null;
+    const targets = getReplayUiTargets();
+    if (!targets.length || !replay) return;
+    targets.forEach(({ kind, warning, meta, title, playPause }) => {
+      if (title) {
+        if (kind === 'modal') title.textContent = `Replay Viewer — wave ${Number(game.replayView.index || 0) + 1} of ${Array.isArray(replay.waveSnapshots) ? replay.waveSnapshots.length : 0}`;
+        else title.setAttribute('title', `Replay — wave ${Number(game.replayView.index || 0) + 1} of ${Array.isArray(replay.waveSnapshots) ? replay.waveSnapshots.length : 0}`);
+      }
+      if (warning) {
+        const oldBuild = sanitizeReplayText(replay.gameVersion) !== CURRENT_RUN_BUILD;
+        warning.textContent = oldBuild ? 'This run was recorded on an older build.' : '';
+        warning.classList.toggle('hidden', !oldBuild);
+      }
+      if (meta) {
+        meta.innerHTML = `<div><strong>Build:</strong> ${escapeHtml(sanitizeReplayText(replay.gameVersion, 'unknown'))}</div><div><strong>Share ID:</strong> ${escapeHtml(sanitizeReplayText(replay.shareId, ''))}</div>`;
+      }
+      if (playPause) playPause.textContent = game.replayView.playing ? 'Pause' : 'Play';
+    });
+    const snapshot = replay.waveSnapshots[game.replayView.index] || null;
+    renderReplayViewerEvents(snapshot);
+  }
+
+  function closeReplayViewer() {
+    const modal = document.getElementById('replayViewerModal');
+    const panel = document.getElementById('replayPanel');
+    if (game.replayView.timer) {
+      clearTimeout(game.replayView.timer);
+      game.replayView.timer = null;
+    }
+    game.replayView.playing = false;
+    game.replayView.active = false;
+    syncReplayInteractionState();
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    if (panel) {
+      panel.classList.add('hidden');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function scheduleReplayViewerPlayback() {
+    if (!game.replayView.playing) return;
+    if (game.replayView.timer) clearTimeout(game.replayView.timer);
+    game.replayView.timer = window.setTimeout(() => {
+      const replay = game.replayView.data;
+      if (!replay || !Array.isArray(replay.waveSnapshots) || !replay.waveSnapshots.length) return;
+      if (game.replayView.index >= replay.waveSnapshots.length - 1) {
+        game.replayView.playing = false;
+        syncReplayViewerUi();
+        return;
+      }
+      stepReplayViewer(1, { auto: true });
+    }, Number(game.replayView.msPerStep || 1800));
+  }
+
+  function toggleReplayViewerPlayback() {
+    game.replayView.playing = !game.replayView.playing;
+    syncReplayViewerUi();
+    if (game.replayView.playing) scheduleReplayViewerPlayback();
+    else if (game.replayView.timer) {
+      clearTimeout(game.replayView.timer);
+      game.replayView.timer = null;
+    }
+  }
+
+  function stepReplayViewer(delta = 1, options = {}) {
+    const replay = game.replayView.data;
+    if (!replay || !Array.isArray(replay.waveSnapshots) || !replay.waveSnapshots.length) return;
+    const nextIndex = Math.max(0, Math.min(replay.waveSnapshots.length - 1, Number(game.replayView.index || 0) + Number(delta || 0)));
+    game.replayView.index = nextIndex;
+    applyReplaySnapshot(replay.waveSnapshots[nextIndex]);
+    syncReplayViewerUi();
+    if (game.replayView.playing || options.auto) scheduleReplayViewerPlayback();
+  }
+
+  function openReplayViewer(replayData, options = {}) {
+    try {
+      if (isReplayUrlView()) {
+        closeIntroModal();
+        if (els.startModeModal) {
+          els.startModeModal.classList.add('hidden');
+          els.startModeModal.setAttribute('aria-hidden', 'true');
+          els.startModeModal.classList.remove('modal-primed-under-intro');
+        }
+        document.body.classList.remove('intro-open');
+        document.body.classList.remove('story-active');
+      }
+    } catch (error) {}
+    if (!replayData || !Array.isArray(replayData.waveSnapshots) || !replayData.waveSnapshots.length) {
+      showBanner('Replay data is missing for this run.', 2200);
+      return false;
+    }
+    const embedInPanel = !!options.embedInPanel;
+    ensureReplayPanelElements();
+    if (!embedInPanel) ensureReplayViewerElements();
+    const modal = document.getElementById('replayViewerModal');
+    const panel = document.getElementById('replayPanel');
+    game.replayView.active = true;
+    game.replayView.data = replayData;
+    const initialReplayIndex = Math.max(0, (Array.isArray(replayData.waveSnapshots) ? replayData.waveSnapshots : []).findIndex((snapshot) => {
+      if (!snapshot || typeof snapshot !== 'object') return false;
+      const hasPortal = !!snapshot.portal;
+      const hasTowers = Array.isArray(snapshot.towers) && snapshot.towers.length > 0;
+      const hasEnemies = Array.isArray(snapshot.enemies) && snapshot.enemies.length > 0;
+      return hasEnemies || hasPortal || hasTowers;
+    }));
+    game.replayView.index = initialReplayIndex;
+    game.replayView.playing = false;
+    if (panel) {
+      panel.classList.remove('hidden');
+      panel.setAttribute('aria-hidden', 'false');
+      panel.classList.remove('collapsed');
+      const toggle = document.getElementById('replayPanelToggle');
+      const body = document.getElementById('replayPanelBody');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      if (body) body.hidden = false;
+    }
+    if (modal) {
+      modal.classList.toggle('hidden', embedInPanel);
+      modal.setAttribute('aria-hidden', embedInPanel ? 'true' : 'false');
+    }
+    applyReplaySnapshot(replayData.waveSnapshots[game.replayView.index] || replayData.waveSnapshots[0]);
+    syncReplayViewerUi();
+    syncReplayInteractionState();
+    return true;
+  }
+
+  async function loadSharedReplayFromUrl() {
+    try {
+      const url = new URL(window.location.href);
+      const shareId = sanitizeReplayText(url.searchParams.get('replay'));
+      if (!shareId) return false;
+      const response = await fetchSupabaseFunctionJson('public-run-replay', { shareId }, 'GET');
+      const replay = response && response.replay ? response.replay : null;
+      if (!replay) {
+        showBanner('Replay not found.', 2400);
+        return false;
+      }
+      openReplayViewer(replay, { embedInPanel: true });
+      return true;
+    } catch (error) {
+      console.error('shared replay load failed', error);
+      showBanner('Could not load shared replay.', 2400);
+      return false;
+    }
+  }
+
+  window.loadSharedReplayFromUrl = loadSharedReplayFromUrl;
+
   function buildCompletedRunPayload(result = 'loss') {
     const paymentSummary = buildPaymentSummary();
     const connectedChainId = Number(getConnectedWalletChainId() || 0);
@@ -3310,7 +4233,7 @@ function formatQuestResetCountdown(dateKey) {
       clientRunId: game.runTracking.clientRunId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       runStartedAt: game.runTracking.startedAt || new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      gameVersion: 'V46.9.1.144',
+      gameVersion: CURRENT_RUN_BUILD,
       mode: game.mobileMode ? 'easy' : 'challenge',
       result,
       chainId: resolvedChainId,
@@ -3322,6 +4245,7 @@ function formatQuestResetCountdown(dateKey) {
       continueAvailable: hasAvailableLastChanceForRunTracking(),
       paymentSummary,
       heroes: buildRunTrackingHeroes(),
+      replayData: buildReplayPayload(result),
       stats: {
         ...bountyDelta,
         towerCount: game.towers.length,
@@ -3334,6 +4258,7 @@ function formatQuestResetCountdown(dateKey) {
         usedWalletHeroes: game.towers.some(t => !!t.walletHeroId),
         usedWalletHeroCount: game.towers.filter(t => !!t.walletHeroId).length,
         dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
+        foundRelicIds: Array.from(new Set((Array.isArray(game.foundRelics) ? game.foundRelics : []).map((id) => String(id || '').trim()).filter(Boolean))),
       },
     };
     return payload;
@@ -3608,7 +4533,6 @@ function formatQuestResetCountdown(dateKey) {
     const endpoint = `${url}/functions/v1/${functionName}`;
     const headers = {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
     };
     if (options.sessionToken) headers['x-session-token'] = String(options.sessionToken);
@@ -3628,6 +4552,19 @@ function formatQuestResetCountdown(dateKey) {
 
   
   const DFK_JEWEL_VERIFY_QUEUE_STORAGE_KEY = 'dfk_defender_pending_jewel_verify_v1';
+
+  function isTerminalJewelVerificationError(error) {
+    const message = String(error && error.message ? error.message : error || '').toLowerCase();
+    if (!message) return false;
+    return message.includes('transaction failed on-chain')
+      || message.includes('payment session not found')
+      || message.includes('session chain mismatch')
+      || message.includes('already used')
+      || message.includes('invalid tx')
+      || message.includes('invalid transaction')
+      || message.includes('reverted');
+  }
+
 
   function normalizePendingDfkJewelVerification(entry) {
     if (!entry || typeof entry !== 'object') return null;
@@ -3727,12 +4664,17 @@ function formatQuestResetCountdown(dateKey) {
           removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
           recoveredCount += 1;
         } catch (error) {
-          remaining.push({
-            ...entry,
-            attempts: Math.max(0, Number(entry.attempts || 0)) + 1,
-            lastAttemptAt: Date.now(),
-          });
-          console.warn('[JEWEL trade] pending verification retry failed.', error);
+          const terminal = isTerminalJewelVerificationError(error);
+          if (!terminal) {
+            remaining.push({
+              ...entry,
+              attempts: Math.max(0, Number(entry.attempts || 0)) + 1,
+              lastAttemptAt: Date.now(),
+            });
+          } else {
+            removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
+          }
+          console.warn(`[JEWEL trade] pending verification retry ${terminal ? 'ended permanently' : 'failed'}.`, error);
         }
       }
       writePendingDfkJewelVerificationQueue(remaining);
@@ -3892,10 +4834,12 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     if (!name) throw new Error('Supabase function name is required.');
     if (!url || !key) throw new Error('Supabase functions are not configured.');
 
-    const endpoint = `${url}/functions/v1/${name}`;
+    const query = (httpMethod === 'GET' && payload && typeof payload === 'object')
+      ? ('?' + new URLSearchParams(Object.entries(payload).reduce((acc, [k, v]) => { if (v != null) acc[k] = String(v); return acc; }, {})).toString())
+      : '';
+    const endpoint = `${url}/functions/v1/${name}${query}`;
     const headers = {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       ...(options && options.headers ? options.headers : {}),
     };
 
@@ -5276,6 +6220,7 @@ function renderDamageReport() {
         markRecentTrackedRunSubmission();
         const trackedRunId = String(response && response.result && response.result.runId ? response.result.runId : '').trim();
         const duplicateTrackedRun = Boolean(response && response.result && response.result.duplicate);
+        const replayShareId = String(response && response.result && response.result.replayShareId ? response.result.replayShareId : '').trim();
         const trackedMessage = trackedRunId
           ? `Game over, run tracked! Run ID: ${trackedRunId}`
           : 'Game over, run tracked!';
@@ -5283,6 +6228,36 @@ function renderDamageReport() {
         log(duplicateTrackedRun && trackedRunId
           ? `Run already tracked. Run ID: ${trackedRunId}.`
           : (trackedRunId ? `Run tracked at wave ${game.waveNumber}. Run ID: ${trackedRunId}.` : `Run tracked at wave ${game.waveNumber}.`));
+        if (trackedRunId && replayShareId) cacheTrackedRunReplayShareId(trackedRunId, replayShareId);
+        cacheTrackedRunStats({
+          id: trackedRunId || payload.clientRunId,
+          runNumber: Number(response && response.result && response.result.runNumber ? response.result.runNumber : 0) || 0,
+          chainId: payload.chainId,
+          completedAt: payload.completedAt,
+          bestWave: payload.waveReached,
+          heroes: Array.isArray(payload.heroes) ? payload.heroes : [],
+          replayShareId,
+          stats: payload.stats || {},
+          foundRelicIds: Array.isArray(payload.stats && payload.stats.foundRelicIds) ? payload.stats.foundRelicIds : [],
+        });
+        if (replayShareId) {
+          const replayUrl = buildReplayShareUrl(replayShareId);
+          log(`Replay link ready: ${replayUrl}`);
+        }
+        window.setTimeout(() => {
+          showQueuedRunStatsModal({
+            id: trackedRunId || payload.clientRunId,
+            runNumber: Number(response && response.result && response.result.runNumber ? response.result.runNumber : 0) || 0,
+            chainId: payload.chainId,
+            completedAt: payload.completedAt,
+            bestWave: payload.waveReached,
+            heroes: Array.isArray(payload.heroes) ? payload.heroes : [],
+            replayShareId,
+            stats: payload.stats || {},
+            foundRelicIds: Array.isArray(payload.stats && payload.stats.foundRelicIds) ? payload.stats.foundRelicIds : [],
+          }, 4);
+        }, 220);
+        showBanner('Tracked run saved.', 3200);
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         markRecentTrackedRunSubmission();
@@ -5475,6 +6450,8 @@ function renderDamageReport() {
       submitted: false,
       weeklyMetricsStart: captureWeeklyBountyMetricsSnapshot(),
     };
+    beginReplayCapture();
+    captureReplayWaveSnapshot('start');
     game.runWalletConnected = !!getConnectedWalletAddress();
     syncPersistentKnownRelics();
     game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
@@ -5534,6 +6511,8 @@ function renderDamageReport() {
     game.pendingMilestoneHeroPlacement = null;
     game.ownedRelics = [];
     game.foundRelics = [];
+    game.championPlacementPending = null;
+    game.championLastReminderWaited = 0;
     game.selectedChampionKey = '';
     game.selectedChampionHeroId = '';
     game.selectedChampionConfirmed = false;
@@ -5542,6 +6521,8 @@ function renderDamageReport() {
     game.championModalForceChoice = !!((game.championRoster || []).length);
     game.championDeployedTowerId = null;
     game.championActiveUntilWave = 0;
+    game.championPlacementPending = null;
+    game.championLastReminderWaited = 0;
     syncPersistentKnownRelics();
     game.continueOfferUsed = false;
     game.continueOfferPending = false;
@@ -5901,7 +6882,7 @@ function renderDamageReport() {
   }
 
   function buildFunctionAuthHeaders(key, token, includeJson = true) {
-    const headers = { apikey: key, Authorization: `Bearer ${key}` };
+    const headers = { apikey: key };
     if (includeJson) headers['Content-Type'] = 'application/json';
     if (token) {
       headers['x-session-token'] = token;
@@ -6173,6 +7154,33 @@ function canSubmitRewardClaims() {
       const timestampLabel = formatTrackedRunTimestamp(run.completedAt || run.createdAt || run.runStartedAt || null);
       const claimedBountyText = escapeHtml(run.claimedBountyTitle || run.claimedBountyName || run.bountyTitle || (run.claimedBountyId ? `Bounty ${run.claimedBountyId}` : 'Bounty claim'));
       const statusText = used ? `Used for ${claimedBountyText}` : 'Available';
+      const cachedRunStats = getCachedTrackedRunStats(run.id);
+      const enrichedRun = cachedRunStats ? {
+        ...run,
+        replayShareId: run.replayShareId || run.replay_share_id || cachedRunStats.replayShareId || '',
+        heroes: Array.isArray(run.heroes) && run.heroes.length ? run.heroes : (Array.isArray(cachedRunStats.heroesUsed) ? cachedRunStats.heroesUsed.map((name) => ({ className: name })) : []),
+        foundRelicIds: Array.isArray(run.foundRelicIds) && run.foundRelicIds.length ? run.foundRelicIds : (Array.isArray(cachedRunStats.relicsFound) ? cachedRunStats.relicsFound : []),
+        stats: {
+          ...(run.stats && typeof run.stats === 'object' ? run.stats : {}),
+          foundRelicIds: Array.isArray(run.foundRelicIds) && run.foundRelicIds.length ? run.foundRelicIds : (Array.isArray(cachedRunStats.relicsFound) ? cachedRunStats.relicsFound : ((run.stats && run.stats.foundRelicIds) || [])),
+        },
+      } : run;
+      const replayShareId = sanitizeReplayText(enrichedRun.replayShareId || enrichedRun.replay_share_id || getCachedTrackedRunReplayShareId(enrichedRun.id));
+      const replayUrl = replayShareId ? buildReplayShareUrl(replayShareId) : '';
+      const replayBlock = replayUrl
+        ? `
+          <div class="tracked-run-replay-row">
+            <button type="button" class="tracked-run-replay-stats" data-run-stats-id="${escapeHtml(String(run.id || ''))}" data-run-stats="${escapeHtml(encodeRunStatsButtonPayload(enrichedRun))}">Run Stats</button>
+            <button type="button" class="tracked-run-replay-copy tracked-run-replay-copy-small" data-copy-replay-url="${escapeHtml(replayUrl)}">Copy URL</button>
+          </div>
+          <div class="tracked-run-replay-url" title="${escapeHtml(replayUrl)}">${escapeHtml(replayUrl)}</div>
+        `
+        : `
+          <div class="tracked-run-replay-row">
+            <button type="button" class="tracked-run-replay-stats" data-run-stats-id="${escapeHtml(String(run.id || ''))}" data-run-stats="${escapeHtml(encodeRunStatsButtonPayload(enrichedRun))}">Run Stats</button>
+          </div>
+          <div class="tracked-run-replay-url tracked-run-replay-url-missing" title="Replay not available for this run yet.">Replay not available for this run yet.</div>
+        `;
       return `
         <article class="tracked-run-card ${used ? 'is-used' : 'is-available'}">
           <div class="tracked-run-card-top">
@@ -6187,6 +7195,7 @@ function canSubmitRewardClaims() {
             <div class="tracked-run-meta-time">${escapeHtml(timestampLabel)}</div>
           </div>
           <div class="tracked-run-status ${used ? 'is-used' : 'is-available'}">${statusText}</div>
+          ${replayBlock}
         </article>
       `;
     }).join('');
@@ -7684,6 +8693,24 @@ function canSubmitRewardClaims() {
     return { ready: false, text: `${remaining} wave${remaining === 1 ? '' : 's'} until deploy`, duration: 0 };
   }
 
+  function maybeRemindChampionDeployment(options = {}) {
+    const selected = getSelectedChampionRecord();
+    if (!selected || !game.selectedChampionConfirmed) return false;
+    const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+    if (deployed || (game.placingHeroType && String(game.placingHeroType).startsWith('champion_'))) return false;
+    const waited = Math.max(0, Number(options.waited ?? getChampionWavesWaited()));
+    if (waited < 30 || waited % 10 !== 0) return false;
+    if (Number(game.championLastReminderWaited || 0) === waited) return false;
+    const placement = getChampionDeployPreview(waited);
+    if (!placement.ready) return false;
+    game.championLastReminderWaited = waited;
+    const message = `${selected.definition.label} is ready to deploy. Champions are worth checking every 10 waited waves starting at 30. Deploy now for ${placement.duration} waves.`;
+    log(message);
+    showBanner(message, 3200);
+    return true;
+  }
+
+
   function renderChampionCollapsedPreview() {
     const preview = ensureChampionCollapsedPreview();
     if (!preview) return;
@@ -8051,6 +9078,20 @@ function canSubmitRewardClaims() {
     const inRun = Number(game.waveNumber || 0) > 0 || game.runningWave;
     const selected = ensureChampionSelectionReady({ autoConfirm: inRun });
     const waited = getChampionWavesWaited();
+    if (game.placingHeroType && String(game.placingHeroType).startsWith('champion_')) {
+      if (selected && game.placingHeroType === selected.definition.towerType) {
+        showBanner(`${selected.definition.label} placement is already active. Tap an open tile to deploy.`, 2200);
+        renderChampionPanel();
+        render();
+        return;
+      }
+      game.placingHeroType = null;
+      game.placingHeroCost = 0;
+      game.placingHeroUsesBonus = false;
+      game.placingSatelliteSourceId = null;
+      game.placingWalletHeroId = null;
+      game.championPlacementPending = null;
+    }
     if (!selected) {
       if (canChooseChampionNow()) {
         showChampionModal(true);
@@ -8086,6 +9127,13 @@ function canSubmitRewardClaims() {
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = null;
     game.placingWalletHeroId = null;
+    game.championPlacementPending = {
+      key: selected.key,
+      heroId: String(selected.hero?.id || ''),
+      towerType: selected.definition.towerType,
+      waitedAtStart: waited,
+      startedAt: now(),
+    };
     showBanner(`Place ${selected.definition.label} on any open tile. Champions ignore the normal hero cap.`, 2200);
     renderChampionPanel();
     render();
@@ -8103,6 +9151,8 @@ function canSubmitRewardClaims() {
     if (game.championDeployedTowerId) {
       game.championDeployedTowerId = null;
       game.championActiveUntilWave = 0;
+      game.championPlacementPending = null;
+      game.championLastReminderWaited = 0;
       game.championWaitAnchorWave = Number(game.waveNumber || 0);
       showBanner(reason, 1800);
       renderChampionPanel();
@@ -8444,6 +9494,7 @@ function canSubmitRewardClaims() {
     for (const tower of game.towers || []) { normalizeArcherStats(tower); if (tower?.isSoulSplit) refreshPureEnergyState(tower); }
     syncStartWaveButtonState();
     renderGrid();
+    renderEnemyLayer();
     renderSelection();
     renderHirePanel();
     renderRelics();
@@ -9931,6 +10982,14 @@ function canSubmitRewardClaims() {
       els.mobileQuickMoveBtn.disabled = !tower || els.moveBtn.disabled;
       els.mobileQuickMoveBtn.classList.toggle('is-live', !!tower && !els.moveBtn.disabled);
     }
+    if (els.mobileQuickCancelBtn) {
+      const pendingLabel = getPendingActionLabel();
+      const canCancel = hasCancelablePendingAction();
+      els.mobileQuickCancelBtn.disabled = !canCancel;
+      els.mobileQuickCancelBtn.classList.toggle('is-live', canCancel);
+      els.mobileQuickCancelBtn.textContent = canCancel ? 'Cancel' : 'Cancel';
+      els.mobileQuickCancelBtn.title = canCancel ? `Cancel ${pendingLabel}` : 'No pending action to cancel';
+    }
     if (els.mobileQuickStartBtn) {
       const canStart = !!els.startWaveBtn && !els.startWaveBtn.disabled && !els.startWaveBtn.classList.contains('hidden');
       els.mobileQuickStartBtn.disabled = !canStart;
@@ -10013,6 +11072,13 @@ function canSubmitRewardClaims() {
       els.upgradeBtn.disabled = true;
       if (els.maxLevelBtn) els.maxLevelBtn.disabled = true;
       els.moveBtn.disabled = true;
+      if (els.cancelActionBtn) {
+        const pendingLabel = getPendingActionLabel();
+        const canCancel = hasCancelablePendingAction();
+        els.cancelActionBtn.disabled = !canCancel;
+        els.cancelActionBtn.textContent = canCancel ? `Cancel ${pendingLabel}` : 'Cancel Action';
+        els.cancelActionBtn.title = canCancel ? `Cancel ${pendingLabel}` : 'No pending action to cancel';
+      }
       els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
       els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
       updateHeroActionDisabledState();
@@ -10046,6 +11112,13 @@ function canSubmitRewardClaims() {
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
     els.moveBtn.disabled = isStatueTower(tower) || (tower.type === 'berserker' && tower.berserkerMoonActive) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    if (els.cancelActionBtn) {
+      const pendingLabel = getPendingActionLabel();
+      const canCancel = hasCancelablePendingAction();
+      els.cancelActionBtn.disabled = !canCancel;
+      els.cancelActionBtn.textContent = canCancel ? `Cancel ${pendingLabel}` : 'Cancel Action';
+      els.cancelActionBtn.title = canCancel ? `Cancel ${pendingLabel}` : 'No pending action to cancel';
+    }
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
     updateHeroActionDisabledState();
@@ -10120,6 +11193,13 @@ function canSubmitRewardClaims() {
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
     els.moveBtn.disabled = isStatueTower(tower) || (tower.type === 'berserker' && tower.berserkerMoonActive) || now() < tower.moveReadyAt || !!tower.buffs.rooted || game.phase === SETUP_PHASES.GAME_OVER;
+    if (els.cancelActionBtn) {
+      const pendingLabel = getPendingActionLabel();
+      const canCancel = hasCancelablePendingAction();
+      els.cancelActionBtn.disabled = !canCancel;
+      els.cancelActionBtn.textContent = canCancel ? `Cancel ${pendingLabel}` : 'Cancel Action';
+      els.cancelActionBtn.title = canCancel ? `Cancel ${pendingLabel}` : 'No pending action to cancel';
+    }
     els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
     els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
     updateHeroActionDisabledState();
@@ -10495,6 +11575,8 @@ function canSubmitRewardClaims() {
       submitted: false,
       weeklyMetricsStart: captureWeeklyBountyMetricsSnapshot(),
     };
+    beginReplayCapture();
+    captureReplayWaveSnapshot('portal_reposition');
     game.runWalletConnected = !!getConnectedWalletAddress();
     game.difficultyProfile = createDifficultyProfileForRun({ connected: game.runWalletConnected });
     game.portalPickedUpForMove = true;
@@ -10532,6 +11614,8 @@ function canSubmitRewardClaims() {
     }
     game.portalPickedUpForMove = false;
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
+    recordReplayEvent('portal_place', { x, y });
+    captureReplayWaveSnapshot('portal_placed');
     return true;
   }
 
@@ -10552,6 +11636,7 @@ function canSubmitRewardClaims() {
     game.playerObstacleCount += 1;
     updateWeeklyBountyMetric('barriersPlaced', 1);
     log(`Placed obstacle ${game.playerObstacleCount}/${getTargetPlayerObstacleCount()} at (${x + 1}, ${y + 1}).`);
+    recordReplayEvent('barrier_place', { x, y, count: Number(game.playerObstacleCount || 0) });
     if (game.playerObstacleCount >= getTargetPlayerObstacleCount()) {
       const hasWarrior = game.towers.some(t => t.type === 'warrior');
       if (game.rebuildingBarriers || hasWarrior) {
@@ -11175,6 +12260,7 @@ function canSubmitRewardClaims() {
     if (tower.isSoulSplit) normalizeTornSoulDamage(tower);
     if (tower.isChampion && game.selectedChampionSnapshot && String(game.selectedChampionSnapshot.hero?.id || '') === String(tower.walletHeroId || '')) game.selectedChampionSnapshot.hero.level = Math.max(Number(game.selectedChampionSnapshot.hero.level || 1), Number(tower.level || 1));
     log(`${tower.name} leveled up to level ${tower.level} (${rarityForLevel(tower.level)}).`);
+    recordReplayEvent('tower_upgrade', { towerId: tower.id, type: tower.type, level: tower.level, x: tower.x, y: tower.y });
     if (tower.isSoulSplit && tower.level === 40) {
       showBanner('Archon awakened.', 2200);
       log(`${tower.name} ascended into an Archon.`);
@@ -11289,6 +12375,7 @@ function canSubmitRewardClaims() {
     game.towers = (game.towers || []).filter(t => t.id !== tower.id);
     if (game.selectedId === tower.id) game.selectedId = null;
     if (message) log(message);
+    recordReplayEvent('tower_remove', { towerId: tower.id, type: tower.type, x: tower.x, y: tower.y, message: message || '' });
     return true;
   }
 
@@ -11389,6 +12476,72 @@ function canSubmitRewardClaims() {
     const satLabel = tower.type === 'archer' ? 'Archer Shadow' : ((tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'Torn Soul' : (tower.type === 'priest' ? 'Blinding Light Totem' : 'Statue'));
     log(`Select an open tile to place a ${satLabel} from ${tower.name}.`);
     render();
+  }
+
+  function getPendingActionLabel() {
+    if (game.pendingManualAbilityPlacement) {
+      const tower = getTowerById(game.pendingManualAbilityPlacement.towerId);
+      const abilityKey = game.pendingManualAbilityPlacement.abilityKey;
+      const abilityName = tower?.template?.abilities?.find(a => a.key === abilityKey)?.name || 'ability placement';
+      return abilityName;
+    }
+    if (game.placingHeroType) {
+      if (game.placingSatelliteSourceId) {
+        const sourceTower = getTowerById(game.placingSatelliteSourceId);
+        if (sourceTower?.type === 'warrior') return 'Statue placement';
+        if (sourceTower?.type === 'wizard') return 'Torn Soul placement';
+        if (sourceTower?.type === 'priest') return 'Blinding Light Totem placement';
+        if (sourceTower?.type === 'archer') return 'Archer Shadow placement';
+      }
+      const template = TOWER_TEMPLATES[game.placingHeroType];
+      if (template?.name) return `${template.name} placement`;
+      if (String(game.placingHeroType).startsWith('champion_')) {
+        const selected = getSelectedChampionRecord();
+        return `${selected?.definition?.label || 'Champion'} placement`;
+      }
+      return 'Hero placement';
+    }
+    if (game.movingTowerId) {
+      const tower = getTowerById(game.movingTowerId);
+      return `${tower?.name || 'Hero'} move`;
+    }
+    return '';
+  }
+
+  function hasCancelablePendingAction() {
+    return !!(game.pendingManualAbilityPlacement || game.placingHeroType || game.movingTowerId);
+  }
+
+  function cancelPendingAction(options = {}) {
+    const silent = !!options.silent;
+    let label = getPendingActionLabel();
+    let didCancel = false;
+    if (game.pendingManualAbilityPlacement) {
+      game.pendingManualAbilityPlacement = null;
+      didCancel = true;
+    }
+    if (game.placingHeroType) {
+      if (game.placingSatelliteSourceId) {
+        cancelSatellitePlacement({ silent: true });
+        didCancel = true;
+      } else {
+        game.placingHeroType = null;
+        game.placingHeroCost = 0;
+        game.placingHeroUsesBonus = false;
+        game.placingSatelliteSourceId = null;
+        game.placingWalletHeroId = null;
+        game.championPlacementPending = null;
+        didCancel = true;
+      }
+    }
+    if (game.movingTowerId) {
+      game.movingTowerId = null;
+      didCancel = true;
+    }
+    if (!didCancel) return false;
+    if (!silent) showBanner(label ? `Cancelled ${label}.` : 'Action cancelled.', 1200);
+    render();
+    return true;
   }
 
   function handleTileClick(x, y) {
@@ -11668,6 +12821,7 @@ function canSubmitRewardClaims() {
       log(`Placed ${tower.name} from ${sourceTower.name} at (${x + 1}, ${y + 1}).${replacedExistingStatue ? ' Previous Statue dismissed.' : ''}`);
       updateQuestMetric('satellitesPlaced', 1);
       if (typeof markProgress === 'function') markProgress(`Placed ${tower.name}.${replacedExistingStatue ? ' Previous Statue dismissed.' : ''}`);
+      recordReplayEvent('satellite_place', { towerId: tower.id, type: tower.type, x, y, sourceTowerId: sourceTower.id });
     } else {
       game.jewel = Math.max(0, Number(game.jewel || 0) - cost);
       updateQuestMetric('goldSpent', cost);
@@ -11682,9 +12836,13 @@ function canSubmitRewardClaims() {
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
       if (cost > 0 || pendingMilestonePlacement || usesBonusHire) updateWeeklyBountyMetric('heroesHired', 1);
+      recordReplayEvent('hero_place', { towerId: tower.id, type: tower.type, x, y, level: tower.level, isChampion: !!tower.isChampion, walletHeroId: tower.walletHeroId || null });
       if (tower.isChampion) {
         game.selectedChampionConfirmed = true;
+        game.championPlacementPending = null;
+        game.championLastReminderWaited = 0;
         log(`Champion deployed: ${tower.name} for ${tower.championAllowedDuration} waves after waiting ${getChampionWavesWaited()} waves.`);
+        recordReplayEvent('champion_deploy', { towerId: tower.id, type: tower.type, x, y, waited: getChampionWavesWaited(), duration: tower.championAllowedDuration });
       }
       if (pendingMilestonePlacement) {
         game.pendingMilestoneHeroPlacement = null;
@@ -11697,6 +12855,7 @@ function canSubmitRewardClaims() {
     }
 
     game.selectedId = tower.id;
+    if (tower.isChampion) game.championPlacementPending = null;
     game.placingHeroType = null;
     game.placingHeroCost = 0;
     game.placingHeroUsesBonus = false;
@@ -11784,6 +12943,7 @@ function canSubmitRewardClaims() {
     tower.moveReadyAt = now() + (tower.type === 'warrior' ? 5000 : (tower.type === 'monk' ? 0 : 30000));
     tower.attackCooldownMs = 1000;
     log(`${tower.name} moved to (${nx + 1}, ${ny + 1}).`);
+    recordReplayEvent('tower_move', { towerId: tower.id, type: tower.type, x: nx, y: ny });
     syncMonkTrainingPartnerState();
     return true;
   }
@@ -12726,6 +13886,7 @@ function canSubmitRewardClaims() {
   }
 
   function primeStartModeModalBehindIntro() {
+    if (isReplayUrlView()) return;
     if (!els.startModeModal) return;
     if (!els.startModeNote) return;
     setBoardInputLocked(true);
@@ -12800,6 +13961,7 @@ function canSubmitRewardClaims() {
   }
 
   function openStartModeModal() {
+    if (isReplayUrlView()) return;
     closeIntroModal();
     closeBountyModal();
     closeQuestsModal();
@@ -13142,6 +14304,7 @@ function canSubmitRewardClaims() {
   }
 
   function startWave() {
+    recordReplayEvent('wave_start', { nextWave: Number(game.waveNumber || 0) + 1, liveWaveCount: getLiveWaveCount() });
     if (requireChampionSelectionBeforeStart()) {
       game.championModalForceChoice = true;
       showChampionModal(true);
@@ -13166,6 +14329,7 @@ function canSubmitRewardClaims() {
       game.milestoneHeroOffer = null;
       game.milestoneBarrierOffer = null;
       saveContinueSnapshot(currentPlan);
+      if (game.replayCapture) game.replayCapture.lastBattleSnapshotAt = 0;
     }
     game.waveNumber = currentPlan.waveNumber;
     if (!Array.isArray(game.activeWavePlans)) game.activeWavePlans = [];
@@ -13383,8 +14547,8 @@ function canSubmitRewardClaims() {
       name: template.name,
       x: spawn.x,
       y: spawn.y,
-      hp: finalEnemyHp * difficulty.healthMult,
-      maxHp: finalEnemyHp * difficulty.healthMult,
+      hp: finalEnemyHp * difficulty.healthMult * GLOBAL_ENEMY_HP_MULTIPLIER,
+      maxHp: finalEnemyHp * difficulty.healthMult * GLOBAL_ENEMY_HP_MULTIPLIER,
       damage: enemyDamage * difficulty.damageMult * GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER,
       moveInterval: (((template.moveInterval / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult) / GLOBAL_NON_BOSS_ENEMY_SPEED_MULTIPLIER,
       attackInterval: template.attackInterval,
@@ -13424,10 +14588,10 @@ function canSubmitRewardClaims() {
       name: boss.name,
       x: spawn.x,
       y: spawn.y,
-      hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber),
-      maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber),
+      hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber) * GLOBAL_ENEMY_HP_MULTIPLIER,
+      maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber) * GLOBAL_ENEMY_HP_MULTIPLIER,
       damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(waveNumber),
-      moveInterval: (((boss.moveInterval * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult,
+      moveInterval: ((((boss.moveInterval * GLOBAL_BOSS_MOVE_INTERVAL_MULTIPLIER) * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult,
       attackInterval: boss.attackInterval,
       jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
       cssClass: 'boss',
@@ -13544,6 +14708,47 @@ function canSubmitRewardClaims() {
     return recovered;
   }
 
+  function clearStuckWaves() {
+    const pendingCount = Array.isArray(game.pendingSpawns) ? game.pendingSpawns.filter(plan => plan && !plan.spawned).length : 0;
+    const activePlans = Array.isArray(game.activeWavePlans) ? game.activeWavePlans.length : 0;
+    const liveEnemies = Array.isArray(game.enemies) ? game.enemies.length : 0;
+    const hasStuckWave = !!(game.runningWave || pendingCount > 0 || activePlans > 0 || liveEnemies > 0);
+    if (!hasStuckWave) return { cleared: false, reason: 'no_active_wave' };
+
+    const clearedWaveNumbers = Array.isArray(game.activeWavePlans)
+      ? game.activeWavePlans.map(plan => Number(plan && plan.waveNumber || 0)).filter(Boolean)
+      : [];
+    const latestWave = Math.max(0, ...clearedWaveNumbers, Number(game.waveNumber || 0));
+    game.enemies = [];
+    game.pendingSpawns = [];
+    game.runningWave = false;
+    game.activeWavePlans = [];
+    game.activeWaveBase = Number(game.waveNumber || 0);
+    game.currentPattern = null;
+    game.activeMutation = null;
+    game.attackLines = [];
+    game.explosionEffects = [];
+    game.projectileEffects = [];
+    game.slowTotems = [];
+    game.pendingManualAbilityPlacement = null;
+    game.autoStartReadyAt = 0;
+    game.autoStartToken = (game.autoStartToken || 0) + 1;
+    game.diagnostics.lastProgressHash = '';
+    game.diagnostics.lastProgressAt = now();
+    game.diagnostics.softLockTriggered = false;
+    game.runTrackingClearedStuckWave = true;
+    setBoardDim(false);
+    if (!game.nextWavePlan && game.phase === SETUP_PHASES.BATTLE) stageUpcomingWavePlan(true);
+    syncStartWaveButtonState();
+    updateAutoStartButton();
+    render();
+    const waveLabel = latestWave > 0 ? ` around wave ${latestWave}` : '';
+    showBanner(`Cleared stuck wave${waveLabel}. This run will likely not be accepted as a tracked run.`, 4200);
+    log(`Manual stuck-wave clear used${waveLabel}. Current run should be treated as unverified for tracked-run purposes.`);
+    setInstruction('Stuck wave cleared. Continue playing, but this run will likely not be accepted as a tracked run.');
+    return { cleared: true, waveNumber: latestWave, pendingCount, liveEnemies, activePlans };
+  }
+
   function maintainWaveReadiness() {
     if (game.phase !== SETUP_PHASES.BATTLE || game.runningWave || game.crashed) return false;
     if (game.startingRelicPending || game.continueOfferPending) return false;
@@ -13607,6 +14812,8 @@ function canSubmitRewardClaims() {
       }
     }
 
+    maybeCaptureReplayBattleSnapshot(current);
+
     if (game.runningWave && allSpawnsDone() && game.enemies.length === 0) {
       if (!releaseEliteFinalSpawn(game.waveNumber)) {
         finishWave();
@@ -13639,6 +14846,7 @@ function canSubmitRewardClaims() {
   function applyWaveClearRewards(clearedWave, context = null) {
     markProgress(`Wave ${clearedWave} cleared.`);
     log(`Wave ${clearedWave} cleared.`);
+    recordReplayEvent('wave_cleared', { waveNumber: Number(clearedWave || 0) });
     const liveWaveCountAtClear = Math.max(0, Number(context && context.liveWaveCountAtClear));
     updateQuestMetric('wavesClearedTotal', 1);
     updateWeeklyBountyMetric('wavesCompleted', 1);
@@ -13765,6 +14973,8 @@ function canSubmitRewardClaims() {
       setCountdown(WAVE_BREAK_SECONDS);
     }
     syncStartWaveButtonState();
+    maybeRemindChampionDeployment({ waited: getChampionWavesWaited() });
+    captureReplayWaveSnapshot(`wave_${finalWaveNumber}_cleared`);
     render();
   }
 
@@ -13791,6 +15001,7 @@ function canSubmitRewardClaims() {
     }
     els.startWaveBtn.disabled = true;
     showBanner(hasChoices ? 'Choose 1 free starting relic' : 'Premium swap available', 2500);
+    recordReplayEvent('relic_shop_open', { reason: 'start', choices: (game.relicChoices || []).map((relic) => relic && relic.id).filter(Boolean) });
     return true;
   }
 
@@ -13807,6 +15018,7 @@ function canSubmitRewardClaims() {
   }
 
   function buyRelic(id) {
+    recordReplayEvent('relic_pick_attempt', { relicId: id });
     const relic = game.relicChoices.find(r => r.id === id);
     if (!relic) return;
     const isFreeStartingRelic = game.startingRelicPending;
@@ -16317,6 +17529,7 @@ function canSubmitRewardClaims() {
   }
 
   function castAbility(tower, abilityKey, opts = {}) {
+    if (tower && abilityKey) recordReplayEvent('ability_cast_attempt', { towerId: tower.id, type: tower.type, abilityKey, x: tower.x, y: tower.y });
     if (!isAbilityUnlocked(tower, abilityKey)) return;
     const readyAt = getTowerAbilityReadyAt(tower, abilityKey);
     if (now() < readyAt) return;
@@ -17060,6 +18273,8 @@ function canSubmitRewardClaims() {
   bindMobileUpgradeHold(els.upgradeBtn);
   bindMobileUpgradeHold(els.mobileQuickUpgradeBtn);
   els.mobileQuickMoveBtn?.addEventListener('click', () => els.moveBtn?.click());
+  els.cancelActionBtn?.addEventListener('click', () => cancelPendingAction());
+  els.mobileQuickCancelBtn?.addEventListener('click', () => cancelPendingAction());
   els.mobileQuickSatelliteBtn?.addEventListener('click', () => {
     if (game.placingSatelliteSourceId) {
       cancelSatellitePlacement();
@@ -17163,6 +18378,48 @@ function canSubmitRewardClaims() {
     if (!sortSelect) return;
     game.trackedRunsSortMode = sortSelect.value || 'date_desc';
     renderTrackedRunsBoard();
+  });
+  els.trackedRunsBody?.addEventListener('click', async (event) => {
+    const statsBtn = event.target instanceof Element ? event.target.closest('[data-run-stats-id]') : null;
+    if (statsBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const payload = decodeRunStatsButtonPayload(statsBtn.getAttribute('data-run-stats'));
+      if (payload) {
+        await openRunStatsModal(payload);
+        return;
+      }
+      const runId = String(statsBtn.getAttribute('data-run-stats-id') || '').trim();
+      const state = game.trackedRunsBoard || {};
+      const runs = Array.isArray(state.runs) ? state.runs : [];
+      const run = runs.find((entry) => String(entry && entry.id || '').trim() === runId);
+      if (run) {
+        const cached = getCachedTrackedRunStats(runId);
+        const enriched = cached ? {
+          ...run,
+          replayShareId: run.replayShareId || run.replay_share_id || cached.replayShareId || '',
+          heroes: Array.isArray(run.heroes) && run.heroes.length ? run.heroes : (Array.isArray(cached.heroesUsed) ? cached.heroesUsed.map((name) => ({ className: name })) : []),
+          foundRelicIds: Array.isArray(run.foundRelicIds) && run.foundRelicIds.length ? run.foundRelicIds : (Array.isArray(cached.relicsFound) ? cached.relicsFound : []),
+          stats: {
+            ...(run.stats && typeof run.stats === 'object' ? run.stats : {}),
+            foundRelicIds: Array.isArray(run.foundRelicIds) && run.foundRelicIds.length ? run.foundRelicIds : (Array.isArray(cached.relicsFound) ? cached.relicsFound : ((run.stats && run.stats.foundRelicIds) || [])),
+          },
+        } : run;
+        await openRunStatsModal(enriched);
+      } else showBanner('Run stats are not available for this run.', 2200);
+      return;
+    }
+    const copyBtn = event.target instanceof Element ? event.target.closest('[data-copy-replay-url]') : null;
+    if (!copyBtn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const replayUrl = String(copyBtn.getAttribute('data-copy-replay-url') || '').trim();
+    if (!replayUrl) {
+      showBanner('Replay URL is not available for this run yet.', 2200);
+      return;
+    }
+    const copied = await writeTextToClipboard(replayUrl);
+    showBanner(copied ? 'Replay URL copied.' : 'Could not copy replay URL.', 2200);
   });
   const handleResetWalletInputChange = (event) => {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
@@ -17350,6 +18607,10 @@ function canSubmitRewardClaims() {
   els.moveBtn.addEventListener('click', () => {
     const tower = getSelectedTower();
     if (!tower) return;
+    if (game.movingTowerId === tower.id) {
+      cancelPendingAction();
+      return;
+    }
     game.movingTowerId = tower.id;
     log(tower.type === 'warrior' ? `Select an adjacent open tile to move ${tower.name}.` : `Select any open tile to move ${tower.name}.`);
     render();
@@ -17501,6 +18762,10 @@ function canSubmitRewardClaims() {
       else if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal();
       return;
     }
+    if (event.key === 'Escape' && hasCancelablePendingAction()) {
+      cancelPendingAction();
+      return;
+    }
     if (!game.introOpen) return;
     const pages = getActiveGuidePages();
     if (event.key === 'ArrowRight' && game.introPageIndex < pages.length - 1) {
@@ -17536,6 +18801,7 @@ function canSubmitRewardClaims() {
   window.DFKDefenseGameControl = {
     hasMeaningfulRunInProgress,
     restartForTracking: () => resetGame({ skipTrackedResetConfirm: true }),
+    clearStuckWaves,
   };
 
   ensureDailyQuestBoard(true);
@@ -17562,7 +18828,7 @@ function canSubmitRewardClaims() {
   }
 })();
 
-setTimeout(() => { try { if (true) { maybeShowWalletTutorial(); } } catch (e) {} }, 100);
+setTimeout(() => { try { if (!isReplayUrlView()) { maybeShowWalletTutorial(); } } catch (e) {} }, 100);
 
 
 
@@ -17812,3 +19078,6 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 /* === END UI TWEAK PATCH === */
+
+
+window.addEventListener('load', () => { setTimeout(() => { if (typeof window.loadSharedReplayFromUrl === 'function') window.loadSharedReplayFromUrl(); }, 250); });

@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
     const result = sliceText(bodyRow.result, 30, 'loss');
     const heroes = Array.isArray(bodyRow.heroes) ? (bodyRow.heroes as unknown[]) : [];
     const stats = bodyRow.stats && typeof bodyRow.stats === 'object' ? (bodyRow.stats as Record<string, unknown>) : {};
+    const replayData = bodyRow.replayData && typeof bodyRow.replayData === 'object' ? (bodyRow.replayData as Record<string, unknown>) : null;
     const completedAt = safeIsoDate(bodyRow.completedAt) || new Date().toISOString();
     const runStartedAt = safeIsoDate(bodyRow.runStartedAt);
     const chainId = sanitizeChainId(bodyRow.chainId ?? ((bodyRow.paymentSummary && typeof bodyRow.paymentSummary === 'object') ? (bodyRow.paymentSummary as Record<string, unknown>).chainId : null));
@@ -219,16 +220,21 @@ Deno.serve(async (req) => {
 
     const duplicate = await runAlreadyExists(admin, walletAddress, clientRunId);
     if (duplicate.exists) {
+      const duplicateReplayShareId = normalizeReplayShareId(replayData);
       console.log('submit-run duplicate', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: duplicate.id || null });
+      if (replayData && duplicate.id) {
+        await attachReplayData(admin, duplicate.id, replayData, duplicateReplayShareId, requestId);
+      }
       await syncPlayerSummaryFromRuns(admin, walletAddress, {
         displayName: resolvedDisplayName,
         lastRunAt: completedAt,
         usedWalletHeroes: Boolean(existingPlayer?.used_wallet_heroes) || usedWalletHeroes,
       });
       await touchWalletSession(admin, token);
-      return json({ ok: true, duplicate: true, runId: duplicate.id || null, clientRunId }, 200);
+      return json({ ok: true, duplicate: true, runId: duplicate.id || null, clientRunId, replayShareId: duplicateReplayShareId }, 200);
     }
 
+    const replayShareId = normalizeReplayShareId(replayData);
     const insertResult = await insertRun(admin, {
       wallet_address: walletAddress,
       client_run_id: clientRunId,
@@ -250,8 +256,15 @@ Deno.serve(async (req) => {
 
     if (insertResult.duplicate) {
       console.log('submit-run duplicate-after-insert', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: insertResult.id || duplicate.id || null });
+      if (replayData && (insertResult.id || duplicate.id)) {
+        await attachReplayData(admin, insertResult.id || duplicate.id || null, replayData, replayShareId, requestId);
+      }
       await touchWalletSession(admin, token);
-      return json({ ok: true, duplicate: true, runId: insertResult.id || duplicate.id || null, clientRunId }, 200);
+      return json({ ok: true, duplicate: true, runId: insertResult.id || duplicate.id || null, clientRunId, replayShareId }, 200);
+    }
+
+    if (replayData && insertResult.id) {
+      await attachReplayData(admin, insertResult.id, replayData, replayShareId, requestId);
     }
 
     await syncPlayerSummaryFromRuns(admin, walletAddress, {
@@ -262,7 +275,7 @@ Deno.serve(async (req) => {
 
     await touchWalletSession(admin, token);
     console.log('submit-run success', { requestId, walletAddress: summarizeAddress(walletAddress), clientRunId, runId: insertResult.id || null });
-    return json({ ok: true, runId: insertResult.id || null, clientRunId }, 200);
+    return json({ ok: true, runId: insertResult.id || null, clientRunId, replayShareId }, 200);
   } catch (error) {
     const details = normalizeError(error);
     console.error('submit-run fatal error', { requestId, ...details });
@@ -355,6 +368,35 @@ async function runAlreadyExists(admin: SupabaseClient, walletAddress: string, cl
   }
 
   return { exists: false, id: null as string | null };
+}
+
+
+async function attachReplayData(
+  admin: SupabaseClient,
+  runId: string | null,
+  replayData: Record<string, unknown>,
+  replayShareId: string | null,
+  requestId: string,
+) {
+  if (!runId || !replayData || typeof replayData !== 'object') return;
+
+  const variants = uniquePayloadVariants([
+    { replay_json: replayData, replay_share_id: replayShareId },
+    { replay_json: replayData },
+    replayShareId ? { replay_share_id: replayShareId } : {},
+  ].filter((row) => Object.keys(row).length > 0));
+
+  for (const variant of variants) {
+    const { error } = await admin.from('runs').update(variant).eq('id', runId);
+    if (!error) {
+      console.log('submit-run replay attached', { requestId, runId, payloadKeys: Object.keys(variant) });
+      return;
+    }
+    console.error('submit-run replay attach failed (non-fatal)', { requestId, runId, payloadKeys: Object.keys(variant), ...normalizeError(error) });
+    if (!isMissingColumnError(error)) {
+      return;
+    }
+  }
 }
 
 async function insertRun(admin: SupabaseClient, payload: Record<string, unknown>) {
@@ -1220,6 +1262,12 @@ function normalizeError(error: unknown) {
   return { message: String(error || 'Run submission failed.'), code: null, details: null, hint: null, name: null };
 }
 
+
+function normalizeReplayShareId(replayData: Record<string, unknown> | null) {
+  const raw = String((replayData && replayData.shareId) || '').trim().toLowerCase();
+  const safe = raw.replace(/[^a-z0-9_-]+/g, '').slice(0, 64);
+  return safe || null;
+}
 
 function normalizeClientRunId(value: unknown) {
   return String(value || '').trim().toLowerCase();

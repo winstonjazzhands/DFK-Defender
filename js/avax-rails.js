@@ -676,7 +676,6 @@ function loadCachedBalance() {
     const headers = {
       'Content-Type': 'application/json',
       apikey: CONFIG.supabaseAnonKey,
-      Authorization: `Bearer ${sessionToken || CONFIG.supabaseAnonKey}`,
     };
     if (sessionToken) headers['x-session-token'] = sessionToken;
     return headers;

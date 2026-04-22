@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="yes" name="mobile-web-app-capable"/>
+<title>DFK Defender v1.4.39</title>
+<link href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2750%27 font-size=%2748%27%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E" rel="icon"/>
+<link href="styles.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<style>
+.hero-title, .seer-title, .card-title {
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  padding:0 !important;
+  line-height:1 !important;
+}
+
+.champion-card-side-toggle{
+  width:100%;
+  background:transparent;
+  border:0;
+  padding:0;
+  text-align:left;
+  cursor:pointer;
+}
+.champion-card-side .champion-card-meta{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.champion-card-side-details{
+  margin-top:8px;
+}
+
+
+#runLogPanel{
+  overflow-y:auto;
+  overflow-x:hidden;
+  min-height:0;
+}
+.champion-header-row{
+  display:flex;
+  flex-direction:row;
+  flex-wrap:nowrap;
+  gap:8px;
+}
+.champion-header-row .wallet-btn{
+  flex:1 1 0;
+  min-width:0;
+  white-space:nowrap;
+}
+
+
+.champion-card-side{
+  padding: 4px 8px !important;
+  min-height: 0 !important;
+}
+.champion-card-side .champion-card-header{
+  min-height: 0 !important;
+  padding: 0 !important;
+  gap: 8px !important;
+}
+.champion-card-side .champion-card-portrait{
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+.champion-card-side .champion-card-headtext h3{
+  margin: 0 0 2px 0 !important;
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+}
+.champion-card-side .champion-card-meta{
+  gap: 4px !important;
+}
+.champion-card-side .champion-card-headtext{
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+}
+#chooseChampionBtn{
+  display:none !important;
+}
+
+
+.jewel-trade-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+.jewel-trade-actions .wallet-btn{
+  flex:1 1 calc(50% - 8px);
+  min-width:0;
+}
+
+.relic-swap-rail{
+  margin: 0 0 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  background: rgba(8,10,28,0.35);
+}
+.relic-swap-title{
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.relic-swap-actions{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.relic-swap-actions .wallet-btn{
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+
+.buttons-panel-body{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.buttons-panel-body .intro-toggle,
+.buttons-panel-body .menu-btn,
+.buttons-panel-body .leaderboard-flyout-btn{
+  width:100%;
+}
+.hourglass-spinner{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:3px solid rgba(255,255,255,0.2);
+  border-top-color: rgba(255,255,255,0.9);
+  margin: 8px auto 0;
+  animation: spinHourglass 1s linear infinite;
+}
+@keyframes spinHourglass{
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+.meet-hero-card .hero-name,
+.meet-the-hero-card .hero-name,
+.seer-meet-card .hero-name,
+.hero-meet-namebar,
+.hero-preview-namebar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  min-height:58px !important;
+  padding:0 14px !important;
+  background:#63c39f !important;
+  color:#f3efcf !important;
+  font-weight:900 !important;
+  letter-spacing:2px !important;
+  text-transform:uppercase !important;
+  text-shadow:
+    0 2px 0 rgba(73,58,19,0.95),
+    0 0 2px rgba(73,58,19,0.85),
+    0 0 6px rgba(255,245,200,0.18) !important;
+  border-radius:4px 4px 0 0 !important;
+}
+
+.meet-hero-card .hero-name span,
+.meet-the-hero-card .hero-name span,
+.seer-meet-card .hero-name span,
+.hero-meet-namebar span,
+.hero-preview-namebar span{
+  display:block !important;
+  width:100% !important;
+  line-height:1 !important;
+  transform:translateY(1px) !important;
+}
+
+
+.tile-dragoon-lead-badge{
+  background: rgba(255,215,90,0.9);
+  color:#2f2000;
+  font-weight:900;
+}
+.tile-dragoon-command-badge{
+  background: rgba(255,140,70,0.92);
+  color:#fff6df;
+  font-weight:900;
+}
+.tile-inspired{
+  box-shadow: inset 0 0 0 2px rgba(255,219,120,0.95), 0 0 12px rgba(255,219,120,0.65);
+  filter: brightness(1.08);
+}
+
+#totalRunsDisplay{opacity:.95}
+.tile-dragoon-lead-badge{
+  font-size:10px !important;
+  padding:1px 3px !important;
+}
+.range-champion_sage,
+.range-sage{
+  background: rgba(180,40,40,0.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(220,90,90,0.45) !important;
+}
+.tile-inspired-clean{
+  outline: 2px solid rgba(255,235,150,0.92);
+  outline-offset: -3px;
+  animation: inspireCleanPulse 1.1s ease-in-out infinite;
+}
+@keyframes inspireCleanPulse{
+  0%{ box-shadow: inset 0 0 0 1px rgba(255,235,150,0.35); }
+  50%{ box-shadow: inset 0 0 0 2px rgba(255,235,150,0.95), 0 0 8px rgba(255,220,120,0.45); }
+  100%{ box-shadow: inset 0 0 0 1px rgba(255,235,150,0.35); }
+}
+
+</style>
+</link></head>
+<body>
+<div aria-live="polite" class="mobile-rotate-prompt" id="mobileRotatePrompt">
+<div class="mobile-rotate-card panel">
+<div aria-hidden="true" class="mobile-rotate-icon">📱↻</div>
+<div class="mobile-rotate-title">Rotate your device</div>
+<div class="mobile-rotate-copy">This game plays best in landscape so the full board and menus stay on screen. On iPhone, the best experience is to add the game to the home screen.</div>
+</div>
+</div>
+<div id="app">
+<main class="main-layout">
+<section class="left-panel panel" id="runLogPanel">
+<div class="runlog-header" id="runLogHeader">
+<button aria-label="Collapse run log" aria-pressed="false" class="runlog-inline-toggle" id="runLogToggleBtn" onclick="return window.DFKToggleRunLog &amp;&amp; window.DFKToggleRunLog(event)" title="Collapse run log" type="button">▸</button>
+</div>
+<aside aria-hidden="true" class="leaderboard-flyout leaderboard-flyout-wide treasury-flyout panel" id="avaxTreasuryPanel">
+<div class="leaderboard-flyout-header leaderboard-flyout-header-compact treasury-flyout-header">
+<div>
+<div class="leaderboard-kicker">Private treasury admin</div>
+<h2 class="leaderboard-title leaderboard-title-compact">Treasury View</h2>
+</div>
+<button aria-label="Close treasury view" class="leaderboard-close" id="avaxTreasuryPanelCloseBtn" type="button">×</button>
+</div>
+<div class="treasury-flyout-scroll" id="avaxTreasuryPanelBody">
+<div class="treasury-summary-card treasury-summary-card-primary wallet-profile-balance" id="avaxTreasuryTotal">Treasury Earned: --</div>
+<div class="treasury-summary-card treasury-summary-card-primary wallet-profile-balance" id="avaxTreasuryToday">Treasury Paid: --</div>
+<div class="treasury-summary-card wallet-tracking-summary" id="avaxTreasuryBreakdown">Bundles: -- · Gold swaps: -- · Hero hires: --</div>
+<div class="treasury-summary-card wallet-tracking-summary" id="avaxTreasuryTxCount">Confirmed payments: --</div>
+<div aria-hidden="true" class="reward-claims-admin hidden" id="rewardClaimsAdminSection">
+<div class="reward-claims-admin-header" id="rewardClaimsAdminHeader">
+<div>
+<div class="meta-title reward-claims-admin-title">Reward Claims</div>
+<div class="wallet-tracking-summary" id="rewardClaimsAdminStatus">Pending claims: --</div>
+</div>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshTreasuryViewBtn" type="button">Refresh treasury</button>
+</div>
+<div class="reward-claims-admin-whitelist" id="rewardClaimsWhitelistSection">
+<div class="reward-claims-admin-subtitle">Withdrawal Whitelist</div>
+<div class="reward-claims-admin-whitelist-form">
+<input class="reward-claims-input mono" id="rewardWhitelistWalletInput" placeholder="Wallet address" type="text"/>
+<label class="reward-claims-check"><input id="rewardWhitelistActiveInput" checked="" type="checkbox"/> Active</label>
+<label class="reward-claims-check"><input id="rewardWhitelistDailyInput" type="checkbox"/> Daily quests</label>
+<label class="reward-claims-check"><input id="rewardWhitelistBountyInput" type="checkbox"/> Bounties</label>
+<input class="reward-claims-input" id="rewardWhitelistMaxClaimInput" min="0" placeholder="Max claim amount" step="0.01" type="number"/>
+<input class="reward-claims-input" id="rewardWhitelistDailyCapInput" min="0" placeholder="Daily cap" step="0.01" type="number"/>
+<input class="reward-claims-input" id="rewardWhitelistNotesInput" maxlength="160" placeholder="Notes" type="text"/>
+<button class="wallet-btn secondary" id="saveRewardWhitelistBtn" type="button">Save Wallet</button>
+</div>
+<div class="reward-claims-admin-whitelist-list" id="rewardClaimsWhitelistList"></div>
+</div>
+<div class="reward-claims-admin-body" id="rewardClaimsAdminBody"></div>
+</div>
+</div>
+</aside>
+<div class="wallet-top-balances" id="walletTopBalances">
+<div class="wallet-top-balance-row">
+<div class="wallet-top-balance" id="walletTopJewelBalance">JEWEL: --</div>
+<button class="wallet-top-refresh" id="walletTopRefreshBtn" type="button">Refresh</button>
+</div>
+<div class="wallet-top-balance" id="walletTopDfkgoldBalance">DFK Gold: --</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopClaimedToday">Claimed today: 0 Jewel</div>
+<div class="wallet-top-balance wallet-top-balance-small" id="walletTopResetTimer">Reset timer: --</div>
+</div>
+<div class="wallet-panel panel-lite collapsed" id="buttonsPanel">
+<button aria-controls="buttonsPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="buttonsPanelToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="meta-title">Tools</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body buttons-panel-body" id="buttonsPanelBody">
+<button class="intro-toggle secondary-guide quests-toggle" id="questsBtn" type="button">✅ Dailies / Bounties</button>
+<button class="intro-toggle secondary-guide known-relics-toggle" id="knownRelicsBtn" type="button">🧿 Known Relics</button>
+<button aria-controls="leaderboardFlyout" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide" id="leaderboardFlyoutBtn" type="button">📊 Leaderboard</button>
+<button class="intro-toggle secondary-guide" id="introBtn" type="button">📖 Lore / Learn more</button>
+<button class="intro-toggle secondary-guide tracked-runs-toggle" id="trackedRunsBtn" type="button">📜 Tracked Runs</button>
+<button class="intro-toggle secondary-guide transfer-heroes-toggle" id="transferHeroesBtn" type="button">📦 Transfer Heroes</button>
+<button aria-controls="avaxTreasuryPanel" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide hidden" id="treasuryFlyoutBtn" type="button">🏦 Treasury View</button>
+<button class="intro-toggle secondary-guide lore-toggle hidden" id="loreBtn" type="button">📜 Lore</button>
+<button class="intro-toggle secondary-guide bounty-toggle hidden" id="bountyBtn" type="button">🏆 Weekly Bounties</button>
+</div>
+</div>
+<div aria-hidden="true" class="wallet-panel panel-lite collapsed hidden" id="replayPanel">
+<button aria-controls="replayPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="replayPanelToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="meta-title">Replay</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body replay-panel-body" id="replayPanelBody">
+<div id="replayPanelWarning" class="gold hidden replay-panel-warning"></div>
+<div id="replayPanelMeta" class="replay-panel-meta"></div>
+<div class="replay-panel-controls">
+<button id="replayPanelPrevBtn" type="button">◀ Prev wave</button>
+<button id="replayPanelPlayPauseBtn" type="button">Play</button>
+<button id="replayPanelNextBtn" type="button">Next wave ▶</button>
+<button id="replayPanelCopyLinkBtn" type="button">Copy share link</button>
+</div>
+<div id="replayPanelStepLabel" class="gold replay-panel-step"></div>
+<div id="replayPanelEvents" class="replay-panel-events"></div>
+</div>
+</div>
+<div class="wallet-panel panel-lite collapsed" id="walletPanel">
+<button aria-controls="walletPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="walletPanelToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="meta-title" id="walletPanelTitle">Player Profile</span>
+<span class="wallet-status" id="walletStatus">Offline</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body" id="walletPanelBody">
+<div class="wallet-profile-name" id="walletProfileName">In-game Name: --</div>
+<div class="wallet-profile-balance" id="walletJewelBalance">JEWEL: --</div>
+<div class="wallet-profile-balance" id="walletDfkgoldBalance">DFK Gold: --</div>
+<div class="wallet-address" id="walletAddress">No wallet connected.</div>
+<div class="wallet-tracking-status" id="walletTrackingStatus">Run Tracking: Not connected</div>
+<div class="wallet-tracking-summary" id="walletTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
+<div aria-hidden="true" class="wallet-vanity-section hidden" id="walletVanitySection">
+<div class="wallet-vanity-row">
+<input class="wallet-vanity-input" id="walletVanityInput" maxlength="32" placeholder="Set vanity name" type="text"/>
+<button class="wallet-btn secondary vanity-btn" id="saveVanityBtn" type="button">Save Name</button>
+</div>
+<div class="wallet-tracking-summary" id="walletVanityStatus">Vanity Name: --</div>
+</div>
+<div class="wallet-actions">
+<button class="wallet-btn" id="connectWalletBtn" type="button">Connect Wallet</button>
+<button class="wallet-btn secondary" id="disconnectWalletBtn" type="button">Disconnect</button>
+</div>
+<button class="wallet-btn secondary tracking-btn" id="enableTrackingBtn" type="button">Enable Run Tracking</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="disableTrackingBtn" type="button">Disable Run Tracking</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="clearStuckWavesBtn" type="button">Clear Stuck Waves</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
+
+
+</div>
+</div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="walletHeroBonusSection">
+<button aria-controls="walletHeroBonusPanelBody" aria-expanded="false" class="wallet-panel-toggle wallet-hero-panel-toggle" id="walletHeroBonusToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="wallet-hero-bonus-title">Wallet Heroes</span>
+<span class="wallet-hero-panel-summary" id="walletHeroBonusSummary">Closed</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body wallet-hero-panel-body" id="walletHeroBonusPanelBody">
+<div class="wallet-hero-bonus-header">
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshWalletHeroesBtn" type="button">Refresh NFTs</button>
+</div>
+<div class="wallet-tracking-summary" id="walletHeroBonusStatus">Connect a wallet on DFK Chain to load heroes.</div>
+<div class="wallet-hero-bonus-body" id="walletHeroBonusBody"></div>
+</div>
+</div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="championPanel">
+<button aria-controls="championPanelBody" aria-expanded="false" class="wallet-panel-toggle wallet-hero-panel-toggle" id="championPanelToggle" type="button">
+<span class="wallet-panel-title-row">
+<span class="wallet-hero-bonus-title">Champions</span>
+<span class="wallet-hero-panel-summary" id="championPanelSummary">Closed</span>
+</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body wallet-hero-panel-body" id="championPanelBody">
+<div class="wallet-hero-bonus-header champion-header-row">
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshChampionsBtn" type="button">Refresh</button>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="chooseChampionBtn" type="button">Choose</button>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="deployChampionBtn" type="button">Deploy</button>
+</div>
+<div class="wallet-tracking-summary" id="championStatus">Connect a wallet to detect champion NFTs on DFK Chain and Metis.</div>
+<div class="wallet-hero-bonus-body" id="championBody"></div>
+</div>
+</div>
+
+
+
+<div class="log" id="log"></div>
+</section>
+<section class="center-panel panel">
+<div class="banner hidden" id="banner"></div>
+<div aria-label="battlefield" class="grid" id="grid"></div>
+<div class="status-overlay hidden" id="statusOverlay"><span class="phase-label" id="phaseLabel">Loading…</span> <span class="instruction" id="instructionText"></span></div>
+<footer class="bottom-panel panel">
+<div class="controls-row action-row controls-row-lean">
+<div class="start-wave-stack" id="startWaveStack">
+<button class="small-action lean-action" disabled="" id="startWaveBtn">Start Next Wave</button>
+<div id="startWaveBonusIndicator" hidden>Multiwave Bonus 1.25x</div>
+</div>
+<button aria-pressed="false" class="secondary small-action lean-action" id="autoStartBtn" type="button">Auto Start: Off</button>
+<button class="secondary small-action hidden" id="skipSetupBtn">Auto-Place Warrior</button>
+<button class="small-action lean-action" id="restartBtn">New Run</button>
+<div class="topbar footer-topbar footer-topbar-separated">
+<div class="hud-pill hud-pill-portal"><strong>Portal HP:</strong> <span id="portalHp">2500/2500</span></div>
+<div class="hud-pill hud-pill-gold"><strong>Gold:</strong> <span id="jewelCount">0</span></div>
+<div class="hud-pill hud-pill-wave"><strong>Wave:</strong> <span id="waveCount">0</span></div>
+<div aria-hidden="true" style="display:none !important;">
+<span id="patternLabel">--</span>
+<span id="mutationLabel">None</span>
+<span id="countdownLabel">--</span>
+<span id="runLogTitle"></span>
+</div>
+</div>
+</div>
+<div class="controls-stack">
+<div class="control-section hire-section">
+<div class="card-list hire-list" id="hirePanel"></div>
+</div>
+<div class="control-section relic-section">
+<h3>Relic Shop</h3>
+<div class="relic-swap-rail">
+<div class="relic-swap-title">Wallet swaps</div>
+<div class="relic-swap-actions">
+<button class="wallet-btn secondary" id="relicViewDfkgoldSwapBtn" type="button">DFK Gold → Gold</button>
+<button class="wallet-btn secondary" id="relicViewJewelGoldSwapBtn" type="button">1 JEWEL → 2000 Gold</button>
+</div>
+<div class="wallet-tracking-summary" id="relicSwapStatus">Use DFK Gold or JEWEL here without leaving the relic view.</div>
+</div>
+<div class="card-list relic-list" id="relicPanel"></div>
+</div>
+</div>
+</footer>
+</section>
+<section class="right-panel panel" id="infoPanel">
+<div class="panel-toggle-row">
+<div class="burned-gold-block"><div class="burned-gold-display" id="totalRunsDisplay">Total tracked runs: 0</div><div class="burned-gold-display" id="burnedGoldDisplay">Burned: 0 DFK Gold</div><div class="burned-gold-display burned-gold-raffle-display" id="dailyRaffleWinnerDisplay">Daily raffle winner: --</div></div>
+</div>
+<div class="hero-quick-select" id="heroQuickSelect"></div>
+<div class="selected-info" id="selectedInfo">Nothing selected.</div>
+<div class="action-group">
+<button disabled="" id="upgradeBtn">Level Up</button>
+<button disabled="" id="moveBtn">Move</button>
+<button class="secondary" disabled="" id="cancelActionBtn" type="button">Cancel Action</button>
+<button class="secondary desktop-only-inline" disabled="" id="maxLevelBtn">Max Lvl</button>
+<button aria-hidden="true" class="secondary hidden" disabled="" hidden="" id="rebuildBarriersBtn" tabindex="-1">Rebuild Barriers</button>
+</div>
+<div class="abilities-panel" id="abilitiesPanel"></div>
+</section>
+</main>
+<div aria-hidden="true" class="intro-modal hidden" id="heroPlacementReminderModal">
+<div aria-labelledby="heroPlacementReminderTitle" aria-modal="true" class="intro-modal-card milestone-hero-offer-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker">Placement Reminder</div>
+<h2 id="heroPlacementReminderTitle">Hero Ready</h2>
+</div>
+</div>
+<div class="intro-body" id="heroPlacementReminderBody"></div>
+<div class="intro-modal-footer milestone-hero-offer-actions">
+<button class="small-action milestone-hero-offer-btn" id="heroPlacementReminderOkBtn" type="button">Ok</button>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="relic-modal hidden" id="relicModal">
+<div class="relic-modal-card panel">
+<div class="relic-modal-title">Choose a Relic</div>
+<div class="card-list relic-list" id="relicModalBody"></div>
+</div>
+</div>
+<div aria-hidden="true" class="transfer-heroes-modal hidden" id="transferHeroesModal">
+<div aria-labelledby="transferHeroesTitle" aria-modal="true" class="transfer-heroes-modal-card panel" role="dialog">
+<div class="transfer-heroes-header">
+<div>
+<div class="intro-kicker">DFK Chain</div>
+<h2 id="transferHeroesTitle">Transfer Heroes</h2>
+</div>
+<button aria-label="Close hero transfer" class="intro-close" id="closeTransferHeroesBtn" type="button">×</button>
+</div>
+<div class="transfer-heroes-controls">
+<label class="transfer-heroes-field transfer-heroes-field-recipient">
+<span>Recipient wallet</span>
+<input autocomplete="off" class="transfer-heroes-input" id="transferHeroesRecipient" placeholder="0x..." spellcheck="false" type="text"/>
+</label>
+<label class="transfer-heroes-field transfer-heroes-field-search">
+<span>Search heroes</span>
+<input autocomplete="off" class="transfer-heroes-input" id="transferHeroesSearch" placeholder="Search by hero id, class, rarity, or level" spellcheck="false" type="text"/>
+</label>
+<label class="transfer-heroes-field transfer-heroes-field-sort">
+<span>Sort by</span>
+<select class="transfer-heroes-input transfer-heroes-select" id="transferHeroesSort">
+<option value="level_desc">Level (highest first)</option>
+<option value="class_level">Class then level</option>
+<option value="class_asc">Class (A–Z)</option>
+<option value="level_asc">Level (lowest first)</option>
+</select>
+</label>
+</div>
+<div class="transfer-heroes-toolbar">
+<button class="wallet-btn secondary" id="transferHeroesSelectAllBtn" type="button">Select visible</button>
+<button class="wallet-btn secondary" id="transferHeroesClearBtn" type="button">Clear</button>
+<div class="transfer-heroes-summary" id="transferHeroesSummary">No heroes selected.</div>
+</div>
+<div class="wallet-tracking-summary transfer-heroes-status" id="transferHeroesStatus">Connect a wallet on DFK Chain to load heroes.</div>
+<div class="transfer-heroes-pagination" id="transferHeroesPaginationTop">
+<button class="wallet-btn secondary" id="transferHeroesPrevBtn" type="button">← Prev</button>
+<div class="transfer-heroes-page-label" id="transferHeroesPageLabel">Page 1 / 1</div>
+<button class="wallet-btn secondary" id="transferHeroesNextBtn" type="button">Next →</button>
+</div>
+<div class="transfer-heroes-body" id="transferHeroesBody"></div>
+<div class="transfer-heroes-footer">
+<button class="small-action" id="confirmTransferHeroesBtn" type="button">Send selected heroes</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="introModal">
+<div aria-labelledby="introTitle" aria-modal="true" class="intro-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker" id="introKicker">DFK Defense Briefing</div>
+<h2 id="introTitle">DFK Defender – Stand Against the Void</h2>
+</div>
+<button aria-label="Close intro" class="intro-close" id="closeIntroBtn" type="button">×</button>
+</div>
+<div class="modal-top-toggle" id="guideModeToggle"><button class="modal-top-toggle-btn active" id="guideIntroToggleBtn" type="button">Learn more</button><button class="modal-top-toggle-btn" id="guideLoreToggleBtn" type="button">Lore</button></div><div class="intro-body" id="introBody"></div>
+<div class="intro-modal-footer">
+<button class="secondary small-action" id="introPrevBtn" type="button">← Back</button>
+<div class="intro-page-label" id="introPageLabel">Page 1 / 6</div>
+<button class="small-action" id="introNextBtn" type="button">Next →</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="startModeModal">
+<div aria-labelledby="startModeTitle" aria-modal="true" class="intro-modal-card start-mode-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker"></div>
+<h2 id="startModeTitle">Guest Mode or Connect Wallet</h2>
+</div>
+<button aria-label="Close mode choice" class="intro-close" id="closeStartModeBtn" type="button">×</button>
+</div>
+<div class="intro-body">
+<p>Guest mode is a fun and easy to play web2 version of DFK Defender. Players can learn the game and when they're ready connect a wallet and seek greater challenges.</p>
+<p>Connect your wallet to track runs, trade AVAX for in-game gold, and reach the top of the leaderboard. Down the road connected wallets will be able to complete daily quests and earn AVAX or Jewel, weekly quests to earn more, and a few lucky folks with win the monthly bounties worth 10 or even 100 times as much as a daily quest.</p>
+<div aria-live="polite" class="choice-modal-note hidden" id="startModeNote"></div>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer">
+<button class="secondary small-action" id="guestModeChoiceBtn" type="button">Guest Mode</button>
+<button class="small-action" id="connectModeChoiceBtn" type="button">Connect</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="guestConnectConfirmModal">
+<div aria-labelledby="guestConnectConfirmTitle" aria-modal="true" class="intro-modal-card start-mode-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker">Tracked run warning</div>
+<h2 id="guestConnectConfirmTitle">Connect Wallet?</h2>
+</div>
+<button aria-label="Close connect warning" class="intro-close" id="closeGuestConnectConfirmBtn" type="button">×</button>
+</div>
+<div class="intro-body">
+<p>By connecting you will cancel this guest game and start a tracked run.</p>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer">
+<button class="secondary small-action" id="guestConnectStayBtn" type="button">No I want to finish this game</button>
+<button class="small-action" id="guestConnectConfirmBtn" type="button">OK</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="seerIntroModal">
+<div aria-labelledby="seerIntroTitle" aria-modal="true" class="intro-modal-card seer-intro-modal-card panel" role="dialog">
+<div class="intro-modal-header seer-intro-header">
+<div>
+<div class="intro-kicker">CONNECTED PLAY GUIDE</div>
+<h2 class="seer-intro-title" id="seerIntroTitle">How to play</h2>
+</div>
+<button aria-label="Close how to play" class="intro-close" id="closeSeerIntroBtn" type="button">×</button>
+</div>
+<div class="intro-body seer-intro-body">
+<div class="intro-section-card">
+<p class="intro-note">You are building a kill corridor that protects your portal while your heroes and champions wear the wave down. The basic flow is simple:</p>
+<ol class="intro-compact-list">
+<li><span class="intro-highlight">Place the portal.</span> This is what the enemies want to destroy, so the rest of your setup is built around protecting it.</li>
+<li><span class="intro-highlight">Place 9 barriers.</span> Use them to force enemies through a long path instead of giving them a straight line to the portal.</li>
+<li><span class="intro-highlight">Place your Warrior.</span> She is the bottleneck. Enemies cannot pass through her, so she is your wall and frontline anchor.</li>
+<li><span class="intro-highlight">Select your free relic.</span> Take the relic that best fits the run you want to build.</li>
+<li><span class="intro-highlight">Place your damage and healing heroes.</span> Enemies pass through these heroes. They do not block the path, and enemies do not attack them directly, so position them where they can work safely behind your Warrior.</li>
+<li><span class="intro-highlight">Check for Champion NFTs.</span> If Champion NFTs are found on DFK Chain or Metis, you will get an option to select one for the run.</li>
+</ol>
+</div>
+<div class="intro-section-card">
+<h3 class="intro-page-heading">Here's how champions change the game</h3>
+<ul class="intro-compact-list">
+<li>Champions are special power picks that can push a run much further than a normal lineup.</li>
+<li>If you own eligible Champion NFTs on DFK Chain or Metis, the game will let you choose one before the run starts.</li>
+<li>They do not replace the normal setup steps. They add to them, so you still need a strong path, a good Warrior hold, and support behind it.</li>
+<li>A well-timed champion can stabilize a rough run or help you break through harder waves that a normal hero setup would struggle with.</li>
+</ul>
+</div>
+<div class="intro-section-card">
+<h3 class="intro-page-heading">Important run mechanics</h3>
+<ul class="intro-compact-list">
+<li><span class="intro-highlight">Last Chance</span> gives you a retry on the last wave instead of ending the run immediately. Use it to recover from a bad placement, a weak timing window, or a rough wave spike.</li>
+<li><span class="intro-highlight">Hiring additional heroes</span> becomes important as the run grows. Build your core first, then add more damage, healing, and utility when the game gives you the chance to hire and expand the board.</li>
+<li>Your pathing matters more than raw damage. A clean barrier path plus a strong Warrior choke is what gives the rest of your team time to do their job.</li>
+</ul>
+</div>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer seer-intro-footer">
+<button class="secondary small-action" id="seerIntroLearnMoreBtn" type="button">Learn even more?</button>
+<button class="small-action" id="seerIntroOkBtn" type="button">Let's play</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="championModal">
+<div aria-labelledby="championModalTitle" aria-modal="true" class="intro-modal-card champion-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker">CHAMPIONS DETECTED</div>
+<h2 id="championModalTitle">Choose your champion</h2>
+</div>
+</div>
+<div class="intro-body">
+<p id="championModalText">A champion can break the normal hero cap, self-heals for 2% per second, and can be deployed after waiting 20 waves. If you hold for 40 waves before deploying, they can stay out for 24 waves instead of 12.</p>
+<div class="champion-modal-body" id="championModalBody"></div>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer">
+<button class="small-action" id="championConfirmBtn" type="button">Select champion</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="championLockModal">
+<div aria-labelledby="championLockTitle" aria-modal="true" class="intro-modal-card champion-lock-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker">CHAMPION LOCK-IN</div>
+<h2 id="championLockTitle">Lock in this champion?</h2>
+</div>
+</div>
+<div class="intro-body">
+<p id="championLockText">Are you sure? This champion will be locked in for the entire run.</p>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer">
+<button class="small-action secondary" id="championLockCancelBtn" type="button">Go back</button>
+<button class="small-action" id="championLockConfirmBtn" type="button">I'm sure</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal bounty-modal hidden" id="bountyModal">
+<div aria-labelledby="bountyTitle" aria-modal="true" class="intro-modal-card bounty-modal-card panel" role="dialog">
+<div class="intro-modal-header bounty-modal-header">
+<div>
+<div class="intro-kicker">DFK Defender Rewards Board</div>
+<h2 id="bountyTitle">Bounty Board</h2>
+</div>
+<button aria-label="Close bounty board" class="intro-close" id="closeBountyBtn" type="button">×</button>
+</div>
+<div class="intro-body bounty-body" id="bountyBody"></div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal quests-modal hidden" id="questsModal">
+<div aria-labelledby="questsTitle" aria-modal="true" class="intro-modal-card quests-modal-card panel" role="dialog">
+<div class="intro-modal-header quests-modal-header">
+<div>
+<div class="intro-kicker">DFK Defender Daily Rewards</div>
+<h2 id="questsTitle">Daily Quests</h2>
+</div>
+<button aria-label="Close daily quests" class="intro-close" id="closeQuestsBtn" type="button">×</button>
+</div>
+<div class="modal-top-toggle compact" id="questModeToggle"><button class="modal-top-toggle-btn active" id="questDailyToggleBtn" type="button">Dailies</button><button class="modal-top-toggle-btn bounty-soon-toggle" id="questBountyToggleBtn" type="button" disabled aria-disabled="true" title="Bounties are temporarily offline while they are being hardened.">Bounties coming soon &lt;3</button></div><div class="intro-body quests-body" id="questsBody"></div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal tracked-runs-modal hidden" id="trackedRunsModal">
+<div aria-labelledby="trackedRunsTitle" aria-modal="true" class="intro-modal-card tracked-runs-modal-card panel" role="dialog">
+<div class="intro-modal-header tracked-runs-modal-header">
+<div>
+<div class="intro-kicker">DFK Defender Run Ledger</div>
+<h2 id="trackedRunsTitle">Tracked Runs</h2>
+</div>
+<button aria-label="Close tracked runs" class="intro-close" id="closeTrackedRunsBtn" type="button">×</button>
+</div>
+<div class="intro-body tracked-runs-body" id="trackedRunsBody"></div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="knownRelicsModal">
+<div aria-labelledby="knownRelicsTitle" aria-modal="true" class="intro-modal-card known-relics-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<div class="intro-kicker">DFK Defender Field Notes</div>
+<h2 id="knownRelicsTitle">Known Relics</h2>
+</div>
+<button aria-label="Close known relics" class="intro-close" id="closeKnownRelicsBtn" type="button">×</button>
+</div>
+<div class="intro-body known-relics-body" id="knownRelicsBody"></div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal elite-wave-modal hidden" id="eliteWaveModal">
+<div aria-labelledby="eliteWaveTitle" aria-modal="true" class="intro-modal-card elite-wave-modal-card panel" role="dialog">
+<div class="intro-modal-header elite-wave-modal-header">
+<div>
+<div class="intro-kicker">Brace Yourself</div>
+<h2 id="eliteWaveTitle">Elite Wave Incoming</h2>
+</div>
+</div>
+<div class="intro-body elite-wave-body" id="eliteWaveBody"></div>
+<div class="intro-modal-footer elite-wave-footer">
+<button class="small-action" id="eliteWaveOkBtn" type="button">OK</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="continueOfferModal">
+<div aria-labelledby="continueOfferTitle" aria-modal="true" class="intro-modal-card panel" role="dialog">
+<div class="intro-modal-header">
+<div>
+<h2 id="continueOfferTitle">Try again with 500 extra gold?</h2>
+</div>
+</div>
+<div class="intro-body" id="continueOfferBody">
+<p>The portal fell, but you can restart this round one time with <strong>500 extra gold</strong>.</p>
+</div>
+<div class="intro-modal-footer">
+<button class="small-action" id="continueHellYeahBtn" type="button">Hell yeah</button>
+<button class="secondary small-action" id="continueNoThanksBtn" type="button">No thanks</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="mobile-hud hidden" id="mobileHud">
+<button aria-label="Open side menu" aria-pressed="true" class="mobile-side-menu-toggle hidden" id="mobileSideMenuToggleBtn" type="button">›</button>
+<div aria-hidden="true" class="mobile-side-rail mobile-left-rail collapsed" id="mobileLeftRail">
+<div class="mobile-side-host" id="mobileBankHost"></div>
+<div class="mobile-side-host" id="mobileProfileHost"></div>
+</div>
+<button aria-label="Open battle info" aria-pressed="true" class="mobile-right-menu-toggle hidden" id="mobileRightMenuToggleBtn" type="button">‹</button>
+<div aria-hidden="true" class="mobile-side-rail mobile-right-rail collapsed" id="mobileRightRail">
+<div class="wallet-panel panel-lite mobile-stats-panel collapsed" id="mobileStatsPanel">
+<button aria-controls="mobileStatsPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="mobileStatsPanelToggle" type="button">
+<span class="meta-title">Battle Info</span>
+<span aria-hidden="true" class="wallet-panel-chevron">▾</span>
+</button>
+<div class="wallet-panel-body mobile-stats-body" id="mobileStatsPanelBody">
+<div class="mobile-side-host" id="mobileStatsHost"></div>
+</div>
+</div>
+</div>
+<div aria-live="polite" class="mobile-install-prompt hidden" id="mobileInstallPrompt">
+<div class="mobile-install-text" id="mobileInstallText">Add this game to your home screen for the best full-screen mobile experience.</div>
+<div class="mobile-install-actions">
+<button class="mobile-install-btn" id="mobileInstallBtn" type="button">Add</button>
+<button aria-label="Dismiss install prompt" class="mobile-install-dismiss" id="mobileInstallDismissBtn" type="button">×</button>
+</div>
+</div>
+<button aria-label="Close mobile menu" class="mobile-menu-overlay hidden" id="mobileMenuOverlay" type="button"></button>
+<div aria-hidden="true" class="mobile-menu-shell hidden" id="mobileMenuShell">
+<div aria-hidden="true" class="mobile-menu-card mobile-flyout-menu hidden" id="mobileFuncMenu">
+<div class="mobile-menu-title">FUNC</div>
+<div class="mobile-menu-actions">
+
+<button id="mobileFuncIntroBtn" type="button">Intro</button>
+<button class="hidden" id="mobileFuncBountyBtn" type="button">Bounties</button>
+<button id="mobileFuncQuestsBtn" type="button">Dailies / Bounties</button>
+<button id="mobileFuncKnownRelicsBtn" type="button">Known Relics</button>
+<button id="mobileFuncStartBtn" type="button">Start Next Wave</button>
+<button id="mobileFuncSkipBtn" type="button">Auto-Place Warrior</button>
+<button id="mobileFuncRestartBtn" type="button">New Run</button>
+</div>
+</div>
+<div aria-hidden="true" class="mobile-menu-card mobile-flyout-menu hidden" id="mobileHeroMenu">
+<div class="mobile-menu-title">HERO</div>
+<div class="mobile-hero-host" id="mobileHeroHost"></div>
+</div>
+<div aria-hidden="true" class="mobile-menu-card mobile-flyout-menu hidden" id="mobileHireMenu">
+<div class="mobile-menu-title">HIRE</div>
+<div class="mobile-hire-host" id="mobileHireHost"></div>
+</div>
+</div>
+<div aria-hidden="true" class="mobile-flyout-stack" id="mobileFlyoutStack">
+<button aria-controls="mobileHireMenu" aria-expanded="false" class="mobile-flyout-tab" id="mobileHireMenuBtn" type="button">
+<span class="mobile-flyout-label">Hire</span>
+<span aria-hidden="true" class="mobile-flyout-chevron">▸</span>
+</button>
+<button aria-controls="mobileFuncMenu" aria-expanded="false" class="mobile-flyout-tab" id="mobileFuncMenuBtn" type="button">
+<span class="mobile-flyout-label">Func</span>
+<span aria-hidden="true" class="mobile-flyout-chevron">▸</span>
+</button>
+<button aria-controls="mobileHeroMenu" aria-expanded="false" class="mobile-flyout-tab" id="mobileHeroMenuBtn" type="button">
+<span class="mobile-flyout-label">Hero</span>
+<span aria-hidden="true" class="mobile-flyout-chevron">▸</span>
+</button>
+</div>
+<div aria-hidden="true" class="mobile-quick-rail" id="mobileQuickRail">
+<div aria-live="polite" class="mobile-quick-status" id="mobileQuickStatus">
+<div class="mobile-quick-stat">
+<span class="mobile-quick-stat-label">Gold</span>
+<span class="mobile-quick-stat-value" id="mobileGoldCount">0</span>
+</div>
+<div class="mobile-quick-stat">
+<span class="mobile-quick-stat-label">Portal</span>
+<span class="mobile-quick-stat-value" id="mobilePortalHp">2500/2500</span>
+</div>
+</div>
+<button class="mobile-quick-btn mobile-quick-start" disabled="" id="mobileQuickStartBtn" type="button">Start</button>
+<button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickUpgradeBtn" type="button">Lvl</button>
+<button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickSatelliteBtn" type="button">Sat</button>
+<button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickCancelBtn" type="button">Cancel</button>
+<button class="mobile-quick-btn mobile-quick-mini" disabled="" id="mobileQuickMoveBtn" type="button">Move</button>
+<div aria-hidden="true" class="mobile-bottom-bar panel" id="mobileBottomBar">
+<button class="mobile-bottom-btn mobile-ability-btn" disabled="" id="mobileAbilityBtn1" type="button">A1</button>
+<button class="mobile-bottom-btn mobile-ability-btn" disabled="" id="mobileAbilityBtn2" type="button">A2</button>
+<button class="mobile-bottom-btn mobile-ability-btn" disabled="" id="mobileAbilityBtn3" type="button">A3</button>
+<button class="mobile-bottom-btn mobile-ability-btn mobile-max-level-btn" disabled="" id="mobileAbilityBtn4" type="button">Max Lvl</button>
+</div>
+</div>
+<button aria-label="Hide mobile controls" aria-pressed="false" class="mobile-bar-toggle hidden" id="mobileBarToggleBtn" type="button">
+<span aria-hidden="true" class="mobile-bar-toggle-chevron">‹</span>
+<span aria-hidden="true" class="mobile-bar-toggle-notice hidden" id="mobileBarToggleNotice"></span>
+</button>
+</div>
+
+<div aria-hidden="true" class="leaderboard-backdrop hidden" id="treasuryFlyoutBackdrop"></div>
+<div aria-hidden="true" class="leaderboard-backdrop hidden" id="leaderboardBackdrop"></div>
+<aside aria-hidden="false" class="leaderboard-flyout panel" id="leaderboardFlyout">
+<div class="leaderboard-flyout-header leaderboard-flyout-header-compact">
+<div>
+<h2 class="leaderboard-title leaderboard-title-compact">Leaderboard</h2>
+<div class="leaderboard-reset-copy">Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.</div>
+</div>
+<button aria-label="Close leaderboard" class="leaderboard-close" id="leaderboardCloseBtn" type="button">×</button>
+</div>
+<div class="leaderboard-controls leaderboard-controls-compact">
+<div class="leaderboard-period-actions">
+<button class="leaderboard-period-btn active" id="leaderboardCurrentWeekBtn" type="button">This Week</button>
+<button class="leaderboard-period-btn" id="leaderboardLastWeekBtn" type="button">Last Week</button>
+<button class="leaderboard-period-btn" id="leaderboardCurrentDayBtn" type="button">DFK Raffle</button>
+<button class="leaderboard-period-btn" id="leaderboardAvaxRaffleBtn" type="button">AVAX Raffle</button>
+<button class="leaderboard-refresh-btn" id="leaderboardRefreshBtn" type="button">Refresh</button>
+</div>
+<div class="leaderboard-range-controls">
+<div class="leaderboard-range-copy" id="leaderboardRangeCopy">Search a date range for the highest scores in that window. Daily raffle qualification is wave 30+ on a tracked run completed during the current UTC day only.</div>
+<div class="leaderboard-range-row">
+<label class="leaderboard-range-field">
+<span>Start</span>
+<input class="leaderboard-date-input" id="leaderboardStartDate" type="date"/>
+</label>
+<label class="leaderboard-range-field">
+<span>End</span>
+<input class="leaderboard-date-input" id="leaderboardEndDate" type="date"/>
+</label>
+<button class="leaderboard-range-btn" id="leaderboardApplyRangeBtn" type="button">Apply</button>
+</div>
+<div class="leaderboard-range-display" id="leaderboardRangeDisplay">Week of —</div>
+</div>
+</div>
+<div class="leaderboard-status" id="leaderboardStatus">Loading leaderboard…</div>
+<div class="leaderboard-table-wrap">
+<table class="leaderboard-table">
+<thead>
+<tr>
+<th>#</th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="player_name" role="button" tabindex="0">Player <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="wallet" role="button" tabindex="0">Wallet <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="best_wave" role="button" tabindex="0">Best Wave <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="runs" role="button" tabindex="0">Runs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="dfk_gold_burned" role="button" tabindex="0">Gold Burned <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th aria-sort="none" class="leaderboard-sortable" data-sort="used_wallet_heroes" role="button" tabindex="0">Own NFTs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
+<th class="hidden" id="leaderboardRaffleHeader">Daily Raffle</th>
+</tr>
+</thead>
+<tbody id="leaderboardTableBody">
+<tr><td class="leaderboard-empty" colspan="8">Loading…</td></tr>
+</tbody>
+</table>
+</div>
+<img alt="lurking face" class="leaderboard-lurker" src="assets/billy_corgan_sithloard2.png">
+</img></aside>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.config.js"></script>
+<script src="js/security-wallet.js?v=46.9.1.97"></script>
+<script src="js/avax-rails.js?v=46.9.1.124"></script>
+<script src="js/multi-chain-rails.js?v=46.9.1.97"></script>
+<script src="js/run-tracker.js?v=46.9.1.124"></script>
+<script src="js/leaderboard-flyout.js"></script>
+<script>
+    (function () {
+      function shouldIgnoreRuntimeError(evtOrReason) {
+        var message = '';
+        var filename = '';
+        var stack = '';
+        if (!evtOrReason) return false;
+        if (typeof evtOrReason === 'string') {
+          message = evtOrReason;
+        } else {
+          message = String(evtOrReason.message || evtOrReason.reason && evtOrReason.reason.message || evtOrReason.reason || '');
+          filename = String(evtOrReason.filename || '');
+          stack = String(evtOrReason.error && evtOrReason.error.stack || evtOrReason.reason && evtOrReason.reason.stack || '');
+        }
+        var blob = (message + ' ' + filename + ' ' + stack).toLowerCase();
+        return blob.includes('failed to connect to metamask') ||
+               blob.includes('chrome-extension://') ||
+               blob.includes('inpage.js') ||
+               blob.includes('metamask encountered an error setting the global ethereum provider');
+      }
+
+      window.addEventListener('error', function (event) {
+        if (shouldIgnoreRuntimeError(event)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return false;
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (event) {
+        if (shouldIgnoreRuntimeError(event)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return false;
+        }
+      }, true);
+    })();
+  </script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<script src="js/app.js?v=46.9.1.124"></script>
+<script src="js/layout-fixes.js?v=46.9.1.103"></script>
+<div aria-label="Build version" class="version-badge" id="versionBadge"></div>
+<div class="story-overlay hidden" id="storyOverlay">
+<div class="story-controls">
+<button class="story-skip-btn story-mute-btn" id="storyMuteBtn" type="button">Silence Music</button>
+<label class="story-volume-wrap" for="storyVolumeSlider">
+<span class="story-volume-label">Volume</span>
+<input class="story-volume-slider" id="storyVolumeSlider" max="100" min="0" step="1" type="range" value="20"/>
+<span class="story-volume-value" id="storyVolumeValue">20%</span>
+</label>
+<button class="story-skip-btn" id="storyPrevBtn" type="button">Prev</button>
+<button class="story-skip-btn" id="storyNextBtn" type="button">Next</button>
+<button class="story-skip-btn" id="storySkipBtn" type="button">Exit</button>
+</div>
+<div class="story-text" id="storyText"></div>
+</div>
+<script>
+(function(){
+  function isMobile(){ return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 900; }
+  function tryAutoGuest(){
+    if(!isMobile()) return;
+    // hide connect/guest modal if present
+    var modal = document.getElementById('connectModal') || document.querySelector('.connect-modal');
+    if(modal){ modal.style.display='none'; }
+    // call guest init if available
+    if (typeof window.startGuestMode === 'function') { window.startGuestMode(); return; }
+    if (typeof window.enterGuestMode === 'function') { window.enterGuestMode(); return; }
+    if (typeof window.onGuestSelected === 'function') { window.onGuestSelected(); return; }
+    // fallback: dispatch a custom event apps might listen to
+    window.dispatchEvent(new Event('guest-mode'));
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', tryAutoGuest);
+  } else {
+    tryAutoGuest();
+  }
+})();
+</script>
+</body>
+</html>

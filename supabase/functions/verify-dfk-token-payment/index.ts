@@ -94,7 +94,35 @@ Deno.serve(async (req) => {
       treasuryAddress: verified.to,
     }, { headers: corsHeaders });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Unknown error" }, {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      const paymentSessionId = String(body.paymentSessionId || "").trim();
+      const txHash = String(body.txHash || "").trim().toLowerCase();
+      const lowered = String(message || "").toLowerCase();
+      const terminal = lowered.includes("transaction failed on-chain")
+        || lowered.includes("session chain mismatch")
+        || lowered.includes("payment session not found")
+        || lowered.includes("invalid tx")
+        || lowered.includes("invalid transaction")
+        || lowered.includes("reverted");
+      if (terminal && paymentSessionId) {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await supabase
+          .from("dfk_token_payment_sessions")
+          .update({
+            status: "failed",
+            tx_hash: txHash || null,
+          })
+          .eq("id", paymentSessionId);
+      }
+    } catch (_innerError) {
+      // non-fatal
+    }
+    return Response.json({ error: message }, {
       status: 400,
       headers: corsHeaders,
     });

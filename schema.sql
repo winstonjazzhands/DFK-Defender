@@ -54,6 +54,8 @@ create table if not exists public.runs (
   premium_jewels integer not null default 0 check (premium_jewels >= 0),
   heroes_json jsonb not null default '[]'::jsonb,
   stats_json jsonb not null default '{}'::jsonb,
+  replay_json jsonb,
+  replay_share_id text unique,
   run_started_at timestamptz,
   completed_at timestamptz not null,
   created_at timestamptz not null default now(),
@@ -67,6 +69,7 @@ create index if not exists idx_runs_wallet_completed_at on public.runs (wallet_a
 create index if not exists idx_runs_wallet_chain_completed_at on public.runs (wallet_address, chain_id, completed_at desc);
 create index if not exists idx_runs_chain_completed_at on public.runs (chain_id, completed_at desc);
 create index if not exists idx_runs_best_wave on public.runs (wave_reached desc, completed_at desc);
+create index if not exists idx_runs_replay_share_id on public.runs (replay_share_id) where replay_share_id is not null;
 create index if not exists idx_wallet_sessions_wallet on public.wallet_sessions (wallet_address, expires_at desc);
 
 create or replace function public.set_updated_at()
