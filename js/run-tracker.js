@@ -170,15 +170,81 @@
     }
   }
 
+  const MAX_UPLOADED_QUEUE_RECORDS = 8;
+
+  function compactReplayDataForQueue(replayData, aggressive = false) {
+    if (!replayData || typeof replayData !== 'object') return null;
+    const compact = {
+      storageVersion: sanitizeInt(replayData.storageVersion || 0),
+      shareId: sliceText(replayData.shareId, 64, ''),
+      startedAt: sliceText(replayData.startedAt, 64, ''),
+      completedAt: sliceText(replayData.completedAt, 64, ''),
+      gameVersion: sliceText(replayData.gameVersion, 80, ''),
+      appVersion: sliceText(replayData.appVersion, 80, ''),
+      result: sliceText(replayData.result, 32, ''),
+    };
+    if (!aggressive) {
+      const waveSnapshots = Array.isArray(replayData.waveSnapshots) ? replayData.waveSnapshots : [];
+      const lightweightSnapshots = waveSnapshots.slice(-3).map((snapshot) => ({
+        waveNumber: sanitizeInt(snapshot && snapshot.waveNumber),
+        label: sliceText(snapshot && snapshot.label, 40, ''),
+        portalHp: sanitizeInt(snapshot && snapshot.portalHp),
+        jewel: sanitizeInt(snapshot && snapshot.jewel),
+        premiumJewels: sanitizeInt(snapshot && snapshot.premiumJewels),
+      })).filter((snapshot) => snapshot.waveNumber > 0 || snapshot.label);
+      if (lightweightSnapshots.length) compact.waveSnapshots = lightweightSnapshots;
+      compact.eventCount = Array.isArray(replayData.events) ? replayData.events.length : 0;
+    }
+    return compact;
+  }
+
+  function compactQueuePayloadForStorage(payload, aggressive = false) {
+    if (!payload || typeof payload !== 'object') return payload;
+    const compact = {
+      ...payload,
+      replayData: compactReplayDataForQueue(payload.replayData, aggressive),
+    };
+    if (compact.replayData == null) delete compact.replayData;
+    return compact;
+  }
+
+  function compactQueueRecordsForStorage(queue, aggressive = false) {
+    const normalizedQueue = Array.isArray(queue) ? queue : [];
+    const uploaded = [];
+    const pending = [];
+    for (const item of normalizedQueue) {
+      if (item && item.status === 'uploaded') uploaded.push(item);
+      else pending.push(item);
+    }
+    uploaded.sort((a, b) => String(b && b.updatedAt || '').localeCompare(String(a && a.updatedAt || '')));
+    const trimmedUploaded = uploaded.slice(0, MAX_UPLOADED_QUEUE_RECORDS);
+    return [...pending, ...trimmedUploaded].map((item) => (
+      !item || typeof item !== 'object'
+        ? item
+        : {
+            ...item,
+            payload: compactQueuePayloadForStorage(item.payload, aggressive),
+          }
+    ));
+  }
+
   function writeQueue(queue) {
     const normalizedQueue = Array.isArray(queue) ? queue : [];
-    try {
-      localStorage.setItem(getQueueStorageKey(), JSON.stringify(normalizedQueue));
-      return true;
-    } catch (_error) {
-      applyStatus('Run Tracking: Local queue storage failed', 'bad');
-      return false;
+    const attempts = [
+      normalizedQueue,
+      compactQueueRecordsForStorage(normalizedQueue, false),
+      compactQueueRecordsForStorage(normalizedQueue, true),
+    ];
+    for (const candidate of attempts) {
+      try {
+        localStorage.setItem(getQueueStorageKey(), JSON.stringify(candidate));
+        return true;
+      } catch (_error) {
+        // try a smaller version below
+      }
     }
+    applyStatus('Run Tracking: Local queue storage failed', 'bad');
+    return false;
   }
 
   function getQueueForAddress(address) {
@@ -420,9 +486,6 @@ function hardenRunStatsForSubmission(input) {
     avaxSpent: clampInt(source.avaxSpent, 0, 1000000000),
     dailyEliteQuestsCompleted: clampInt(source.dailyEliteQuestsCompleted, 0, 7),
     relicChoicesOpened: clampInt(source.relicChoicesOpened, 0, relicChoiceCap),
-    foundRelicIds: Array.from(new Set((Array.isArray(source.foundRelicIds || source.found_relic_ids) ? (source.foundRelicIds || source.found_relic_ids) : [])
-      .map((value) => sliceText(value, 64, ''))
-      .filter(Boolean))).slice(0, 128),
   };
 
   out.killsElite = Math.min(sanitizeInt(out.killsElite), sanitizeInt(out.killsTotal));
@@ -640,6 +703,37 @@ function attachSecureSubmission(queueId, secureSubmission) {
 
   function isAuthErrorMessage(message) {
     return /invalid or expired session|session not found|missing authorization header|jwt|expired|unauthorized|wallet mismatch|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
+  }
+
+  function isRetryableUploadError(error) {
+    const status = Number(error && error.status || 0);
+    const code = String(error && error.code || '').trim().toLowerCase();
+    const message = String(error && error.message || '').trim().toLowerCase();
+    if (status >= 500 || status === 408 || status === 409 || status === 425 || status === 429) return true;
+    if (/networkerror|failed to fetch|load failed|network request failed|timeout|temporarily unavailable|temporarily overloaded|edge function not reachable|service unavailable/.test(message)) return true;
+    if (/fetch|timeout|temporarily_unavailable|service_unavailable|rate_limit|overloaded/.test(code)) return true;
+    return false;
+  }
+
+  async function waitMs(ms) {
+    const delay = Math.max(0, Number(ms || 0));
+    if (!delay) return;
+    await new Promise((resolve) => window.setTimeout(resolve, delay));
+  }
+
+  async function submitTrackedRunWithRetry(payload, sessionToken, options = {}) {
+    const maxAttempts = Math.max(1, Number(options.maxAttempts || 1));
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await callFunction(CONFIG.submitFunction, payload, sessionToken);
+      } catch (error) {
+        lastError = error;
+        if (attempt >= maxAttempts || !isRetryableUploadError(error)) throw error;
+        await waitMs(Math.min(4000, 600 * attempt));
+      }
+    }
+    throw lastError || new Error('Upload failed');
   }
 
 
@@ -1260,7 +1354,9 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         }
       }
       const payloadToSubmit = normalizeQueuedRunPayload((queueItem && queueItem.payload) || normalizedPayload, walletAddress);
-      const result = await callFunction(CONFIG.submitFunction, payloadToSubmit, state.session.sessionToken);
+      const result = await submitTrackedRunWithRetry(payloadToSubmit, state.session.sessionToken, {
+        maxAttempts: interactive ? 3 : 2,
+      });
       markQueuedRunUploaded(queueItem.queueId);
       return { ok: true, queued: false, result };
     } catch (error) {
@@ -1271,7 +1367,9 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         if (interactive) {
           try {
             await ensureAuthenticatedSession({ forceRefresh: true });
-            const retried = await callFunction(CONFIG.submitFunction, normalizeQueuedRunPayload(queueItem.payload, walletAddress), state.session.sessionToken);
+            const retried = await submitTrackedRunWithRetry(normalizeQueuedRunPayload(queueItem.payload, walletAddress), state.session.sessionToken, {
+              maxAttempts: interactive ? 3 : 2,
+            });
             markQueuedRunUploaded(queueItem.queueId);
             return { ok: true, queued: false, result: retried };
           } catch (retryError) {
@@ -1294,7 +1392,9 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
               const refreshed = await requestSecureRunSignature(queueItem, walletAddress);
               queueItem = refreshed || queueItem;
               const retriedPayload = normalizeQueuedRunPayload(queueItem.payload, walletAddress);
-              const retried = await callFunction(CONFIG.submitFunction, retriedPayload, state.session.sessionToken);
+              const retried = await submitTrackedRunWithRetry(retriedPayload, state.session.sessionToken, {
+                maxAttempts: interactive ? 3 : 2,
+              });
               markQueuedRunUploaded(queueItem.queueId);
               return { ok: true, queued: false, result: retried, repaired: true };
             } catch (repairError) {
@@ -1393,6 +1493,23 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     }
   }
 
+  function flushPendingRunsSoon(options = {}) {
+    const delayMs = Math.max(0, Number(options.delayMs || 0));
+    window.setTimeout(() => {
+      try {
+        const address = normalizeAddress(options.address || state.address || getTrackingAddress() || '');
+        if (!address) return;
+        const pendingCount = getPendingQueueCount(address);
+        if (pendingCount <= 0) return;
+        const currentSession = restoreSession(address);
+        if (!currentSession || isSessionStale(currentSession)) return;
+        state.session = currentSession;
+        state.lastAuthenticatedAddress = address;
+        processPendingRuns({ address, interactive: !!options.interactive, force: !!options.force }).catch(() => {});
+      } catch (_error) {}
+    }, delayMs);
+  }
+
   function scheduleQueueFlush() {
     if (state.queueFlushTimer) {
       clearInterval(state.queueFlushTimer);
@@ -1400,17 +1517,10 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     }
     state.queueFlushTimer = window.setInterval(() => {
       try {
-        const address = normalizeAddress(state.address || getTrackingAddress() || '');
-        if (!address || document.hidden) return;
-        const pendingCount = getPendingQueueCount(address);
-        if (pendingCount <= 0) return;
-        const currentSession = restoreSession(address);
-        if (!currentSession || isSessionStale(currentSession)) return;
-        state.session = currentSession;
-        state.lastAuthenticatedAddress = address;
-        processPendingRuns({ address, interactive: false }).catch(() => {});
+        if (document.hidden) return;
+        flushPendingRunsSoon({ delayMs: 0, interactive: false });
       } catch (_error) {}
-    }, 20000);
+    }, 10000);
   }
 
   async function submitCompletedRun(runPayload) {
@@ -1451,6 +1561,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         return { ...result, queueId: queueItem.queueId };
       }
 
+      if (result && result.queued) flushPendingRunsSoon({ address: walletAddress, delayMs: 2500, interactive: false, force: true });
       if (result && result.secureSignatureRequired) {
         applyStatus('Run Tracking: High-value run pending secure submission', 'bad');
       } else {
@@ -1459,6 +1570,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       return { ...(result || { ok: false, queued: true, error: 'Upload pending.' }), queueId: queueItem.queueId };
     } catch (error) {
       const message = error && error.message ? error.message : 'Run submission failed.';
+      flushPendingRunsSoon({ address: payload && payload.walletAddress ? payload.walletAddress : walletAddress, delayMs: 2500, interactive: false, force: true });
       applyStatus('Run Tracking: Saved locally, upload pending', 'warn');
       return { ok: false, queued: true, error: message };
     }
@@ -1683,6 +1795,12 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     window.addEventListener('dfk-defense:wallet-state', (event) => {
       handleWalletState(event.detail).catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
     });
+    window.addEventListener('online', () => flushPendingRunsSoon({ delayMs: 250, interactive: false, force: true }));
+    window.addEventListener('focus', () => flushPendingRunsSoon({ delayMs: 250, interactive: false, force: true }));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) flushPendingRunsSoon({ delayMs: 250, interactive: false, force: true });
+    });
+    window.addEventListener('pageshow', () => flushPendingRunsSoon({ delayMs: 250, interactive: false, force: true }));
     const wallet = getWalletState();
     await handleWalletState(wallet || null);
   }
