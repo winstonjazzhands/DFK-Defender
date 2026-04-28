@@ -1,4 +1,4 @@
-// build: v46.9.1.192
+// build: v46.9.1.193
 
 let lastTouchEnd = 0;
 
@@ -586,7 +586,7 @@ const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
 const APP_VERSION = 'v10.3.3';
-const CURRENT_RUN_BUILD = 'V46.9.1.192';
+const CURRENT_RUN_BUILD = 'V46.9.1.193';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
@@ -3151,6 +3151,32 @@ function formatQuestResetCountdown(dateKey) {
 
   window.refreshWalletJewelTokenBalance = refreshWalletJewelTokenBalance;
 
+  async function waitForDfkTransactionReceipt(txHash, timeoutMs = 60000) {
+    const provider = getWalletProvider();
+    if (!txHash || !provider || typeof provider.request !== 'function') return null;
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        const receipt = await provider.request({ method: 'eth_getTransactionReceipt', params: [txHash] });
+        if (receipt) {
+          const rawStatus = receipt.status;
+          const status = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : rawStatus;
+          if (status === '0x0' || status === 0 || status === false) {
+            const error = new Error('Transaction failed on-chain.');
+            error.transactionHash = txHash;
+            error.receipt = receipt;
+            throw error;
+          }
+          return receipt;
+        }
+      } catch (error) {
+        if (error && String(error.message || '').toLowerCase().includes('transaction failed on-chain')) throw error;
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 1800));
+    }
+    return null;
+  }
+
   async function sendDfkJewelPayment(amountWei) {
     const wallet = getWalletStateSnapshot();
     const provider = getWalletProvider();
@@ -3164,6 +3190,10 @@ function formatQuestResetCountdown(dateKey) {
         value: '0x' + BigInt(String(amountWei || '0')).toString(16),
       }],
     });
+    await waitForDfkTransactionReceipt(txHash).catch(error => {
+      if (error && String(error.message || '').toLowerCase().includes('transaction failed on-chain')) throw error;
+      return null;
+    });
     return { txHash, walletAddress: wallet.address };
   }
 
@@ -3176,6 +3206,10 @@ function formatQuestResetCountdown(dateKey) {
     const txHash = await provider.request({
       method: 'eth_sendTransaction',
       params: [{ from: wallet.address, to: HONK_TOKEN_ADDRESS, value: '0x0', data }],
+    });
+    await waitForDfkTransactionReceipt(txHash).catch(error => {
+      if (error && String(error.message || '').toLowerCase().includes('transaction failed on-chain')) throw error;
+      return null;
     });
     return { txHash, walletAddress: wallet.address };
   }
@@ -4906,6 +4940,15 @@ function formatQuestResetCountdown(dateKey) {
       const remaining = [];
       for (const entry of queue) {
         try {
+          try {
+            await waitForDfkTransactionReceipt(entry.txHash, 8000);
+          } catch (receiptError) {
+            if (receiptError && String(receiptError.message || '').toLowerCase().includes('transaction failed on-chain')) {
+              removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
+              console.info('[JEWEL trade] removed failed on-chain transaction from pending verification queue.', receiptError);
+              continue;
+            }
+          }
           await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
             paymentSessionId: entry.paymentSessionId,
             txHash: entry.txHash,
@@ -4923,7 +4966,11 @@ function formatQuestResetCountdown(dateKey) {
           } else {
             removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
           }
-          console.warn(`[JEWEL trade] pending verification retry ${terminal ? 'ended permanently' : 'failed'}.`, error);
+          if (terminal) {
+            console.info('[JEWEL trade] removed failed or rejected pending verification from local retry queue.', error);
+          } else {
+            console.warn('[JEWEL trade] pending verification retry failed.', error);
+          }
         }
       }
       writePendingDfkJewelVerificationQueue(remaining);
