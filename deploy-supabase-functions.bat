@@ -8,6 +8,7 @@ npx supabase functions deploy run-submit-challenge --no-verify-jwt
 npx supabase functions deploy revoke-run-session --no-verify-jwt
 npx supabase functions deploy record-dfkgold-burn --no-verify-jwt
 npx supabase functions deploy public-leaderboard --no-verify-jwt
+npx supabase functions deploy daily-raffle --no-verify-jwt
 
 rem AVAX rails / treasury functions
 npx supabase functions deploy create-avax-session --no-verify-jwt

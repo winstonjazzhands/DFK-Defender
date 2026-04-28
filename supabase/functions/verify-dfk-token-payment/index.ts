@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { DFK_CHAIN_ID, DFK_JEWEL_PAYMENT_ASSET } from "../_shared/env.ts";
-import { verifyNativeJewelTransferTx } from "../_shared/chain.ts";
+import { DFK_CHAIN_ID, DFK_HONK_PAYMENT_ASSET, DFK_HONK_TOKEN_ADDRESS, DFK_JEWEL_PAYMENT_ASSET } from "../_shared/env.ts";
+import { verifyErc20TransferTx, verifyNativeJewelTransferTx } from "../_shared/chain.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -43,11 +43,20 @@ Deno.serve(async (req) => {
 
     if (markSubmittedError) console.warn("verify-dfk-token-payment could not mark session submitted", markSubmittedError);
 
-    const verified = await verifyNativeJewelTransferTx(
-      txHash,
-      session.wallet_address,
-      BigInt(String(session.expected_amount_wei)),
-    );
+    const paymentAsset = String(session.payment_asset || DFK_JEWEL_PAYMENT_ASSET).trim().toLowerCase();
+    const verified = paymentAsset === DFK_HONK_PAYMENT_ASSET
+      ? await verifyErc20TransferTx(
+        txHash,
+        String(session.token_address || DFK_HONK_TOKEN_ADDRESS),
+        session.wallet_address,
+        session.treasury_address,
+        BigInt(String(session.expected_amount_wei)),
+      )
+      : await verifyNativeJewelTransferTx(
+        txHash,
+        session.wallet_address,
+        BigInt(String(session.expected_amount_wei)),
+      );
 
     const verifiedAt = new Date().toISOString();
 
@@ -86,7 +95,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       ok: true,
-      paymentAsset: DFK_JEWEL_PAYMENT_ASSET,
+      paymentAsset: session.payment_asset || DFK_JEWEL_PAYMENT_ASSET,
       verifiedAt,
       txHash: verified.transactionHash,
       amountWei: verified.amount,

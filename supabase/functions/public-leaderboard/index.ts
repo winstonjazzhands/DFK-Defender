@@ -71,8 +71,25 @@ Deno.serve(async (req) => {
     const lifetimeRuns = await runStage(requestId, 'fetchAllRuns', () => fetchAllRuns(admin));
     const burnRows = await runStage(requestId, 'fetchBurnRowsForRange', () => fetchBurnRowsForRange(admin, rangeSelection.selectedRange));
     const lifetimeBurnRows = await runStage(requestId, 'fetchAllBurnRows', () => fetchAllBurnRows(admin));
-    const latestDfkDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk)', () => fetchLatestDailyRaffleWinner(admin, 'dfk'));
-    const latestAvaxDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax)', () => fetchLatestDailyRaffleWinner(admin, 'avax'));
+    let latestDfkDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk)', () => fetchLatestDailyRaffleWinner(admin, 'dfk'));
+    let latestDfkMorningRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,morning)', () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'morning'));
+    let latestDfkMiddayRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,midday)', () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'midday'));
+    let latestAvaxDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax)', () => fetchLatestDailyRaffleWinner(admin, 'avax'));
+    let latestAvaxMorningRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,morning)', () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'morning'));
+    let latestAvaxMiddayRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,midday)', () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'midday'));
+    latestDfkMorningRaffleWinner = latestDfkMorningRaffleWinner
+      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,morning:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'morning')), 'morning')
+      || withDrawSlot(filterCurrentDayRaffleWinner(latestDfkDailyRaffleWinner, 'morning'), 'morning');
+    latestDfkMiddayRaffleWinner = latestDfkMiddayRaffleWinner
+      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,midday:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'midday')), 'midday');
+    latestAvaxMorningRaffleWinner = latestAvaxMorningRaffleWinner
+      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax,morning:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'avax', 'morning')), 'morning')
+      || withDrawSlot(filterCurrentDayRaffleWinner(latestAvaxDailyRaffleWinner, 'morning'), 'morning');
+    latestAvaxMiddayRaffleWinner = latestAvaxMiddayRaffleWinner
+      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax,midday:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'avax', 'midday')), 'midday');
+    latestDfkDailyRaffleWinner = latestDfkMiddayRaffleWinner || latestDfkMorningRaffleWinner;
+    latestAvaxDailyRaffleWinner = latestAvaxMiddayRaffleWinner || latestAvaxMorningRaffleWinner;
+
     const usedMap = buildUsedWalletHeroesMap(runs);
     const burnSummary = buildBurnSummary(burnRows, runs);
     const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange, rangeSelection.raffleType);
@@ -147,8 +164,13 @@ Deno.serve(async (req) => {
           threshold_wave: 30,
           raffle_type: rangeSelection.raffleType || 'dfk',
           latest_winner: rangeSelection.raffleType === 'avax' ? latestAvaxDailyRaffleWinner : latestDfkDailyRaffleWinner,
+          latest_winners: rangeSelection.raffleType === 'avax'
+            ? { morning: latestAvaxMorningRaffleWinner, midday: latestAvaxMiddayRaffleWinner }
+            : { morning: latestDfkMorningRaffleWinner, midday: latestDfkMiddayRaffleWinner },
           latest_winner_dfk: latestDfkDailyRaffleWinner,
+          latest_winners_dfk: { morning: latestDfkMorningRaffleWinner, midday: latestDfkMiddayRaffleWinner },
           latest_winner_avax: latestAvaxDailyRaffleWinner,
+          latest_winners_avax: { morning: latestAvaxMorningRaffleWinner, midday: latestAvaxMiddayRaffleWinner },
         },
       },
     }, 200);
@@ -420,14 +442,99 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
 
 
 
-async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string) {
+function withDrawSlot(row: Record<string, unknown> | null, drawSlot: 'morning' | 'midday') {
+  return row ? { ...row, draw_slot: String(row.draw_slot || drawSlot) } : null;
+}
+
+function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawSlot: 'morning' | 'midday') {
+  if (!row) return null;
+  const now = new Date();
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const midday = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  if (drawSlot === 'midday' && now < midday) return null;
+
+  const settledRaw = String(row.settled_at || '').trim();
+  const settledAt = settledRaw ? new Date(settledRaw) : null;
+  if (settledAt && Number.isFinite(settledAt.getTime())) {
+    if (drawSlot === 'morning') return settledAt >= todayStart && settledAt < midday ? row : null;
+    return settledAt >= midday && settledAt < tomorrowStart ? row : null;
+  }
+
+  const raffleDay = String(row.raffle_day || '').slice(0, 10);
+  const today = todayStart.toISOString().slice(0, 10);
+  const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (drawSlot === 'morning') {
+    return raffleDay === today || (now < midday && raffleDay === yesterday) ? row : null;
+  }
+  return raffleDay === today ? row : null;
+}
+
+
+async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot: 'morning' | 'midday') {
+  const now = new Date();
+  if (drawSlot === 'midday' && now.getUTCHours() < 12) return null;
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
   const selectVariants = [
-    'raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
-    'raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
-    'raffle_day, raffle_type, winner_wallet, winner_name, payout_status, settled_at',
-    'raffle_day, raffle_type, winner_wallet, winner_name, settled_at',
-    'raffle_day, raffle_type, winner_wallet, settled_at',
-    'raffle_day, raffle_type, winner_wallet',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet',
+    'raffle_day, winner_wallet, winner_name',
+    'raffle_day, winner_wallet',
+  ];
+  let allowTypeFilter = true;
+  let lastError: unknown = null;
+  for (const columns of selectVariants) {
+    const includeSlot = columns.includes('draw_slot');
+    const slotAttempts = includeSlot ? [drawSlot, null] : [null];
+    for (const slotAttempt of slotAttempts) {
+      let query = admin.from('daily_raffle_results').select(columns).eq('raffle_day', today);
+      if (allowTypeFilter && columns.includes('raffle_type')) query = query.eq('raffle_type', raffleType);
+      if (slotAttempt && includeSlot) query = query.eq('draw_slot', slotAttempt);
+      if (columns.includes('settled_at')) query = query.order('settled_at', { ascending: false, nullsFirst: false });
+      if (includeSlot) query = query.order('draw_slot', { ascending: drawSlot === 'morning' });
+      const { data, error } = await query.limit(1).maybeSingle();
+      if (!error) {
+        if (!data) continue;
+        if (drawSlot === 'midday' && String((data as Record<string, unknown>).draw_slot || '').toLowerCase() !== 'midday') continue;
+        return {
+          raffle_day: (data as Record<string, unknown>).raffle_day,
+          draw_slot: (data as Record<string, unknown>).draw_slot || drawSlot,
+          winner_wallet: (data as Record<string, unknown>).winner_wallet,
+          winner_name: await resolvePlayerDisplayName(admin, (data as Record<string, unknown>).winner_wallet, (data as Record<string, unknown>).winner_name),
+          qualifier_count: sanitizeInt((data as Record<string, unknown>).qualifier_count),
+          payout_status: (data as Record<string, unknown>).payout_status || null,
+          payout_tx_hash: (data as Record<string, unknown>).payout_tx_hash || null,
+          claim_id: (data as Record<string, unknown>).claim_id || null,
+          settled_at: (data as Record<string, unknown>).settled_at || null,
+          raffle_type: (data as Record<string, unknown>).raffle_type || raffleType,
+        };
+      }
+      lastError = error;
+      if (isMissingRelationError(error)) return null;
+      if (isMissingColumnError(error)) {
+        const errorText = JSON.stringify(normalizeError(error)).toLowerCase();
+        if (errorText.includes('raffle_type')) allowTypeFilter = false;
+        break;
+      }
+      throw error;
+    }
+  }
+  if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return null;
+  throw lastError || new Error('Current daily raffle result query failed.');
+}
+
+async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot?: 'morning' | 'midday' | null) {
+  const selectVariants = [
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet',
     'raffle_day, winner_wallet, winner_name',
     'raffle_day, winner_wallet',
   ];
@@ -440,14 +547,25 @@ async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: s
     if (allowTypeFilter && columns.includes('raffle_type')) {
       query = query.eq('raffle_type', raffleType);
     }
-    query = query.order('raffle_day', { ascending: false }).limit(1);
+    if (drawSlot && columns.includes('draw_slot')) {
+      query = query.eq('draw_slot', drawSlot);
+    }
+    if (columns.includes('settled_at')) {
+      query = query.order('settled_at', { ascending: false, nullsFirst: false });
+    }
+    query = query.order('raffle_day', { ascending: false });
+    if (columns.includes('draw_slot')) {
+      query = query.order('draw_slot', { ascending: false });
+    }
+    query = query.limit(1);
     const { data, error } = await query.maybeSingle();
     if (!error) {
       if (!data) return null;
       return {
         raffle_day: data.raffle_day,
+        draw_slot: data.draw_slot || null,
         winner_wallet: data.winner_wallet,
-        winner_name: data.winner_name || null,
+        winner_name: await resolvePlayerDisplayName(admin, data.winner_wallet, data.winner_name),
         qualifier_count: sanitizeInt(data.qualifier_count),
         payout_status: data.payout_status || null,
         payout_tx_hash: data.payout_tx_hash || null,
@@ -673,6 +791,58 @@ function burnRowMatchesRange(row: BurnRow, rangeStartMs: number, rangeEndMs: num
 
 function normalizeAddress(address: unknown) {
   return String(address || '').trim().toLowerCase();
+}
+
+function cleanName(value: unknown) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 64) : '';
+}
+
+async function resolvePlayerDisplayName(admin: SupabaseClient, wallet: unknown, fallbackName: unknown = '') {
+  const existingName = cleanName(fallbackName);
+  const walletAddress = normalizeAddress(wallet);
+  if (!walletAddress) return existingName;
+
+  const nameFromRecord = (record: Record<string, unknown> | null | undefined) => {
+    if (!record) return '';
+    return cleanName(record.vanity_name)
+      || cleanName(record.display_name)
+      || cleanName(record.player_name)
+      || cleanName(record.name)
+      || cleanName(record.display_name_snapshot)
+      || cleanName(record.player_name_snapshot);
+  };
+
+  const lookups: Array<{ table: string; columns: string[]; walletColumns: string[]; orderColumn?: string }> = [
+    { table: 'players', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'player_profiles', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'runs', columns: ['display_name_snapshot, completed_at', 'player_name_snapshot, completed_at'], walletColumns: ['wallet_address', 'wallet'], orderColumn: 'completed_at' },
+  ];
+
+  for (const lookup of lookups) {
+    for (const columns of lookup.columns) {
+      for (const walletColumn of lookup.walletColumns) {
+        for (const operator of ['eq', 'ilike'] as const) {
+          try {
+            let query = admin.from(lookup.table).select(columns);
+            query = operator === 'eq'
+              ? query.eq(walletColumn, walletAddress)
+              : query.ilike(walletColumn, walletAddress);
+            if (lookup.orderColumn && columns.includes(lookup.orderColumn)) {
+              query = query.order(lookup.orderColumn, { ascending: false });
+            }
+            const { data, error } = await query.limit(1).maybeSingle();
+            if (!error && data) {
+              const resolved = nameFromRecord(data as Record<string, unknown>);
+              if (resolved) return resolved;
+            }
+          } catch (_error) {}
+        }
+      }
+    }
+  }
+
+  return existingName || walletAddress;
 }
 
 function sanitizeInt(value: unknown) {

@@ -296,17 +296,55 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (existingError) throw existingError;
     if (existingClaim?.id) {
+      let existingStatus = existingClaim.status || 'pending';
+      let existingTxHash = existingClaim.tx_hash || null;
+      let existingMessage = (existingClaim.status === 'paid' || existingClaim.tx_hash)
+        ? `${questName} was already paid from treasury.`
+        : `${questName} was already submitted earlier today.`;
+
+      // If a whitelisted claim was created/approved but the client never received a payout
+      // tx (or an older build failed before paying), retry the auto-payout on repeat calls.
+      // This lets the frontend polling path recover and show the tx-backed “hell yeah” screen.
+      const existingClaimApproved = String(existingClaim.status || '').trim().toLowerCase() === 'approved'
+        || !!String(existingClaim.approved_at || '').trim();
+      if (existingClaimApproved && !String(existingClaim.tx_hash || '').trim() && isAutoRewardPayoutConfigured()) {
+        const payoutResult = await tryAutoPayRewardClaim(admin, {
+          id: existingClaim.id,
+          wallet_address: existingClaim.wallet_address || walletAddress,
+          status: existingClaim.status,
+          amount_value: existingClaim.amount_value ?? amountValue,
+          reward_currency: existingClaim.reward_currency || rewardCurrency,
+          amount_text: existingClaim.amount_text || canonicalAmountText,
+          admin_note: existingClaim.admin_note,
+          approved_at: existingClaim.approved_at,
+          resolved_at: existingClaim.resolved_at,
+          resolved_by_wallet: existingClaim.resolved_by_wallet,
+          tx_hash: existingClaim.tx_hash,
+          paid_at: existingClaim.paid_at,
+          failure_reason: existingClaim.failure_reason,
+        });
+        if (payoutResult.paid) {
+          existingStatus = 'paid';
+          existingTxHash = payoutResult.txHash || null;
+          existingMessage = `${questName} paid automatically from treasury.`;
+        } else if (payoutResult.attempted) {
+          existingStatus = 'approved';
+          existingTxHash = payoutResult.txHash || null;
+          existingMessage = `${questName} auto-approved, but treasury payout failed and needs review: ${payoutResult.message}`;
+        }
+      }
+
       return json({
         ok: true,
         claimId: existingClaim.id,
-        status: existingClaim.status || 'pending',
-        txHash: existingClaim.tx_hash || null,
+        status: existingStatus,
+        txHash: existingTxHash,
         rewardCurrency: existingClaim.reward_currency || rewardCurrency || null,
+        rewardAmountValue: existingClaim.amount_value ?? amountValue,
+        rewardAmountText: existingClaim.amount_text || canonicalAmountText,
         whitelistAutoApproved: false,
         whitelistReason: 'Claim already exists for this wallet and quest today.',
-        message: (existingClaim.status === 'paid' || existingClaim.tx_hash)
-          ? `${questName} was already paid from treasury.`
-          : `${questName} was already submitted earlier today.`,
+        message: existingMessage,
       });
     }
 

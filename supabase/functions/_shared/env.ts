@@ -1,6 +1,8 @@
 export const DFK_CHAIN_ID = Number(Deno.env.get("DFK_CHAIN_ID") || "53935");
 export const DFK_RPC_URL = Deno.env.get("DFK_RPC_URL") || "";
 export const DFK_JEWEL_TOKEN_ADDRESS = (Deno.env.get("DFK_JEWEL_TOKEN_ADDRESS") || "0xCCb93dABD71c8Dad03Fc4CE5559dC3D89F67a260").toLowerCase();
+export const DFK_HONK_TOKEN_ADDRESS = (Deno.env.get("DFK_HONK_TOKEN_ADDRESS") || "0x11C3b7bADC5359242c34C68C1F0f071bFf49a3D8").trim().toLowerCase();
+export const DFK_HONK_PAYMENT_ASSET = Deno.env.get("DFK_HONK_PAYMENT_ASSET") || "honk";
 export const TREASURY_ADDRESS = (Deno.env.get("TREASURY_ADDRESS") || "0xab45288409900be5ef23c19726a30c28268495ad").trim().toLowerCase();
 export const DFK_JEWEL_PAYMENT_ASSET = Deno.env.get("DFK_JEWEL_PAYMENT_ASSET") || "native_jewel";
 export const AVAX_CHAIN_ID = Number(Deno.env.get("AVAX_CHAIN_ID") || "43114");

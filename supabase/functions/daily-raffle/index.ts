@@ -24,6 +24,12 @@ function serializeError(error: unknown) {
   return { value: String(error) };
 }
 
+
+function isMissingColumnError(error: unknown) {
+  const text = JSON.stringify(error || {}).toLowerCase();
+  return text.includes('column') && (text.includes('does not exist') || text.includes('could not find'));
+}
+
 function createAdmin() {
   return createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -41,6 +47,8 @@ type RaffleConfig = {
   sourceRefPrefix: string;
   cronSecretEnv: string;
 };
+
+type DrawSlot = 'morning' | 'midday';
 
 function getRaffleConfig(raffleTypeRaw: string | null | undefined): RaffleConfig {
   const raffleType = String(raffleTypeRaw || '').trim().toLowerCase() === 'avax' ? 'avax' : 'dfk';
@@ -79,6 +87,40 @@ function addUtcDays(date: Date, days: number) {
   return new Date(date.getTime() + (days * 86400000));
 }
 
+function addUtcHours(date: Date, hours: number) {
+  return new Date(date.getTime() + (hours * 3600000));
+}
+
+function getDrawSlot(value: string | null | undefined): DrawSlot {
+  return String(value || '').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+}
+
+function getDrawLabel(drawSlot: DrawSlot) {
+  return drawSlot === 'midday' ? 'Midday Winner' : 'Morning Winner';
+}
+
+function getDrawWindow(raffleDay: string, drawSlot: DrawSlot) {
+  const drawBoundary = startOfUtcDay(raffleDay);
+  if (drawSlot === 'midday') {
+    return {
+      windowStart: drawBoundary,
+      windowEnd: addUtcHours(drawBoundary, 12),
+    };
+  }
+  return {
+    windowStart: addUtcHours(drawBoundary, -12),
+    windowEnd: drawBoundary,
+  };
+}
+
+function getDefaultSettlementTarget(now: Date) {
+  const todayStart = startOfUtcDay(now);
+  if (now.getUTCHours() >= 12) {
+    return { raffleDay: utcDateOnly(todayStart), drawSlot: 'midday' as DrawSlot };
+  }
+  return { raffleDay: utcDateOnly(todayStart), drawSlot: 'morning' as DrawSlot };
+}
+
 function normalizeAddress(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
@@ -94,43 +136,156 @@ function sanitizeInt(value: unknown) {
   return Math.round(parsed);
 }
 
-async function sha256Hex(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+async function resolvePlayerDisplayName(admin: ReturnType<typeof createAdmin>, wallet: unknown, fallbackName: unknown = '') {
+  const existingName = cleanName(fallbackName);
+  const walletAddress = normalizeAddress(wallet);
+  if (!walletAddress) return existingName;
+
+  const nameFromRecord = (record: Record<string, unknown> | null | undefined) => {
+    if (!record) return '';
+    return cleanName(record.vanity_name)
+      || cleanName(record.display_name)
+      || cleanName(record.player_name)
+      || cleanName(record.name)
+      || cleanName(record.display_name_snapshot)
+      || cleanName(record.player_name_snapshot);
+  };
+
+  const lookups: Array<{ table: string; columns: string[]; walletColumns: string[]; orderColumn?: string }> = [
+    { table: 'players', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'player_profiles', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'runs', columns: ['display_name_snapshot, completed_at', 'player_name_snapshot, completed_at'], walletColumns: ['wallet_address', 'wallet'], orderColumn: 'completed_at' },
+  ];
+
+  for (const lookup of lookups) {
+    for (const columns of lookup.columns) {
+      for (const walletColumn of lookup.walletColumns) {
+        for (const operator of ['eq', 'ilike'] as const) {
+          try {
+            let query = admin.from(lookup.table).select(columns);
+            query = operator === 'eq'
+              ? query.eq(walletColumn, walletAddress)
+              : query.ilike(walletColumn, walletAddress);
+            if (lookup.orderColumn && columns.includes(lookup.orderColumn)) {
+              query = query.order(lookup.orderColumn, { ascending: false });
+            }
+            const { data, error } = await query.limit(1).maybeSingle();
+            if (!error && data) {
+              const resolved = nameFromRecord(data as Record<string, unknown>);
+              if (resolved) return resolved;
+            }
+          } catch (_error) {}
+        }
+      }
+    }
+  }
+
+  return existingName || walletAddress;
 }
 
-function firstEightHexToInt(hex: string) {
-  return Number.parseInt(String(hex || '').slice(0, 8) || '0', 16) || 0;
-}
-
-async function pickWinner(wallets: string[], raffleDay: string) {
-  if (!wallets.length) return null;
-  const sorted = wallets.slice().sort((a, b) => a.localeCompare(b));
-  const seed = await sha256Hex(`${raffleDay}:${sorted.join(',')}`);
-  const index = firstEightHexToInt(seed) % sorted.length;
-  return { wallet: sorted[index], seed };
-}
-
-async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax') {
-  const { data, error } = await admin
+async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax', drawSlot?: DrawSlot | null) {
+  let query = admin
     .from('daily_raffle_results')
-    .select('raffle_day, raffle_type, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
-    .eq('raffle_type', raffleType)
+    .select('raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at')
+    .eq('raffle_type', raffleType);
+  if (drawSlot) query = query.eq('draw_slot', drawSlot);
+  const { data, error } = await query
+    .order('settled_at', { ascending: false, nullsFirst: false })
     .order('raffle_day', { ascending: false })
+    .order('draw_slot', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) {
     if (String((error as { message?: string } | null)?.message || '').toLowerCase().includes('does not exist')) return null;
     throw error;
   }
-  return data || null;
+  if (!data) return null;
+  return {
+    ...data,
+    winner_name: await resolvePlayerDisplayName(admin, data.winner_wallet, data.winner_name),
+  };
 }
 
 
-function buildRaffleClaimInsert(config: RaffleConfig, raffleDay: string, winnerWallet: string, winnerName: string, winnerRunId: string | null) {
+function withDrawSlot(row: Record<string, unknown> | null, drawSlot: DrawSlot) {
+  return row ? { ...row, draw_slot: String(row.draw_slot || drawSlot) } : null;
+}
+
+function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawSlot: DrawSlot) {
+  if (!row) return null;
+  const now = new Date();
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const midday = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  if (drawSlot === 'midday' && now < midday) return null;
+
+  const settledRaw = String(row.settled_at || '').trim();
+  const settledAt = settledRaw ? new Date(settledRaw) : null;
+  if (settledAt && Number.isFinite(settledAt.getTime())) {
+    if (drawSlot === 'morning') return settledAt >= todayStart && settledAt < midday ? row : null;
+    return settledAt >= midday && settledAt < tomorrowStart ? row : null;
+  }
+
+  const raffleDay = String(row.raffle_day || '').slice(0, 10);
+  const today = todayStart.toISOString().slice(0, 10);
+  const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (drawSlot === 'morning') {
+    return raffleDay === today || (now < midday && raffleDay === yesterday) ? row : null;
+  }
+  return raffleDay === today ? row : null;
+}
+
+
+async function fetchCurrentWinnerForUtcDay(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax', drawSlot: DrawSlot) {
+  const now = new Date();
+  if (drawSlot === 'midday' && now.getUTCHours() < 12) return null;
+  const today = utcDateOnly(startOfUtcDay(now));
+  const selectVariants = [
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet',
+    'raffle_day, winner_wallet, winner_name',
+    'raffle_day, winner_wallet',
+  ];
+  let allowTypeFilter = true;
+  for (const columns of selectVariants) {
+    const includeSlot = columns.includes('draw_slot');
+    const slotAttempts = includeSlot ? [drawSlot, null] : [null];
+    for (const slotAttempt of slotAttempts) {
+      let query = admin.from('daily_raffle_results').select(columns).eq('raffle_day', today);
+      if (allowTypeFilter && columns.includes('raffle_type')) query = query.eq('raffle_type', raffleType);
+      if (slotAttempt && includeSlot) query = query.eq('draw_slot', slotAttempt);
+      if (columns.includes('settled_at')) query = query.order('settled_at', { ascending: false, nullsFirst: false });
+      if (includeSlot) query = query.order('draw_slot', { ascending: drawSlot === 'morning' });
+      const { data, error } = await query.limit(1).maybeSingle();
+      if (!error) {
+        if (!data) continue;
+        if (drawSlot === 'midday' && String((data as Record<string, unknown>).draw_slot || '').toLowerCase() !== 'midday') continue;
+        return {
+          ...(data as Record<string, unknown>),
+          draw_slot: String((data as Record<string, unknown>).draw_slot || drawSlot),
+          winner_name: await resolvePlayerDisplayName(admin, (data as Record<string, unknown>).winner_wallet, (data as Record<string, unknown>).winner_name),
+        };
+      }
+      if (String((error as { message?: string } | null)?.message || '').toLowerCase().includes('does not exist')) return null;
+      if (isMissingColumnError(error)) {
+        const errorText = JSON.stringify(error).toLowerCase();
+        if (errorText.includes('raffle_type')) allowTypeFilter = false;
+        break;
+      }
+      throw error;
+    }
+  }
+  return null;
+}
+
+function buildRaffleClaimInsert(config: RaffleConfig, raffleDay: string, drawSlot: DrawSlot, winnerWallet: string, winnerName: string, winnerRunId: string | null) {
+  const drawLabel = getDrawLabel(drawSlot);
   return {
-    request_key: `${config.sourceRefPrefix}:${raffleDay}:${winnerWallet}`,
+    request_key: `${config.sourceRefPrefix}:${raffleDay}:${drawSlot}:${winnerWallet}`,
     wallet_address: winnerWallet,
     claim_type: config.claimType,
     status: 'approved',
@@ -138,15 +293,15 @@ function buildRaffleClaimInsert(config: RaffleConfig, raffleDay: string, winnerW
     amount_text: `${config.rewardAmountText} ${config.rewardCurrency}`,
     amount_value: Number(config.rewardAmountText || 0),
     reward_currency: config.rewardCurrency,
-    reason_text: `${config.raffleType.toUpperCase()} daily raffle winner for ${raffleDay} UTC.`,
-    source_ref: `${config.sourceRefPrefix}:${raffleDay}`,
+    reason_text: `${config.raffleType.toUpperCase()} ${drawLabel} for ${raffleDay} UTC.`,
+    source_ref: `${config.sourceRefPrefix}:${raffleDay}:${drawSlot}`,
     run_id: winnerRunId || null,
     claim_day: raffleDay,
     requested_at: new Date().toISOString(),
     approved_at: new Date().toISOString(),
     resolved_at: new Date().toISOString(),
     resolved_by_wallet: 'treasury:auto',
-    admin_note: `Auto-generated ${config.raffleType.toUpperCase()} daily raffle payout for ${raffleDay} UTC.`,
+    admin_note: `Auto-generated ${config.raffleType.toUpperCase()} ${drawLabel} payout for ${raffleDay} UTC.`,
   } as Record<string, unknown>;
 }
 
@@ -191,6 +346,7 @@ async function finalizeRaffleResult(
   admin: ReturnType<typeof createAdmin>,
   config: RaffleConfig,
   raffleDay: string,
+  drawSlot: DrawSlot,
   raffleRow: Record<string, unknown>,
   winnerWallet: string,
   winnerName: string,
@@ -198,7 +354,7 @@ async function finalizeRaffleResult(
 ) {
   if (!winnerWallet) return raffleRow;
 
-  const claimInsert = buildRaffleClaimInsert(config, raffleDay, winnerWallet, winnerName, winnerRunId);
+  const claimInsert = buildRaffleClaimInsert(config, raffleDay, drawSlot, winnerWallet, winnerName, winnerRunId);
   const claimRow = await upsertRaffleClaim(admin, claimInsert);
 
   let payoutStatus = String(raffleRow?.payout_status || '').trim().toLowerCase() || 'approved';
@@ -226,18 +382,20 @@ async function finalizeRaffleResult(
     })
     .eq('raffle_day', raffleDay)
     .eq('raffle_type', config.raffleType)
+    .eq('draw_slot', drawSlot)
     .select('*')
     .single();
   if (finalError) throw finalError;
   return finalRow;
 }
 
-async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config: RaffleConfig, raffleDay: string) {
+async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config: RaffleConfig, raffleDay: string, drawSlot: DrawSlot) {
   const { data: existing, error: existingError } = await admin
     .from('daily_raffle_results')
-.select('*')
+    .select('*')
     .eq('raffle_day', raffleDay)
     .eq('raffle_type', config.raffleType)
+    .eq('draw_slot', drawSlot)
     .maybeSingle();
   if (existingError) {
     if (!String((existingError as { message?: string } | null)?.message || '').toLowerCase().includes('does not exist')) throw existingError;
@@ -252,8 +410,7 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config:
     throw new Error(`Existing ${config.raffleType.toUpperCase()} daily raffle row for ${raffleDay} is incomplete. Delete that day's row and rerun instead of reusing the same winner.`);
   }
 
-  const windowStart = startOfUtcDay(raffleDay);
-  const windowEnd = addUtcDays(windowStart, 1);
+  const { windowStart, windowEnd } = getDrawWindow(raffleDay, drawSlot);
   const { data: runRows, error: runError } = await admin
     .from('runs')
     .select('id, wallet_address, wave_reached, completed_at, display_name_snapshot, chain_id')
@@ -273,7 +430,7 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config:
 
   const qualifiers = Array.from(qualifierByWallet.values());
   const qualifierWallets = qualifiers.map((row) => normalizeAddress(row.wallet_address)).filter(Boolean);
-  const winnerPick = await pickWinner(qualifierWallets, `${config.raffleType}:${raffleDay}`);
+  const winnerPick = await pickWinner(qualifierWallets, `${config.raffleType}:${raffleDay}:${drawSlot}`);
   let winnerWallet = winnerPick ? winnerPick.wallet : null;
   const winnerRun = winnerWallet ? qualifierByWallet.get(winnerWallet) : null;
   let winnerName = cleanName(winnerRun?.display_name_snapshot);
@@ -290,6 +447,7 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config:
   const baseInsert = {
     raffle_day: raffleDay,
     raffle_type: config.raffleType,
+    draw_slot: drawSlot,
     raffle_chain_id: config.chainId,
     window_start: windowStart.toISOString(),
     window_end: windowEnd.toISOString(),
@@ -311,7 +469,7 @@ async function settleRaffleForDay(admin: ReturnType<typeof createAdmin>, config:
   if (insertError) throw insertError;
 
   if (!winnerWallet) return inserted;
-  return await finalizeRaffleResult(admin, config, raffleDay, inserted as Record<string, unknown>, winnerWallet, winnerName || winnerWallet, String(winnerRun?.id || '').trim() || null);
+  return await finalizeRaffleResult(admin, config, raffleDay, drawSlot, inserted as Record<string, unknown>, winnerWallet, winnerName || winnerWallet, String(winnerRun?.id || '').trim() || null);
 }
 
 
@@ -321,47 +479,100 @@ Deno.serve(async (req) => {
     const admin = createAdmin();
     const now = new Date();
     const todayStart = startOfUtcDay(now);
-    const previousDay = utcDateOnly(addUtcDays(todayStart, -1));
     const url = new URL(req.url);
     const requestedDay = String(url.searchParams.get('raffleDay') || '').trim();
+    const requestedDrawSlot = getDrawSlot(url.searchParams.get('drawSlot'));
     const config = getRaffleConfig(url.searchParams.get('raffleType'));
     const cronSecret = String(Deno.env.get(config.cronSecretEnv) || Deno.env.get('DAILY_RAFFLE_CRON_SECRET') || '').trim();
     const providedCronSecret = String(req.headers.get('x-cron-secret') || '').trim();
     const allowSettle = req.method === 'POST' || !cronSecret || providedCronSecret === cronSecret;
 
-    let settled = null;
-    if (allowSettle) settled = await settleRaffleForDay(admin, config, requestedDay || previousDay);
+    const settled: Array<Record<string, unknown>> = [];
+    const settleOne = async (raffleDay: string, drawSlot: DrawSlot) => {
+      const row = await settleRaffleForDay(admin, config, raffleDay, drawSlot);
+      if (row && typeof row === 'object') settled.push(row as Record<string, unknown>);
+      return row;
+    };
 
-    const latestWinner = await fetchLatestWinner(admin, config.raffleType);
+    if (allowSettle) {
+      if (requestedDay) {
+        await settleOne(requestedDay, requestedDrawSlot);
+      } else {
+        const currentDay = utcDateOnly(todayStart);
+        await settleOne(currentDay, 'morning');
+        if (now.getUTCHours() >= 12) {
+          await settleOne(currentDay, 'midday');
+        }
+      }
+    }
+
+    const latestAnyWinner = await fetchLatestWinner(admin, config.raffleType, null);
+    const latestMorningWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, 'morning')
+      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, 'morning'), 'morning')
+      || withDrawSlot(filterCurrentDayRaffleWinner(latestAnyWinner, 'morning'), 'morning');
+    const latestMiddayWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, 'midday')
+      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, 'midday'), 'midday');
     const currentDayStartIso = todayStart.toISOString();
+    const middayIso = addUtcHours(todayStart, 12).toISOString();
     const nextDayIso = addUtcDays(todayStart, 1).toISOString();
-    const { data: todayQualifiers, error: qualifierError } = await admin
-      .from('runs')
-      .select('wallet_address')
-      .gte('completed_at', currentDayStartIso)
-      .lt('completed_at', nextDayIso)
-      .gte('wave_reached', 30)
-      .eq('chain_id', config.chainId);
+    const [{ data: morningQualifiers, error: morningQualifierError }, { data: middayQualifiers, error: middayQualifierError }] = await Promise.all([
+      admin
+        .from('runs')
+        .select('wallet_address')
+        .gte('completed_at', currentDayStartIso)
+        .lt('completed_at', middayIso)
+        .gte('wave_reached', 30)
+        .eq('chain_id', config.chainId),
+      admin
+        .from('runs')
+        .select('wallet_address')
+        .gte('completed_at', middayIso)
+        .lt('completed_at', nextDayIso)
+        .gte('wave_reached', 30)
+        .eq('chain_id', config.chainId),
+    ]);
+    const qualifierError = morningQualifierError || middayQualifierError;
     if (qualifierError) throw qualifierError;
-    const qualifierWallets = Array.from(new Set((todayQualifiers || []).map((row) => normalizeAddress(row.wallet_address)).filter(Boolean))).sort();
+    const morningQualifierWallets = Array.from(new Set((morningQualifiers || []).map((row) => normalizeAddress(row.wallet_address)).filter(Boolean))).sort();
+    const middayQualifierWallets = Array.from(new Set((middayQualifiers || []).map((row) => normalizeAddress(row.wallet_address)).filter(Boolean))).sort();
 
     return json({
       ok: true,
-      settled_raffle: settled,
-      latest_winner: latestWinner,
-      raffle_type: config.raffleType,
-      current_window: {
-        raffle_day: utcDateOnly(todayStart),
-        raffle_type: config.raffleType,
-        qualifier_count: qualifierWallets.length,
-        threshold_wave: 30,
-        chain_id: config.chainId,
-        reward_currency: config.rewardCurrency,
-        reward_amount: Number(config.rewardAmountText || 0),
-        window_start: currentDayStartIso,
-        window_end: nextDayIso,
+      settled_raffle: settled.length ? settled[settled.length - 1] : null,
+      settled_raffles: settled,
+      latest_winner: latestMiddayWinner || latestMorningWinner,
+      latest_winners: {
+        morning: latestMorningWinner,
+        midday: latestMiddayWinner,
       },
-      automation_note: 'For exact midnight UTC settlement with no site traffic, schedule this function daily after 00:00 UTC.',
+      raffle_type: config.raffleType,
+      current_windows: {
+        morning: {
+          raffle_day: utcDateOnly(todayStart),
+          draw_slot: 'morning',
+          label: getDrawLabel('morning'),
+          qualifier_count: morningQualifierWallets.length,
+          threshold_wave: 30,
+          chain_id: config.chainId,
+          reward_currency: config.rewardCurrency,
+          reward_amount: Number(config.rewardAmountText || 0),
+          window_start: currentDayStartIso,
+          window_end: middayIso,
+        },
+        midday: {
+          raffle_day: utcDateOnly(todayStart),
+          draw_slot: 'midday',
+          label: getDrawLabel('midday'),
+          qualifier_count: middayQualifierWallets.length,
+          threshold_wave: 30,
+          chain_id: config.chainId,
+          reward_currency: config.rewardCurrency,
+          reward_amount: Number(config.rewardAmountText || 0),
+          window_start: middayIso,
+          window_end: nextDayIso,
+        },
+      },
+      automation_note: 'Schedule this function twice daily shortly after 00:00 UTC and 12:00 UTC.',
     });
   } catch (error) {
     const detail = serializeError(error);

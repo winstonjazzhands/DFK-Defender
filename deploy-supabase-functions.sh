@@ -9,6 +9,7 @@ npx supabase functions deploy run-submit-challenge --no-verify-jwt
 npx supabase functions deploy revoke-run-session --no-verify-jwt
 npx supabase functions deploy record-dfkgold-burn --no-verify-jwt
 npx supabase functions deploy public-leaderboard --no-verify-jwt
+npx supabase functions deploy daily-raffle --no-verify-jwt
 
 npx supabase functions deploy create-avax-session --no-verify-jwt
 npx supabase functions deploy verify-avax-payment --no-verify-jwt
@@ -16,3 +17,6 @@ npx supabase functions deploy avax-run-balance --no-verify-jwt
 npx supabase functions deploy avax-consume-run --no-verify-jwt
 npx supabase functions deploy avax-treasury-summary --no-verify-jwt
 npx supabase functions deploy bounty-reset-progress --no-verify-jwt
+npx supabase functions deploy request-reward-claim --no-verify-jwt
+npx supabase functions deploy create-dfk-token-session --no-verify-jwt
+npx supabase functions deploy verify-dfk-token-payment --no-verify-jwt

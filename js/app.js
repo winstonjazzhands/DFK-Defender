@@ -1,4 +1,4 @@
-// build: v46.9.1.117
+// build: v46.9.1.192
 
 let lastTouchEnd = 0;
 
@@ -21,7 +21,7 @@ document.addEventListener('touchend', (event) => {
   lastTouchEnd = now;
 }, { passive: false, capture: true });
 
-// build: v46.9.1.117
+// build: v46.9.1.166
 
 function injectPlayButton(textEl) {}
 
@@ -317,9 +317,21 @@ function playStorySequence() {
           textEl.style.opacity = '';
         } catch (error) {}
         try {
-          if (typeof window !== 'undefined') window.__dfkStartModePromptShown = true;
+          if (typeof window !== 'undefined') window.__dfkIntroHasPlayed = true;
         } catch (error) {}
-        if (!isReplayUrlView()) setTimeout(() => { try { openStartModeModal(); } catch (error) {} }, 100);
+        try {
+          if (typeof window !== 'undefined' && typeof window.DFKRevealHowToPlayAfterStory === 'function') {
+            window.DFKRevealHowToPlayAfterStory();
+          } else if (typeof window !== 'undefined' && typeof window.DFKOpenHowToPlay === 'function') {
+            window.DFKOpenHowToPlay();
+          } else {
+            if (typeof setBoardInputLocked === 'function') setBoardInputLocked(false);
+            if (typeof syncStatusOverlayVisibility === 'function') syncStatusOverlayVisibility(false);
+            if (typeof showStatusOverlay === 'function') showStatusOverlay();
+          }
+        } catch (error) {
+          try { if (typeof window !== 'undefined' && typeof window.DFKOpenHowToPlay === 'function') window.DFKOpenHowToPlay(); } catch (_error) { try { if (typeof setBoardInputLocked === 'function') setBoardInputLocked(false); } catch (__error) {} }
+        }
       }
     }, Math.round(fadeMs / fadeSteps));
   }
@@ -502,8 +514,7 @@ window.addEventListener('load', () => {
     try { document.body.classList.remove('intro-open'); document.body.classList.remove('story-active'); } catch (error) {}
     return;
   }
-  try { document.body.classList.add('intro-open'); document.body.classList.add('story-active'); } catch (error) {}
-  playStorySequence();
+  try { if (!window.__dfkModeChoiceMade) document.body.classList.add('intro-open'); } catch (error) {}
 });
 
 
@@ -555,6 +566,7 @@ function getRandomTree(){
   const TEST_GOLD_GRANT_AMOUNT = 10000;
   const DAILY_QUEST_TEST_RESET_WALLET = '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
   const BOUNTY_PROGRESS_TEST_RESET_WALLET = DAILY_QUEST_TEST_RESET_WALLET;
+  const CHAMPION_FAST_MODE_STORAGE_KEY = 'dfk_defender_champion_fast_mode_v1';
   const HIRE_COSTS = [25, 50, 88, 138];
   const MAX_STANDARD_HEROES_ON_BOARD = 5;
   const UPGRADE_COST_MULTIPLIER = 3.3062;
@@ -574,7 +586,7 @@ const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
 const APP_VERSION = 'v10.3.3';
-const CURRENT_RUN_BUILD = 'V46.9.1.146';
+const CURRENT_RUN_BUILD = 'V46.9.1.192';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
@@ -689,6 +701,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const BERSERKER_WANDER_MIN_WAVES = 14;
   const BERSERKER_WANDER_MAX_WAVES = 20;
   const BERSERKER_WANDER_DURATION_WAVES = 7;
+  const GEN0_WALLET_HERO_DAMAGE_MULTIPLIER = 1.20;
+  const GEN0_WALLET_HERO_SPEED_MULTIPLIER = 1.10;
+  const GEN0_WALLET_HERO_HP_MULTIPLIER = 1.10;
+  const GEN0_WALLET_HERO_HEALING_MULTIPLIER = 1.30;
 
   const TOWER_TEMPLATES = {
     warrior: {
@@ -1074,6 +1090,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     continueOfferModal: document.getElementById('continueOfferModal'),
     continueOfferBody: document.getElementById('continueOfferBody'),
     continueHellYeahBtn: document.getElementById('continueHellYeahBtn'),
+    continuePaidJewelBtn: document.getElementById('continuePaidJewelBtn'),
+    continuePaidHonkBtn: document.getElementById('continuePaidHonkBtn'),
     continueNoThanksBtn: document.getElementById('continueNoThanksBtn'),
     milestoneHeroOfferModal: document.getElementById('milestoneHeroOfferModal'),
     milestoneHeroOfferTitle: document.getElementById('milestoneHeroOfferTitle'),
@@ -1114,8 +1132,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletPanelBody: document.getElementById('walletPanelBody'),
     walletPanelToggle: document.getElementById('walletPanelToggle'),
     addGoldBtn: document.getElementById('addGoldBtn'),
+    championFastModeBtn: document.getElementById('championFastModeBtn'),
+    metisInfluenceDebugBtn: document.getElementById('metisInfluenceDebugBtn'),
     relicViewDfkgoldSwapBtn: document.getElementById('relicViewDfkgoldSwapBtn'),
     relicViewJewelGoldSwapBtn: document.getElementById('relicViewJewelGoldSwapBtn'),
+    relicViewHonkGoldSwapBtn: document.getElementById('relicViewHonkGoldSwapBtn'),
     relicSwapStatus: document.getElementById('relicSwapStatus'),
     bankPanel: document.getElementById('bankPanel'),
     bankPanelBody: document.getElementById('bankPanelBody'),
@@ -1200,6 +1221,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletHeroBonusBody: document.getElementById('walletHeroBonusBody'),
     refreshWalletHeroesBtn: document.getElementById('refreshWalletHeroesBtn'),
     walletHeroBonusToggle: document.getElementById('walletHeroBonusToggle'),
+    closeWalletHeroesModalBtn: document.getElementById('closeWalletHeroesModalBtn'),
     walletHeroBonusPanelBody: document.getElementById('walletHeroBonusPanelBody'),
     walletHeroBonusSummary: document.getElementById('walletHeroBonusSummary'),
     championPanel: document.getElementById('championPanel'),
@@ -1282,6 +1304,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletHeroRoster: [],
     allWalletHeroRoster: [],
     selectedWalletHeroes: {},
+    gen0ClassActive: {},
     transferHeroSelection: {},
     transferHeroSearch: '',
     transferHeroRecipient: '',
@@ -1429,6 +1452,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     introOpen: false,
     introAutoShown: false,
     continueOfferUsed: false,
+    paidContinueOfferUsed: false,
     continueOfferPending: false,
     continueSnapshot: null,
     eliteWarningAcknowledgedWave: 0,
@@ -1472,6 +1496,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       progress: {},
       claimed: {},
       metrics: {},
+      rewardCurrency: 'JEWEL',
     },
     weeklyBountyProgress: {
       weekKey: '',
@@ -1528,9 +1553,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const DAILY_QUEST_GOAL_MULTIPLIER = 5.625;
   const DAILY_QUEST_BOARD_VERSION = 5;
   const DAILY_QUEST_TIER_CONFIG = Object.freeze({
-    free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', rewardAvax: 0, goalMultiplier: 0.75, count: 5, unlocksRewardedQuests: true, tierLabel: 'Unlock Quest' }),
-    standard: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', rewardAvax: 0.0006, goalMultiplier: 1.5, count: 3, requiresFreeCompletion: true, tierLabel: 'Daily Quest' }),
-    elite: Object.freeze({ rewardJewel: 3, rewardText: '3 Jewel', rewardAvax: 0.00125, goalMultiplier: 3, count: 2, requiresFreeCompletion: true, tierLabel: 'Elite Quest' }),
+    free: Object.freeze({ rewardJewel: 0, rewardText: '0 Jewel', rewardAvax: 0, goalMultiplier: 0.75, count: 5, unlocksRewardedQuests: true, tierLabel: 'Phase 1' }),
+    standard: Object.freeze({ rewardJewel: 2, rewardText: '2 Jewel', rewardAvax: 0.0006, goalMultiplier: 1.5, count: 3, requiresFreeCompletion: true, tierLabel: 'Phase 2' }),
+    elite: Object.freeze({ rewardJewel: 3, rewardText: '3 Jewel', rewardAvax: 0.00125, goalMultiplier: 3, count: 2, requiresFreeCompletion: true, tierLabel: 'Phase 2' }),
     bounty: Object.freeze({ rewardJewel: 20, rewardText: '20 Jewel', rewardAvax: 0.005, goalMultiplier: 30, count: 0, requiresFreeCompletion: true, sequentialUnlock: true, tierLabel: 'Bounty' }),
   });
 
@@ -1546,18 +1571,86 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     return 0;
   }
 
+  const JEWEL_PER_HONK = 3.4;
+  const HONK_PER_JEWEL = 1 / JEWEL_PER_HONK;
+  const HONK_TOKEN_ADDRESS = '0x11C3b7bADC5359242c34C68C1F0f071bFf49a3D8';
+
+  function getDailyQuestRewardCurrencySelection() {
+    const board = game.dailyQuestBoard || {};
+    const selected = String(board.rewardCurrency || 'JEWEL').trim().toUpperCase();
+    return selected === 'HONK' ? 'HONK' : 'JEWEL';
+  }
+
+  function setDailyQuestRewardCurrencySelection(currency) {
+    const board = game.dailyQuestBoard || (game.dailyQuestBoard = {});
+    board.rewardCurrency = String(currency || '').trim().toUpperCase() === 'HONK' ? 'HONK' : 'JEWEL';
+    try { localStorage.setItem('dfkDefenderDailyQuestRewardCurrency:v1', board.rewardCurrency); } catch (_error) {}
+  }
+
+  function restoreDailyQuestRewardCurrencySelection() {
+    const board = game.dailyQuestBoard || (game.dailyQuestBoard = {});
+    try {
+      const stored = String(localStorage.getItem('dfkDefenderDailyQuestRewardCurrency:v1') || '').trim().toUpperCase();
+      board.rewardCurrency = stored === 'HONK' ? 'HONK' : 'JEWEL';
+    } catch (_error) {
+      board.rewardCurrency = board.rewardCurrency || 'JEWEL';
+    }
+  }
+
+  function roundHonkQuestPayout(amountHonk) {
+    const value = Math.max(0, Number(amountHonk || 0));
+    // HONK quest rewards are converted from JEWEL using JEWEL_PER_HONK and rounded down to the payout display precision.
+    return Math.floor((value + 1e-9) * 10) / 10;
+  }
+
+  function roundHonkPurchaseCost(amountHonk) {
+    const value = Math.max(0, Number(amountHonk || 0));
+    // HONK purchase costs are converted from JEWEL using JEWEL_PER_HONK and rounded up to avoid undercharging.
+    return Math.ceil((value - 1e-9) * 10) / 10;
+  }
+
+  function getQuestRewardAmountHonk(quest) {
+    const jewel = Math.max(0, Number(quest && quest.rewardJewel || 0));
+    return jewel > 0 ? roundHonkQuestPayout(jewel * HONK_PER_JEWEL) : 0;
+  }
+
+  function getHonkPurchaseAmountFromJewel(jewelAmount) {
+    const jewel = Math.max(0, Number(jewelAmount || 0));
+    return jewel > 0 ? roundHonkPurchaseCost(jewel * HONK_PER_JEWEL) : 0;
+  }
+
+  function honkToWei(amountHonk) {
+    const scaledTenths = Math.round(Math.max(0, Number(amountHonk || 0)) * 10);
+    return String(BigInt(scaledTenths) * 100000000000000000n);
+  }
+
+  function formatHonkAmount(amountHonk) {
+    const value = Math.max(0, Number(amountHonk || 0));
+    if (value <= 0) return '0';
+    return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  }
+
+  function formatQuestHonkReward(amountHonk) {
+    const value = Math.max(0, Number(amountHonk || 0));
+    if (value <= 0) return '0 HONK';
+    return `${formatHonkAmount(value)} HONK`;
+  }
+
   function getQuestRewardText(quest) {
     if (isConnectedWalletOnAvax()) return formatQuestAvaxReward(getQuestRewardAmountAvax(quest));
+    if (getDailyQuestRewardCurrencySelection() === 'HONK' && Number(quest && quest.rewardJewel || 0) > 0) return formatQuestHonkReward(getQuestRewardAmountHonk(quest));
     return String(quest && quest.rewardText || '0 Jewel');
   }
 
   function getQuestRewardCurrency(quest) {
     if (isConnectedWalletOnAvax() && Number(quest && quest.rewardJewel || 0) > 0) return 'AVAX';
+    if (getDailyQuestRewardCurrencySelection() === 'HONK' && Number(quest && quest.rewardJewel || 0) > 0) return 'HONK';
     return 'JEWEL';
   }
 
   function getQuestRewardAmountValue(quest) {
     if (isConnectedWalletOnAvax()) return Number(getQuestRewardAmountAvax(quest).toFixed(6));
+    if (getDailyQuestRewardCurrencySelection() === 'HONK' && Number(quest && quest.rewardJewel || 0) > 0) return Number(getQuestRewardAmountHonk(quest).toFixed(1));
     return Math.max(0, Number(quest && quest.rewardJewel || 0));
   }
 
@@ -2295,6 +2388,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     board.progress = stored && typeof stored.progress === 'object' && stored.progress ? stored.progress : {};
     board.claimed = stored && typeof stored.claimed === 'object' && stored.claimed ? stored.claimed : {};
     board.metrics = { ...createEmptyDailyQuestMetrics(), ...(stored?.metrics || {}) };
+    restoreDailyQuestRewardCurrencySelection();
     persistDailyQuestBoard();
     return board;
   }
@@ -2462,8 +2556,15 @@ async function claimDailyQuest(questId) {
     const result = await requestRewardClaim(claimPayload);
     board.claimed[questId] = true;
     persistDailyQuestBoard();
+    try {
+      const rewardCurrency = String(getQuestRewardCurrency(quest) || '').trim().toUpperCase();
+      const rewardValue = Math.max(0, Number(getQuestRewardAmountValue(quest) || 0));
+      if ((rewardCurrency === 'JEWEL' || rewardCurrency === 'HONK') && rewardValue > 0) {
+        addStoredDailyQuestClaimedJewelTotal(rewardCurrency === 'HONK' ? rewardValue * JEWEL_PER_HONK : rewardValue, board.playerKey, board.dateKey);
+      }
+    } catch (_error) {}
     if (quest.tierKey === 'elite' || quest.tierKey === 'standard') updateWeeklyBountyMetric('dailyEliteQuestsCompleted', 1);
-    if (!isConnectedWalletOnAvax() && Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
+    if (!isConnectedWalletOnAvax() && getQuestRewardCurrency(quest) === 'JEWEL' && Number(quest.rewardJewel || 0) > 0) awardPremiumJewels(Number(quest.rewardJewel || 0), `Daily quest: ${quest.name}`);
     const payoutResult = await waitForRewardClaimPayout(claimPayload, result);
     if (payoutResult && (String(payoutResult.status || '').toLowerCase() === 'paid' || String(payoutResult.txHash || '').trim())) {
       refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
@@ -2646,10 +2747,11 @@ function formatQuestResetCountdown(dateKey) {
       const canClaimRewards = rewardValue <= 0 ? true : canSubmitRewardClaims();
       const claimDisabled = !unlocked || !complete || !canClaimRewards || board.claiming;
       const rewardText = getQuestRewardText(quest);
-      const readyButtonText = rewardValue <= 0 ? 'Complete Unlock Quest' : `Claim ${rewardText}`;
+      const rewardPill = rewardValue > 0 ? `<div class="bounty-reward-pill ${stateClass}">${escapeHtml(rewardText)}</div>` : '';
+      const readyButtonText = rewardValue <= 0 ? 'Complete Phase 1 Quest' : `Claim ${rewardText}`;
       const button = claimed
         ? '<button type="button" class="bounty-claim-btn" disabled>Claimed</button>'
-        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${claimDisabled ? 'disabled' : ''}>${board.claiming ? 'Submitting…' : (complete ? readyButtonText : (unlocked ? 'Complete Quest' : 'Finish all 0 Jewel quests'))}</button>`;
+        : `<button type="button" class="bounty-claim-btn" data-quest-id="${quest.id}" ${claimDisabled ? 'disabled' : ''}>${board.claiming ? 'Submitting…' : (complete ? readyButtonText : (unlocked ? 'Complete Quest' : 'Finish all unlock quests'))}</button>`;
       return `
         <article class="bounty-card ${stateClass} quest-card">
           <div class="bounty-card-top">
@@ -2657,18 +2759,18 @@ function formatQuestResetCountdown(dateKey) {
               <div class="bounty-tier-label">${escapeHtml(quest.tierLabel || 'Daily Quest')}</div>
               <div class="bounty-tier-index">${index + 1}</div>
             </div>
-            <div class="bounty-reward-pill ${stateClass}">${escapeHtml(rewardText)}</div>
+            ${rewardPill}
           </div>
           <h3 class="bounty-card-title">${escapeHtml(quest.name)}</h3>
           <p class="bounty-card-copy">${escapeHtml(quest.description)}</p>
-          ${unlocked ? '' : '<div class="bounty-status-banner">Complete all 5 zero-jewel unlock quests before this one can start.</div>'}
+          ${unlocked ? '' : '<div class="bounty-status-banner">Phase 2 quests remain locked until Phase 1 quests are complete.</div>'}
           <div class="quest-progress-row">
             <div class="quest-progress-track"><span style="width:${Math.max(0, Math.min(100, (progress / quest.goal) * 100))}%"></span></div>
             <div class="quest-progress-text">${unlocked ? `${Math.min(progress, quest.goal)} / ${quest.goal}` : `Locked · ${quest.goal}`}</div>
           </div>
           <div class="bounty-card-footer">
             <span class="bounty-state-chip ${stateClass}">${stateLabel}</span>
-            <span class="bounty-chain-note">${unlocked ? 'Progress carries all day for this player.' : 'Higher-value quests stay locked until all 0 Jewel quests are done.'}</span>
+            <span class="bounty-chain-note">${unlocked ? 'Progress carries all day for this player.' : 'Phase 2 quests remain locked until Phase 1 quests are complete.'}</span>
           </div>
           ${button}
         </article>
@@ -2676,7 +2778,7 @@ function formatQuestResetCountdown(dateKey) {
     }).join('');
     const rewardClaimBanner = !canSubmitRewardClaims()
       ? '<div class="bounty-status-banner">Connect your wallet and enable run tracking to send daily reward claims to the backend.</div>'
-      : '<div class="bounty-status-banner"></div>';
+      : '';
     const errorBanner = board.error ? `<div class="bounty-status-banner is-error">${escapeHtml(board.error)}</div>` : '';
     const showQuestTestReset = canUseDailyQuestTestReset(board.playerKey);
     const testCycleText = Number(board.testCycle || 0) > 0 ? ` • Test cycle ${Number(board.testCycle || 0)}` : '';
@@ -2694,13 +2796,25 @@ function formatQuestResetCountdown(dateKey) {
           </div>
         </div>`
       : '';
+    const rewardCurrencySelection = getDailyQuestRewardCurrencySelection();
+    const rewardToggle = isConnectedWalletOnAvax() ? '' : `
+      <div class="daily-reward-toggle-wrap">
+        <div class="daily-reward-toggle-label">Daily payout token</div>
+        <div class="daily-reward-toggle" role="group" aria-label="Daily quest payout token">
+          <button type="button" class="daily-reward-toggle-btn ${rewardCurrencySelection === 'JEWEL' ? 'is-active' : ''}" data-daily-reward-currency="JEWEL">JEWEL</button>
+          <button type="button" class="daily-reward-toggle-btn ${rewardCurrencySelection === 'HONK' ? 'is-active' : ''}" data-daily-reward-currency="HONK">HONK</button>
+        </div>
+      </div>`;
     els.questsBody.innerHTML = `
-      <div class="bounty-hero-strip">
+      <div class="bounty-hero-strip bounty-hero-strip-with-toggle">
         <div>
           <div class="bounty-strip-kicker">Today's progress • ${claimedCount}/${quests.length} claimed • ${completedCount}/${quests.length} completed</div>
-          <p class="bounty-strip-copy">Player: ${escapeHtml(board.playerKey)}${escapeHtml(testCycleText)} • 4x 0 Jewel · 3x 2 Jewel · 2x 3 Jewel • Nine daily quests roll every UTC day. You get 4 easy 0 Jewel unlock quests, 3 harder 2 Jewel quests, and 2 elite 3 Jewel quests. Finish all five 0 Jewel quests before the reward quests unlock. If your wallet is not whitelisted, your quest rewards will require manual approval before payout. To get whitelisted, contact winstonjazzhands in the DFK Discord.</p>
+          <p class="bounty-strip-copy">Player: ${escapeHtml(board.playerKey)}${escapeHtml(testCycleText)} • Phase 1 has 4 unlock quests. Phase 2 has 5 payout quests. Nine daily quests roll every UTC day. Finish all Phase 1 quests before Phase 2 unlocks. If your wallet is not whitelisted, your quest rewards will require manual approval before payout. To get whitelisted, contact winstonjazzhands in the DFK Discord.</p>
         </div>
-        <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)} • ${board.dateKey}</div>
+        <div class="bounty-strip-actions">
+          ${rewardToggle}
+          <div class="bounty-strip-badge">Resets in ${formatQuestResetCountdown(board.dateKey)} • ${board.dateKey}</div>
+        </div>
       </div>
       ${rewardClaimBanner}
       ${errorBanner}
@@ -2971,13 +3085,15 @@ function formatQuestResetCountdown(dateKey) {
   const DFK_CREATE_TOKEN_SESSION_FUNCTION = window.DFK_SUPABASE_CREATE_DFK_TOKEN_SESSION_FUNCTION || 'create-dfk-token-session';
   const DFK_VERIFY_TOKEN_PAYMENT_FUNCTION = window.DFK_SUPABASE_VERIFY_DFK_TOKEN_PAYMENT_FUNCTION || 'verify-dfk-token-payment';
   const DFK_JEWEL_GOLD_SWAP_WEI = '1000000000000000000';
+  const DFK_HONK_GOLD_SWAP_AMOUNT = 0.3;
+  const DFK_EXTRA_HERO_JEWEL_COST = 2;
   const DFK_JEWEL_EXTRA_HIRE_WEI = Object.freeze([
-    '3000000000000000000',
-    '5000000000000000000',
-    '7000000000000000000',
-    '10000000000000000000',
-    '10000000000000000000',
-    '10000000000000000000'
+    '2000000000000000000',
+    '2000000000000000000',
+    '2000000000000000000',
+    '2000000000000000000',
+    '2000000000000000000',
+    '2000000000000000000'
   ]);
 
   function getWalletProvider() {
@@ -3051,6 +3167,19 @@ function formatQuestResetCountdown(dateKey) {
     return { txHash, walletAddress: wallet.address };
   }
 
+  async function sendDfkHonkPayment(amountWei) {
+    const wallet = getWalletStateSnapshot();
+    const provider = getWalletProvider();
+    if (!wallet || !wallet.address || !provider || typeof provider.request !== 'function') throw new Error('Connect wallet first.');
+    if (!isConnectedWalletOnDfk()) throw new Error('Switch to DFK Chain first.');
+    const data = '0xa9059cbb' + toPaddedHexWord(DFK_JEWEL_TREASURY_ADDRESS) + toPaddedHexWord(amountWei);
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: wallet.address, to: HONK_TOKEN_ADDRESS, value: '0x0', data }],
+    });
+    return { txHash, walletAddress: wallet.address };
+  }
+
   function clearPendingMilestonePurchase() {
     game.pendingMilestonePurchase = null;
   }
@@ -3094,7 +3223,9 @@ function formatQuestResetCountdown(dateKey) {
   }
 
   async function performDfkJewelTrade(kind, amountWei, label, metadata = {}) {
-    if (game.jewelTradePending) throw new Error('A JEWEL trade is already pending.');
+    const paymentAsset = String(metadata && metadata.paymentAsset || 'native_jewel').trim().toLowerCase();
+    const isHonkPayment = paymentAsset === 'honk' || paymentAsset === 'honk_erc20';
+    if (game.jewelTradePending) throw new Error(`${isHonkPayment ? 'HONK' : 'JEWEL'} trade is already pending.`);
     game.jewelTradePending = true;
     if (kind === 'jewel_milestone_hero_hire') {
       createPendingMilestonePurchase(kind, { ...metadata, label }, amountWei);
@@ -3118,14 +3249,15 @@ function formatQuestResetCountdown(dateKey) {
           kind,
           expectedAmountWei: String(amountWei || '0'),
           chainId: 53935,
-          metadata: safeMetadata,
+          paymentAsset: isHonkPayment ? 'honk' : 'native_jewel',
+          metadata: { ...safeMetadata, paymentAsset: isHonkPayment ? 'honk' : (safeMetadata.paymentAsset || 'native_jewel') },
         });
         paymentSessionId = session && session.paymentSessionId ? String(session.paymentSessionId) : null;
       } catch (sessionError) {
         console.warn('[JEWEL trade] session creation failed; treasury summary may not update for this payment.', sessionError);
       }
       const payment = await Promise.race([
-        sendDfkJewelPayment(String(amountWei || '0')),
+        isHonkPayment ? sendDfkHonkPayment(String(amountWei || '0')) : sendDfkJewelPayment(String(amountWei || '0')),
         new Promise((_, reject) => window.setTimeout(() => reject(new Error('Wallet confirmation timed out. If you already approved it, use Refresh Wallet to recover the hero.')), 45000)),
       ]);
       if (paymentSessionId) {
@@ -3135,7 +3267,8 @@ function formatQuestResetCountdown(dateKey) {
           walletAddress,
           amountWei: String(amountWei || '0'),
           kind,
-          metadata: safeMetadata,
+          paymentAsset: isHonkPayment ? 'honk' : 'native_jewel',
+          metadata: { ...safeMetadata, paymentAsset: isHonkPayment ? 'honk' : (safeMetadata.paymentAsset || 'native_jewel') },
         });
         try {
           const verifyResult = await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
@@ -3153,14 +3286,15 @@ function formatQuestResetCountdown(dateKey) {
       if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') {
         window.DFKCryptoRails.refreshTreasurySummary().catch(() => {});
       }
-      log(`${label || kind} paid with native JEWEL. Tx: ${payment.txHash}`);
+      log(`${label || kind} paid with ${isHonkPayment ? 'HONK' : 'native JEWEL'}. Tx: ${payment.txHash}`);
       clearPendingMilestonePurchase();
       return { txHash: payment.txHash, walletAddress: payment.walletAddress, kind, metadata: safeMetadata, paymentSessionId };
     } catch (error) {
       throw error;
     } finally {
       game.jewelTradePending = false;
-      refreshWalletJewelTokenBalance().catch(() => {});
+      await refreshWalletJewelTokenBalance().catch(() => {});
+      try { syncTopMenuWalletResources(); } catch (_error) {}
       updateJewelTradeUi();
       updateRelicSwapUi();
       if (game.milestoneHeroOffer) renderMilestoneHeroOffer();
@@ -3188,16 +3322,25 @@ function formatQuestResetCountdown(dateKey) {
     const connected = !!getConnectedWalletAddress();
     const onDfk = isConnectedWalletOnDfk();
     const waiting = !!(game.dfkGoldSwapPending || game.jewelTradePending);
+    const honkGoldSwapLabel = formatHonkAmount(DFK_HONK_GOLD_SWAP_AMOUNT) + ' HONK';
     const status = !connected
       ? 'Connect a wallet on DFK Chain to swap here.'
-      : (!onDfk ? 'Switch to DFK Chain to use wallet swaps here.' : (waiting ? 'Waiting for wallet confirmation…' : `Swap DFK Gold or JEWEL directly from the relic view. Wallet JEWEL: ${getWalletNativeJewelBalanceLabel()}`));
+      : (!onDfk ? 'Switch to DFK Chain to use wallet swaps here.' : (waiting ? 'Waiting for wallet confirmation…' : `Swap JEWEL or HONK directly from the relic view. Wallet JEWEL: ${getWalletNativeJewelBalanceLabel()} · HONK: ${getWalletHonkBalanceLabel()}`));
     if (els.relicSwapStatus) els.relicSwapStatus.textContent = status;
     if (els.relicViewDfkgoldSwapBtn) els.relicViewDfkgoldSwapBtn.disabled = !connected || !onDfk || waiting;
     if (els.relicViewJewelGoldSwapBtn) els.relicViewJewelGoldSwapBtn.disabled = !connected || !onDfk || waiting || !hasWalletJewelForWei(DFK_JEWEL_GOLD_SWAP_WEI);
+    if (els.relicViewHonkGoldSwapBtn) {
+      els.relicViewHonkGoldSwapBtn.textContent = `${honkGoldSwapLabel} → 2000 Gold`;
+      els.relicViewHonkGoldSwapBtn.disabled = !connected || !onDfk || waiting || getWalletHonkBalance() + 1e-9 < DFK_HONK_GOLD_SWAP_AMOUNT;
+    }
   }
 
   async function buyRelicViewJewelGoldSwap() {
-    return buyJewelGoldSwap();
+    return buyJewelGoldSwap('native_jewel');
+  }
+
+  async function buyRelicViewHonkGoldSwap() {
+    return buyJewelGoldSwap('honk');
   }
 
   async function buyRelicViewDfkgoldSwap() {
@@ -3218,30 +3361,53 @@ function formatQuestResetCountdown(dateKey) {
     }
   }
 
-  async function buyJewelGoldSwap() {
+  function getPreferredDfkTokenPaymentAsset() {
+    try { return getDailyQuestRewardCurrencySelection() === 'HONK' ? 'honk' : 'native_jewel'; } catch (_error) { return 'native_jewel'; }
+  }
+
+  function getDfkPaymentWeiForJewelAmount(jewelAmount, paymentAsset = 'native_jewel') {
+    if (String(paymentAsset).toLowerCase() === 'honk') return honkToWei(getHonkPurchaseAmountFromJewel(jewelAmount));
+    return String(BigInt(Math.round(Math.max(0, Number(jewelAmount || 0)) * 1e6)) * 1000000000000n);
+  }
+
+  function getDfkPaymentLabelForJewelAmount(jewelAmount, paymentAsset = 'native_jewel') {
+    if (String(paymentAsset).toLowerCase() === 'honk') return `${formatHonkAmount(getHonkPurchaseAmountFromJewel(jewelAmount))} HONK`;
+    return `${Math.max(0, Number(jewelAmount || 0)).toLocaleString(undefined, { maximumFractionDigits: 3 })} JEWEL`;
+  }
+
+  async function buyJewelGoldSwap(forcedPaymentAsset = '') {
+    const forcedAsset = String(forcedPaymentAsset || '').trim().toLowerCase();
+    const paymentAsset = forcedAsset === 'honk' ? 'honk' : (forcedAsset === 'native_jewel' ? 'native_jewel' : getPreferredDfkTokenPaymentAsset());
+    const amountWei = paymentAsset === 'honk' ? honkToWei(DFK_HONK_GOLD_SWAP_AMOUNT) : DFK_JEWEL_GOLD_SWAP_WEI;
+    const paymentLabel = paymentAsset === 'honk' ? (formatHonkAmount(DFK_HONK_GOLD_SWAP_AMOUNT) + ' HONK') : getDfkPaymentLabelForJewelAmount(1, paymentAsset);
     try {
-      await performDfkJewelTrade('jewel_gold_swap', DFK_JEWEL_GOLD_SWAP_WEI, '2000 Gold swap', {
+      await performDfkJewelTrade('jewel_gold_swap', amountWei, '2000 Gold swap', {
         goldAwarded: 2000,
-        paymentAsset: 'native_jewel',
+        paymentAsset,
         treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
       });
       game.jewel = Math.max(0, Number(game.jewel || 0)) + 2000;
-      log('Traded 1 JEWEL for 2000 in-game Gold.');
-      showBanner('+2000 Gold from JEWEL trade', 2200);
+      log(`Traded ${paymentLabel} for 2000 in-game Gold.`);
+      markProgress(`Swap complete: ${paymentLabel} for 2,000 defender gold.`);
+      showBanner('Swap complete, pick your relic.', 2800);
+      await refreshWalletJewelTokenBalance({ skipMilestoneRender: true }).catch(() => null);
+      try { syncTopMenuWalletResources(); } catch (_error) {}
       render();
     } catch (error) {
-      showBanner(error && error.message ? error.message : 'JEWEL trade failed.', 1800);
+      showBanner(error && error.message ? error.message : `${paymentAsset === 'honk' ? 'HONK' : 'JEWEL'} trade failed.`, 1800);
     }
   }
 
   async function buyJewelExtraHero(slotIndex) {
     const safeIndex = Math.max(0, Math.min(DFK_JEWEL_EXTRA_HIRE_WEI.length - 1, Number(slotIndex || 0)));
-    const priceWei = DFK_JEWEL_EXTRA_HIRE_WEI[safeIndex];
-    const priceLabel = ['3 JEWEL', '5 JEWEL', '7 JEWEL', '10 JEWEL', '10 JEWEL', '10 JEWEL'][safeIndex];
+    const jewelPrice = DFK_EXTRA_HERO_JEWEL_COST;
+    const paymentAsset = getPreferredDfkTokenPaymentAsset();
+    const priceWei = paymentAsset === 'honk' ? getDfkPaymentWeiForJewelAmount(jewelPrice, 'honk') : DFK_JEWEL_EXTRA_HIRE_WEI[safeIndex];
+    const priceLabel = paymentAsset === 'honk' ? getDfkPaymentLabelForJewelAmount(jewelPrice, 'honk') : (String(DFK_EXTRA_HERO_JEWEL_COST) + ' JEWEL');
     try {
       await performDfkJewelTrade('jewel_extra_hero', priceWei, `${priceLabel} extra hero`, {
         extraHeroCharge: 1,
-        paymentAsset: 'native_jewel',
+        paymentAsset,
         treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
         slotIndex: safeIndex + 1,
       });
@@ -3321,7 +3487,9 @@ function formatQuestResetCountdown(dateKey) {
 
   function hasAvailableLastChanceForRunTracking() {
     const resolved = !!(game.runTracking && game.runTracking.lastChanceResolved);
-    return !resolved && Boolean(game.continueOfferPending || (!game.continueOfferUsed && game.continueSnapshot));
+    const freeAvailable = !game.continueOfferUsed;
+    const paidAvailable = !game.paidContinueOfferUsed;
+    return !resolved && Boolean(game.continueOfferPending || ((freeAvailable || paidAvailable) && game.continueSnapshot));
   }
 
   function markLastChanceResolvedForRunTracking(outcome = 'declined') {
@@ -3332,11 +3500,12 @@ function formatQuestResetCountdown(dateKey) {
   }
 
   function forfeitLastChanceForRunTracking(reason = 'declined') {
-    const hadLastChance = Boolean(game.continueOfferPending || (!game.continueOfferUsed && game.continueSnapshot));
+    const hadLastChance = Boolean(game.continueOfferPending || ((!game.continueOfferUsed || !game.paidContinueOfferUsed) && game.continueSnapshot));
     if (!hadLastChance) return false;
     game.continueOfferPending = false;
     game.continueSnapshot = null;
     game.continueOfferUsed = true;
+    game.paidContinueOfferUsed = true;
     markLastChanceResolvedForRunTracking(reason);
     return true;
   }
@@ -4485,6 +4654,21 @@ function formatQuestResetCountdown(dateKey) {
     return Math.max(0, Number(walletState?.dfkGoldBalance?.balance || 0));
   }
 
+  function getWalletHonkBalance() {
+    const walletState = getWalletStateSnapshot();
+    return Math.max(0, Number(walletState?.honkBalance?.balance || 0));
+  }
+
+  function getWalletHonkBalanceLabel() {
+    const balance = getWalletHonkBalance();
+    if (!Number.isFinite(balance)) return '0 HONK';
+    return `${balance.toLocaleString(undefined, { maximumFractionDigits: 3 })} HONK`;
+  }
+
+  function hasWalletHonkForJewelAmount(jewelAmount) {
+    return getWalletHonkBalance() + 1e-9 >= getHonkPurchaseAmountFromJewel(jewelAmount);
+  }
+
   function hasDfkgoldForSwap() {
     return getWalletDfkgoldBalance() >= DFK_GOLD_SWAP_COST;
   }
@@ -4494,6 +4678,71 @@ function formatQuestResetCountdown(dateKey) {
       return window.DFKDefenseWallet.refreshWalletDetails().catch(() => null);
     }
     return Promise.resolve(null);
+  }
+
+  function formatRaffleWinnerDateShort(value) {
+    const text = String(value || '').trim();
+    if (!text) return '--';
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    const date = match ? new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`) : new Date(text);
+    if (!Number.isFinite(date.getTime())) return text;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function getCurrentUtcDateOnly() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function getRaffleSlotDisplayDay(_winner) {
+    return getCurrentUtcDateOnly();
+  }
+
+  function getRaffleWinnerDrawTimeMs(winner) {
+    const payload = winner && typeof winner === 'object' ? winner : null;
+    if (!payload) return NaN;
+    const settledAt = String(payload.settledAt || payload.settled_at || '').trim();
+    const settledDate = settledAt ? new Date(settledAt) : null;
+    if (settledDate && Number.isFinite(settledDate.getTime())) return settledDate.getTime();
+    const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raffleDay)) return NaN;
+    const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+    const hour = drawSlot === 'midday' ? 12 : 0;
+    return new Date(`${raffleDay}T${String(hour).padStart(2, '0')}:00:00.000Z`).getTime();
+  }
+
+  function isRaffleSlotWinnerDisplayable(winner) {
+    const payload = winner && typeof winner === 'object' ? winner : null;
+    if (!payload) return false;
+    const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+    const now = new Date();
+    if (drawSlot === 'midday' && now.getUTCHours() < 12) return false;
+    const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
+    const today = getCurrentUtcDateOnly();
+    if (raffleDay) {
+      if (raffleDay !== today) return false;
+      return !!(payload.name || payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.winner_wallet || payload.wallet_address || payload.wallet);
+    }
+    const drawTimeMs = getRaffleWinnerDrawTimeMs(payload);
+    if (Number.isFinite(drawTimeMs)) {
+      const ageMs = now.getTime() - drawTimeMs;
+      if (ageMs < -5 * 60 * 1000) return false;
+      if (ageMs > 18 * 60 * 60 * 1000) return false;
+    }
+    return !!(payload.name || payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.winner_wallet || payload.wallet_address || payload.wallet);
+  }
+
+  function normalizeDailyRaffleWinnerEntry(entry, fallbackSlot = 'morning') {
+    const payload = entry && typeof entry === 'object' ? entry : {};
+    const drawSlot = String(payload.draw_slot || payload.drawSlot || fallbackSlot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+    return {
+      drawSlot,
+      label: drawSlot === 'midday' ? '12:00 Winner' : '00:00 Winner',
+      name: payload && (payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name) ? String(payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name).trim() : '',
+      wallet: payload && (payload.winner_wallet || payload.wallet_address || payload.wallet) ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : '',
+      raffleDay: payload && (payload.raffle_day || payload.raffleDay) ? String(payload.raffle_day || payload.raffleDay).trim() : '',
+      settledAt: payload && (payload.settled_at || payload.settledAt) ? String(payload.settled_at || payload.settledAt).trim() : '',
+      qualifierCount: Math.max(0, Number(payload ? (payload.qualifier_count ?? payload.eligible_count ?? 0) : 0)),
+    };
   }
 
   function updateBurnedGoldDisplay() {
@@ -4509,16 +4758,16 @@ function formatQuestResetCountdown(dateKey) {
     if (leaderEl) leaderEl.style.display = 'none';
     const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
     if (!raffleEl) return;
-    const raffleName = String(game.latestDailyRaffleWinnerName || '').trim();
-    const raffleWallet = String(game.latestDailyRaffleWinnerWallet || '').trim();
-    const raffleDay = String(game.latestDailyRaffleWinnerDay || '').trim();
-    const qualifierCount = Math.max(0, Number(game.latestDailyRaffleQualifierCount || 0));
-    const raffleLabel = raffleName || truncateWalletAddress(raffleWallet) || '';
-    if (raffleLabel) {
-      raffleEl.textContent = `Daily raffle winner: ${raffleLabel}`;
-    } else {
-      raffleEl.textContent = 'Daily raffle winner: Pending next draw';
-    }
+    const morningWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.morning, 'morning');
+    const middayWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.midday, 'midday');
+    const winnerMarkup = [morningWinner, middayWinner].map((winner) => {
+      const canShowWinner = isRaffleSlotWinnerDisplayable(winner);
+      const raffleLabel = canShowWinner ? (winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') : 'Pending next draw';
+      const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner));
+      const dateMarkup = dateLabel && dateLabel !== '--' ? `<div class="raffle-winner-date">${escapeHtml(dateLabel)}</div>` : '';
+      return `<div class="raffle-winner-pill raffle-winner-${winner.drawSlot}">${dateMarkup}<div class="raffle-winner-title">${escapeHtml(winner.label)}</div><div class="raffle-winner-name">${escapeHtml(raffleLabel)}</div></div>`;
+    }).join('');
+    raffleEl.innerHTML = `<div class="raffle-winners-heading">Daily raffle winners</div><div class="raffle-winners-pills">${winnerMarkup}</div>`;
   }
 
   function getSupabaseFunctionConfig() {
@@ -5059,9 +5308,14 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     try {
       const response = await fetchSupabaseFunctionJson('daily-raffle', null, 'GET');
       const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
-      return payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null;
+      const latestWinners = payload && payload.latest_winners && typeof payload.latest_winners === 'object' ? payload.latest_winners : {};
+      return {
+        morning: latestWinners && typeof latestWinners.morning === 'object' ? latestWinners.morning : null,
+        midday: latestWinners && typeof latestWinners.midday === 'object' ? latestWinners.midday : null,
+        latest: payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null,
+      };
     } catch (_error) {
-      return null;
+      return { morning: null, midday: null, latest: null };
     }
   }
 
@@ -5116,18 +5370,32 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
       game.globalDfkGoldBurnedTotal = Math.max(0, Number(total || 0));
       const dailyRaffle = (payload && payload.meta && payload.meta.daily_raffle) ? payload.meta.daily_raffle : {};
-      let latestWinner = dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null;
-      if (!latestWinner || !(latestWinner.winner_name || latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet)) {
-        latestWinner = await fetchLatestDailyRaffleWinnerDirect();
+      const metaLatestWinners = dailyRaffle && dailyRaffle.latest_winners && typeof dailyRaffle.latest_winners === 'object' ? dailyRaffle.latest_winners : {};
+      let latestWinners = {
+        morning: metaLatestWinners && typeof metaLatestWinners.morning === 'object' ? metaLatestWinners.morning : null,
+        midday: metaLatestWinners && typeof metaLatestWinners.midday === 'object' ? metaLatestWinners.midday : null,
+        latest: dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null,
+      };
+      if ((!latestWinners.morning || !(latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet))
+        && (!latestWinners.midday || !(latestWinners.midday.winner_name || latestWinners.midday.vanity_name || latestWinners.midday.winner_wallet || latestWinners.midday.wallet_address || latestWinners.midday.wallet))) {
+        latestWinners = await fetchLatestDailyRaffleWinnerDirect();
       }
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
       game.globalTrackedRunsTotal = Math.max(0, Number(totalRuns || 0));
-      game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.display_name || latestWinner.player_name) ? String(latestWinner.winner_name || latestWinner.display_name || latestWinner.player_name).trim() : '';
-      game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : '';
-      game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : '';
-      game.latestDailyRaffleQualifierCount = Math.max(0, Number(latestWinner ? (latestWinner.qualifier_count ?? latestWinner.eligible_count ?? 0) : 0));
+      const fallbackLatestWinner = latestWinners && latestWinners.latest ? latestWinners.latest : null;
+      const hasMorningWinner = latestWinners && latestWinners.morning && (latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet || latestWinners.morning.name);
+      const hasMiddayWinner = latestWinners && latestWinners.midday && (latestWinners.midday.winner_name || latestWinners.midday.vanity_name || latestWinners.midday.winner_wallet || latestWinners.midday.wallet_address || latestWinners.midday.wallet || latestWinners.midday.name);
+      game.latestDailyRaffleWinners = {
+        morning: normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), 'morning'),
+        midday: normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, 'midday'),
+      };
+      const latestWinner = fallbackLatestWinner || (game.latestDailyRaffleWinners.midday && (game.latestDailyRaffleWinners.midday.name || game.latestDailyRaffleWinners.midday.wallet) ? game.latestDailyRaffleWinners.midday : game.latestDailyRaffleWinners.morning);
+      game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name) ? String(latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name).trim() : '';
+      game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : String(latestWinner && latestWinner.wallet || '').trim().toLowerCase();
+      game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : String(latestWinner && latestWinner.raffleDay || '').trim();
+      game.latestDailyRaffleQualifierCount = Math.max(0, Number(latestWinner ? (latestWinner.qualifier_count ?? latestWinner.eligible_count ?? latestWinner.qualifierCount ?? 0) : 0));
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
       return game.globalDfkGoldBurnedTotal;
@@ -5196,7 +5464,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     const safeWave = Math.max(0, Number(waveNumber || 0));
     if (!safeWave) return null;
     if (safeWave !== 20 && !(safeWave >= 50 && safeWave % 25 === 0)) return null;
-    const burnCost = Number(MILESTONE_HERO_OFFER_COSTS[safeWave] || (safeWave >= 100 ? safeWave * 5000 : safeWave * 4000));
+    const burnCost = Number(MILESTONE_HERO_OFFER_COSTS[safeWave] || 100000);
     return { wave: safeWave, burnCost, heroLevel: safeWave };
   }
 
@@ -5266,21 +5534,28 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
 
   function getMilestoneHeroJewelPriceIndex(offer) {
-    const wave = Math.max(0, Number(offer?.wave || 0));
-    if (wave <= 20) return 0;
-    if (wave <= 50) return 1;
-    if (wave <= 75) return 2;
-    if (wave <= 100) return 3;
-    if (wave <= 125) return 4;
-    return 5;
+    void offer;
+    return 0;
   }
 
   function getMilestoneHeroJewelPriceWei(offer) {
-    return DFK_JEWEL_EXTRA_HIRE_WEI[getMilestoneHeroJewelPriceIndex(offer)];
+    void offer;
+    return DFK_JEWEL_EXTRA_HIRE_WEI[0];
   }
 
   function getMilestoneHeroJewelPriceLabel(offer) {
-    return ['3 JEWEL', '5 JEWEL', '7 JEWEL', '10 JEWEL', '10 JEWEL', '10 JEWEL'][getMilestoneHeroJewelPriceIndex(offer)];
+    void offer;
+    return String(DFK_EXTRA_HERO_JEWEL_COST) + ' JEWEL';
+  }
+
+  function getMilestoneHeroHonkPriceWei(offer) {
+    void offer;
+    return getDfkPaymentWeiForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk');
+  }
+
+  function getMilestoneHeroHonkPriceLabel(offer) {
+    void offer;
+    return getDfkPaymentLabelForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk');
   }
 
   function ensureMilestonePaymentChoiceModalElements() {
@@ -5335,13 +5610,15 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     const actions = modal.querySelector('#milestonePaymentChoiceActions');
     if (!body || !actions) return;
     const useAvax = canUseAvaxRailsPurchases();
-    const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
+    const goldAvailable = false;
     const jewelWei = getMilestoneHeroJewelPriceWei(offer);
     const jewelLabel = getMilestoneHeroJewelPriceLabel(offer);
     const avaxLabel = formatAvaxValue(AVAX_MILESTONE_HERO_WEI);
     const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(jewelWei);
+    const honkLabel = getMilestoneHeroHonkPriceLabel(offer);
+    const honkAvailable = isConnectedWalletOnDfk() && getWalletHonkBalance() + 1e-9 >= getHonkPurchaseAmountFromJewel(DFK_EXTRA_HERO_JEWEL_COST);
     body.innerHTML = `<p>Hire ${template.name} L${offer.heroLevel}. Choose how you want to pay.</p>
-      <p>${useAvax ? avaxLabel : `${offer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}` }.</p>`;
+      <p>${useAvax ? avaxLabel : `${jewelLabel} or ${honkLabel}` }.</p>`;
     actions.innerHTML = '';
     if (useAvax) {
       const avaxBtn = document.createElement('button');
@@ -5354,17 +5631,6 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       });
       actions.appendChild(avaxBtn);
     }
-    if (!useAvax && goldAvailable) {
-      const goldBtn = document.createElement('button');
-      goldBtn.type = 'button';
-      goldBtn.className = 'small-action milestone-hero-offer-btn';
-      goldBtn.textContent = `Use ${offer.burnCost.toLocaleString()} DFK Gold`;
-      goldBtn.addEventListener('click', () => {
-        setMilestonePaymentChoiceProcessing(template.name);
-        beginMilestoneHeroHire(heroType, { preserveModal: true }).catch((error) => console.error(error));
-      });
-      actions.appendChild(goldBtn);
-    }
     if (jewelAvailable) {
       const jewelBtn = document.createElement('button');
       jewelBtn.type = 'button';
@@ -5375,6 +5641,17 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
         beginMilestoneHeroHireJewel(heroType, { preserveModal: true }).catch((error) => console.error(error));
       });
       actions.appendChild(jewelBtn);
+    }
+    if (!useAvax && honkAvailable) {
+      const honkBtn = document.createElement('button');
+      honkBtn.type = 'button';
+      honkBtn.className = 'small-action milestone-hero-offer-btn';
+      honkBtn.textContent = `Use ${honkLabel}`;
+      honkBtn.addEventListener('click', () => {
+        setMilestonePaymentChoiceProcessing(template.name);
+        beginMilestoneHeroHireHonk(heroType, { preserveModal: true }).catch((error) => console.error(error));
+      });
+      actions.appendChild(honkBtn);
     }
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
@@ -5395,16 +5672,21 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     if (canUseAvaxRailsPurchases()) {
       return beginMilestoneHeroHireAvax(heroType);
     }
-    const goldAvailable = getWalletDfkgoldBalance() >= Number(offer.burnCost || 0);
+    const goldAvailable = false;
     const jewelAvailable = isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(offer));
-    if (goldAvailable && jewelAvailable) {
+    const honkAvailable = isConnectedWalletOnDfk() && getWalletHonkBalance() + 1e-9 >= getHonkPurchaseAmountFromJewel(DFK_EXTRA_HERO_JEWEL_COST);
+    if ([goldAvailable, jewelAvailable, honkAvailable].filter(Boolean).length > 1) {
       openMilestonePaymentChoiceModal(heroType);
       return;
     }
     if (jewelAvailable) {
       return beginMilestoneHeroHireJewel(heroType);
     }
-    return beginMilestoneHeroHire(heroType);
+    if (honkAvailable) {
+      return beginMilestoneHeroHireHonk(heroType);
+    }
+    showBanner('Need 2 JEWEL or HONK equivalent on DFK Chain to hire this hero.', 2400);
+    return null;
   }
 
 
@@ -5498,6 +5780,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     const jewelLabel = heroOffer ? getMilestoneHeroJewelPriceLabel(heroOffer) : '';
     const avaxHeroLabel = heroOffer ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : '';
     const jewelAvailable = !!(heroOffer && isConnectedWalletOnDfk() && hasWalletJewelForWei(getMilestoneHeroJewelPriceWei(heroOffer)));
+    const honkLabel = heroOffer ? getMilestoneHeroHonkPriceLabel(heroOffer) : '';
+    const honkAvailable = !!(heroOffer && isConnectedWalletOnDfk() && getWalletHonkBalance() + 1e-9 >= getHonkPurchaseAmountFromJewel(DFK_EXTRA_HERO_JEWEL_COST));
     const shouldAutoRefreshMilestoneWallet = !!(heroOffer && hasWallet && !useAvax && isConnectedWalletOnDfk());
     const now = Date.now();
     if (shouldAutoRefreshMilestoneWallet && !game.milestoneOfferAutoRefreshPending && (now - Number(game.milestoneOfferLastAutoRefreshAt || 0) >= 15000)) {
@@ -5511,7 +5795,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     const milestoneTxnPending = !!game.milestoneOfferTxnPending;
     title.textContent = heroOffer ? `Reinforcements at Wave ${heroOffer.wave}` : `Barrier Bundle at Wave ${barrierOffer.wave}`;
     if (heroOffer) {
-      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${useAvax ? avaxHeroLabel : `${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel}` }.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
+      sections.push(`<p>You survived long enough for help to arrive. One time offer to hire a new hero of your choice for ${useAvax ? avaxHeroLabel : `${jewelLabel} or ${honkLabel}` }.</p><p>The hired hero arrives at level ${heroOffer.heroLevel} after the payment is confirmed. After confirming the TX this pop up will disappear, click anywhere on the board to place your new hired hero. They can be moved after placement. If you forget to place them they will appear in the hero hire menu to be placed later for free.</p>`);
     }
     if (barrierOffer) {
       const barrierLabel = useAvax ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : `${barrierOffer.burnCost.toLocaleString()} DFK Gold`;
@@ -5521,8 +5805,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     actions.innerHTML = '';
     if (heroOffer) {
       const heroTypes = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'];
-      const goldAvailable = walletDfkgold >= Number(heroOffer.burnCost || 0);
-      const canLaunchHire = hasWallet && (useAvax || goldAvailable || jewelAvailable);
+      const goldAvailable = false;
+      const canLaunchHire = hasWallet && (useAvax || goldAvailable || jewelAvailable || honkAvailable);
       for (const type of heroTypes) {
         const t = TOWER_TEMPLATES[type];
         const currentTypeCount = (game.towers || []).filter((tower) => tower && tower.type === type && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length;
@@ -5542,15 +5826,15 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       const nativeBalanceLabel = getWalletNativeJewelBalanceLabel();
       const balanceSummary = useAvax
         ? `Wallet: ${nativeBalanceLabel}`
-        : `Wallet: ${walletDfkgold.toLocaleString()} DFK Gold · ${nativeBalanceLabel}`;
-      if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to pay with DFK Gold or JEWEL for this hire.';
+        : `Wallet: ${nativeBalanceLabel} · HONK: ${getWalletHonkBalanceLabel()}`;
+      if (!hasWallet) note.textContent = useAvax ? 'Connect a wallet on Avalanche to pay with AVAX for this hire.' : 'Connect a wallet on DFK Chain to pay with JEWEL or HONK for this hire.';
       else if (milestoneTxnPending) note.textContent = `${game.milestoneOfferTxnLabel || 'Purchase'} submitting…`;
       else if (game.dfkGoldSwapPending || game.jewelTradePending) note.textContent = 'Waiting for wallet confirmation…';
       else if (useAvax) note.textContent = `Pick a hero to pay ${avaxHeroLabel} with AVAX for the hire. ${balanceSummary}`;
-      else if (walletDfkgold >= Number(heroOffer.burnCost || 0) && jewelAvailable) note.textContent = `Both payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or Gold? ${balanceSummary}`;
-      else if (walletDfkgold >= Number(heroOffer.burnCost || 0)) note.textContent = `Only DFK Gold is ready right now, so picking a hero launches the DFK Gold transaction. ${balanceSummary}`;
+      else if ([goldAvailable, jewelAvailable, honkAvailable].filter(Boolean).length > 1) note.textContent = `Multiple payment methods are available. Pick a hero and the lightwindow will ask: JEWEL or HONK. ${balanceSummary}`;
       else if (jewelAvailable) note.textContent = `Only JEWEL is ready right now, so picking a hero launches the JEWEL transaction. ${balanceSummary}`;
-      else note.textContent = `Need ${heroOffer.burnCost.toLocaleString()} DFK Gold or ${jewelLabel} in the connected wallet. ${balanceSummary}`;
+      else if (honkAvailable) note.textContent = `Only HONK is ready right now, so picking a hero launches the HONK transaction. ${balanceSummary}`;
+      else note.textContent = `Need ${jewelLabel} or ${honkLabel} in the connected wallet. ${balanceSummary}`;
       actions.appendChild(note);
 
       if (hasWallet) {
@@ -5636,7 +5920,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       els.startWaveBtn.disabled = true;
       finishMilestoneOffer(false);
       setInstruction(`Place ${getTargetPlayerObstacleCount()} player obstacles.`);
-      log(`Barrier bundle unlocked at wave ${offer.wave}: +${offer.barrierCount} barriers after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
+      log(`Barrier bundle unlocked at wave ${offer.wave}: +${offer.barrierCount} barriers through the legacy disabled path.`);
       showBanner(`Barrier cap remains ${BASE_PLAYER_BARRIER_COUNT}.`, 2400);
       render();
     } catch (_error) {  } finally {
@@ -5674,7 +5958,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     try {
       
       const result = await performVerifiedDfkgoldBurnPurchase(offer.burnCost, 0, {
-        pendingBannerText: `Burning ${offer.burnCost.toLocaleString()} DFK Gold for ${template.name} reinforcements…`,
+        pendingBannerText: `Legacy hero hire path disabled...`,
       });
       game.pendingMilestoneHeroPlacement = {
         wave: offer.wave,
@@ -5688,7 +5972,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       game.placingHeroUsesBonus = true;
       game.placingSatelliteSourceId = null;
       game.placingWalletHeroId = null;
-      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after burning ${offer.burnCost.toLocaleString()} DFK Gold.`);
+      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} through the legacy disabled path.`);
       
       
       
@@ -5717,6 +6001,37 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       });
       queueMilestoneReinforcement(heroType, offer, result && result.txHash ? result.txHash : '');
       log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after paying ${jewelLabel}.`);
+      showBanner(`${template.name} reinforcement ready in the Hire menu.`, 2200);
+      finishMilestoneOffer(false);
+      if (options && options.preserveModal) {
+        setMilestonePaymentChoiceProcessing(template.name);
+      } else {
+        setMilestoneHeroOfferProcessing(template.name);
+      }
+      render();
+    } catch (_error) {} finally {
+      clearMilestoneOfferTxnPending();
+    }
+  }
+
+  async function beginMilestoneHeroHireHonk(heroType, options = {}) {
+    const offer = game.milestoneHeroOffer;
+    const template = TOWER_TEMPLATES[heroType];
+    if (!offer || !template) return;
+    setMilestoneOfferTxnPending(`${template.name} HONK hire`);
+    try {
+      const honkWei = getMilestoneHeroHonkPriceWei(offer);
+      const honkLabel = getMilestoneHeroHonkPriceLabel(offer);
+      const result = await performDfkJewelTrade('jewel_milestone_hero_hire', honkWei, `${template.name} reinforcement`, {
+        wave: offer.wave,
+        heroType,
+        heroLevel: offer.heroLevel,
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        paymentAsset: 'honk',
+        honkPrice: honkLabel,
+      });
+      queueMilestoneReinforcement(heroType, offer, result && result.txHash ? result.txHash : '');
+      log(`Milestone hire unlocked at wave ${offer.wave}: ${template.name} arrives at level ${offer.heroLevel} after paying ${honkLabel}.`);
       showBanner(`${template.name} reinforcement ready in the Hire menu.`, 2200);
       finishMilestoneOffer(false);
       if (options && options.preserveModal) {
@@ -5850,7 +6165,9 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       });
       markProgress(`Swapped ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       log(`DFK Gold swap complete: burned ${DFK_GOLD_SWAP_COST.toLocaleString()} DFK Gold for ${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
-      showBanner(`+${DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
+      showBanner('Swap complete, pick your relic.', 2800);
+      await refreshWalletEconomyDetails().catch(() => null);
+      try { syncTopMenuWalletResources(); } catch (_error) {}
       closeDfkgoldSwapOffer();
       render();
     } catch (_error) {}
@@ -5868,7 +6185,9 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       game.jewel = Math.max(0, Number(game.jewel || 0)) + AVAX_DEFENDER_GOLD_SWAP_REWARD;
       markProgress(`Swapped ${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)} for ${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
       log(`AVAX swap complete: paid ${formatAvaxValue(AVAX_DEFENDER_GOLD_SWAP_WEI)} for ${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold.`);
-      showBanner(`+${AVAX_DEFENDER_GOLD_SWAP_REWARD.toLocaleString()} defender gold`, 2400);
+      showBanner('Swap complete, pick your relic.', 2800);
+      await refreshWalletEconomyDetails().catch(() => null);
+      try { syncTopMenuWalletResources(); } catch (_error) {}
       closeDfkgoldSwapOffer();
       render();
     } catch (_error) {
@@ -5882,9 +6201,296 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address) && isRunTrackingEnabled());
   }
 
-  function canUseChampionWaveOneOverride() {
+  function canUseChampionFastModeToggle() {
     const address = getConnectedWalletAddress();
-    return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address));
+    return Boolean(address && address === DAILY_QUEST_TEST_RESET_WALLET);
+  }
+
+  function getChampionFastModeStorageKey() {
+    const address = String(getConnectedWalletAddress() || '').trim().toLowerCase();
+    return `${CHAMPION_FAST_MODE_STORAGE_KEY}:${address || 'guest'}`;
+  }
+
+  function isChampionFastModeEnabled() {
+    if (!canUseChampionFastModeToggle()) return false;
+    try {
+      return localStorage.getItem(getChampionFastModeStorageKey()) === '1';
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function updateChampionFastModeButtonState() {
+    if (!els.championFastModeBtn) return;
+    const allowed = canUseChampionFastModeToggle();
+    const enabled = isChampionFastModeEnabled();
+    els.championFastModeBtn.classList.toggle('hidden', !allowed);
+    els.championFastModeBtn.disabled = !allowed;
+    els.championFastModeBtn.textContent = `Champion Fast Mode: ${enabled ? 'On' : 'Off'}`;
+    els.championFastModeBtn.title = allowed
+      ? (enabled ? 'Uses instant champion deploy timing for testing.' : 'Uses normal champion timing: 20 waves rest, 12 waves active, 24 if held to 40.')
+      : 'Connect 0x971b... to toggle champion fast mode.';
+  }
+
+  function toggleChampionFastMode() {
+    if (!canUseChampionFastModeToggle()) {
+      showBanner('Champion fast mode is only available on the authorized wallet.', 2200);
+      updateChampionFastModeButtonState();
+    updateMetisInfluenceDebugButtonState();
+      return;
+    }
+    const nextEnabled = !isChampionFastModeEnabled();
+    try {
+      localStorage.setItem(getChampionFastModeStorageKey(), nextEnabled ? '1' : '0');
+    } catch (_error) {}
+    updateChampionFastModeButtonState();
+    updateMetisInfluenceDebugButtonState();
+    render();
+    showBanner(nextEnabled ? 'Champion fast mode enabled.' : 'Champion fast mode disabled. Normal timing restored.', 2200);
+    log(nextEnabled ? 'Champion fast mode enabled for authorized wallet.' : 'Champion fast mode disabled for authorized wallet.');
+  }
+
+  function canUseMetisInfluenceDebug() {
+    return canUseChampionFastModeToggle();
+  }
+
+  function updateMetisInfluenceDebugButtonState() {
+    if (!els.metisInfluenceDebugBtn) return;
+    const allowed = canUseMetisInfluenceDebug();
+    els.metisInfluenceDebugBtn.classList.toggle('hidden', !allowed);
+    els.metisInfluenceDebugBtn.disabled = !allowed || game.metisInfluenceDebugPending === true;
+    els.metisInfluenceDebugBtn.textContent = game.metisInfluenceDebugPending ? 'Checking Metis Influence…' : 'Debug Metis Influence';
+    els.metisInfluenceDebugBtn.title = allowed
+      ? 'Checks Metis hero influence data for confirmed examples and your pledged wallet heroes, then logs a table.'
+      : 'Connect the authorized test wallet to run this diagnostic.';
+  }
+
+  async function loadMetisPledgedHeroIdsForAddress(address, contract) {
+    const pledgedHeroIds = [];
+    try {
+      const directIds = await withChainReadTimeout(contract.getPlayerPledgedHeroes(address), 'getPlayerPledgedHeroes', 4500);
+      if (Array.isArray(directIds)) pledgedHeroIds.push(...directIds.map((value) => value.toString()).filter(Boolean));
+    } catch (error) {
+      const message = getReadableChainError(error);
+      console.warn('[metis-influence-debug] getPlayerPledgedHeroes skipped', message);
+      if (isExpectedNoProfileError(error)) return [];
+    }
+
+    if (!pledgedHeroIds.length) {
+      const pageSize = 100;
+      for (let index = 0; index < 5000; index += pageSize) {
+        let page = [];
+        try {
+          page = await withChainReadTimeout(contract.getPlayerPledgedHeroesWithIndex(address, index, pageSize), `getPlayerPledgedHeroesWithIndex:${index}`, 4500);
+        } catch (error) {
+          const message = getReadableChainError(error);
+          console.warn('[metis-influence-debug] getPlayerPledgedHeroesWithIndex stopped', { index, message });
+          break;
+        }
+        const pageIds = Array.isArray(page) ? page.map((value) => value.toString()).filter(Boolean) : [];
+        if (!pageIds.length) break;
+        pledgedHeroIds.push(...pageIds);
+        if (pageIds.length < pageSize) break;
+      }
+    }
+    return Array.from(new Set(pledgedHeroIds.map((value) => String(value)).filter(Boolean)));
+  }
+
+  function formatDebugValue(value) {
+    if (value == null) return '';
+    try {
+      if (typeof value === 'bigint') return value.toString();
+      if (typeof value.toString === 'function') return value.toString();
+    } catch (_error) {}
+    return String(value);
+  }
+
+  function parseChainNumber(value) {
+    if (value == null) return 0;
+    try {
+      if (typeof value === 'bigint') return Number(value);
+      if (typeof value.toString === 'function') return Number(value.toString());
+    } catch (_error) {}
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  const METIS_GEN0_INFLUENCE_THRESHOLD = 100000;
+
+  function isMetisGen0InfluenceValue(value) {
+    return parseChainNumber(value) >= METIS_GEN0_INFLUENCE_THRESHOLD;
+  }
+
+  function isExpectedNoProfileError(error) {
+    const message = String(error?.shortMessage || error?.reason || error?.message || error || '').toLowerCase();
+    const nestedMessage = String(error?.data?.message || error?.error?.message || error?.info?.error?.message || '').toLowerCase();
+    return message.includes('no profile found') || nestedMessage.includes('no profile found');
+  }
+
+  function withChainReadTimeout(promise, label, timeoutMs = 4500) {
+    let timer = null;
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label || 'chain read'} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+  }
+
+  function getReadableChainError(error) {
+    return error?.shortMessage || error?.reason || error?.data?.message || error?.error?.message || error?.info?.error?.message || error?.message || String(error || 'Unknown error');
+  }
+
+  async function readMetisHeroInfluenceFlags(contract, heroId) {
+    const result = {
+      isGen0: false,
+      source: 'chain-none',
+      influenceDataInfluence: '',
+      influenceDataDaysLocked: '',
+      influenceAtMinLock: '',
+      influenceAtMaxLock: '',
+      score: '',
+      error: '',
+    };
+
+    try {
+      const data = await withChainReadTimeout(contract.getHeroInfluenceData(heroId), `getHeroInfluenceData:${heroId}`, 4500);
+      const influenceValue = data && (data.influence ?? data[2]);
+      const daysLockedValue = data && (data.daysLocked ?? data[1]);
+      result.influenceDataInfluence = formatDebugValue(influenceValue);
+      result.influenceDataDaysLocked = formatDebugValue(daysLockedValue);
+      if (isMetisGen0InfluenceValue(influenceValue)) {
+        result.isGen0 = true;
+        result.source = `getHeroInfluenceData>=${METIS_GEN0_INFLUENCE_THRESHOLD}`;
+      }
+    } catch (error) {
+      result.error = result.error || `getHeroInfluenceData: ${getReadableChainError(error)}`;
+    }
+
+    // Do not call getHeroInfluence(heroId, duration) here. Invalid or unsupported durations
+    // revert and slow down roster loading, while getHeroInfluenceData already exposes the
+    // stable influence value we need for Gen0 detection.
+    try {
+      const score = await withChainReadTimeout(contract.getHeroScore(heroId), `getHeroScore:${heroId}`, 4500);
+      result.score = formatDebugValue(score);
+    } catch (error) {
+      if (!result.error) result.error = `getHeroScore: ${getReadableChainError(error)}`;
+    }
+
+    return result;
+  }
+
+  async function readMetisHeroInfluenceDebugRow(contract, heroId) {
+    const row = {
+      heroId: String(heroId),
+      expected: KNOWN_GEN0_HERO_IDS.has(String(heroId)) ? 'known Gen0' : (KNOWN_NON_GEN0_HERO_IDS.has(String(heroId)) ? 'known not Gen0' : ''),
+      chainGen0: '',
+      gen0Source: '',
+      className: '',
+      level: '',
+      summonsRemaining: '',
+      score: '',
+      influenceDataInfluence: '',
+      influenceDataDaysLocked: '',
+      influenceAtMinLock: '',
+      influenceAtMaxLock: '',
+      error: '',
+    };
+
+    try {
+      const core = await withChainReadTimeout(contract.getHero(heroId), `getHero:${heroId}`, 4500);
+      row.className = getDfKClassName(Number(core.class));
+      row.level = formatDebugValue(core.level);
+      row.summonsRemaining = formatDebugValue(core.summonsRemaining);
+    } catch (error) {
+      row.error = `getHero: ${getReadableChainError(error)}`;
+    }
+
+    const influenceFlags = await readMetisHeroInfluenceFlags(contract, heroId);
+    row.score = influenceFlags.score;
+    row.influenceDataInfluence = influenceFlags.influenceDataInfluence;
+    row.influenceDataDaysLocked = influenceFlags.influenceDataDaysLocked;
+    row.influenceAtMinLock = influenceFlags.influenceAtMinLock;
+    row.influenceAtMaxLock = influenceFlags.influenceAtMaxLock;
+    row.chainGen0 = influenceFlags.isGen0 ? 'yes' : 'no';
+    row.gen0Source = influenceFlags.source;
+    row.error = row.error || influenceFlags.error;
+
+    return row;
+  }
+
+  async function debugMetisInfluenceForWalletHeroes() {
+    if (!canUseMetisInfluenceDebug()) {
+      showBanner('Metis influence debug is only available on the authorized wallet.', 2200);
+      updateMetisInfluenceDebugButtonState();
+      return;
+    }
+    if (!window.ethers) {
+      showBanner('Ethers is not loaded yet.', 2200);
+      return;
+    }
+
+    game.metisInfluenceDebugPending = true;
+    updateMetisInfluenceDebugButtonState();
+    showBanner('Checking Metis influence values… open console for the table.', 3200);
+
+    try {
+      const address = getConnectedWalletAddress();
+      const rawProvider = getWalletRpcProvider();
+      const browserProvider = rawProvider ? new window.ethers.BrowserProvider(rawProvider) : null;
+      let browserChainId = 0;
+      if (browserProvider) {
+        try {
+          const network = await browserProvider.getNetwork();
+          browserChainId = Number(network && network.chainId ? network.chainId : 0);
+        } catch (_networkError) {}
+      }
+      const provider = browserProvider && browserChainId === METIS_CHAIN_ID
+        ? browserProvider
+        : new window.ethers.JsonRpcProvider(METIS_CHAIN_RPC_URL, METIS_CHAIN_ID, { staticNetwork: true });
+      const contract = new window.ethers.Contract(METIS_HERO_CORE_ADDRESS, [...METIS_HERO_CORE_ABI, ...METIS_PVP_ABI], provider);
+      const pledgedIds = address ? await loadMetisPledgedHeroIdsForAddress(address, contract) : [];
+      const explicitExamples = ['1536', '367', '236127', '1000000580117', '1000000394507', '1000000435777', '1000000210744'];
+      const ids = Array.from(new Set([...explicitExamples, ...pledgedIds].filter(Boolean)));
+      const rows = [];
+      for (let index = 0; index < ids.length; index += 1) {
+        if (index === 0 || index % 5 === 0) {
+          showBanner(`Checking Metis influence ${index + 1}/${ids.length}…`, 1200);
+        }
+        rows.push(await readMetisHeroInfluenceDebugRow(contract, ids[index]));
+      }
+
+      console.group('[metis-influence-debug] Hero influence values');
+      console.table(rows);
+      console.log('[metis-influence-debug] TSV copy/paste:\n' + rows.map((row, index) => {
+        const headers = Object.keys(row);
+        if (index === 0) return `${headers.join('\t')}\n${headers.map((key) => row[key]).join('\t')}`;
+        return Object.keys(row).map((key) => row[key]).join('\t');
+      }).join('\n'));
+      console.groupEnd();
+
+      try {
+        const headers = Object.keys(rows[0] || {});
+        const tsv = [headers.join('\t'), ...rows.map((row) => headers.map((key) => row[key]).join('\t'))].join('\n');
+        await navigator.clipboard.writeText(tsv);
+        showBanner('Metis influence table copied. Paste it here.', 4200);
+      } catch (_clipboardError) {
+        showBanner('Metis influence table logged in console. Copy it from there.', 4200);
+      }
+      log(`Metis influence debug checked ${rows.length} heroes. Open console or paste copied table here.`);
+    } catch (error) {
+      console.error('[metis-influence-debug] failed', error);
+      showBanner('Metis influence debug failed. Check console.', 3200);
+    } finally {
+      game.metisInfluenceDebugPending = false;
+      updateMetisInfluenceDebugButtonState();
+    }
+  }
+
+  function canUseChampionWaveOneOverride() {
+    return isChampionFastModeEnabled();
   }
 
   function getChampionRequiredWaitWaves() {
@@ -5904,12 +6510,42 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function recordTowerDamage(tower, appliedDamage, methodKey = 'basic_attack', methodLabel = 'Basic Attack') {
     if (!tower || !Number.isFinite(Number(appliedDamage)) || Number(appliedDamage) <= 0) return;
-    tower.damageDealt = Math.max(0, Number(tower.damageDealt || 0)) + Number(appliedDamage);
+    const amount = Number(appliedDamage);
+    tower.damageDealt = Math.max(0, Number(tower.damageDealt || 0)) + amount;
     const methods = ensureTowerDamageMethods(tower);
     const safeKey = String(methodKey || 'basic_attack');
-    if (!methods[safeKey]) methods[safeKey] = { label: String(methodLabel || 'Basic Attack'), damage: 0 };
+    if (!methods[safeKey]) methods[safeKey] = { label: String(methodLabel || 'Basic Attack'), damage: 0, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0 };
     methods[safeKey].label = String(methodLabel || methods[safeKey].label || 'Basic Attack');
-    methods[safeKey].damage = Math.max(0, Number(methods[safeKey].damage || 0)) + Number(appliedDamage);
+    methods[safeKey].damage = Math.max(0, Number(methods[safeKey].damage || 0)) + amount;
+    if (isGen0BonusTower(tower)) {
+      const regularAmount = amount / GEN0_WALLET_HERO_DAMAGE_MULTIPLIER;
+      methods[safeKey].gen0Regular = Math.max(0, Number(methods[safeKey].gen0Regular || 0)) + regularAmount;
+      methods[safeKey].gen0Bonus = Math.max(0, Number(methods[safeKey].gen0Bonus || 0)) + Math.max(0, amount - regularAmount);
+      methods[safeKey].gen0Actual = Math.max(0, Number(methods[safeKey].gen0Actual || 0)) + amount;
+    }
+  }
+
+  function ensureTowerHealingMethods(tower) {
+    if (!tower) return {};
+    if (!tower.healingByMethod || typeof tower.healingByMethod !== 'object') tower.healingByMethod = {};
+    return tower.healingByMethod;
+  }
+
+  function recordTowerHealing(sourceTower, healedAmount, methodKey = 'healing', methodLabel = 'Healing') {
+    if (!sourceTower || !Number.isFinite(Number(healedAmount)) || Number(healedAmount) <= 0) return;
+    const amount = Number(healedAmount);
+    sourceTower.healingDone = Math.max(0, Number(sourceTower.healingDone || 0)) + amount;
+    const methods = ensureTowerHealingMethods(sourceTower);
+    const safeKey = String(methodKey || 'healing');
+    if (!methods[safeKey]) methods[safeKey] = { label: String(methodLabel || 'Healing'), healing: 0, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0 };
+    methods[safeKey].label = String(methodLabel || methods[safeKey].label || 'Healing');
+    methods[safeKey].healing = Math.max(0, Number(methods[safeKey].healing || 0)) + amount;
+    if (isGen0BonusTower(sourceTower)) {
+      const regularAmount = amount / GEN0_WALLET_HERO_HEALING_MULTIPLIER;
+      methods[safeKey].gen0Regular = Math.max(0, Number(methods[safeKey].gen0Regular || 0)) + regularAmount;
+      methods[safeKey].gen0Bonus = Math.max(0, Number(methods[safeKey].gen0Bonus || 0)) + Math.max(0, amount - regularAmount);
+      methods[safeKey].gen0Actual = Math.max(0, Number(methods[safeKey].gen0Actual || 0)) + amount;
+    }
   }
 
   function getTowerDamageMethodRows(tower) {
@@ -5917,15 +6553,43 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       .map(entry => ({
         label: String(entry?.label || 'Unknown'),
         damage: Math.max(0, Number(entry?.damage || 0)),
+        gen0Regular: Math.max(0, Number(entry?.gen0Regular || 0)),
+        gen0Bonus: Math.max(0, Number(entry?.gen0Bonus || 0)),
+        gen0Actual: Math.max(0, Number(entry?.gen0Actual || 0)),
+        gen0Kind: Number(entry?.gen0Actual || 0) > 0 ? 'damage' : '',
       }))
       .filter(entry => entry.damage > 0)
       .sort((a, b) => b.damage - a.damage || a.label.localeCompare(b.label));
     const total = Math.max(0, Number(tower?.damageDealt || 0));
     const accounted = methods.reduce((sum, entry) => sum + entry.damage, 0);
     if (total > accounted + 0.001) {
-      methods.push({ label: 'Other', damage: total - accounted });
+      methods.push({ label: 'Other', damage: total - accounted, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0, gen0Kind: '' });
     }
     return methods;
+  }
+
+  function getTowerHealingMethodRows(tower) {
+    return Object.values(ensureTowerHealingMethods(tower))
+      .map(entry => ({
+        label: String(entry?.label || 'Healing'),
+        damage: Math.max(0, Number(entry?.healing || 0)),
+        gen0Regular: Math.max(0, Number(entry?.gen0Regular || 0)),
+        gen0Bonus: Math.max(0, Number(entry?.gen0Bonus || 0)),
+        gen0Actual: Math.max(0, Number(entry?.gen0Actual || 0)),
+        gen0Kind: Number(entry?.gen0Actual || 0) > 0 ? 'healing' : '',
+      }))
+      .filter(entry => entry.damage > 0)
+      .sort((a, b) => b.damage - a.damage || a.label.localeCompare(b.label));
+  }
+
+  function renderDamageReportMethodValue(method) {
+    const total = Math.round(Math.max(0, Number(method?.damage || 0))).toLocaleString();
+    if (!method || !Number(method.gen0Actual || 0)) return total;
+    const regular = Math.round(Math.max(0, Number(method.gen0Regular || 0))).toLocaleString();
+    const gen0 = Math.round(Math.max(0, Number(method.gen0Actual || 0))).toLocaleString();
+    const bonus = Math.round(Math.max(0, Number(method.gen0Bonus || 0))).toLocaleString();
+    const noun = method.gen0Kind === 'healing' ? 'heal' : 'dmg';
+    return '<span class="live-damage-report-gen0-value"><span>Regular: ' + regular + '</span><span>Gen0: ' + gen0 + '</span><span>Bonus: +' + bonus + ' ' + noun + '</span></span>';
   }
 
   function isDamageReportTowerExpanded(towerId) {
@@ -6008,6 +6672,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
           totalHealing: 0,
           totalAvoided: 0,
           methods: new Map(),
+          healingMethods: new Map(),
           satelliteCount: 0,
         });
       }
@@ -6018,16 +6683,36 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       if (tower.isSatellite) row.satelliteCount += 1;
       for (const method of getTowerDamageMethodRows(tower)) {
         const methodKey = String(method.label || 'Other');
-        row.methods.set(methodKey, (row.methods.get(methodKey) || 0) + Math.max(0, Number(method.damage || 0)));
+        const current = row.methods.get(methodKey) || { label: methodKey, damage: 0, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0, gen0Kind: method.gen0Kind || '' };
+        current.damage += Math.max(0, Number(method.damage || 0));
+        current.gen0Regular += Math.max(0, Number(method.gen0Regular || 0));
+        current.gen0Bonus += Math.max(0, Number(method.gen0Bonus || 0));
+        current.gen0Actual += Math.max(0, Number(method.gen0Actual || 0));
+        current.gen0Kind = current.gen0Actual > 0 ? (method.gen0Kind || 'damage') : '';
+        row.methods.set(methodKey, current);
+      }
+      for (const method of getTowerHealingMethodRows(tower)) {
+        const methodKey = String(method.label || 'Healing');
+        const current = row.healingMethods.get(methodKey) || { label: methodKey, damage: 0, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0, gen0Kind: method.gen0Kind || 'healing' };
+        current.damage += Math.max(0, Number(method.damage || 0));
+        current.gen0Regular += Math.max(0, Number(method.gen0Regular || 0));
+        current.gen0Bonus += Math.max(0, Number(method.gen0Bonus || 0));
+        current.gen0Actual += Math.max(0, Number(method.gen0Actual || 0));
+        current.gen0Kind = current.gen0Actual > 0 ? 'healing' : '';
+        row.healingMethods.set(methodKey, current);
       }
     }
     return Array.from(groups.values()).map(row => ({
       ...row,
-      methodRows: Array.from(row.methods.entries()).map(([label, damage]) => ({ label, damage }))
+      methodRows: Array.from(row.methods.values())
+        .filter(entry => entry.damage > 0)
+        .sort((a, b) => b.damage - a.damage || a.label.localeCompare(b.label)),
+      healingMethods: Array.from(row.healingMethods.values())
         .filter(entry => entry.damage > 0)
         .sort((a, b) => b.damage - a.damage || a.label.localeCompare(b.label)),
       supportRows: [
-        ...(row.totalHealing > 0 ? [{ label: 'Healing', damage: row.totalHealing }] : []),
+        ...Array.from(row.healingMethods || []),
+        ...(row.totalHealing > 0 && !(row.healingMethods && row.healingMethods.length) ? [{ label: 'Healing', damage: row.totalHealing }] : []),
         ...(row.totalAvoided > 0 ? [{ label: 'Damage Avoided', damage: row.totalAvoided }] : []),
       ],
     })).sort((a, b) => b.totalDamage - a.totalDamage || a.reportLabel.localeCompare(b.reportLabel));
@@ -6109,13 +6794,13 @@ function renderDamageReport() {
           ${methods.length ? methods.map(method => `
             <div class="live-damage-report-method-row">
               <div class="live-damage-report-method-label">${method.label}</div>
-              <div class="live-damage-report-method-value">${Math.round(method.damage).toLocaleString()}</div>
+              <div class="live-damage-report-method-value">${renderDamageReportMethodValue(method)}</div>
             </div>
           `).join('') : '<div class="live-damage-report-empty">No damage recorded yet.</div>'}
           ${supports.length ? supports.map(method => `
             <div class="live-damage-report-method-row">
               <div class="live-damage-report-method-label">${method.label}</div>
-              <div class="live-damage-report-method-value">${Math.round(method.damage).toLocaleString()}</div>
+              <div class="live-damage-report-method-value">${renderDamageReportMethodValue(method)}</div>
             </div>
           `).join('') : ''}
         </div>
@@ -6474,6 +7159,7 @@ function renderDamageReport() {
     game.placingSatelliteSourceId = null;
     game.hoveredTowerId = null;
     game.placingWalletHeroId = null;
+    game.gen0ClassActive = {};
     game.nextEnemyId = 1;
     game.nextTowerId = 1;
     game.nextWavePlan = null;
@@ -6525,6 +7211,7 @@ function renderDamageReport() {
     game.championLastReminderWaited = 0;
     syncPersistentKnownRelics();
     game.continueOfferUsed = false;
+    game.paidContinueOfferUsed = false;
     game.continueOfferPending = false;
     game.portalMovedThisRun = false;
     game.portalPickedUpForMove = false;
@@ -7932,6 +8619,16 @@ function canSubmitRewardClaims() {
             <li>Non-whitelisted wallets require approval.</li>
           </ul>
         </div>
+        <div class="intro-section-card intro-gen0-guide-card">
+          <p class="intro-page-subheading">Gen0 Heroes</p>
+          <ul class="intro-compact-list">
+            <li><span class="intro-highlight">Gen0 heroes unlock a permanent class buff for the entire run.</span></li>
+            <li>If you place a Gen0 hero, all future heroes of that class become Gen0 too.</li>
+            <li>This includes reinforcements and newly hired units.</li>
+            <li>The class buff stays active even if the original Gen0 hero dies.</li>
+            <li><span class="intro-highlight">Bonus:</span> +20% damage, +10% attack speed, +10% max life, and +30% healing effects.</li>
+          </ul>
+        </div>
         <div class="intro-section-card">
           <p class="intro-page-subheading">Supported Networks &amp; Notes</p>
           <ul class="intro-compact-list">
@@ -8040,8 +8737,8 @@ function canSubmitRewardClaims() {
   const DFK_SLOT_ORDER = ['warrior', 'archer', 'wizard', 'seer', 'priest', 'pirate', 'monk', 'berserker'];
   const DFK_GOLD_CONTRACT_ADDRESS = '0x576C260513204392F0eC0bc865450872025CB1cA';
   const DFK_GOLD_DECIMALS = 3;
-  const DFK_GOLD_SWAP_COST = 10000;
-  const DEFENDER_GOLD_SWAP_REWARD = 1000;
+  const DFK_GOLD_SWAP_COST = 30000;
+  const DEFENDER_GOLD_SWAP_REWARD = 1500;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 2000;
   const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '450000000000000');
@@ -8049,10 +8746,11 @@ function canSubmitRewardClaims() {
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad').trim().toLowerCase();
   const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
   const MILESTONE_HERO_OFFER_COSTS = Object.freeze({
+    20: 100000,
     25: 100000,
-    50: 200000,
-    75: 300000,
-    100: 500000,
+    50: 100000,
+    75: 100000,
+    100: 100000,
   });
   const DFK_GOLD_BURN_ADDRESS = String(window.DFK_GOLD_BURN_ADDRESS || '0x000000000000000000000000000000000000dEaD');
   const DFK_GOLD_ERC20_ABI = [
@@ -8079,7 +8777,10 @@ function canSubmitRewardClaims() {
 
   const METIS_PVP_ABI = [
     'function getPlayerPledgedHeroes(address _player) view returns (uint256[])',
-    'function getPlayerPledgedHeroesWithIndex(address _player, uint256 _index, uint256 _count) view returns (uint256[])'
+    'function getPlayerPledgedHeroesWithIndex(address _player, uint256 _index, uint256 _count) view returns (uint256[])',
+    'function getHeroInfluenceData(uint256 _heroId) view returns (tuple(uint256 lockExpirationDay, uint256 daysLocked, uint256 influence, uint256 lastXpClaimDay))',
+    'function getHeroInfluence(uint256 _heroId, uint256 _lockDuration) view returns (uint256)',
+    'function getHeroScore(uint256 _heroId) view returns (uint256)'
   ];
 
   const WALLET_HERO_CHAIN_CONFIGS = Object.freeze([
@@ -8119,6 +8820,211 @@ function canSubmitRewardClaims() {
   function getWalletHeroSourceBadge(heroLike) {
     const config = getWalletHeroChainConfig(heroLike && (heroLike.chainKey || heroLike.chainId));
     return config ? config.name : 'Wallet';
+  }
+
+  function isGen0WalletHero(heroLike) {
+    if (!heroLike) return false;
+    const override = getKnownHeroGen0Override(heroLike.id || heroLike.normalizedId || heroLike.heroId);
+    if (override != null) return override === true;
+    const chainKey = normalizeWalletHeroNetwork(heroLike.chainKey || heroLike.chainId || heroLike.network);
+    if (chainKey === 'metis') {
+      // Metis heroes do not expose the same reliable generation field as DFK Chain heroes.
+      // Only the explicit chain-read flag should grant Gen0 UI or combat bonus; never infer
+      // Gen0 from a cached/display influence string, because that caused false positives.
+      return heroLike.isGen0 === true && String(heroLike.gen0Source || '').startsWith('getHeroInfluenceData');
+    }
+    if (heroLike.isGen0 === true) return true;
+    const generation = Number(heroLike.generation);
+    return Number.isFinite(generation) && generation === 0;
+  }
+
+  function getWalletHeroGenerationBadge(heroLike) {
+    return isGen0WalletHero(heroLike) ? 'Gen 0' : '';
+  }
+
+  function getWalletHeroBonusEligibilityText(heroLike) {
+    return isGen0WalletHero(heroLike) ? 'Gen0 bonus eligible' : '';
+  }
+
+  function getWalletHeroLineParts(heroLike, extraParts = []) {
+    const parts = [getWalletHeroSourceBadge(heroLike)];
+    if (isGen0WalletHero(heroLike)) parts.push(getWalletHeroGenerationBadge(heroLike), getWalletHeroBonusEligibilityText(heroLike));
+    for (const part of extraParts) {
+      const text = String(part || '').trim();
+      if (text) parts.push(text);
+    }
+    return parts.filter(Boolean);
+  }
+
+  function isGen0BonusTower(tower) {
+    return !!(tower
+      && tower.walletHeroGen0Bonus === true
+      && !tower.isChampion
+      && !String(tower.type || '').startsWith('champion_'));
+  }
+
+  function getWalletHeroById(id) {
+    const target = String(id || '').trim();
+    if (!target) return null;
+    const rosters = [game.walletHeroRoster, game.allWalletHeroRoster].filter(Array.isArray);
+    for (const roster of rosters) {
+      const hero = roster.find((entry) => entry && (String(entry.id || '') === target || String(entry.normalizedId || '') === target || String(entry.rawId || '') === target));
+      if (hero) return hero;
+    }
+    return null;
+  }
+
+  function getSelectedGen0WalletHeroCount() {
+    try {
+      return Object.values(game.selectedWalletHeroes || {}).filter((heroId) => isGen0WalletHero(getWalletHeroById(heroId))).length;
+    } catch (error) {
+      console.warn('[gen0-ui] selected Gen0 count failed', error);
+      return 0;
+    }
+  }
+
+  function normalizeHeroTypeKey(type) {
+    return String(type || '').trim().toLowerCase();
+  }
+
+  function activateGen0ClassForType(type) {
+    const key = normalizeHeroTypeKey(type);
+    if (!key || String(key).startsWith('champion_')) return;
+    if (!game.gen0ClassActive || typeof game.gen0ClassActive !== 'object') game.gen0ClassActive = {};
+    const wasActive = !!game.gen0ClassActive[key];
+    game.gen0ClassActive[key] = true;
+    if (!wasActive) {
+      try { showBanner('GEN0 ACTIVE: ' + getGen0ClassDisplayName(key), 1800); } catch (error) {}
+    }
+  }
+
+  function isGen0ClassActive(type) {
+    const key = normalizeHeroTypeKey(type);
+    return !!(key && game.gen0ClassActive && game.gen0ClassActive[key]);
+  }
+
+  function getGen0HeroButtonMode(type, selectedWalletHero = null, usesBonus = false) {
+    if (usesBonus && isGen0ClassActive(type)) return 'inherited';
+    if (selectedWalletHero && isGen0WalletHero(selectedWalletHero)) return 'selected';
+    if (isGen0ClassActive(type)) return 'inherited';
+    return '';
+  }
+
+  function getActiveGen0ClassCount() {
+    return Object.values(game.gen0ClassActive || {}).filter(Boolean).length;
+  }
+
+  function getGen0BuffInfoMarkup(tower) {
+    try {
+      const hasActiveBuff = isGen0BonusTower(tower);
+      const selectedGen0Count = getSelectedGen0WalletHeroCount();
+      const activeClassCount = getActiveGen0ClassCount();
+      const towerClassActive = tower && isGen0ClassActive(tower.type);
+      if (!hasActiveBuff && selectedGen0Count < 1 && activeClassCount < 1) return '';
+      let title = hasActiveBuff ? 'GEN0 BUFF ACTIVE' : 'GEN0 BUFF ARMED';
+      let detail = '+20% damage • +10% attack speed • +10% max HP • +30% healing power';
+      if (!hasActiveBuff) {
+        if (towerClassActive) title = 'GEN0 CLASS BUFF ACTIVE';
+        detail = activeClassCount > 0
+          ? 'Gen0 class buff armed for this run. Future hires in unlocked Gen0 classes also receive +20% damage, +10% attack speed, +10% max HP, and +30% healing power.'
+          : (selectedGen0Count + ' selected Gen0 hero' + (selectedGen0Count === 1 ? '' : 'es') + ' will unlock the class buff when placed.');
+      }
+      return '<div class="selected-info-gen0-buff"><strong>' + title + '</strong><span>' + escapeHtml(detail) + '</span></div>';
+    } catch (error) {
+      console.warn('[gen0-ui] failed to render buff info', error);
+      return '';
+    }
+  }
+
+  function getActiveGen0ClassNames() {
+    const active = game.gen0ClassActive && typeof game.gen0ClassActive === 'object' ? game.gen0ClassActive : {};
+    return Object.keys(active)
+      .filter((key) => active[key])
+      .map((key) => String(key || '').trim().toLowerCase())
+      .filter(Boolean)
+      .sort();
+  }
+
+  function getGen0ClassDisplayName(type) {
+    const key = normalizeHeroTypeKey(type);
+    const labels = {
+      warrior: 'Warrior',
+      archer: 'Archer',
+      wizard: 'Wizard',
+      priest: 'Priest',
+      pirate: 'Pirate',
+      seer: 'Seer',
+      monk: 'Monk',
+      berserker: 'Berserker',
+    };
+    return labels[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : 'Hero');
+  }
+
+  function ensureGen0ActiveBannerEl() {
+    let el = document.getElementById('gen0ActiveBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gen0ActiveBanner';
+      el.className = 'gen0-active-banner hidden';
+      el.setAttribute('aria-live', 'polite');
+      el.innerHTML = '<div class="gen0-active-banner-title">GEN0 ACTIVE</div><div class="gen0-active-banner-classes"></div><div class="gen0-active-banner-bonus">+20% DMG • +10% SPEED • +10% LIFE • +30% HEALING</div>';
+    }
+
+    const target = els.walletHeroBonusToggle || els.walletHeroBonusSection || document.body;
+    if (target && el.parentNode !== target) target.appendChild(el);
+    return el;
+  }
+
+  function renderGen0ActiveBanner() {
+    const el = ensureGen0ActiveBannerEl();
+    const activeClasses = getActiveGen0ClassNames();
+    const shouldShow = activeClasses.length > 0 && game.phase !== SETUP_PHASES.GAME_OVER;
+    el.classList.toggle('hidden', !shouldShow);
+    if (els.walletHeroBonusSection) els.walletHeroBonusSection.classList.toggle('has-gen0-active-banner', shouldShow);
+    if (!shouldShow) return;
+    const classText = activeClasses.map(getGen0ClassDisplayName).join(' • ');
+    const classEl = el.querySelector('.gen0-active-banner-classes');
+    if (classEl) classEl.textContent = classText;
+    el.title = 'Gen0 class buff is active this run. Future hires in listed classes inherit the Gen0 bonus.';
+  }
+
+  function applyGen0CombatBonusToTower(tower, source = 'wallet') {
+    if (!tower || tower.gen0CombatBonusApplied) return false;
+    if (tower.isChampion || String(tower.type || '').startsWith('champion_')) return false;
+    const previousMaxHp = Number(tower.maxHp || 0);
+    const previousHp = Number(tower.hp || 0);
+    tower.walletHeroGen0Bonus = true;
+    tower.walletHeroIsGen0 = true;
+    tower.gen0CombatBonusApplied = true;
+    tower.gen0BonusSource = source;
+    if (tower.type === 'archer') {
+      normalizeArcherStats(tower);
+    } else {
+      tower.damage = Math.max(0, Number(tower.damage || 0)) * GEN0_WALLET_HERO_DAMAGE_MULTIPLIER;
+      tower.baseDamage = Math.max(0, Number(tower.baseDamage || tower.damage || 0)) * GEN0_WALLET_HERO_DAMAGE_MULTIPLIER;
+      tower.maxHp = Math.max(1, Math.round(Number(tower.maxHp || 1) * GEN0_WALLET_HERO_HP_MULTIPLIER));
+      tower.hp = Math.min(tower.maxHp, Math.max(1, Math.round(Number(tower.hp || tower.maxHp || 1) * GEN0_WALLET_HERO_HP_MULTIPLIER)));
+      if (Number(tower.basicCooldown || 0) > 0) tower.basicCooldown = Math.max(80, Number(tower.basicCooldown || 0) / GEN0_WALLET_HERO_SPEED_MULTIPLIER);
+    }
+    if (tower.type === 'archer' && Number.isFinite(previousHp) && previousHp > 0 && Number.isFinite(previousMaxHp) && previousMaxHp > 0) {
+      const hpRatio = Math.max(0, Math.min(1, previousHp / previousMaxHp));
+      tower.hp = Math.max(1, Math.min(tower.maxHp, tower.maxHp * hpRatio));
+    }
+    tower.healingPowerMultiplier = Math.max(Number(tower.healingPowerMultiplier || 1), GEN0_WALLET_HERO_HEALING_MULTIPLIER);
+    if (!String(tower.reportLabel || '').includes('Gen0')) tower.reportLabel = (tower.reportLabel || tower.name || 'Hero') + ' • Gen0';
+    return true;
+  }
+
+  function applyGen0WalletHeroCombatBonus(tower, heroData) {
+    if (!tower || !heroData || !isGen0WalletHero(heroData)) return;
+    activateGen0ClassForType(tower.type || heroData.type);
+    applyGen0CombatBonusToTower(tower, 'wallet');
+  }
+
+  function applyInheritedGen0ClassBonus(tower) {
+    if (!tower || tower.isSatellite) return false;
+    if (!isGen0ClassActive(tower.type)) return false;
+    return applyGen0CombatBonusToTower(tower, 'class');
   }
 
   function normalizeWalletHeroRecord(heroLike, overrides = {}) {
@@ -8165,6 +9071,8 @@ function canSubmitRewardClaims() {
   function compareWalletHeroes(a, b) {
     const typeDelta = DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
     if (typeDelta !== 0) return typeDelta;
+    const gen0Delta = (isGen0WalletHero(b) ? 1 : 0) - (isGen0WalletHero(a) ? 1 : 0);
+    if (gen0Delta !== 0) return gen0Delta;
     const levelDelta = Number(b.level || 0) - Number(a.level || 0);
     if (levelDelta !== 0) return levelDelta;
     const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
@@ -8193,6 +9101,96 @@ function canSubmitRewardClaims() {
       customPortraitUrl,
       getDefaultHeroImageForType(heroType),
     ].filter(Boolean);
+  }
+
+  const KNOWN_GEN0_HERO_IDS = new Set(['367', '1536']);
+  const KNOWN_NON_GEN0_HERO_IDS = new Set(['236127', '1000000210744', '1000000394507', '1000000435777', '1000000580117']);
+
+  function normalizeHeroIdText(heroId) {
+    return String(heroId == null ? '' : heroId).trim().replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+  }
+
+  function getUnpaddedHeroIdText(heroId) {
+    const normalized = normalizeHeroIdText(heroId);
+    if (!normalized) return '';
+    try {
+      const id = BigInt(normalized);
+      const trillion = 1000000000000n;
+      if (id >= 2000000000000n) return String(id - 2000000000000n);
+      if (id >= trillion) return String(id - trillion);
+    } catch (_error) {}
+    return normalized;
+  }
+
+  function extractNumericTraitValue(rawValue) {
+    if (rawValue == null) return null;
+    const match = String(rawValue).match(/-?\d+/);
+    if (!match) return null;
+    const value = Number(match[0]);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  function extractHeroMetadataGeneration(metadata) {
+    if (!metadata || typeof metadata !== 'object') return null;
+    const directKeys = ['generation', 'Generation', 'gen', 'Gen'];
+    for (const key of directKeys) {
+      if (metadata[key] == null) continue;
+      const value = extractNumericTraitValue(metadata[key]);
+      if (value != null) return value;
+    }
+    const attributes = Array.isArray(metadata.attributes) ? metadata.attributes : [];
+    for (const attr of attributes) {
+      if (!attr || typeof attr !== 'object') continue;
+      const name = String(attr.trait_type || attr.traitType || attr.name || attr.key || '').trim().toLowerCase();
+      if (!['generation', 'gen'].includes(name)) continue;
+      const value = extractNumericTraitValue(attr.value ?? attr.display_value);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  async function readHeroMetadata(heroId) {
+    const id = normalizeHeroIdText(heroId);
+    if (!id) return null;
+    try {
+      const response = await fetch(`https://heroes.defikingdoms.com/token/${encodeURIComponent(id)}`, { cache: 'force-cache' });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  async function readHeroGenerationFromMetadata(heroId) {
+    const candidates = Array.from(new Set([
+      normalizeHeroIdText(heroId),
+      getUnpaddedHeroIdText(heroId),
+    ].filter(Boolean)));
+
+    for (const candidate of candidates) {
+      const metadata = await readHeroMetadata(candidate);
+      const generation = extractHeroMetadataGeneration(metadata);
+      if (generation != null) {
+        return { generation, metadata, metadataHeroId: candidate };
+      }
+    }
+
+    return { generation: null, metadata: null, metadataHeroId: candidates[0] || '' };
+  }
+
+  function getKnownHeroGen0Override(heroId) {
+    const normalized = normalizeHeroIdText(heroId);
+    const unpadded = getUnpaddedHeroIdText(heroId);
+    if (KNOWN_NON_GEN0_HERO_IDS.has(normalized) || KNOWN_NON_GEN0_HERO_IDS.has(unpadded)) return false;
+    if (KNOWN_GEN0_HERO_IDS.has(normalized) || KNOWN_GEN0_HERO_IDS.has(unpadded)) return true;
+    return null;
+  }
+
+  function getFallbackGen0FromHeroId(heroId) {
+    const override = getKnownHeroGen0Override(heroId);
+    if (override != null) return override;
+    const id = Number(getUnpaddedHeroIdText(heroId));
+    return Number.isFinite(id) && id >= 1 && id <= 2000;
   }
 
   async function readHeroMetadataImage(tokenUri) {
@@ -8496,20 +9494,52 @@ function canSubmitRewardClaims() {
     renderWalletHeroBonusPanel();
   }
 
+  let walletHeroSectionHome = null;
+  let walletHeroSectionMarker = null;
+
+  function ensureWalletHeroSectionHome() {
+    if (!els.walletHeroBonusSection) return;
+    if (!walletHeroSectionHome) walletHeroSectionHome = els.walletHeroBonusSection.parentNode;
+    if (!walletHeroSectionMarker && walletHeroSectionHome) {
+      walletHeroSectionMarker = document.createComment('wallet-hero-modal-home');
+      walletHeroSectionHome.insertBefore(walletHeroSectionMarker, els.walletHeroBonusSection.nextSibling);
+    }
+  }
+
+  function moveWalletHeroSectionToModalLayer() {
+    if (!els.walletHeroBonusSection || !document.body) return;
+    ensureWalletHeroSectionHome();
+    if (els.walletHeroBonusSection.parentNode !== document.body) document.body.appendChild(els.walletHeroBonusSection);
+  }
+
+  function restoreWalletHeroSectionHome() {
+    if (!els.walletHeroBonusSection) return;
+    ensureWalletHeroSectionHome();
+    if (walletHeroSectionHome && walletHeroSectionMarker && walletHeroSectionMarker.parentNode === walletHeroSectionHome && els.walletHeroBonusSection.parentNode !== walletHeroSectionHome) {
+      walletHeroSectionHome.insertBefore(els.walletHeroBonusSection, walletHeroSectionMarker);
+    }
+  }
+
   function setWalletHeroPanelCollapsed(collapsed) {
     game.walletHeroPanelCollapsed = !!collapsed;
+    const isOpen = !collapsed;
+    if (isOpen) moveWalletHeroSectionToModalLayer();
     if (els.walletHeroBonusSection) els.walletHeroBonusSection.classList.toggle('collapsed', !!collapsed);
+    if (els.walletHeroBonusSection) els.walletHeroBonusSection.classList.toggle('modal-open', isOpen);
     if (els.walletHeroBonusToggle) els.walletHeroBonusToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    if (els.walletHeroBonusPanelBody) els.walletHeroBonusPanelBody.setAttribute('aria-modal', isOpen ? 'true' : 'false');
+    document.body.classList.toggle('wallet-heroes-modal-open', isOpen);
+    if (!isOpen) restoreWalletHeroSectionHome();
     if (els.walletHeroBonusSummary) {
       const rosterCount = Array.isArray(game.walletHeroRoster) ? game.walletHeroRoster.length : 0;
+      const allLoadedCount = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster.filter(hero => hero && hero.type).length : rosterCount;
       const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
       els.walletHeroBonusSummary.textContent = game.walletHeroLoadPending
         ? 'Searching for heroes and champions…'
-        : (collapsed
-            ? (selectedCount ? `${selectedCount} selected • ${rosterCount} loaded` : (rosterCount ? `${rosterCount} loaded` : 'Closed'))
-            : (selectedCount ? `${selectedCount} selected` : 'Open'));
+        : `${selectedCount} selected • ${allLoadedCount || rosterCount} loaded`;
     }
   }
+
 
   function getSelectedWalletHero(type) {
     const selectedId = game.selectedWalletHeroes ? game.selectedWalletHeroes[type] : null;
@@ -9239,10 +10269,14 @@ function canSubmitRewardClaims() {
     const base = getBaseTowerStatsForLevel('archer', tower.level || 1);
     const previousMaxHp = Number(tower.maxHp || 0);
     const previousHp = Number(tower.hp || 0);
-    tower.damage = base.damage;
+    const gen0DamageMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_DAMAGE_MULTIPLIER : 1;
+    const gen0SpeedMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_SPEED_MULTIPLIER : 1;
+    const gen0HpMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_HP_MULTIPLIER : 1;
+    tower.damage = base.damage * gen0DamageMult;
+    tower.baseDamage = base.damage * gen0DamageMult;
     tower.range = base.range;
-    tower.basicCooldown = (TOWER_TEMPLATES.archer.attackInterval * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1);
-    tower.maxHp = tower.isSatellite ? (base.hp * 0.5) : base.hp;
+    tower.basicCooldown = ((TOWER_TEMPLATES.archer.attackInterval * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1)) / gen0SpeedMult;
+    tower.maxHp = (tower.isSatellite ? (base.hp * 0.5) : base.hp) * gen0HpMult;
     if (healToFull && tower.isSatellite) {
       tower.hp = tower.maxHp;
       return;
@@ -9426,17 +10460,12 @@ function canSubmitRewardClaims() {
       syncStatusOverlayVisibility(true);
       return;
     }
-    const revealPrimedSeerIntro = !!(els.seerIntroModal && els.seerIntroModal.classList.contains('modal-primed-under-intro'));
-    if (revealPrimedSeerIntro) {
-      game.introOpen = true;
-      document.body.classList.add('intro-open');
-      setBoardInputLocked(true);
-      els.seerIntroModal.classList.remove('hidden');
-      els.seerIntroModal.setAttribute('aria-hidden', 'false');
-      els.seerIntroModal.classList.remove('modal-primed-under-intro');
-      syncStatusOverlayVisibility(true);
-      return;
+    if (els.seerIntroModal) {
+      els.seerIntroModal.classList.add('hidden');
+      els.seerIntroModal.classList.remove('modal-primed-under-intro', 'modal-primed-under-story', 'how-to-play-active');
+      els.seerIntroModal.setAttribute('aria-hidden', 'true');
     }
+    document.body.classList.remove('how-to-play-open');
     document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
     showStatusOverlay();
@@ -9500,6 +10529,7 @@ function canSubmitRewardClaims() {
     renderRelics();
     renderMilestoneHeroOffer();
     updateTopbar();
+    renderGen0ActiveBanner();
     renderDamageReport();
     if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
     if (typeof updateMobileInstallPrompt === 'function') updateMobileInstallPrompt();
@@ -9650,12 +10680,14 @@ function canSubmitRewardClaims() {
     if (!tower || !heroData) return;
     tower.walletHeroId = String(heroData.id);
     tower.walletHeroLevel = Math.max(1, Number(heroData.level || 1));
+    tower.walletHeroIsGen0 = isGen0WalletHero(heroData);
     tower.customPortraitUrl = '';
     tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Hero ${tower.walletHeroId}`;
     const targetLevel = Math.max(1, Number(heroData.level || 1));
     for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
       applyTowerLevelStep(tower, nextLevel);
     }
+    applyGen0WalletHeroCombatBonus(tower, heroData);
   }
 
   function commitWalletHeroRoster(heroesByKey) {
@@ -9772,6 +10804,8 @@ function canSubmitRewardClaims() {
                 subClassName: getDfKClassName(subClassId),
                 rarity: Number(core.info.rarity || 0),
                 rarityName: getDfKRarityName(Number(core.info.rarity || 0)),
+                generation: Number(core.info.generation || 0),
+                isGen0: Number(core.info.generation || 0) === 0,
                 level: Math.max(1, Number(core.state.level || 1)),
                 imageUrl,
               });
@@ -9790,9 +10824,11 @@ function canSubmitRewardClaims() {
 
         let pledgedHeroIds = [];
         try {
-          const directIds = await contract.getPlayerPledgedHeroes(address);
+          const directIds = await withChainReadTimeout(contract.getPlayerPledgedHeroes(address), 'getPlayerPledgedHeroes', 4500);
           pledgedHeroIds = Array.isArray(directIds) ? directIds.map((value) => value.toString()) : [];
-        } catch (_directError) {
+        } catch (error) {
+          if (isExpectedNoProfileError(error)) console.warn('Metis pledged hero lookup skipped: no profile found for wallet.');
+          else console.warn('Metis pledged hero lookup failed', getReadableChainError(error));
           pledgedHeroIds = [];
         }
 
@@ -9801,8 +10837,9 @@ function canSubmitRewardClaims() {
           for (let index = 0; index < 5000; index += pageSize) {
             let page = [];
             try {
-              page = await contract.getPlayerPledgedHeroesWithIndex(address, index, pageSize);
-            } catch (_pageError) {
+              page = await withChainReadTimeout(contract.getPlayerPledgedHeroesWithIndex(address, index, pageSize), `getPlayerPledgedHeroesWithIndex:${index}`, 4500);
+            } catch (error) {
+              console.warn('Metis pledged hero paged lookup stopped', getReadableChainError(error));
               break;
             }
             const pageIds = Array.isArray(page) ? page.map((value) => value.toString()).filter(Boolean) : [];
@@ -9823,14 +10860,14 @@ function canSubmitRewardClaims() {
           const batch = dedupedHeroIds.slice(start, start + heroBatchSize);
           const batchHeroes = await Promise.all(batch.map(async (heroIdText) => {
             try {
-              const core = await contract.getHero(heroIdText);
+              const core = await withChainReadTimeout(contract.getHero(heroIdText), `getHero:${heroIdText}`, 4500);
               const classId = Number(core.class);
               const subClassId = Number(core.subclass);
-              let imageUrl = '';
-              try {
-                const tokenUri = await contract.tokenURI(heroIdText);
-                imageUrl = await readHeroMetadataImage(tokenUri);
-              } catch (_error) {}
+              // Do not fetch Metis token metadata here. The DFK metadata endpoint is currently flaky/CORS-blocked,
+              // and image reads should never block roster or Gen0 detection.
+              const imageUrl = '';
+              const influenceFlags = await readMetisHeroInfluenceFlags(contract, heroIdText);
+              const isGen0 = influenceFlags.isGen0 === true;
               return normalizeWalletHeroRecord({
                 id: heroIdText,
                 normalizedId: heroIdText,
@@ -9842,8 +10879,13 @@ function canSubmitRewardClaims() {
                 subClassName: getDfKClassName(subClassId),
                 rarity: Number(core.rarity || 0),
                 rarityName: getDfKRarityName(Number(core.rarity || 0)),
+                summonsRemaining: Number(core.summonsRemaining || 0),
+                generation: isGen0 ? 0 : null,
+                isGen0,
+                gen0Source: influenceFlags.source,
+                metisInfluence: influenceFlags.influenceDataInfluence || influenceFlags.influenceAtMinLock || influenceFlags.influenceAtMaxLock || '',
                 level: Math.max(1, Number(core.level || 1)),
-                imageUrl,
+                imageUrl: normalizeHeroMediaUrl(imageUrl),
               });
             } catch (_heroError) {
               return null;
@@ -9910,10 +10952,17 @@ function canSubmitRewardClaims() {
     } else if (game.walletHeroLoadError) {
       els.walletHeroBonusStatus.textContent = game.walletHeroLoadError;
     } else if (!(game.walletHeroRoster || []).length) {
-      els.walletHeroBonusStatus.textContent = 'No base-class Warrior, Archer, Wizard, Priest, Pirate, Monk, or Berserker heroes were found on DFK Chain or Metis for this wallet.';
+      const totalDetected = Array.isArray(game.allWalletHeroRoster) ? game.allWalletHeroRoster.filter((hero) => hero && hero.type).length : 0;
+      els.walletHeroBonusStatus.textContent = totalDetected
+        ? 'Heroes were found, but no base-class Warrior, Archer, Wizard, Priest, Pirate, Monk, or Berserker heroes were found on DFK Chain or Metis for this wallet.'
+        : 'No base-class Warrior, Archer, Wizard, Priest, Pirate, Monk, or Berserker heroes were found on DFK Chain or Metis for this wallet.';
     } else {
       const selectedCount = Object.keys(game.selectedWalletHeroes || {}).length;
-      els.walletHeroBonusStatus.textContent = `${selectedCount} wallet hero bonus${selectedCount === 1 ? '' : 'es'} armed. Selected heroes place for free and start at their onchain level.`;
+      const gen0SelectedCount = Object.values(game.selectedWalletHeroes || {}).filter((heroId) => {
+        const hero = (game.walletHeroRoster || []).find((item) => String(item.id) === String(heroId));
+        return isGen0WalletHero(hero);
+      }).length;
+      els.walletHeroBonusStatus.textContent = `${selectedCount} wallet hero${selectedCount === 1 ? '' : 'es'} selected. ${gen0SelectedCount} Gen0 bonus${gen0SelectedCount === 1 ? '' : 'es'} armed. Gen0 heroes are preferred automatically.`;
     }
     els.walletHeroBonusBody.innerHTML = '';
     for (const type of DFK_SLOT_ORDER) {
@@ -9959,7 +11008,7 @@ function canSubmitRewardClaims() {
             <img src="${escapeHtml(getWalletHeroImage(selectedHero))}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} selected hero" loading="lazy" />
             <div class="wallet-hero-selected-meta">
               <div class="wallet-hero-selected-title">Hero #${escapeHtml(String(selectedHero.id))}</div>
-              <div class="wallet-hero-selected-sub">${escapeHtml(getWalletHeroSourceBadge(selectedHero))} • Starts free at level ${escapeHtml(String(selectedHero.level))}</div>
+              <div class="wallet-hero-selected-sub">${getWalletHeroLineParts(selectedHero, [`Starts free at level ${String(selectedHero.level)}`]).map(escapeHtml).join(' • ')}</div>
             </div>
           </div>
         `;
@@ -9988,7 +11037,7 @@ function canSubmitRewardClaims() {
             return b.level - a.level || getWalletHeroNumericId(a) - getWalletHeroNumericId(b);
           });
       } else {
-        visibleItems = visibleItems.slice().sort((a, b) => b.level - a.level || getWalletHeroNumericId(a) - getWalletHeroNumericId(b)).slice(0, 5);
+        visibleItems = visibleItems.slice().sort(compareWalletHeroes).slice(0, 7);
       }
 
       if (!items.length) {
@@ -10005,15 +11054,19 @@ function canSubmitRewardClaims() {
         for (const hero of visibleItems) {
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = `wallet-hero-card${String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id) ? ' is-selected' : ''}`;
+          const isSelectedHero = String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id);
+          const isGen0Hero = isGen0WalletHero(hero);
+          button.className = `wallet-hero-card${isSelectedHero ? ' is-selected' : ''}${isGen0Hero ? ' is-gen0' : ''}`;
           const imageSrc = getWalletHeroImage(hero);
+          const badgeText = isGen0Hero ? (isSelectedHero ? 'GEN0 SELECTED' : 'GEN0 + BONUS') : (isSelectedHero ? 'Selected' : 'Use');
           button.innerHTML = `
+            ${isGen0Hero ? `<span class="wallet-hero-card-badge wallet-hero-card-badge-top">${escapeHtml(badgeText)}</span>` : ''}
             <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} hero ${escapeHtml(String(hero.id))}" loading="lazy" />
             <span class="wallet-hero-card-meta">
               <span class="wallet-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
-              <span class="wallet-hero-card-sub">${escapeHtml(getWalletHeroSourceBadge(hero))} • Starts at level ${escapeHtml(String(hero.level))} for free</span>
+              <span class="wallet-hero-card-sub">${getWalletHeroLineParts(hero, [`Starts at level ${String(hero.level)} for free`]).map(escapeHtml).join(' • ')}</span>
             </span>
-            <span class="wallet-hero-card-badge">${String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id) ? 'Selected' : 'Use'}</span>
+            ${isGen0Hero ? '' : `<span class="wallet-hero-card-badge">${escapeHtml(badgeText)}</span>`}
           `;
           const img = button.querySelector('img');
           if (img) img.addEventListener('error', () => handleWalletHeroImageError(img, hero), { once: false });
@@ -10055,9 +11108,24 @@ function canSubmitRewardClaims() {
       if (rangeTiles.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('range-tile', `range-${selectedTower.type}`);
       if (moveTargets.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('move-target');
       const tower = tile.towerId ? game.towers.find(t => t.id === tile.towerId) : null;
+      const activeSlowTotem = (game.slowTotems || []).find((totem) => {
+        if (!totem) return false;
+        if (Number(totem.x) !== Number(tile.x) || Number(totem.y) !== Number(tile.y)) return false;
+        return Number(totem.expiresAfterWave || 0) > Number(game.waveNumber || 0);
+      });
       const ghostBerserker = (!tower) ? (game.towers || []).find((entry) => entry && entry.type === 'berserker' && entry.hp > 0 && entry.berserkerGhostTile && entry.berserkerGhostTile.x === tile.x && entry.berserkerGhostTile.y === tile.y) : null;
       if (tower) tile.el.classList.add(`tile-hero-${tower.type}`);
+      if (activeSlowTotem) tile.el.classList.add('tile-has-slow-totem');
       const enemiesHere = game.enemies.filter(e => e.x === tile.x && e.y === tile.y).slice(0, 3);
+
+      if (activeSlowTotem) {
+        const wavesLeft = Math.max(0, Number(activeSlowTotem.expiresAfterWave || 0) - Number(game.waveNumber || 0));
+        const totemWavesBadge = document.createElement('div');
+        totemWavesBadge.className = 'tile-small tile-small-right tile-shadow-waves-badge tile-totem-waves-badge';
+        totemWavesBadge.innerHTML = `<span class="tile-shadow-waves-count">${wavesLeft}</span>`;
+        totemWavesBadge.title = `Blinding Light Totem: ${wavesLeft} wave${wavesLeft === 1 ? '' : 's'} left`;
+        tile.el.appendChild(totemWavesBadge);
+      }
 
       if (tower) {
         const small = document.createElement('div');
@@ -10136,6 +11204,15 @@ function canSubmitRewardClaims() {
         }
         if (isPureEnergyArchon(tower)) {
           tile.el.classList.add('tile-pure-energy');
+        }
+        if (isGen0BonusTower(tower)) {
+          tile.el.classList.add('tile-gen0-hero');
+          portrait.classList.add('tile-gen0-hero-portrait');
+          for (let sparkIndex = 0; sparkIndex < 10; sparkIndex += 1) {
+            const spark = document.createElement('div');
+            spark.className = `tile-gen0-sparkle tile-gen0-sparkle-`;
+            tile.el.appendChild(spark);
+          }
         }
         if (tower.isSatellite && tower.type === 'archer') {
           portrait.classList.add('tile-archer-shadow-hero');
@@ -10293,6 +11370,12 @@ function canSubmitRewardClaims() {
         hoverTitle.textContent = tower.name;
         hover.appendChild(hoverTitle);
 
+        if (isGen0BonusTower(tower)) {
+          const gen0Note = document.createElement('div');
+          gen0Note.className = 'tile-hover-meta';
+          gen0Note.textContent = 'Gen0 bonus • +20% damage • +10% speed • +10% life • +30% healing';
+          hover.appendChild(gen0Note);
+        }
         if (isStatueTower(tower)) {
           const statueNote = document.createElement('div');
           statueNote.className = 'tile-hover-meta';
@@ -11108,6 +12191,7 @@ function canSubmitRewardClaims() {
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
       Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
+      ${getGen0BuffInfoMarkup(tower)}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
@@ -11189,6 +12273,7 @@ function canSubmitRewardClaims() {
       Level Up Cost: ${formatJewel(nextCost, tower)} Gold<br>
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
       Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
+      ${getGen0BuffInfoMarkup(tower)}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
@@ -11312,6 +12397,7 @@ function canSubmitRewardClaims() {
       const selectedWalletHero = !usesBonus ? getSelectedWalletHero(type) : null;
       const effectiveCost = usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus);
       const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
+      const gen0ButtonMode = getGen0HeroButtonMode(type, selectedWalletHero, usesBonus);
       const ignoreCapForType = !usesBonus && type === 'warrior' && canAlwaysFieldOneWarrior();
       const blockedByCap = !ignoreCapForType && !usesBonus && reachedStandardHeroCap;
       btn.textContent = forceDisabled
@@ -11322,6 +12408,17 @@ function canSubmitRewardClaims() {
             ? `${labelPrefix} ${t.name} (Cap Reached)`
             : `${labelPrefix} ${t.name}${selectedWalletHero ? ` L${selectedWalletHero.level}` : ''}${usesBonus ? ' (Free)' : ` (${formatJewel(effectiveCost)} Gold)`}`;
       btn.disabled = forceDisabled || blockedByCap || (type === 'monk' && placedCountOfType >= 2 && !pendingMilestonePlacement) || ((Number(game.jewel || 0) + 1e-9) < effectiveCost) || game.phase === SETUP_PHASES.GAME_OVER;
+      let gen0Line = null;
+      if (gen0ButtonMode && !forceDisabled) {
+        card.classList.add('hire-button-card-gen0');
+        btn.classList.add('hire-button-gen0');
+        btn.title = gen0ButtonMode === 'selected'
+          ? 'Selected wallet hero is Gen0. Placing this hero unlocks the class Gen0 bonus for the run.'
+          : 'Gen0 class buff is active for this class. This hire inherits the Gen0 bonus.';
+        gen0Line = document.createElement('div');
+        gen0Line.className = 'hire-button-gen0-note';
+        gen0Line.textContent = gen0ButtonMode === 'selected' ? 'GEN0 SELECTED • CLASS BUFF' : 'GEN0 ACTIVE • INHERITS BUFF';
+      }
       if (pendingMilestonePlacement && pendingMilestonePlacement.heroType === type) {
         btn.textContent = pendingThisType
           ? `Placing… ${t.name} L${Math.max(1, Number(pendingMilestonePlacement.heroLevel || 1))} (Free)`
@@ -11389,6 +12486,7 @@ function canSubmitRewardClaims() {
         });
       }
       card.appendChild(btn);
+      if (gen0Line) card.appendChild(gen0Line);
       els.hirePanel.appendChild(card);
     }
 
@@ -11506,6 +12604,30 @@ function canSubmitRewardClaims() {
         jewelCard.appendChild(note);
       }
       els.relicModalBody.appendChild(jewelCard);
+
+      const honkCard = document.createElement('div');
+      honkCard.className = 'card relic-choice-card dfkgold-swap-card';
+      const honkCostLabel = formatHonkAmount(DFK_HONK_GOLD_SWAP_AMOUNT) + ' HONK';
+      const canHonkSwapNow = !game.jewelTradePending && getWalletHonkBalance() + 1e-9 >= DFK_HONK_GOLD_SWAP_AMOUNT;
+      honkCard.innerHTML = `
+        <div class="relic-choice-rarity relic-rarity-mythic">HONK Swap</div>
+        <h4>Swap HONK for defender gold?</h4>
+        <p>${honkCostLabel} for 2,000 defender gold.</p>
+        <p class="gold">Wallet HONK: ${getWalletHonkBalanceLabel()}</p>
+      `;
+      const honkBtn = document.createElement('button');
+      honkBtn.className = 'buy-btn';
+      honkBtn.textContent = game.jewelTradePending ? 'Waiting…' : `Swap ${honkCostLabel}`;
+      honkBtn.disabled = !canHonkSwapNow;
+      honkBtn.addEventListener('click', () => { buyJewelGoldSwap('honk').catch((error) => console.error(error)); });
+      honkCard.appendChild(honkBtn);
+      if (!canHonkSwapNow) {
+        const honkNote = document.createElement('p');
+        honkNote.className = 'dfkgold-swap-note';
+        honkNote.textContent = `Need ${honkCostLabel} in the connected wallet.`;
+        honkCard.appendChild(honkNote);
+      }
+      els.relicModalBody.appendChild(honkCard);
     }
 
     if (!isFreeStartingRelic) {
@@ -12747,6 +13869,7 @@ function canSubmitRewardClaims() {
       }
       tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Reinforcement L${targetLevel}`;
     }
+    if (!isSatellitePlacement && !tower.isChampion) applyInheritedGen0ClassBonus(tower);
     if (isSatellitePlacement) {
       tower.level = 1;
       tower.maxHp = Math.max(1, Math.round(sourceTower.maxHp * 0.5));
@@ -13756,9 +14879,13 @@ function canSubmitRewardClaims() {
     }
   }
 
+  function hasAvailableContinueRetry() {
+    return !game.continueOfferUsed || !game.paidContinueOfferUsed;
+  }
+
   function saveContinueSnapshot(planOverride = null) {
     const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
-    if (game.continueOfferUsed || !replayPlan) return;
+    if ((!hasAvailableContinueRetry()) || !replayPlan) return;
     const restoredPendingSpawns = Array.isArray(planOverride?.pendingSpawns)
       ? cloneContinueData(planOverride.pendingSpawns)
       : null;
@@ -13841,6 +14968,29 @@ function canSubmitRewardClaims() {
     closeQuestsModal();
     closeTrackedRunsModal();
     closeKnownRelicsModal();
+    const freeAvailable = !game.continueOfferUsed;
+    const paidAvailable = !game.paidContinueOfferUsed;
+    const honkRetryLabel = getDfkPaymentLabelForJewelAmount(1, 'honk');
+    if (els.continueOfferBody) {
+      els.continueOfferBody.innerHTML = freeAvailable
+        ? `<p>The portal fell. You can restart this round once for free with <strong>500 extra gold</strong>.</p><p>You may also save the free retry and use a paid retry for <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`
+        : `<p>The portal fell again. Your free retry has been used, but you can buy one more retry with <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`;
+    }
+    if (els.continueHellYeahBtn) {
+      els.continueHellYeahBtn.textContent = freeAvailable ? 'Free retry' : 'Free retry used';
+      els.continueHellYeahBtn.disabled = !freeAvailable;
+      els.continueHellYeahBtn.classList.toggle('hidden', !freeAvailable);
+    }
+    if (els.continuePaidJewelBtn) {
+      els.continuePaidJewelBtn.textContent = 'Retry for 1 JEWEL + 2000 gold';
+      els.continuePaidJewelBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || !hasWalletJewelForWei(getDfkPaymentWeiForJewelAmount(1, 'native_jewel'));
+      els.continuePaidJewelBtn.classList.toggle('hidden', !paidAvailable);
+    }
+    if (els.continuePaidHonkBtn) {
+      els.continuePaidHonkBtn.textContent = `Retry for ${honkRetryLabel} + 2000 gold`;
+      els.continuePaidHonkBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || getWalletHonkBalance() + 1e-9 < getHonkPurchaseAmountFromJewel(1);
+      els.continuePaidHonkBtn.classList.toggle('hidden', !paidAvailable);
+    }
     els.continueOfferModal.classList.remove('hidden');
     els.continueOfferModal.setAttribute('aria-hidden', 'false');
     game.introOpen = true;
@@ -13923,6 +15073,8 @@ function canSubmitRewardClaims() {
   function closeSeerIntroModal(options = {}) {
     if (els.seerIntroModal) {
       els.seerIntroModal.classList.add('hidden');
+      els.seerIntroModal.classList.remove('how-to-play-active');
+      document.body.classList.remove('how-to-play-open');
       els.seerIntroModal.setAttribute('aria-hidden', 'true');
       if (!options.keepPrimedUnderIntro) {
         els.seerIntroModal.classList.remove('modal-primed-under-intro');
@@ -13939,6 +15091,38 @@ function canSubmitRewardClaims() {
     }
   }
 
+  function finishHowToPlayGuide(event = null) {
+    if (event) swallowModalEvent(event);
+    closeSeerIntroModal();
+    suppressBoardClicks(500);
+  }
+
+  function isHowToPlayVisible() {
+    return !!(els.seerIntroModal && !els.seerIntroModal.classList.contains('hidden') && els.seerIntroModal.getAttribute('aria-hidden') !== 'true');
+  }
+
+  function focusHowToPlayModal(resetScroll = false) {
+    if (!els.seerIntroModal || !isHowToPlayVisible()) return;
+    const guideBody = els.seerIntroModal.querySelector('.seer-intro-body');
+    const guideCard = els.seerIntroModal.querySelector('.seer-intro-modal-card');
+    if (resetScroll && guideBody) guideBody.scrollTop = 0;
+    const target = guideBody || guideCard || els.seerIntroModal;
+    if (target && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+    try { target.focus({ preventScroll: true }); } catch (_error) { try { target.focus(); } catch (__error) {} }
+  }
+
+  function eventHitsHowToPlayButton(event) {
+    if (!event || !els.seerIntroOkBtn || !isHowToPlayVisible()) return false;
+    const rect = els.seerIntroOkBtn.getBoundingClientRect();
+    const points = [];
+    if (typeof event.clientX === 'number' && typeof event.clientY === 'number') points.push([event.clientX, event.clientY]);
+    if (event.changedTouches && event.changedTouches.length) {
+      for (const touch of event.changedTouches) points.push([touch.clientX, touch.clientY]);
+    }
+    if (!points.length) return false;
+    return points.some(([x, y]) => x >= rect.left - 12 && x <= rect.right + 12 && y >= rect.top - 12 && y <= rect.bottom + 12);
+  }
+
   function openSeerIntroModal() {
     closeIntroModal();
     closeBountyModal();
@@ -13950,13 +15134,15 @@ function canSubmitRewardClaims() {
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
     game.modalDismiss = null;
     game.introOpen = true;
-    document.body.classList.add('intro-open');
+    document.body.classList.add('intro-open', 'how-to-play-open');
+    document.body.classList.remove('story-active');
     syncStatusOverlayVisibility(true);
     setBoardInputLocked(true);
     if (els.seerIntroModal) {
-      els.seerIntroModal.classList.remove('hidden');
+      els.seerIntroModal.classList.remove('hidden', 'modal-primed-under-intro', 'modal-primed-under-story');
+      els.seerIntroModal.classList.add('how-to-play-active');
       els.seerIntroModal.setAttribute('aria-hidden', 'false');
-      els.seerIntroModal.classList.remove('modal-primed-under-intro');
+      focusHowToPlayModal(true);
     }
   }
 
@@ -13988,6 +15174,68 @@ function canSubmitRewardClaims() {
     if (!els.startModeNote) return;
     els.startModeNote.textContent = message;
     els.startModeNote.classList.toggle('hidden', !message);
+  }
+
+  function primeHowToPlayModalBehindStory() {
+    try {
+      if (!els.seerIntroModal) return;
+      closeGuestConnectConfirmModal({ preserveIntroState: true });
+      closeIntroModal({ keepBoardLocked: true, preserveIntroState: true });
+      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+      game.modalDismiss = null;
+      game.introOpen = true;
+      setBoardInputLocked(true);
+      document.body.classList.add('intro-open');
+      els.seerIntroModal.classList.remove('hidden');
+      els.seerIntroModal.classList.add('modal-primed-under-story');
+      els.seerIntroModal.setAttribute('aria-hidden', 'false');
+      syncStatusOverlayVisibility(true);
+    } catch (error) {}
+  }
+
+  function revealPrimedHowToPlayModalAfterStory() {
+    try {
+      if (els.introModal) {
+        els.introModal.classList.add('hidden');
+        els.introModal.classList.remove('modal-primed-under-story');
+        els.introModal.setAttribute('aria-hidden', 'true');
+      }
+      game.introOpen = true;
+      document.body.classList.add('intro-open', 'how-to-play-open');
+      document.body.classList.remove('story-active');
+      setBoardInputLocked(true);
+      syncStatusOverlayVisibility(true);
+      if (els.seerIntroModal) {
+        els.seerIntroModal.classList.remove('hidden', 'modal-primed-under-story', 'modal-primed-under-intro');
+        els.seerIntroModal.classList.add('how-to-play-active');
+        els.seerIntroModal.setAttribute('aria-hidden', 'false');
+        focusHowToPlayModal(true);
+      }
+    } catch (error) {
+      try { openSeerIntroModal(); } catch (_error) { try { setBoardInputLocked(false); } catch (__error) {} }
+    }
+  }
+
+  try {
+    window.DFKOpenHowToPlay = openSeerIntroModal;
+    window.DFKRevealHowToPlayAfterStory = revealPrimedHowToPlayModalAfterStory;
+  } catch (_error) {}
+
+  function beginModeIntroStory() {
+    try {
+      window.__dfkModeChoiceMade = true;
+      window.__dfkStartModePromptShown = true;
+      document.body.classList.add('intro-open');
+      document.body.classList.add('story-active');
+    } catch (error) {}
+    setBoardInputLocked(true);
+    try {
+      if (typeof playStorySequence === 'function') {
+        playStorySequence();
+        return;
+      }
+    } catch (error) {}
+    setBoardInputLocked(false);
   }
 
   function setBoardInputLocked(locked) {
@@ -14022,8 +15270,9 @@ function canSubmitRewardClaims() {
     swallowModalEvent(event);
     suppressBoardClicks(1200);
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
-    closeSeerIntroModal();
+    closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
     showBanner('Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
+    beginModeIntroStory();
   }
 
   async function chooseConnectModeFromPrompt(event = null) {
@@ -14040,7 +15289,7 @@ function canSubmitRewardClaims() {
       if (address) {
         await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
         showBanner('Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
-        openSeerIntroModal();
+        beginModeIntroStory();
       } else {
         openStartModeModal();
         setStartModeNote('Wallet connection was canceled.');
@@ -14130,7 +15379,7 @@ function canSubmitRewardClaims() {
     if (forceGameOver) {
       forfeitLastChanceForRunTracking('declined');
     }
-    if (!forceGameOver && !game.continueOfferUsed && !game.continueOfferPending) {
+    if (!forceGameOver && hasAvailableContinueRetry() && !game.continueOfferPending) {
       if (!game.continueSnapshot && game.currentPattern && Array.isArray(game.pendingSpawns)) {
         saveContinueSnapshot({
           waveNumber: game.waveNumber,
@@ -14163,7 +15412,7 @@ function canSubmitRewardClaims() {
         game.slowTotems = [];
     game.pendingManualAbilityPlacement = null;
         game.continueOfferPending = true;
-        setInstruction('The portal fell. You can retry this round one time with 500 extra gold.');
+        setInstruction(game.continueOfferUsed ? 'The portal fell. You can buy one more retry for 1 JEWEL or HONK equivalent and gain 2000 in-game gold.' : 'The portal fell. You can retry this round once for free, or save the free retry and pay 1 JEWEL/HONK equivalent and gain 2000 in-game gold.');
         log('The portal was destroyed. One continue is available.');
         openContinueOfferModal();
         render();
@@ -14182,7 +15431,7 @@ function canSubmitRewardClaims() {
     render();
   }
 
-  function restoreContinueSnapshot(extraGold = 0) {
+  function restoreContinueSnapshot(extraGold = 0, options = {}) {
     const snap = game.continueSnapshot;
     if (!snap) return false;
     markLastChanceResolvedForRunTracking('used');
@@ -14270,7 +15519,8 @@ function canSubmitRewardClaims() {
     game.diagnostics.lastProgressAt = now();
     game.diagnostics.softLockTriggered = false;
     game.continueOfferPending = false;
-    game.continueOfferUsed = true;
+    if (options && options.paid) game.paidContinueOfferUsed = true;
+    else game.continueOfferUsed = true;
     game.autoStartReadyAt = 0;
     game.autoStartToken = (game.autoStartToken || 0) + 1;
     closeContinueOfferModal();
@@ -14939,7 +16189,7 @@ function canSubmitRewardClaims() {
     if (milestoneHeroOfferConfig) {
       openMilestoneHeroOffer(milestoneHeroOfferConfig);
       showBanner(`Help has arrived at wave ${milestoneHeroOfferConfig.wave}.`, 2600);
-      log(`Milestone hero offer unlocked after wave ${milestoneHeroOfferConfig.wave}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}.`);
+      log(`Milestone hero offer unlocked after wave ${milestoneHeroOfferConfig.wave}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (`${DFK_EXTRA_HERO_JEWEL_COST} JEWEL or ${getDfkPaymentLabelForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk')}`)}.`);
     }
     if (milestoneBarrierOfferConfig) {
       openMilestoneBarrierOffer(milestoneBarrierOfferConfig);
@@ -14965,7 +16215,7 @@ function canSubmitRewardClaims() {
       game.autoStartReadyAt = 0;
       if (els.startWaveBtn) els.startWaveBtn.disabled = true;
       const offerParts = [];
-      if (milestoneHeroOfferConfig) offerParts.push(`hire a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (milestoneHeroOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}`);
+      if (milestoneHeroOfferConfig) offerParts.push(`hire a level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (`${DFK_EXTRA_HERO_JEWEL_COST} JEWEL or ${getDfkPaymentLabelForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk')}`)}`);
       if (milestoneBarrierOfferConfig) offerParts.push(`buy ${milestoneBarrierOfferConfig.barrierCount} more barriers for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_BARRIER_WEI) : (milestoneBarrierOfferConfig.burnCost.toLocaleString() + ' DFK Gold')}`);
       setInstruction(`Wave ${finalWaveNumber} cleared. Bonus offer: ${offerParts.join(' or ')}.`);
     } else if (!shopOpened) {
@@ -15185,7 +16435,7 @@ function canSubmitRewardClaims() {
           const before = Number(ally.hp || 0);
           const healAmount = Math.max(0, ally.maxHp * healPercent);
           if (healAmount <= 0) continue;
-          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: isStatueTower(ally) });
+          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: isStatueTower(ally), methodKey: 'temporal_restoration', methodLabel: 'Temporal Restoration' });
           if (ally.hp > before) healedAny = true;
         }
         if (healedAny) createTileFlashArea([{ x: tower.x, y: tower.y }], 'seer');
@@ -15202,7 +16452,7 @@ function canSubmitRewardClaims() {
           const before = Number(ally.hp || 0);
           const healAmount = Math.max(0, Number(ally.maxHp || 0) * SAGE_GLOW_HEAL_PERCENT);
           if (healAmount <= 0) continue;
-          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: false });
+          healTower(ally, healAmount, null, { sourceTowerId: tower.id, allowStatue: false, methodKey: 'sage_glow', methodLabel: 'Sage Glow' });
           if (Number(ally.hp || 0) > before) healedAny = true;
         }
         if (healedAny) createTileFlashArea(protectedAllies.map((ally) => ({ x: ally.x, y: ally.y })), 'sage');
@@ -15498,10 +16748,10 @@ function canSubmitRewardClaims() {
       if (now() >= tickAt) {
         const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
         const auraHeal = 24 + tower.level;
-        auraTargets.forEach(target => healTower(target, auraHeal, null, { sourceTowerId: tower.id }));
+        auraTargets.forEach(target => healTower(target, auraHeal, null, { sourceTowerId: tower.id, methodKey: 'healing_aura', methodLabel: 'Healing Aura' }));
         if (game.modifiers.sacredSculpting) {
           const statueTargets = game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
-          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true, sourceTowerId: tower.id }));
+          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true, sourceTowerId: tower.id, methodKey: 'healing_aura_statue', methodLabel: 'Healing Aura (Statue)' }));
         }
         tower.auraTickAt = now() + 1000;
       }
@@ -15514,10 +16764,10 @@ function canSubmitRewardClaims() {
     const target = allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
     const statueTarget = statueTargets.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] || null;
     if (target && (!statueTarget || (target.hp / target.maxHp) <= (statueTarget.hp / statueTarget.maxHp))) {
-      healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`, { sourceTowerId: tower.id });
+      healTower(target, 25 * game.modifiers.priestHealing, `${tower.name} healed ${target.name}`, { sourceTowerId: tower.id, methodKey: 'prayer_of_healing', methodLabel: 'Prayer of Healing' });
       createTowerLine(tower, target, 'priest');
     } else if (statueTarget) {
-      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.3, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true, sourceTowerId: tower.id });
+      healTower(statueTarget, 25 * game.modifiers.priestHealing * 0.3, `${tower.name} restored ${statueTarget.name}`, { allowStatue: true, sourceTowerId: tower.id, methodKey: 'prayer_of_healing_statue', methodLabel: 'Prayer of Healing (Statue)' });
       createTowerLine(tower, statueTarget, 'priest');
     }
     tower.attackCooldownMs = tower.getAttackInterval() * 1000;
@@ -17363,14 +18613,20 @@ function canSubmitRewardClaims() {
   function healTower(tower, amount, message, options = null) {
     const allowStatue = !!(options && options.allowStatue);
     if (isStatueTower(tower) && !allowStatue) return;
-    const beforeHp = Number(tower.hp || 0);
-    tower.hp = Math.min(tower.maxHp, tower.hp + amount);
-    const healed = Math.max(0, Number(tower.hp || 0) - beforeHp);
     const sourceTowerId = options && options.sourceTowerId ? options.sourceTowerId : null;
+    const sourceTower = sourceTowerId ? getTowerById(sourceTowerId) : null;
+    let finalAmount = Math.max(0, Number(amount || 0));
+    if (sourceTower && isGen0BonusTower(sourceTower)) {
+      finalAmount *= Math.max(GEN0_WALLET_HERO_HEALING_MULTIPLIER, Number(sourceTower.healingPowerMultiplier || 1));
+    }
+    const beforeHp = Number(tower.hp || 0);
+    tower.hp = Math.min(tower.maxHp, tower.hp + finalAmount);
+    const healed = Math.max(0, Number(tower.hp || 0) - beforeHp);
     if (sourceTowerId) {
-      const sourceTower = getTowerById(sourceTowerId);
       if (sourceTower) {
-        sourceTower.healingDone = Math.max(0, Number(sourceTower.healingDone || 0)) + healed;
+        const healMethodKey = String(options?.methodKey || options?.healingMethodKey || 'healing');
+        const healMethodLabel = String(options?.methodLabel || options?.healingMethodLabel || 'Healing');
+        recordTowerHealing(sourceTower, healed, healMethodKey, healMethodLabel);
         if (['priest', 'seer', 'champion_sage'].includes(String(sourceTower.type || ''))) updateWeeklyBountyMetric('supportHealing', healed);
       }
     }
@@ -18064,6 +19320,11 @@ function canSubmitRewardClaims() {
     .live-damage-report-name { font-size: 12px; font-weight: 700; color: #f5edd7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .live-damage-report-meta { font-size: 10px; color: rgba(220, 227, 239, 0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .live-damage-report-value { font-size: 14px; font-weight: 800; color: #78f3a4; }
+    .live-damage-report-methods { display: grid; gap: 3px; margin-top: 5px; }
+    .live-damage-report-method-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 3px 5px; border-radius: 7px; background: rgba(255,255,255,0.035); }
+    .live-damage-report-method-label { font-size: 10px; color: rgba(245, 237, 215, 0.86); overflow: hidden; text-overflow: ellipsis; }
+    .live-damage-report-method-value { font-size: 10px; font-weight: 700; color: #f5edd7; text-align: right; }
+    .live-damage-report-gen0-value { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 8px; color: #ffe883; text-shadow: 0 0 5px rgba(255, 210, 45, 0.26); }
     .live-damage-report-empty { padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.035); color: rgba(220, 227, 239, 0.78); }
     @media (max-width: 900px) { .live-damage-report { width: calc(100% - 12px); max-width: none; } .live-damage-report-header { flex-direction: column; align-items: flex-start; } .live-damage-report-header-right { align-items: flex-start; } .live-damage-report-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; padding: 5px 7px; } }
   `;
@@ -18104,6 +19365,8 @@ function canSubmitRewardClaims() {
   window.addEventListener('dfk-defense:wallet-state', (event) => {
     const detail = event && event.detail ? event.detail : null;
     updateTestGoldButtonState();
+    updateChampionFastModeButtonState();
+    updateMetisInfluenceDebugButtonState();
     renderDamageReport();
     render();
     if (!detail || !detail.address) {
@@ -18125,6 +19388,8 @@ function canSubmitRewardClaims() {
 
   els.restartBtn.addEventListener('click', resetGame);
   els.addGoldBtn?.addEventListener('click', grantTestGold);
+  els.championFastModeBtn?.addEventListener('click', toggleChampionFastMode);
+  els.metisInfluenceDebugBtn?.addEventListener('click', debugMetisInfluenceForWalletHeroes);
 
   window.addEventListener('dfk:tracked-runs-refresh-requested', () => {
     refreshBountyBoard().catch(() => {});
@@ -18165,10 +19430,27 @@ function canSubmitRewardClaims() {
   els.championSkipBtn?.addEventListener('click', () => {
     cancelChampionModal();
   });
-  els.walletHeroBonusToggle?.addEventListener('click', () => {
-    const opening = game.walletHeroPanelCollapsed !== false;
-    if (opening) setChampionPanelCollapsed(true);
-    setWalletHeroPanelCollapsed(!opening);
+  els.walletHeroBonusToggle?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
+    setChampionPanelCollapsed(true);
+    setWalletHeroPanelCollapsed(false);
+    renderWalletHeroBonusPanel();
+  });
+  els.closeWalletHeroesModalBtn?.addEventListener('click', (event) => {
+    swallowModalEvent(event);
+    setWalletHeroPanelCollapsed(true);
+  });
+  els.walletHeroBonusSection?.addEventListener('click', (event) => {
+    if (event.target === els.walletHeroBonusSection && els.walletHeroBonusSection.classList.contains('modal-open')) {
+      swallowModalEvent(event);
+      setWalletHeroPanelCollapsed(true);
+    }
+  });
+  els.walletHeroBonusPanelBody?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.closest('#walletHeroBonusPanelBody')) {
+      if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    }
   });
   renderWalletHeroBonusPanel();
   renderTransferHeroesModal();
@@ -18249,6 +19531,7 @@ function canSubmitRewardClaims() {
   els.buyJewelHeroHire3Btn?.addEventListener('click', () => buyJewelExtraHero(2));
   els.relicViewDfkgoldSwapBtn?.addEventListener('click', buyRelicViewDfkgoldSwap);
   els.relicViewJewelGoldSwapBtn?.addEventListener('click', buyRelicViewJewelGoldSwap);
+  els.relicViewHonkGoldSwapBtn?.addEventListener('click', buyRelicViewHonkGoldSwap);
   els.mobileMenuOverlay?.addEventListener('click', closeMobileMenus);
   els.mobileBarToggleBtn?.addEventListener('click', toggleMobileBarCollapsed);
   els.mobileFuncMenuBtn?.addEventListener('click', () => toggleMobileMenu('func'));
@@ -18317,17 +19600,24 @@ function canSubmitRewardClaims() {
   if (els.closeStartModeBtn) {
     els.closeStartModeBtn.onclick = (event) => { chooseGuestModeFromPrompt(event); };
   }
-  if (els.seerIntroOkBtn) {
-    els.seerIntroOkBtn.onclick = (event) => {
-      swallowModalEvent(event);
-      closeSeerIntroModal();
+  if (els.seerIntroModal) {
+    const claimHowToPlayFocus = (_event) => {
+      if (!isHowToPlayVisible()) return;
+      // Do not stop propagation here. The modal needs focus, but its own buttons
+      // still need their normal click handlers, especially the Let's Play button.
+      focusHowToPlayModal(false);
     };
+    els.seerIntroModal.addEventListener('pointerdown', claimHowToPlayFocus, true);
+    els.seerIntroModal.addEventListener('click', claimHowToPlayFocus, true);
+    els.seerIntroModal.addEventListener('touchstart', claimHowToPlayFocus, { capture: true, passive: true });
+  }
+  if (els.seerIntroOkBtn) {
+    els.seerIntroOkBtn.onclick = (event) => { finishHowToPlayGuide(event); };
   }
   if (els.seerIntroLearnMoreBtn) {
     els.seerIntroLearnMoreBtn.onclick = (event) => {
       swallowModalEvent(event);
-      if (els.seerIntroModal) els.seerIntroModal.classList.add('modal-primed-under-intro');
-      closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true, keepPrimedUnderIntro: true });
+      closeSeerIntroModal();
       openIntroModal(0, 'intro');
     };
   }
@@ -18336,11 +19626,6 @@ function canSubmitRewardClaims() {
       swallowModalEvent(event);
       closeSeerIntroModal();
     };
-  }
-  if (els.seerIntroModal) {
-    els.seerIntroModal.addEventListener('click', (event) => {
-      if (event.target === els.seerIntroModal) stopModalPropagation(event);
-    });
   }
   document.addEventListener('click', (event) => {
     if (!els.startModeModal || els.startModeModal.classList.contains('hidden')) return;
@@ -18479,6 +19764,14 @@ function canSubmitRewardClaims() {
       resetWeeklyBountyProgressForTestWallet(targetWallet).catch(() => {});
       return;
     }
+    const currencyBtn = target ? target.closest('[data-daily-reward-currency]') : null;
+    if (currencyBtn) {
+      const currency = String(currencyBtn.getAttribute('data-daily-reward-currency') || 'JEWEL').toUpperCase();
+      setDailyQuestRewardCurrencySelection(currency);
+      renderDailyQuestsBoard();
+      showBanner(`Daily quest payouts set to ${currency === 'HONK' ? 'HONK' : 'JEWEL'}.`, 1800);
+      return;
+    }
     const resetBtn = target ? target.closest('[data-reset-daily-quests="true"]') : null;
     if (resetBtn) {
       if (!canUseDailyQuestTestReset()) return;
@@ -18522,6 +19815,32 @@ function canSubmitRewardClaims() {
   });
   els.continueHellYeahBtn?.addEventListener('click', () => {
     restoreContinueSnapshot(500);
+  });
+  els.continuePaidJewelBtn?.addEventListener('click', async () => {
+    try {
+      await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'native_jewel'), 'Last Chance retry', {
+        paymentAsset: 'native_jewel',
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        retryGold: 2000,
+      });
+      restoreContinueSnapshot(2000, { paid: true });
+    } catch (error) {
+      showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
+      openContinueOfferModal();
+    }
+  });
+  els.continuePaidHonkBtn?.addEventListener('click', async () => {
+    try {
+      await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'honk'), 'Last Chance HONK retry', {
+        paymentAsset: 'honk',
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        retryGold: 2000,
+      });
+      restoreContinueSnapshot(2000, { paid: true });
+    } catch (error) {
+      showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
+      openContinueOfferModal();
+    }
   });
   els.continueNoThanksBtn?.addEventListener('click', () => {
     forfeitLastChanceForRunTracking('declined');
@@ -18583,8 +19902,6 @@ function canSubmitRewardClaims() {
     if (game.introPageIndex < pages.length - 1) {
       game.introPageIndex += 1;
       renderIntroPage();
-    } else if (game.introSet === 'intro') {
-      openStartModeModal();
     } else {
       closeIntroModal();
     }
@@ -18806,12 +20123,14 @@ function canSubmitRewardClaims() {
 
   ensureDailyQuestBoard(true);
   applyVersionStamp();
-  primeStartModeModalBehindIntro();
   resetGame();
+  if (!isReplayUrlView()) openStartModeModal();
   game.lastTick = now();
   setPlayMode('easy', false);
   updatePauseButton();
   updateTestGoldButtonState();
+  updateChampionFastModeButtonState();
+    updateMetisInfluenceDebugButtonState();
   requestAnimationFrame(gameLoop);
 })();
 
@@ -18923,49 +20242,200 @@ function observeRewardSentForJewelReceived() {
 observeRewardSentForJewelReceived();
 
 
-function syncTopMenuWalletResources() {
+function getTopMenuDailyQuestBoardSnapshot() {
   try {
-    const jewelSource = document.getElementById('walletJewelBalance');
-    const goldSource = document.getElementById('walletDfkgoldBalance');
-    const trackingSource = document.getElementById('walletTrackingSummary');
-    const jewelTarget = document.getElementById('walletTopJewelBalance');
-    const goldTarget = document.getElementById('walletTopDfkgoldBalance');
-    const trackingTarget = document.getElementById('walletTopTrackingSummary');
-    const claimedTarget = document.getElementById('walletTopClaimedToday');
-    const resetTarget = document.getElementById('walletTopResetTimer');
+    if (game && game.dailyQuestBoard && typeof game.dailyQuestBoard === 'object') {
+      const board = game.dailyQuestBoard;
+      if (Array.isArray(board.questIds) && board.questIds.length) return board;
+    }
+  } catch (_error) {}
+  try {
+    const playerKey = (typeof getDailyQuestPlayerKey === 'function') ? getDailyQuestPlayerKey() : ((typeof getConnectedWalletAddress === 'function' && getConnectedWalletAddress()) || 'guest');
+    const dateKey = (typeof getDailyQuestDateKey === 'function') ? getDailyQuestDateKey() : new Date().toISOString().slice(0, 10);
+    let cycle = 0;
+    try {
+      if (typeof getDailyQuestTestCycle === 'function') cycle = Math.max(0, Number(getDailyQuestTestCycle(playerKey, dateKey) || 0));
+    } catch (_error) {}
+    const cycleSuffix = cycle > 0 ? `:cycle:${cycle}` : '';
+    const storageKey = (typeof getDailyQuestStorageKey === 'function')
+      ? getDailyQuestStorageKey(playerKey, dateKey)
+      : `dfkDefenderDailyQuests:v5:${playerKey}:${dateKey}${cycleSuffix}`;
+    const stored = JSON.parse(localStorage.getItem(storageKey) || 'null');
+    return stored && typeof stored === 'object' ? stored : null;
+  } catch (_error) {
+    return null;
+  }
+}
 
+function getDailyQuestClaimedTotalStorageKey(playerKey, dateKey) {
+  return `dfkDefenderDailyClaimedTotal:v1:${String(playerKey || 'guest').toLowerCase()}:${String(dateKey || '').trim()}`;
+}
+
+function readStoredDailyQuestClaimedJewelTotal(playerKey, dateKey) {
+  try {
+    const key = getDailyQuestClaimedTotalStorageKey(playerKey, dateKey);
+    const raw = localStorage.getItem(key);
+    const value = Number(raw || 0);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function writeStoredDailyQuestClaimedJewelTotal(total, playerKey, dateKey) {
+  try {
+    const safeTotal = Math.max(0, Number(total || 0));
+    const key = getDailyQuestClaimedTotalStorageKey(playerKey, dateKey);
+    localStorage.setItem(key, String(safeTotal));
+    return safeTotal;
+  } catch (_error) {
+    return Math.max(0, Number(total || 0));
+  }
+}
+
+function addStoredDailyQuestClaimedJewelTotal(amount, playerKey, dateKey) {
+  try {
+    const current = readStoredDailyQuestClaimedJewelTotal(playerKey, dateKey);
+    return writeStoredDailyQuestClaimedJewelTotal(current + Math.max(0, Number(amount || 0)), playerKey, dateKey);
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function getTopMenuClaimedDailyQuestJewelTotal() {
+  let bestTotal = 0;
+  try {
+    if (typeof getClaimedDailyQuestJewelTotal === 'function') {
+      const directTotal = Number(getClaimedDailyQuestJewelTotal() || 0);
+      if (Number.isFinite(directTotal) && directTotal >= 0) bestTotal = Math.max(bestTotal, directTotal);
+    }
+  } catch (_error) {}
+  try {
+    const board = getTopMenuDailyQuestBoardSnapshot();
+    const claimed = board && typeof board.claimed === 'object' && board.claimed ? board.claimed : {};
+    const questIds = Array.isArray(board && board.questIds) ? board.questIds : [];
+    let total = 0;
+    for (const questId of questIds) {
+      if (!claimed || !claimed[questId]) continue;
+      let quest = null;
+      try {
+        if (typeof getQuestDefinitionById === 'function') quest = getQuestDefinitionById(questId);
+      } catch (_error) {}
+      total += Math.max(0, Number(quest && quest.rewardJewel || 0));
+    }
+    if (Number.isFinite(total) && total >= 0) bestTotal = Math.max(bestTotal, total);
+  } catch (_error) {}
+  try {
+    const board = getTopMenuDailyQuestBoardSnapshot();
+    const playerKey = String((board && board.playerKey) || ((typeof getDailyQuestPlayerKey === 'function' && getDailyQuestPlayerKey()) || 'guest')).toLowerCase();
+    const dateKey = String((board && board.dateKey) || ((typeof getDailyQuestDateKey === 'function' && getDailyQuestDateKey()) || new Date().toISOString().slice(0, 10))).trim();
+    const storedTotal = Number(readStoredDailyQuestClaimedJewelTotal(playerKey, dateKey) || 0);
+    if (Number.isFinite(storedTotal) && storedTotal >= 0) bestTotal = Math.max(bestTotal, storedTotal);
+  } catch (_error) {}
+  return Math.max(0, bestTotal);
+}
+
+function getTopMenuDailyQuestResetText() {
+  try {
+    const now = new Date();
+    const nextUtc = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0, 0, 0, 0
+    ));
+    const totalSeconds = Math.max(0, Math.floor((nextUtc.getTime() - now.getTime()) / 1000));
+    if (typeof formatDailyQuestResetCountdown === 'function') {
+      return formatDailyQuestResetCountdown(totalSeconds);
+    }
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  } catch (_error) {
+    return '--';
+  }
+}
+
+function syncTopMenuWalletResources() {
+  const jewelSource = document.getElementById('walletJewelBalance');
+  const goldSource = document.getElementById('walletDfkgoldBalance');
+  const honkSource = document.getElementById('walletHonkBalance');
+  const trackingSource = document.getElementById('walletTrackingSummary');
+  const jewelTarget = document.getElementById('walletTopJewelBalance');
+  const goldTarget = document.getElementById('walletTopDfkgoldBalance');
+  const honkTarget = document.getElementById('walletTopHonkBalance');
+  const trackingTarget = document.getElementById('walletTopTrackingSummary');
+  const claimedTarget = document.getElementById('walletTopClaimedToday');
+  const resetTarget = document.getElementById('walletTopResetTimer');
+
+  let nextJewelText = 'JEWEL: --';
+  try {
     const rawJewelText = jewelSource ? String(jewelSource.textContent || 'Wallet JEWEL: --') : '';
     const fallbackNativeJewel = (typeof getWalletNativeJewelBalance === 'function')
       ? getWalletNativeJewelBalance()
       : null;
-    const nextJewelText = rawJewelText && !/--/.test(rawJewelText)
+    nextJewelText = rawJewelText && !/--/.test(rawJewelText)
       ? rawJewelText.replace(/^Wallet\s+/i, '').replace(/\s+Jewel$/i, '').trim()
       : (Number.isFinite(Number(fallbackNativeJewel)) ? `JEWEL: ${Number(fallbackNativeJewel).toLocaleString(undefined, { maximumFractionDigits: 4 })}` : 'JEWEL: --');
-    const nextGoldText = goldSource
+  } catch (_error) {}
+
+  let nextGoldText = 'DFK Gold: --';
+  try {
+    nextGoldText = goldSource
       ? String(goldSource.textContent || 'Wallet DFK Gold: --').replace(/^Wallet\s+/i, '').trim()
       : 'DFK Gold: --';
-    const nextTrackingText = trackingSource
+  } catch (_error) {}
+
+  let nextHonkText = 'HONK: --';
+  try {
+    nextHonkText = honkSource
+      ? String(honkSource.textContent || 'Wallet HONK: --').replace(/^Wallet\s+/i, '').trim()
+      : 'HONK: --';
+  } catch (_error) {}
+
+  let nextTrackingText = 'Tracked Runs: -- · Best Wave: --';
+  try {
+    nextTrackingText = trackingSource
       ? String(trackingSource.textContent || 'Tracked Runs: -- · Best Wave: --').trim()
       : 'Tracked Runs: -- · Best Wave: --';
-    const nextClaimedText = (typeof getClaimedDailyQuestJewelTotal === 'function')
-      ? `Claimed today: ${Number(getClaimedDailyQuestJewelTotal() || 0)} Jewel`
-      : 'Claimed today: 0 Jewel';
-    const nextResetText = (typeof getSecondsUntilDailyQuestReset === 'function' && typeof formatDailyQuestResetCountdown === 'function')
-      ? `Reset timer: ${formatDailyQuestResetCountdown(getSecondsUntilDailyQuestReset())}`
-      : 'Reset timer: --';
+  } catch (_error) {}
 
+  let nextClaimedText = 'Claimed today: 0 Jewel';
+  try {
+    nextClaimedText = `Claimed today: ${Number(getTopMenuClaimedDailyQuestJewelTotal() || 0)} Jewel`;
+  } catch (_error) {}
+
+  let nextResetText = 'Reset timer: --';
+  try {
+    nextResetText = `Reset timer: ${getTopMenuDailyQuestResetText()}`;
+  } catch (_error) {}
+
+  try {
     if (jewelTarget && jewelTarget.textContent !== nextJewelText) jewelTarget.textContent = nextJewelText;
     if (goldTarget && goldTarget.textContent !== nextGoldText) goldTarget.textContent = nextGoldText;
+    if (honkTarget && honkTarget.textContent !== nextHonkText) honkTarget.textContent = nextHonkText;
     if (trackingTarget && trackingTarget.textContent !== nextTrackingText) trackingTarget.textContent = nextTrackingText;
     if (claimedTarget && claimedTarget.textContent !== nextClaimedText) claimedTarget.textContent = nextClaimedText;
     if (resetTarget && resetTarget.textContent !== nextResetText) resetTarget.textContent = nextResetText;
-  } catch (_) {}
+  } catch (_error) {}
 }
 
+let topMenuWalletResourceSyncInterval = null;
 function installTopMenuWalletResourceSync() {
+  try { syncTopMenuWalletResources(); } catch (_error) {}
   try {
-    syncTopMenuWalletResources();
-  } catch (_) {}
+    if (topMenuWalletResourceSyncInterval) window.clearInterval(topMenuWalletResourceSyncInterval);
+    topMenuWalletResourceSyncInterval = window.setInterval(() => {
+      try { syncTopMenuWalletResources(); } catch (_error) {}
+    }, 1000);
+  } catch (_error) {}
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        try { syncTopMenuWalletResources(); } catch (_error) {}
+      }
+    });
+  } catch (_error) {}
 }
 
 

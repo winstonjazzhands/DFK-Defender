@@ -283,6 +283,7 @@
 <button class="wallet-top-refresh" id="walletTopRefreshBtn" type="button">Refresh</button>
 </div>
 <div class="wallet-top-balance" id="walletTopDfkgoldBalance">DFK Gold: --</div>
+<div class="wallet-top-balance" id="walletTopHonkBalance">HONK: --</div>
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopClaimedToday">Claimed today: 0 Jewel</div>
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopResetTimer">Reset timer: --</div>
@@ -338,6 +339,7 @@
 <div class="wallet-profile-name" id="walletProfileName">In-game Name: --</div>
 <div class="wallet-profile-balance" id="walletJewelBalance">JEWEL: --</div>
 <div class="wallet-profile-balance" id="walletDfkgoldBalance">DFK Gold: --</div>
+<div class="wallet-profile-balance" id="walletHonkBalance">HONK: --</div>
 <div class="wallet-address" id="walletAddress">No wallet connected.</div>
 <div class="wallet-tracking-status" id="walletTrackingStatus">Run Tracking: Not connected</div>
 <div class="wallet-tracking-summary" id="walletTrackingSummary">Tracked Runs: -- · Best Wave: --</div>
@@ -356,7 +358,8 @@
 <button class="wallet-btn secondary tracking-btn hidden" id="disableTrackingBtn" type="button">Disable Run Tracking</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="clearStuckWavesBtn" type="button">Clear Stuck Waves</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
-
+<button class="wallet-btn secondary tracking-btn hidden" id="championFastModeBtn" title="Authorized champion timing test toggle" type="button">Champion Fast Mode: Off</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="metisInfluenceDebugBtn" title="Authorized Metis hero influence debug" type="button">Debug Metis Influence</button>
 
 </div>
 </div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="walletHeroBonusSection">
@@ -370,6 +373,7 @@
 <div class="wallet-panel-body wallet-hero-panel-body" id="walletHeroBonusPanelBody">
 <div class="wallet-hero-bonus-header">
 <button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshWalletHeroesBtn" type="button">Refresh NFTs</button>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="closeWalletHeroesModalBtn" type="button">Close</button>
 </div>
 <div class="wallet-tracking-summary" id="walletHeroBonusStatus">Connect a wallet on DFK Chain to load heroes.</div>
 <div class="wallet-hero-bonus-body" id="walletHeroBonusBody"></div>
@@ -433,8 +437,9 @@
 <div class="relic-swap-actions">
 <button class="wallet-btn secondary" id="relicViewDfkgoldSwapBtn" type="button">DFK Gold → Gold</button>
 <button class="wallet-btn secondary" id="relicViewJewelGoldSwapBtn" type="button">1 JEWEL → 2000 Gold</button>
+<button class="wallet-btn secondary" id="relicViewHonkGoldSwapBtn" type="button">0.3 HONK → 2000 Gold</button>
 </div>
-<div class="wallet-tracking-summary" id="relicSwapStatus">Use DFK Gold or JEWEL here without leaving the relic view.</div>
+<div class="wallet-tracking-summary" id="relicSwapStatus">Use DFK Gold, JEWEL, or HONK here without leaving the relic view.</div>
 </div>
 <div class="card-list relic-list" id="relicPanel"></div>
 </div>
@@ -676,7 +681,7 @@
 <div class="intro-modal-header quests-modal-header">
 <div>
 <div class="intro-kicker">DFK Defender Daily Rewards</div>
-<h2 id="questsTitle">Daily Quests</h2>
+<h2 id="questsTitle" class="sr-only">Daily Quests</h2>
 </div>
 <button aria-label="Close daily quests" class="intro-close" id="closeQuestsBtn" type="button">×</button>
 </div>
@@ -725,14 +730,16 @@
 <div aria-labelledby="continueOfferTitle" aria-modal="true" class="intro-modal-card panel" role="dialog">
 <div class="intro-modal-header">
 <div>
-<h2 id="continueOfferTitle">Try again with 500 extra gold?</h2>
+<h2 id="continueOfferTitle">Try again?</h2>
 </div>
 </div>
 <div class="intro-body" id="continueOfferBody">
 <p>The portal fell, but you can restart this round one time with <strong>500 extra gold</strong>.</p>
 </div>
 <div class="intro-modal-footer">
-<button class="small-action" id="continueHellYeahBtn" type="button">Hell yeah</button>
+<button class="small-action" id="continueHellYeahBtn" type="button">Free retry</button>
+<button class="small-action" id="continuePaidJewelBtn" type="button">Retry for 1 JEWEL</button>
+<button class="small-action" id="continuePaidHonkBtn" type="button">Retry for HONK</button>
 <button class="secondary small-action" id="continueNoThanksBtn" type="button">No thanks</button>
 </div>
 </div>
@@ -887,7 +894,7 @@
 </img></aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.config.js"></script>
-<script src="js/security-wallet.js?v=46.9.1.97"></script>
+<script src="js/security-wallet.js?v=46.9.1.98"></script>
 <script src="js/avax-rails.js?v=46.9.1.124"></script>
 <script src="js/multi-chain-rails.js?v=46.9.1.97"></script>
 <script src="js/run-tracker.js?v=46.9.1.124"></script>
@@ -931,7 +938,7 @@
     })();
   </script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-<script src="js/app.js?v=46.9.1.124"></script>
+<script src="js/app.js?v=46.9.1.192"></script>
 <script src="js/layout-fixes.js?v=46.9.1.103"></script>
 <div aria-label="Build version" class="version-badge" id="versionBadge"></div>
 <div class="story-overlay hidden" id="storyOverlay">

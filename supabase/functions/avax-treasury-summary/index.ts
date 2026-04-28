@@ -43,6 +43,105 @@ function firstText(...values: unknown[]) {
   return '';
 }
 
+function cleanDisplayName(value: unknown) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 64) : '';
+}
+
+async function resolvePlayerDisplayName(admin: ReturnType<typeof createAdmin>, wallet: unknown, fallbackName: unknown = '') {
+  const existingName = cleanDisplayName(fallbackName);
+  const walletAddress = normalizeAddress(String(wallet || ''));
+  if (!walletAddress) return existingName;
+
+  const nameFromRecord = (record: Record<string, unknown> | null | undefined) => {
+    if (!record) return '';
+    return cleanDisplayName(record.vanity_name)
+      || cleanDisplayName(record.display_name)
+      || cleanDisplayName(record.player_name)
+      || cleanDisplayName(record.name)
+      || cleanDisplayName(record.display_name_snapshot)
+      || cleanDisplayName(record.player_name_snapshot);
+  };
+
+  const lookups: Array<{ table: string; columns: string[]; walletColumns: string[]; orderColumn?: string }> = [
+    { table: 'players', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'player_profiles', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'runs', columns: ['display_name_snapshot, completed_at', 'player_name_snapshot, completed_at'], walletColumns: ['wallet_address', 'wallet'], orderColumn: 'completed_at' },
+  ];
+
+  for (const lookup of lookups) {
+    for (const columns of lookup.columns) {
+      for (const walletColumn of lookup.walletColumns) {
+        for (const operator of ['eq', 'ilike'] as const) {
+          try {
+            let query = admin.from(lookup.table).select(columns);
+            query = operator === 'eq'
+              ? query.eq(walletColumn, walletAddress)
+              : query.ilike(walletColumn, walletAddress);
+            if (lookup.orderColumn && columns.includes(lookup.orderColumn)) {
+              query = query.order(lookup.orderColumn, { ascending: false });
+            }
+            const { data, error } = await query.limit(1).maybeSingle();
+            if (!error && data) {
+              const resolved = nameFromRecord(data as Record<string, unknown>);
+              if (resolved) return resolved;
+            }
+          } catch (_error) {}
+        }
+      }
+    }
+  }
+
+  return existingName;
+}
+
+function isMissingColumnError(error: unknown) {
+  const message = String((error && typeof error === 'object' && 'message' in error ? (error as { message?: unknown }).message : '') || '').toLowerCase();
+  return message.includes('column') && (message.includes('does not exist') || message.includes('not found in schema cache'));
+}
+
+async function fetchDailyRaffleHistory(admin: ReturnType<typeof createAdmin>, limit = 40) {
+  const selectVariants = [
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at, reward_amount, reward_currency',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at, reward_amount, reward_currency',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
+    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name',
+    'raffle_day, winner_wallet, winner_name',
+    'raffle_day, winner_wallet',
+  ];
+
+  let lastError: unknown = null;
+  for (const columns of selectVariants) {
+    try {
+      let query = admin.from('daily_raffle_results').select(columns);
+      if (columns.includes('settled_at')) {
+        query = query.order('settled_at', { ascending: false, nullsFirst: false });
+      }
+      query = query.order('raffle_day', { ascending: false });
+      if (columns.includes('draw_slot')) {
+        query = query.order('draw_slot', { ascending: false });
+      }
+      const { data, error } = await query.limit(limit);
+      if (!error) return Array.isArray(data) ? data : [];
+      lastError = error;
+      if (isMissingRelationError(error, 'daily_raffle_results')) return [];
+      if (isMissingColumnError(error)) continue;
+      console.error('avax-treasury-summary daily raffle history query failed', error);
+      return [];
+    } catch (error) {
+      lastError = error;
+      if (isMissingColumnError(error)) continue;
+      console.error('avax-treasury-summary daily raffle history query threw', error);
+      return [];
+    }
+  }
+  if (lastError && !isMissingColumnError(lastError) && !isMissingRelationError(lastError, 'daily_raffle_results')) {
+    console.error('avax-treasury-summary daily raffle history fallback failed', lastError);
+  }
+  return [];
+}
+
+
 function normalizeStatus(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
@@ -61,17 +160,35 @@ function normalizeCurrency(value: unknown) {
 
 function inferCurrency(row: Record<string, unknown>) {
   const explicit = normalizeCurrency(row.reward_currency ?? row.currency ?? row.payment_asset);
-  if (explicit === 'AVAX' || explicit === 'JEWEL') return explicit;
+  if (explicit === 'AVAX' || explicit === 'JEWEL' || explicit === 'HONK') return explicit;
   const text = [row.amount_text, row.claim_type, row.source_ref, row.reason_text, row.admin_note, row.raffle_type]
     .map((value) => String(value || '').toUpperCase())
     .join(' ');
   if (text.includes('AVAX')) return 'AVAX';
+  if (text.includes('HONK')) return 'HONK';
   if (text.includes('JEWEL')) return 'JEWEL';
   return '';
 }
 
 function getWeiLike(row: RowLike) {
-  return BigInt(String(row.amount_wei ?? row.paid_amount_wei ?? row.expected_amount_wei ?? '0'));
+  const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+  const raw = row.amount_wei
+    ?? row.paid_amount_wei
+    ?? row.expected_amount_wei
+    ?? row.amountWei
+    ?? row.paidAmountWei
+    ?? row.expectedAmountWei
+    ?? row.amount
+    ?? metadata.amount_wei
+    ?? metadata.paid_amount_wei
+    ?? metadata.expected_amount_wei
+    ?? metadata.amountWei
+    ?? metadata.paidAmountWei
+    ?? metadata.expectedAmountWei
+    ?? '0';
+  const text = String(raw ?? '0').trim();
+  if (!/^\d+$/.test(text)) return 0n;
+  return BigInt(text);
 }
 
 function sumWei(rows: RowLike[]) {
@@ -107,7 +224,7 @@ function addPositiveDecimalStrings(a: unknown, b: unknown) {
   return `${whole.toString()}${frac ? `.${frac}` : ''}`;
 }
 
-function sumRewardAmounts(rows: Array<Record<string, unknown>>, currency: 'JEWEL' | 'AVAX') {
+function sumRewardAmounts(rows: Array<Record<string, unknown>>, currency: 'JEWEL' | 'AVAX' | 'HONK') {
   let total = '0';
   for (const row of rows) {
     if (inferCurrency(row) !== currency) continue;
@@ -121,6 +238,26 @@ function sumRewardAmounts(rows: Array<Record<string, unknown>>, currency: 'JEWEL
   return total;
 }
 
+function inferTokenPaymentCurrency(row: RowLike) {
+  const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+  const asset = normalizeKind(row?.payment_asset ?? row?.currency ?? row?.reward_currency ?? metadata.paymentAsset ?? metadata.payment_asset);
+  const tokenAddress = normalizeAddress(row?.token_address ?? metadata.tokenAddress ?? metadata.token_address);
+  const text = [
+    row?.payment_asset,
+    row?.currency,
+    row?.kind,
+    row?.label,
+    row?.amount_text,
+    metadata.paymentAsset,
+    metadata.payment_asset,
+    metadata.tokenAddress,
+    metadata.token_address,
+    metadata.label,
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+  if (asset === 'honk' || asset === 'dfk_honk' || asset === 'honk_erc20' || text.includes('honk') || tokenAddress === '0x11c3b7badc5359242c34c68c1f0f071bff49a3d8') return 'HONK';
+  return 'JEWEL';
+}
+
 function isCompletedRewardLike(row: RowLike) {
   return normalizeStatus(row.status) === 'paid'
     || normalizeStatus(row.status) === 'approved'
@@ -128,6 +265,18 @@ function isCompletedRewardLike(row: RowLike) {
     || normalizeStatus(row.payout_status) === 'approved'
     || !!String(row.paid_at || row.approved_at || row.settled_at || '').trim()
     || !!String(row.tx_hash || row.payout_tx_hash || '').trim();
+}
+
+function getResolvedPayoutStatus(row: RowLike, claimRows: RowLike[] = []) {
+  if (isCompletedRewardLike(row)) return 'paid';
+  const claimId = String(row.claim_id || '').trim();
+  if (claimId) {
+    const claim = claimRows.find((item) => String(item.id || '').trim() === claimId);
+    if (claim && isCompletedRewardLike(claim)) return 'paid';
+    const claimStatus = claim ? normalizeStatus(claim.payout_status || claim.status) : '';
+    if (claimStatus) return claimStatus;
+  }
+  return normalizeStatus(row.payout_status || row.status) || 'pending';
 }
 
 function getKindBucket(kindValue: unknown) {
@@ -254,7 +403,7 @@ function mergeTokenRows(tokenRows: any[], tokenSessionRows: any[]) {
       ...row,
       tx_hash: row?.tx_hash || metadata?.txHash || metadata?.transactionHash || null,
       block_number: row?.block_number || metadata?.blockNumber || null,
-      payment_asset: row?.payment_asset || 'native_jewel',
+      payment_asset: row?.payment_asset || metadata?.paymentAsset || metadata?.payment_asset || 'native_jewel',
       payment_session_id: row?.id,
       paid_amount_wei: getTokenSessionAmountWei(row),
       verified_at: row?.verified_at || row?.confirmed_at || row?.created_at || null,
@@ -304,9 +453,9 @@ Deno.serve(async (req) => {
       fetchPaginatedRows(admin, 'daily_raffle_results', '*'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
-      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'dfk').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'avax').order('raffle_day', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('daily_raffle_results').select('*').order('raffle_day', { ascending: false }).limit(40),
+      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'dfk').order('settled_at', { ascending: false, nullsFirst: false }).order('raffle_day', { ascending: false }).order('draw_slot', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'avax').order('settled_at', { ascending: false, nullsFirst: false }).order('raffle_day', { ascending: false }).order('draw_slot', { ascending: false }).limit(1).maybeSingle(),
+      fetchDailyRaffleHistory(admin, 40).then((data) => ({ data, error: null })),
     ]);
 
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
@@ -331,7 +480,7 @@ Deno.serve(async (req) => {
       })))
       .concat(safeTokenRows.map((row) => ({
         kind: row.kind,
-        currency: 'JEWEL',
+        currency: inferTokenPaymentCurrency(row),
         amount_wei: row.paid_amount_wei || row.expected_amount_wei || row.amount_wei || '0',
         confirmed_at: row.confirmed_at || row.verified_at || row.created_at || null,
       })));
@@ -362,6 +511,11 @@ Deno.serve(async (req) => {
     const completedOutgoingRows = completedRewardClaims.concat(completedRaffleRows);
 
     const todayBurnRows = safeBurnRows.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
+    const resolvedDailyRaffleHistory = await Promise.all((Array.isArray(dailyRaffleHistory) ? dailyRaffleHistory : []).map(async (row) => ({
+      ...(row as Record<string, unknown>),
+      winner_name: await resolvePlayerDisplayName(admin, (row as Record<string, unknown>).winner_wallet, (row as Record<string, unknown>).winner_name),
+      payout_status: getResolvedPayoutStatus(row as RowLike, safeRewardClaimRows),
+    })));
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
     const lifetimeBurnedGold = safeBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
     const todayBurnedGold = todayBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
@@ -374,36 +528,44 @@ Deno.serve(async (req) => {
       todayConfirmedCount: todayRows.length,
       totalConfirmedWei: sumWei(confirmed),
       lifetimeAvaxInWei: sumWei(avaxInRows),
-      lifetimeJewelInWei: sumWei(safeTokenRows),
+      lifetimeJewelInWei: sumWeiBy(safeTokenRows, (row) => inferTokenPaymentCurrency(row) === 'JEWEL'),
+      lifetimeHonkInWei: sumWeiBy(safeTokenRows, (row) => inferTokenPaymentCurrency(row) === 'HONK'),
       lifetimeAvaxOut: sumRewardAmounts(completedOutgoingRows, 'AVAX'),
       lifetimeJewelOut: sumRewardAmounts(completedOutgoingRows, 'JEWEL'),
+      lifetimeHonkOut: sumRewardAmounts(completedOutgoingRows, 'HONK'),
       todayConfirmedWei: sumWei(todayRows),
       entryFeeWei: sumWei(entryRows),
       entryFeeAvaxWei: sumWeiBy(entryRows, (row) => row.currency === 'AVAX'),
       entryFeeJewelWei: sumWeiBy(entryRows, (row) => row.currency === 'JEWEL'),
+      entryFeeHonkWei: sumWeiBy(entryRows, (row) => row.currency === 'HONK'),
       goldSwapWei: sumWei(goldRows),
       goldSwapAvaxWei: sumWeiBy(goldRows, (row) => row.currency === 'AVAX'),
       goldSwapJewelWei: sumWeiBy(goldRows, (row) => row.currency === 'JEWEL'),
+      goldSwapHonkWei: sumWeiBy(goldRows, (row) => row.currency === 'HONK'),
       heroHireWei: sumWei(heroRows),
       heroHireAvaxWei: sumWeiBy(heroRows, (row) => row.currency === 'AVAX'),
       heroHireJewelWei: sumWeiBy(heroRows, (row) => row.currency === 'JEWEL'),
+      heroHireHonkWei: sumWeiBy(heroRows, (row) => row.currency === 'HONK'),
       entryFeeCount: entryRows.length,
       entryFeeAvaxCount: entryRows.filter((row) => row.currency === 'AVAX').length,
       entryFeeJewelCount: entryRows.filter((row) => row.currency === 'JEWEL').length,
+      entryFeeHonkCount: entryRows.filter((row) => row.currency === 'HONK').length,
       goldSwapCount: goldRows.length,
       goldSwapAvaxCount: goldRows.filter((row) => row.currency === 'AVAX').length,
       goldSwapJewelCount: goldRows.filter((row) => row.currency === 'JEWEL').length,
+      goldSwapHonkCount: goldRows.filter((row) => row.currency === 'HONK').length,
       heroHireCount: heroRows.length,
       heroHireAvaxCount: heroRows.filter((row) => row.currency === 'AVAX').length,
       heroHireJewelCount: heroRows.filter((row) => row.currency === 'JEWEL').length,
+      heroHireHonkCount: heroRows.filter((row) => row.currency === 'HONK').length,
       lifetimeTrackedRuns,
       lifetimeBurnedGold,
       todayBurnedGold,
       burnedGoldCount: safeBurnRows.length,
       todayBurnedGoldCount: todayBurnRows.length,
-      latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? latestRaffleWinner : null,
-      latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? latestAvaxRaffleWinner : null,
-      dailyRaffleHistory: Array.isArray(dailyRaffleHistory) && !isMissingRelationError(dailyRaffleHistoryError, 'daily_raffle_results') ? dailyRaffleHistory : [],
+      latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? { ...latestRaffleWinner, winner_name: await resolvePlayerDisplayName(admin, latestRaffleWinner.winner_wallet, latestRaffleWinner.winner_name) } : null,
+      latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? { ...latestAvaxRaffleWinner, winner_name: await resolvePlayerDisplayName(admin, latestAvaxRaffleWinner.winner_wallet, latestAvaxRaffleWinner.winner_name) } : null,
+      dailyRaffleHistory: !isMissingRelationError(dailyRaffleHistoryError, 'daily_raffle_results') ? resolvedDailyRaffleHistory : [],
       diagnostics: {
         currentAvaxRows: Array.isArray(sessionRows) ? sessionRows.length : 0,
         legacyAvaxRows: Array.isArray(legacyAvaxRows) ? legacyAvaxRows.length : 0,

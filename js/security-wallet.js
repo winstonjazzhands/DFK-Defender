@@ -36,6 +36,7 @@
   const CONTRACTS = Object.freeze({
     dfkProfiles: '0xC4cD8C09D1A90b21Be417be91A81603B03993E81',
     dfkGold: '0x576C260513204392F0eC0bc865450872025CB1cA',
+    honk: '0x11C3b7bADC5359242c34C68C1F0f071bFf49a3D8',
     heroCore: '0xEb9B61B145D6489Be575D3603F4a704810e143dF',
   });
 
@@ -64,6 +65,7 @@
     address: null,
     balance: null,
     dfkGoldBalance: null,
+    honkBalance: null,
     profileName: null,
     vanityName: null,
     user: null,
@@ -94,6 +96,7 @@
         vanityName: state.vanityName,
         balance: state.balance,
         dfkGoldBalance: state.dfkGoldBalance,
+        honkBalance: state.honkBalance,
         providerName: providerLabel(state.providerInfo),
         activeChainId: state.activeChainId,
         activeChainHex: state.activeChainHex,
@@ -188,20 +191,20 @@
     return parsed == null ? null : { balance: parsed };
   }
 
-  async function fetchDfkgoldBalance(address) {
-    if (!address || !window.ethers) return null;
+  async function fetchErc20Balance(address, tokenAddress, fallbackDecimals = 18) {
+    if (!address || !tokenAddress || !window.ethers) return null;
     if (Number(state.activeChainId || 0) !== Number(DFK_CONFIG.chainId || 0)) return null;
     try {
       const walletProvider = state.selectedProvider;
       const provider = walletProvider
         ? new window.ethers.BrowserProvider(walletProvider)
         : new window.ethers.JsonRpcProvider(DFK_CONFIG.rpcUrls[0], DFK_CONFIG.chainId, { staticNetwork: true });
-      const contract = new window.ethers.Contract(CONTRACTS.dfkGold, ERC20_ABI, provider);
+      const contract = new window.ethers.Contract(tokenAddress, ERC20_ABI, provider);
       const [rawBalance, decimals] = await Promise.all([
         contract.balanceOf(address),
-        contract.decimals().catch(() => 3),
+        contract.decimals().catch(() => fallbackDecimals),
       ]);
-      const normalizedDecimals = Number.isFinite(Number(decimals)) ? Number(decimals) : 3;
+      const normalizedDecimals = Number.isFinite(Number(decimals)) ? Number(decimals) : fallbackDecimals;
       const formatted = Number(window.ethers.formatUnits(rawBalance, normalizedDecimals));
       return {
         balance: formatted,
@@ -211,6 +214,14 @@
     } catch (error) {
       return null;
     }
+  }
+
+  async function fetchDfkgoldBalance(address) {
+    return fetchErc20Balance(address, CONTRACTS.dfkGold, 3);
+  }
+
+  async function fetchHonkBalance(address) {
+    return fetchErc20Balance(address, CONTRACTS.honk, 18);
   }
 
   async function resolveProfileNameViaFunction(address) {
@@ -371,6 +382,7 @@
     if (!state.address) {
       state.balance = null;
       state.dfkGoldBalance = null;
+      state.honkBalance = null;
       state.profileName = null;
       applyActiveChainConfig(DFK_CONFIG);
       render();
@@ -380,13 +392,15 @@
     try {
       const activeChain = await getProviderChainConfig();
       applyActiveChainConfig(activeChain);
-      const [balance, dfkGoldBalance, profileName] = await Promise.all([
+      const [balance, dfkGoldBalance, honkBalance, profileName] = await Promise.all([
         fetchNativeBalance(state.address),
         fetchDfkgoldBalance(state.address),
+        fetchHonkBalance(state.address),
         fetchProfileName(state.address),
       ]);
       state.balance = balance;
       state.dfkGoldBalance = dfkGoldBalance;
+      state.honkBalance = honkBalance;
       state.profileName = profileName;
       render();
       emitWalletState();
@@ -566,6 +580,7 @@
           state.mode = 'local';
           state.balance = null;
           state.dfkGoldBalance = null;
+          state.honkBalance = null;
           state.profileName = null;
           render();
           emitWalletState();
@@ -641,6 +656,7 @@
     setText(ui.walletProfileName, `${state.vanityName ? 'Vanity Name' : 'In-game Name'}: ${(state.vanityName || state.profileName || '--')}`);
     setText(ui.walletJewelBalance, `Wallet ${state.nativeSymbol || 'Native'}: ${state.balance && state.balance.balance != null ? formatNativeBalance(state.balance.balance, state.nativeSymbol) : '--'}`);
     setText(ui.walletDfkgoldBalance, Number(state.activeChainId || 0) === Number(DFK_CONFIG.chainId || 0) ? `Wallet DFK Gold: ${state.dfkGoldBalance && state.dfkGoldBalance.balance != null ? formatTokenBalance(state.dfkGoldBalance.balance, state.dfkGoldBalance.decimals) : '--'}` : 'Wallet DFK Gold: DFK Chain only');
+    setText(ui.walletHonkBalance, Number(state.activeChainId || 0) === Number(DFK_CONFIG.chainId || 0) ? `Wallet HONK: ${state.honkBalance && state.honkBalance.balance != null ? formatTokenBalance(state.honkBalance.balance, state.honkBalance.decimals) : '--'}` : 'Wallet HONK: DFK Chain only');
     setText(ui.walletPanelTitle, 'Player Profile');
     if (state.address) {
       setText(ui.walletStatus, `${providerName} Connected • ${state.activeChainName}`);
@@ -664,6 +680,7 @@
       walletProfileName: qs('walletProfileName'),
       walletJewelBalance: qs('walletJewelBalance'),
       walletDfkgoldBalance: qs('walletDfkgoldBalance'),
+      walletHonkBalance: qs('walletHonkBalance'),
       walletAddress: qs('walletAddress'),
       connectWalletBtn: qs('connectWalletBtn'),
       disconnectWalletBtn: qs('disconnectWalletBtn'),

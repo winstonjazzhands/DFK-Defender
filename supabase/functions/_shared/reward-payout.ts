@@ -1,6 +1,6 @@
-import { createPublicClient, createWalletClient, http, isAddress, isAddressEqual, parseUnits } from "npm:viem@2.21.57";
+import { createPublicClient, createWalletClient, encodeFunctionData, erc20Abi, http, isAddress, isAddressEqual, parseUnits } from "npm:viem@2.21.57";
 import { privateKeyToAccount } from "npm:viem@2.21.57/accounts";
-import { AVAX_CHAIN_ID, AVAX_RPC_URL, AVAX_TREASURY_ADDRESS, DFK_CHAIN_ID, DFK_JEWEL_PAYMENT_ASSET, DFK_RPC_URL, TREASURY_ADDRESS, TREASURY_PRIVATE_KEY, requireEnv } from "./env.ts";
+import { AVAX_CHAIN_ID, AVAX_RPC_URL, AVAX_TREASURY_ADDRESS, DFK_CHAIN_ID, DFK_HONK_TOKEN_ADDRESS, DFK_JEWEL_PAYMENT_ASSET, DFK_RPC_URL, TREASURY_ADDRESS, TREASURY_PRIVATE_KEY, requireEnv } from "./env.ts";
 
 type AdminClient = {
   from: (table: string) => {
@@ -173,7 +173,7 @@ function uniqueRpcCandidates(primary: string, fallbacks: string[]) {
   return out;
 }
 
-function getRpcCandidatesForCurrency(rewardCurrency: 'JEWEL' | 'AVAX', primaryRpcUrl: string) {
+function getRpcCandidatesForCurrency(rewardCurrency: 'JEWEL' | 'AVAX' | 'HONK', primaryRpcUrl: string) {
   if (rewardCurrency === 'AVAX') {
     return uniqueRpcCandidates(primaryRpcUrl, [
       ...parseRpcList(Deno.env.get('AVAX_RPC_URL_FALLBACKS')),
@@ -257,7 +257,7 @@ export function isAutoRewardPayoutConfigured() {
 }
 
 async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, options: {
-  rewardCurrency: "JEWEL" | "AVAX";
+  rewardCurrency: "JEWEL" | "AVAX" | "HONK";
   amountText: string;
   treasuryAddress: string;
   chain: ReturnType<typeof getDfkChainConfig> | ReturnType<typeof getAvaxChainConfig>;
@@ -383,6 +383,65 @@ async function sendNativePayout(admin: AdminClient, claim: RewardClaimRow, optio
   }
 }
 
+async function sendHonkPayout(admin: AdminClient, claim: RewardClaimRow) {
+  const amountText = choosePayoutAmountText(claim);
+  const nowIso = new Date().toISOString();
+  const privateKey = String(TREASURY_PRIVATE_KEY || "").trim();
+  const walletAddress = normalizeAddress(claim?.wallet_address);
+  const payoutAttemptId = `honk_payout_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  if (!privateKey) return { attempted: false, paid: false, message: "Auto-payout signer is not configured.", payoutAttemptId };
+  if (!isValidPrivateKey(privateKey)) throw new Error("TREASURY_PRIVATE_KEY is not a valid 32-byte hex key.");
+  if (!isAddress(walletAddress)) throw new Error("Claim wallet is not a valid EVM address.");
+  if (!isAddress(TREASURY_ADDRESS)) throw new Error("HONK treasury address is not a valid EVM address.");
+  if (!isAddress(DFK_HONK_TOKEN_ADDRESS)) throw new Error("HONK token address is not valid.");
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  if (!isAddressEqual(account.address, TREASURY_ADDRESS as `0x${string}`)) throw new Error(`TREASURY_PRIVATE_KEY does not match HONK treasury address. Derived ${account.address}.`);
+  let submittedTxHash = "";
+  let pendingNote = String(claim?.admin_note || "").trim();
+  let failureStage = "init";
+  try {
+    const rpcCandidates = getRpcCandidatesForCurrency("HONK", requireEnv("DFK_RPC_URL", DFK_RPC_URL));
+    let lastError: unknown = null;
+    for (const rpcUrl of rpcCandidates) {
+      try {
+        failureStage = "rpc_preflight";
+        const publicClient = createPublicClient({ chain: getDfkChainConfig(), transport: http(rpcUrl, { timeout: 45000 }) });
+        const walletClient = createWalletClient({ account, chain: getDfkChainConfig(), transport: http(rpcUrl, { timeout: 45000 }) });
+        const payoutWei = parseUnits(amountText, 18);
+        const treasuryBalance = await publicClient.readContract({ address: DFK_HONK_TOKEN_ADDRESS as `0x${string}`, abi: erc20Abi, functionName: "balanceOf", args: [TREASURY_ADDRESS as `0x${string}`] }) as bigint;
+        if (treasuryBalance < payoutWei) throw new Error(`HONK treasury token balance is too low. balanceWei=${treasuryBalance.toString()} payoutWei=${payoutWei.toString()}`);
+        failureStage = "submit_tx";
+        const txHash = await walletClient.sendTransaction({ account, chain: getDfkChainConfig(), to: DFK_HONK_TOKEN_ADDRESS as `0x${string}`, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [walletAddress as `0x${string}`, payoutWei] }), value: 0n });
+        submittedTxHash = txHash;
+        failureStage = "write_submitted";
+        pendingNote = appendNote(claim?.admin_note, `Treasury HONK token payout submitted via ${rpcUrl}. Attempt ${payoutAttemptId}. Tx: ${txHash}`);
+        const { error: pendingError } = await admin.from("reward_claim_requests").update({ status: "approved", approved_at: claim?.approved_at || nowIso, resolved_at: claim?.resolved_at || nowIso, resolved_by_wallet: claim?.resolved_by_wallet || "treasury:auto", tx_hash: txHash, failure_reason: null, admin_note: pendingNote }).eq("id", claim.id);
+        if (pendingError) throw pendingError;
+        failureStage = "wait_receipt";
+        const receipt = await waitForReceiptWithBackoff(publicClient, txHash);
+        if (isReceiptReverted(receipt)) throw new Error(`Treasury HONK payout transaction failed on-chain. ${describeReceipt(receipt)}`);
+        if (!isReceiptSuccessful(receipt)) throw new Error(`Treasury HONK payout receipt status was inconclusive. ${describeReceipt(receipt)}`);
+        failureStage = "write_paid";
+        const note = appendNote(pendingNote, `Auto-paid ${amountText} HONK via treasury ERC20 transfer. Attempt ${payoutAttemptId}. ${describeReceipt(receipt)}.`);
+        const { error } = await admin.from("reward_claim_requests").update({ status: "paid", approved_at: claim?.approved_at || nowIso, paid_at: nowIso, resolved_at: nowIso, resolved_by_wallet: "treasury:auto", tx_hash: txHash, failure_reason: null, admin_note: note }).eq("id", claim.id);
+        if (error) throw error;
+        return { attempted: true, paid: true, txHash, payoutAttemptId, message: `Sent ${amountText} HONK to ${walletAddress} via token transfer.` };
+      } catch (rpcError) {
+        if (submittedTxHash) throw rpcError;
+        lastError = rpcError;
+        if (!isRetryableRpcError(rpcError)) throw rpcError;
+      }
+    }
+    if (lastError) throw lastError;
+    throw new Error("HONK treasury payout failed before transaction submission.");
+  } catch (error) {
+    const summary = summarizeError(error);
+    const message = `[${failureStage}] ${summary.message || "HONK auto-payout failed."}`;
+    await recordAutoPayFailure(admin, claim, nowIso, message, { adminNote: pendingNote, txHash: submittedTxHash || null });
+    return { attempted: true, paid: false, message, txHash: submittedTxHash || null, payoutAttemptId, failureStage, failureReason: message };
+  }
+}
+
 export async function tryAutoPayRewardClaim(admin: AdminClient, claim: RewardClaimRow) {
   const status = String(claim?.status || "").trim().toLowerCase();
   const walletAddress = normalizeAddress(claim?.wallet_address);
@@ -399,13 +458,17 @@ export async function tryAutoPayRewardClaim(admin: AdminClient, claim: RewardCla
   }
 
   const currency = String(claim?.reward_currency || "").trim().toUpperCase();
-  if (!["JEWEL", "AVAX"].includes(currency)) {
+  if (!["JEWEL", "AVAX", "HONK"].includes(currency)) {
     return { attempted: false, paid: false, message: `Auto-payout does not support ${currency || "this reward"}.` };
   }
 
   const amountText = choosePayoutAmountText(claim);
   if (Number(amountText) <= 0) {
     return { attempted: false, paid: false, message: "Claim amount is zero." };
+  }
+
+  if (currency === "HONK") {
+    return await sendHonkPayout(admin, claim);
   }
 
   if (currency === "JEWEL") {
