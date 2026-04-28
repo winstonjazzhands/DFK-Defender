@@ -96,7 +96,7 @@ function getDrawSlot(value: string | null | undefined): DrawSlot {
 }
 
 function getDrawLabel(drawSlot: DrawSlot) {
-  return drawSlot === 'midday' ? 'Midday Winner' : 'Morning Winner';
+  return drawSlot === 'midday' ? '12:00 Winner' : '23:59 Winner';
 }
 
 function getDrawWindow(raffleDay: string, drawSlot: DrawSlot) {
@@ -107,18 +107,19 @@ function getDrawWindow(raffleDay: string, drawSlot: DrawSlot) {
       windowEnd: addUtcHours(drawBoundary, 12),
     };
   }
+  const endOfDayDraw = new Date(Date.UTC(drawBoundary.getUTCFullYear(), drawBoundary.getUTCMonth(), drawBoundary.getUTCDate(), 23, 59, 0, 0));
   return {
-    windowStart: addUtcHours(drawBoundary, -12),
-    windowEnd: drawBoundary,
+    windowStart: addUtcHours(drawBoundary, 12),
+    windowEnd: endOfDayDraw,
   };
 }
 
 function getDefaultSettlementTarget(now: Date) {
   const todayStart = startOfUtcDay(now);
-  if (now.getUTCHours() >= 12) {
-    return { raffleDay: utcDateOnly(todayStart), drawSlot: 'midday' as DrawSlot };
+  if (now.getUTCHours() > 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() >= 59)) {
+    return { raffleDay: utcDateOnly(todayStart), drawSlot: 'morning' as DrawSlot };
   }
-  return { raffleDay: utcDateOnly(todayStart), drawSlot: 'morning' as DrawSlot };
+  return { raffleDay: utcDateOnly(todayStart), drawSlot: 'midday' as DrawSlot };
 }
 
 function normalizeAddress(value: unknown) {
@@ -216,21 +217,23 @@ function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawS
   const now = new Date();
   const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const midday = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
+  const endday = new Date(Date.UTC(todayStart.getUTCFullYear(), todayStart.getUTCMonth(), todayStart.getUTCDate(), 23, 59, 0, 0));
   const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
   if (drawSlot === 'midday' && now < midday) return null;
+  if (drawSlot === 'morning' && now < endday) return null;
 
   const settledRaw = String(row.settled_at || '').trim();
   const settledAt = settledRaw ? new Date(settledRaw) : null;
   if (settledAt && Number.isFinite(settledAt.getTime())) {
-    if (drawSlot === 'morning') return settledAt >= todayStart && settledAt < midday ? row : null;
-    return settledAt >= midday && settledAt < tomorrowStart ? row : null;
+    if (drawSlot === 'midday') return settledAt >= midday && settledAt < endday ? row : null;
+    return settledAt >= endday && settledAt < tomorrowStart ? row : null;
   }
 
   const raffleDay = String(row.raffle_day || '').slice(0, 10);
   const today = todayStart.toISOString().slice(0, 10);
   const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   if (drawSlot === 'morning') {
-    return raffleDay === today || (now < midday && raffleDay === yesterday) ? row : null;
+    return now >= endday && raffleDay === today ? row : null;
   }
   return raffleDay === today ? row : null;
 }
@@ -239,6 +242,7 @@ function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawS
 async function fetchCurrentWinnerForUtcDay(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax', drawSlot: DrawSlot) {
   const now = new Date();
   if (drawSlot === 'midday' && now.getUTCHours() < 12) return null;
+  if (drawSlot === 'morning' && (now.getUTCHours() < 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() < 59))) return null;
   const today = utcDateOnly(startOfUtcDay(now));
   const selectVariants = [
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
@@ -498,11 +502,8 @@ Deno.serve(async (req) => {
       if (requestedDay) {
         await settleOne(requestedDay, requestedDrawSlot);
       } else {
-        const currentDay = utcDateOnly(todayStart);
-        await settleOne(currentDay, 'morning');
-        if (now.getUTCHours() >= 12) {
-          await settleOne(currentDay, 'midday');
-        }
+        const target = getDefaultSettlementTarget(now);
+        await settleOne(target.raffleDay, target.drawSlot);
       }
     }
 
@@ -514,6 +515,7 @@ Deno.serve(async (req) => {
       || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, 'midday'), 'midday');
     const currentDayStartIso = todayStart.toISOString();
     const middayIso = addUtcHours(todayStart, 12).toISOString();
+    const endDayIso = new Date(Date.UTC(todayStart.getUTCFullYear(), todayStart.getUTCMonth(), todayStart.getUTCDate(), 23, 59, 0, 0)).toISOString();
     const nextDayIso = addUtcDays(todayStart, 1).toISOString();
     const [{ data: morningQualifiers, error: morningQualifierError }, { data: middayQualifiers, error: middayQualifierError }] = await Promise.all([
       admin
@@ -527,7 +529,7 @@ Deno.serve(async (req) => {
         .from('runs')
         .select('wallet_address')
         .gte('completed_at', middayIso)
-        .lt('completed_at', nextDayIso)
+        .lt('completed_at', endDayIso)
         .gte('wave_reached', 30)
         .eq('chain_id', config.chainId),
     ]);
@@ -547,10 +549,10 @@ Deno.serve(async (req) => {
       },
       raffle_type: config.raffleType,
       current_windows: {
-        morning: {
+        midday: {
           raffle_day: utcDateOnly(todayStart),
-          draw_slot: 'morning',
-          label: getDrawLabel('morning'),
+          draw_slot: 'midday',
+          label: getDrawLabel('midday'),
           qualifier_count: morningQualifierWallets.length,
           threshold_wave: 30,
           chain_id: config.chainId,
@@ -559,20 +561,20 @@ Deno.serve(async (req) => {
           window_start: currentDayStartIso,
           window_end: middayIso,
         },
-        midday: {
+        morning: {
           raffle_day: utcDateOnly(todayStart),
-          draw_slot: 'midday',
-          label: getDrawLabel('midday'),
+          draw_slot: 'morning',
+          label: getDrawLabel('morning'),
           qualifier_count: middayQualifierWallets.length,
           threshold_wave: 30,
           chain_id: config.chainId,
           reward_currency: config.rewardCurrency,
           reward_amount: Number(config.rewardAmountText || 0),
           window_start: middayIso,
-          window_end: nextDayIso,
+          window_end: endDayIso,
         },
       },
-      automation_note: 'Schedule this function twice daily shortly after 00:00 UTC and 12:00 UTC.',
+      automation_note: 'Schedule this function twice daily at 12:00 UTC and 23:59 UTC.',
     });
   } catch (error) {
     const detail = serializeError(error);

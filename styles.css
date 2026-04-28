@@ -6081,8 +6081,8 @@ body.elite-wave-shake .elite-wave-modal-card { animation: eliteWaveShake 0.5s ea
   }
 
   .selected-info {
-    min-height: 74px;
-    max-height: 74px;
+    min-height: 93px;
+    max-height: 93px;
   }
 }
 
@@ -10293,4 +10293,55 @@ body.how-to-play-open .center-panel {
 .tile-has-slow-totem .tile-totem-waves-badge .tile-shadow-waves-count {
   color: #ffffff !important;
   font-weight: 900 !important;
+}
+
+/* Right-panel ability accordion */
+.ability-row {
+  flex-wrap: wrap;
+}
+.ability-row-details {
+  flex: 0 0 100%;
+  margin: 2px 0 6px 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(230,193,93,0.25);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.18);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.ability-row-details.hidden,
+.passive-card-body.hidden {
+  display: none !important;
+}
+.passive-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.passive-card-header .passive-name {
+  margin-bottom: 0;
+}
+.passive-card-caret {
+  color: var(--gold);
+  font-size: 12px;
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+.passive-card.open .passive-card-caret {
+  transform: rotate(0deg);
+}
+.passive-card-body {
+  margin-top: 6px;
+}
+.passive-card-body p {
+  margin-bottom: 0;
 }

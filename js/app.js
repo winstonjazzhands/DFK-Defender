@@ -1,4 +1,4 @@
-// build: v46.9.1.193
+// build: v46.9.1.198
 
 let lastTouchEnd = 0;
 
@@ -586,7 +586,7 @@ const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
 const APP_VERSION = 'v10.3.3';
-const CURRENT_RUN_BUILD = 'V46.9.1.193';
+const CURRENT_RUN_BUILD = 'V46.9.1.198';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
@@ -3190,11 +3190,11 @@ function formatQuestResetCountdown(dateKey) {
         value: '0x' + BigInt(String(amountWei || '0')).toString(16),
       }],
     });
-    await waitForDfkTransactionReceipt(txHash).catch(error => {
+    const receipt = await waitForDfkTransactionReceipt(txHash).catch(error => {
       if (error && String(error.message || '').toLowerCase().includes('transaction failed on-chain')) throw error;
       return null;
     });
-    return { txHash, walletAddress: wallet.address };
+    return { txHash, walletAddress: wallet.address, receipt };
   }
 
   async function sendDfkHonkPayment(amountWei) {
@@ -3207,11 +3207,11 @@ function formatQuestResetCountdown(dateKey) {
       method: 'eth_sendTransaction',
       params: [{ from: wallet.address, to: HONK_TOKEN_ADDRESS, value: '0x0', data }],
     });
-    await waitForDfkTransactionReceipt(txHash).catch(error => {
+    const receipt = await waitForDfkTransactionReceipt(txHash).catch(error => {
       if (error && String(error.message || '').toLowerCase().includes('transaction failed on-chain')) throw error;
       return null;
     });
-    return { txHash, walletAddress: wallet.address };
+    return { txHash, walletAddress: wallet.address, receipt };
   }
 
   function clearPendingMilestonePurchase() {
@@ -3304,17 +3304,26 @@ function formatQuestResetCountdown(dateKey) {
           paymentAsset: isHonkPayment ? 'honk' : 'native_jewel',
           metadata: { ...safeMetadata, paymentAsset: isHonkPayment ? 'honk' : (safeMetadata.paymentAsset || 'native_jewel') },
         });
-        try {
-          const verifyResult = await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
-            paymentSessionId,
-            txHash: payment.txHash,
-          });
-          removePendingDfkJewelVerification(paymentSessionId, payment.txHash);
-          if (verifyResult && verifyResult.verifiedAt) {
-            safeMetadata.verifiedAt = verifyResult.verifiedAt;
+        if (payment.receipt) {
+          try {
+            const verifyResult = await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
+              paymentSessionId,
+              txHash: payment.txHash,
+            });
+            removePendingDfkJewelVerification(paymentSessionId, payment.txHash);
+            if (verifyResult && verifyResult.verifiedAt) {
+              safeMetadata.verifiedAt = verifyResult.verifiedAt;
+            }
+          } catch (verifyError) {
+            if (isTerminalJewelVerificationError(verifyError)) {
+              removePendingDfkJewelVerification(paymentSessionId, payment.txHash);
+              console.info('[JEWEL trade] removed rejected payment verification from the local queue.');
+            } else {
+              console.warn('[JEWEL trade] payment verification failed; treasury summary may lag until this is retried.', verifyError);
+            }
           }
-        } catch (verifyError) {
-          console.warn('[JEWEL trade] payment verification failed; treasury summary may lag until this is retried.', verifyError);
+        } else {
+          console.info('[JEWEL trade] transaction submitted but receipt is not available yet; verification will retry after the chain confirms it.');
         }
       }
       if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') {
@@ -4740,8 +4749,8 @@ function formatQuestResetCountdown(dateKey) {
     const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raffleDay)) return NaN;
     const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
-    const hour = drawSlot === 'midday' ? 12 : 0;
-    return new Date(`${raffleDay}T${String(hour).padStart(2, '0')}:00:00.000Z`).getTime();
+    const time = drawSlot === 'midday' ? '12:00:00.000Z' : '23:59:00.000Z';
+    return new Date(`${raffleDay}T${time}`).getTime();
   }
 
   function isRaffleSlotWinnerDisplayable(winner) {
@@ -4750,6 +4759,7 @@ function formatQuestResetCountdown(dateKey) {
     const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
     const now = new Date();
     if (drawSlot === 'midday' && now.getUTCHours() < 12) return false;
+    if (drawSlot === 'morning' && (now.getUTCHours() < 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() < 59))) return false;
     const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
     const today = getCurrentUtcDateOnly();
     if (raffleDay) {
@@ -4770,7 +4780,7 @@ function formatQuestResetCountdown(dateKey) {
     const drawSlot = String(payload.draw_slot || payload.drawSlot || fallbackSlot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
     return {
       drawSlot,
-      label: drawSlot === 'midday' ? '12:00 Winner' : '00:00 Winner',
+      label: drawSlot === 'midday' ? '12:00 UTC Winner' : '23:59 UTC Winner',
       name: payload && (payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name) ? String(payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name).trim() : '',
       wallet: payload && (payload.winner_wallet || payload.wallet_address || payload.wallet) ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : '',
       raffleDay: payload && (payload.raffle_day || payload.raffleDay) ? String(payload.raffle_day || payload.raffleDay).trim() : '',
@@ -4794,7 +4804,7 @@ function formatQuestResetCountdown(dateKey) {
     if (!raffleEl) return;
     const morningWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.morning, 'morning');
     const middayWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.midday, 'midday');
-    const winnerMarkup = [morningWinner, middayWinner].map((winner) => {
+    const winnerMarkup = [middayWinner, morningWinner].map((winner) => {
       const canShowWinner = isRaffleSlotWinnerDisplayable(winner);
       const raffleLabel = canShowWinner ? (winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') : 'Pending next draw';
       const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner));
@@ -4827,7 +4837,11 @@ function formatQuestResetCountdown(dateKey) {
     const json = await response.json().catch(() => null);
     if (!response.ok) {
       const message = json && (json.error || json.message) ? String(json.error || json.message) : `Request failed: ${response.status}`;
-      throw new Error(message || `Request failed: ${response.status}`);
+      const error = new Error(message || `Request failed: ${response.status}`);
+      error.status = response.status;
+      error.response = json || null;
+      error.functionName = functionName;
+      throw error;
     }
     return json || {};
   }
@@ -4838,6 +4852,8 @@ function formatQuestResetCountdown(dateKey) {
 
   function isTerminalJewelVerificationError(error) {
     const message = String(error && error.message ? error.message : error || '').toLowerCase();
+    const code = String(error && error.response && error.response.code ? error.response.code : '').toLowerCase();
+    if (code.includes('tx_failed') || code.includes('transaction_failed') || code.includes('invalid_tx')) return true;
     if (!message) return false;
     return message.includes('transaction failed on-chain')
       || message.includes('payment session not found')
@@ -4940,14 +4956,23 @@ function formatQuestResetCountdown(dateKey) {
       const remaining = [];
       for (const entry of queue) {
         try {
+          let receipt = null;
           try {
-            await waitForDfkTransactionReceipt(entry.txHash, 8000);
+            receipt = await waitForDfkTransactionReceipt(entry.txHash, 8000);
           } catch (receiptError) {
             if (receiptError && String(receiptError.message || '').toLowerCase().includes('transaction failed on-chain')) {
               removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
-              console.info('[JEWEL trade] removed failed on-chain transaction from pending verification queue.', receiptError);
+              console.info('[JEWEL trade] removed failed on-chain transaction from pending verification queue.');
               continue;
             }
+          }
+          if (!receipt) {
+            remaining.push({
+              ...entry,
+              attempts: Math.max(0, Number(entry.attempts || 0)) + 1,
+              lastAttemptAt: Date.now(),
+            });
+            continue;
           }
           await callSupabaseFunctionJson(DFK_VERIFY_TOKEN_PAYMENT_FUNCTION, {
             paymentSessionId: entry.paymentSessionId,
@@ -4967,7 +4992,7 @@ function formatQuestResetCountdown(dateKey) {
             removePendingDfkJewelVerification(entry.paymentSessionId, entry.txHash);
           }
           if (terminal) {
-            console.info('[JEWEL trade] removed failed or rejected pending verification from local retry queue.', error);
+            console.info('[JEWEL trade] removed failed or rejected pending verification from local retry queue.');
           } else {
             console.warn('[JEWEL trade] pending verification retry failed.', error);
           }
@@ -6936,6 +6961,10 @@ function renderDamageReport() {
   async function submitCompletedRunOnce(result = 'loss') {
     if (game.runTracking.submitted) return;
     if (!window.DFKRunTracker || typeof window.DFKRunTracker.submitCompletedRun !== 'function') return;
+    if (game.continueOfferPending || ((!!game.continueSnapshot) && (!game.continueOfferUsed || !game.paidContinueOfferUsed))) {
+      log('Tracked run submission deferred until retry offers are declined or used.');
+      return;
+    }
     const payload = buildCompletedRunPayload(result);
     if (payload.continueAvailable) {
       log('Tracked run submission deferred until last chance is resolved.');
@@ -9596,7 +9625,14 @@ function canSubmitRewardClaims() {
 
   function getChampionWavesWaited() {
     const progressedWave = Math.max(0, Number(game.waveNumber || 0), Number(game.activeWaveBase || 0));
-    return Math.max(0, progressedWave - Number(game.championWaitAnchorWave || 0));
+    const anchor = Math.max(0, Number(game.championWaitAnchorWave || 0));
+    // The anchor is the start of the current rest period. Do not clear it just
+    // because the champion is off-field; after each deployment the anchor is
+    // intentionally reset when the champion leaves, so the next deployment must
+    // rest a fresh 20 waves. Extra waves banked before a deployment must not
+    // carry into the next rest period.
+    if (anchor > progressedWave) return 0;
+    return Math.max(0, progressedWave - anchor);
   }
 
   function getChampionTestRoster() {
@@ -9864,9 +9900,19 @@ function canSubmitRewardClaims() {
   }
 
   function updateChampionDetectionFromRoster() {
+    const previousSnapshot = game.selectedChampionSnapshot ? {
+      key: game.selectedChampionSnapshot.key,
+      hero: { ...(game.selectedChampionSnapshot.hero || {}) },
+      definition: game.selectedChampionSnapshot.definition,
+    } : null;
+    const lockChampionForActiveRun = !!(game.selectedChampionConfirmed && previousSnapshot && hasStartedRunForChampionLock());
     game.championRoster = getDetectedChampionRoster();
     const selected = getSelectedChampionRecord();
-    if (selected && game.selectedChampionConfirmed) {
+    if (lockChampionForActiveRun) {
+      game.selectedChampionKey = previousSnapshot.key || game.selectedChampionKey;
+      game.selectedChampionHeroId = String(previousSnapshot.hero?.id || game.selectedChampionHeroId || '');
+      game.selectedChampionSnapshot = previousSnapshot;
+    } else if (selected && game.selectedChampionConfirmed) {
       game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
     }
     if (!selected && game.championRoster.length) {
@@ -9977,6 +10023,45 @@ function canSubmitRewardClaims() {
 
   function canChooseChampionNow() {
     return Number(game.waveNumber || 0) === 0 && !game.runningWave;
+  }
+
+  function hasStartedRunForChampionLock() {
+    return Number(game.waveNumber || 0) > 0 || !!game.runningWave || Number(game.activeWaveBase || 0) > 0 || game.phase === SETUP_PHASES.GAME_OVER;
+  }
+
+  function shouldLockWalletHeroRefreshDuringRun() {
+    return hasStartedRunForChampionLock() || !!game.continueOfferPending || !!game.continueSnapshot;
+  }
+
+  function syncWalletHeroRefreshButtonState() {
+    if (!els.refreshWalletHeroesBtn) return;
+    const locked = shouldLockWalletHeroRefreshDuringRun();
+    els.refreshWalletHeroesBtn.disabled = locked || !!game.walletHeroLoadPending;
+    els.refreshWalletHeroesBtn.title = locked
+      ? 'NFT refresh is disabled while a run is active so champion timing cannot reset.'
+      : 'Refresh wallet NFTs.';
+    els.refreshWalletHeroesBtn.textContent = game.walletHeroLoadPending ? 'Refreshing NFTs…' : 'Refresh NFTs';
+  }
+
+  function showWalletHeroRefreshLockedMessage() {
+    showBanner('NFT refresh is disabled while a game is running so champion wave count stays locked.', 2400);
+  }
+
+  function showChampionTimingDebug(reason = '') {
+    try {
+      console.debug('[champion-timing]', {
+        reason,
+        waveNumber: Number(game.waveNumber || 0),
+        activeWaveBase: Number(game.activeWaveBase || 0),
+        waitAnchor: Number(game.championWaitAnchorWave || 0),
+        waited: getChampionWavesWaited(),
+        selected: String(game.selectedChampionKey || ''),
+        selectedHeroId: String(game.selectedChampionHeroId || ''),
+        confirmed: !!game.selectedChampionConfirmed,
+        deployedTowerId: game.championDeployedTowerId || null,
+        activeUntil: Number(game.championActiveUntilWave || 0),
+      });
+    } catch (_error) {}
   }
 
   function showChampionModal(forceOpen = false) {
@@ -10193,6 +10278,7 @@ function canSubmitRewardClaims() {
       return;
     }
     const required = getChampionRequiredWaitWaves();
+    showChampionTimingDebug('begin-placement');
     if (waited < required) {
       showBanner(`Champion deployment unlocks after ${required} waited wave${required === 1 ? '' : 's'}. Current wait: ${waited}.`, 1800);
       return;
@@ -10766,6 +10852,11 @@ function canSubmitRewardClaims() {
   }
 
   async function loadWalletHeroes(force = false) {
+    if (force && shouldLockWalletHeroRefreshDuringRun()) {
+      syncWalletHeroRefreshButtonState();
+      showWalletHeroRefreshLockedMessage();
+      return;
+    }
     const address = getConnectedWalletAddress();
     const rawProvider = getWalletRpcProvider();
     if (!address || !window.ethers) {
@@ -10963,9 +11054,11 @@ function canSubmitRewardClaims() {
       }
     } catch (error) {
       console.error('DFK hero load failed', error);
-      game.walletHeroRoster = [];
-      game.allWalletHeroRoster = [];
-      game.selectedWalletHeroes = {};
+      if (!shouldLockWalletHeroRefreshDuringRun()) {
+        game.walletHeroRoster = [];
+        game.allWalletHeroRoster = [];
+        game.selectedWalletHeroes = {};
+      }
       game.walletHeroLoadError = error && error.message ? `Hero chain read failed: ${error.message}` : 'Hero chain read failed.';
     } finally {
       game.walletHeroLoadPending = false;
@@ -10977,6 +11070,7 @@ function canSubmitRewardClaims() {
 
 
   function renderWalletHeroBonusPanel() {
+    syncWalletHeroRefreshButtonState();
     if (!els.walletHeroBonusSection || !els.walletHeroBonusStatus || !els.walletHeroBonusBody) return;
     setWalletHeroPanelCollapsed(game.walletHeroPanelCollapsed !== false);
     const address = getConnectedWalletAddress();
@@ -12190,6 +12284,28 @@ function canSubmitRewardClaims() {
     });
   }
 
+  function closeAbilityDetails(exceptRow = null) {
+    if (!els.abilitiesPanel) return;
+    els.abilitiesPanel.querySelectorAll('.ability-row.open, .passive-card.open').forEach(row => {
+      if (row === exceptRow) return;
+      row.classList.remove('open');
+      const details = row.querySelector('.ability-row-details, .passive-card-body');
+      if (details) details.classList.add('hidden');
+    });
+  }
+
+  function toggleAbilityDetails(row) {
+    if (!row) return;
+    const details = row.querySelector('.ability-row-details, .passive-card-body');
+    if (!details) return;
+    const willOpen = !row.classList.contains('open');
+    closeAbilityDetails(row);
+    row.classList.toggle('open', willOpen);
+    details.classList.toggle('hidden', !willOpen);
+    game.infoPopupPinned = false;
+    hideAbilityInfo(true);
+  }
+
   function renderSelection() {
     const tower = getSelectedTower();
     renderHeroQuickSelect();
@@ -12281,21 +12397,17 @@ function canSubmitRewardClaims() {
       icon.addEventListener('mouseleave', () => {
         if (!game.infoPopupPinned) scheduleAbilityInfoHide();
       });
+      const details = document.createElement('div');
+      details.className = 'ability-row-details hidden';
+      details.innerHTML = decoratePureEnergyText(infoText(), tower);
       icon.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const popup = ensureAbilityInfoPopup();
-        const sameTextPinned = popup && !popup.classList.contains('hidden') && popup.dataset.text === infoText() && game.infoPopupPinned;
-        if (sameTextPinned) {
-          game.infoPopupPinned = false;
-          hideAbilityInfo(true);
-        } else {
-          if (popup) popup.dataset.text = infoText();
-          showAbilityInfo(infoText(), { pinned: true });
-        }
+        toggleAbilityDetails(wrapper);
       });
       wrapper.appendChild(btn);
       wrapper.appendChild(icon);
+      wrapper.appendChild(details);
       els.abilitiesPanel.appendChild(wrapper);
     }
     renderPassiveCards(tower);
@@ -13240,7 +13352,9 @@ function canSubmitRewardClaims() {
       if (passiveEntry.key === 'frost_bolt' && !passiveEntry.locked && tower.level >= 15) {
         subtitle += `<div class="passive-active-note">Enhanced Aura Active: +1 range</div>`;
       }
-      passive.innerHTML = `<div class="passive-name">${passiveEntry.name}</div>${subtitle}<p>${decoratePureEnergyText(passiveEntry.description, tower)}</p>`;
+      passive.innerHTML = `<button type="button" class="passive-card-header"><span class="passive-name">${passiveEntry.name}</span><span class="passive-card-caret">▾</span></button><div class="passive-card-body hidden">${subtitle}<p>${decoratePureEnergyText(passiveEntry.description, tower)}</p></div>`;
+      const passiveHeader = passive.querySelector('.passive-card-header');
+      if (passiveHeader) passiveHeader.addEventListener('click', () => toggleAbilityDetails(passive));
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest' || passiveEntry.key === 'soul_split' || passiveEntry.key === 'slow_totem') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
         const btn = document.createElement('button');
@@ -19442,7 +19556,14 @@ function canSubmitRewardClaims() {
     refreshBountyBoard().catch(() => {});
   });
 
-  els.refreshWalletHeroesBtn?.addEventListener('click', () => { loadWalletHeroes(true).catch((error) => { console.error(error); }); });
+  els.refreshWalletHeroesBtn?.addEventListener('click', () => {
+    if (shouldLockWalletHeroRefreshDuringRun()) {
+      syncWalletHeroRefreshButtonState();
+      showWalletHeroRefreshLockedMessage();
+      return;
+    }
+    loadWalletHeroes(true).catch((error) => { console.error(error); });
+  });
   els.championPanelToggle?.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -20488,6 +20609,12 @@ function installTopMenuWalletResourceSync() {
 
 function refreshTopMenuData(options = {}) {
   const tasks = [];
+  // Keep the manual Refresh NFTs button available after a run, but do not
+  // automatically re-read NFT rosters from generic top-menu refreshes. The
+  // champion wait timer is locked to the selected run snapshot; automatic
+  // roster refreshes after game-over are unnecessary and can make the UI look
+  // like champion timing was reset.
+  const allowHeroRosterAutoRefresh = options.allowHeroRosterAutoRefresh === true;
   try {
     if (typeof refreshWalletJewelTokenBalance === 'function') {
       tasks.push(Promise.resolve(refreshWalletJewelTokenBalance({ skipMilestoneRender: true })).catch(() => null));
@@ -20496,7 +20623,7 @@ function refreshTopMenuData(options = {}) {
     }
   } catch (_error) {}
   try {
-    if (options.includeHeroRoster && typeof loadWalletHeroes === 'function') tasks.push(Promise.resolve(loadWalletHeroes(true)).catch(() => null));
+    if (options.includeHeroRoster && allowHeroRosterAutoRefresh && typeof loadWalletHeroes === 'function') tasks.push(Promise.resolve(loadWalletHeroes(true)).catch(() => null));
   } catch (_error) {}
   try {
     if (!options.skipRails && window.DFKCryptoRails) {
