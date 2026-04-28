@@ -10345,3 +10345,137 @@ body.how-to-play-open .center-panel {
 .passive-card-body p {
   margin-bottom: 0;
 }
+
+
+/* v46.9.1.206: targeted desktop bottom HUD/hire layout tweaks */
+#skipSetupBtn {
+  display: none !important;
+}
+
+@media (min-width: 1025px) {
+  .bottom-panel .controls-row.action-row,
+  .bottom-panel .controls-row.action-row.controls-row-lean {
+    grid-template-columns: max-content max-content max-content minmax(132px, 1fr) minmax(92px, 0.8fr) minmax(92px, 0.8fr);
+    align-items: center;
+  }
+
+  .bottom-panel #restartBtn {
+    width: auto !important;
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+
+  .bottom-panel .footer-topbar .hud-pill {
+    white-space: nowrap;
+  }
+
+  .bottom-panel .hire-list {
+    direction: ltr;
+  }
+
+  .bottom-panel .hire-list > * {
+    direction: ltr;
+    order: 10;
+  }
+
+  .bottom-panel .hire-list > .hire-button-card-gen0 {
+    order: 0;
+  }
+
+  .bottom-panel .hire-list > :nth-child(1),
+  .bottom-panel .hire-list > :nth-child(2),
+  .bottom-panel .hire-list > :nth-child(3),
+  .bottom-panel .hire-list > :nth-child(4),
+  .bottom-panel .hire-list > :nth-child(5) {
+    order: 10;
+  }
+
+  .bottom-panel .hire-list > .hire-button-card-gen0 {
+    order: 0;
+  }
+}
+
+
+/* v46.9.1.209: GEN0 hire note above button + restored start-wave-hint sizing */
+.start-wave-hint {
+  text-align: left !important;
+  font-size: 12px !important;
+  width: 100%;
+  max-width: none !important;
+}
+
+.bottom-panel .hire-button-card-gen0 {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0-note {
+  order: 0;
+  min-height: 14px;
+  margin: 0 0 4px;
+  text-align: center;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0 {
+  order: 1;
+}
+
+
+/* v46.9.1.210: fix hire button alignment */
+.bottom-panel .hire-button-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bottom-panel .hire-button-card-gen0 {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bottom-panel .hire-button-card .hire-button,
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0 {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0-note {
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* v46.9.1.211: Monk Sacrifice relic visuals */
+.tile-sacrifice-monk::before,
+.tile-sacrifice-monk::after {
+  content: '✦';
+  position: absolute;
+  z-index: 5;
+  font-size: 13px;
+  color: rgba(255,255,255,0.98);
+  text-shadow: 0 0 7px rgba(255,255,255,1), 0 0 16px rgba(210,240,255,0.95), 0 0 28px rgba(255,255,255,0.72);
+  animation: archonSparkle 1.25s ease-in-out infinite;
+  pointer-events: none;
+}
+.tile-sacrifice-monk::before { top: 3px; left: 4px; }
+.tile-sacrifice-monk::after { right: 5px; bottom: 10px; animation-delay: 0.55s; }
+.tile-sacrifice-monk .tile-hero-portrait {
+  filter: grayscale(0) saturate(0.12) brightness(1.9) contrast(1.15)
+    drop-shadow(0 0 10px rgba(255,255,255,0.9))
+    drop-shadow(0 0 24px rgba(220,245,255,0.72));
+}
+.tile-sacrifice-label {
+  font-size: 6px !important;
+  letter-spacing: -0.1px !important;
+  line-height: 0.95 !important;
+  white-space: nowrap !important;
+  transform: scaleX(0.9);
+  transform-origin: center center;
+}

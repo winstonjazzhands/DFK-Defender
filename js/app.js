@@ -1018,6 +1018,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'wind_at_your_back', name: 'Wind at Your Back', desc: 'Spend 200 Gold and the wind favors your Archer, increasing damage by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10 }) },
     { id: 'kraken_trainer', name: 'Kraken Trainer', desc: "Spend 200 Gold to teach the Pirate to master the Kraken and reduce Kraken cooldown by 2 seconds.", cost: 200, rarity: 'rare', apply: game => game.modifiers.krakenCooldownAdjust += 2 },
     { id: 'recurve_bow', name: 'Recurve Bow', desc: 'Spend 200 Gold to increase Archer damage by 10% and reduce attack speed by 5%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10, speedMult: 0.95 }) },
+    { id: 'hardened_fist', name: 'Hardened Fist', desc: 'Spend 100 Gold. Monk does 5% more damage.', cost: 120, rarity: 'common', apply: game => { game.modifiers.monkDamageMultiplier *= 1.05; buffTowerType(game, 'monk', { damageMult: 1.05 }); } },
+    { id: 'too_fast', name: 'Too Fast', desc: 'Spend 200 Gold. Reduce Fast Fists cooldown by 25%.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.fastFistsCooldownMultiplier *= 0.75; } },
+    { id: 'dark_siphon', name: 'Dark Siphon', desc: 'Spend 200 Gold. 10% of Monk damage steals life from the target and gives it to the Warrior.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.monkDarkSiphon = true; } },
+    { id: 'sacrifice_everything', name: 'Sacrifice Everything', desc: "Mythic. The Monk splits its Ki in two and combines it with the other Monk's Ki to create a third Monk tile named SACRIFICE. All 3 Monks deal 75% damage. If only 1 Monk is present, this takes effect when a 2nd Monk takes the field.", cost: 0, rarity: 'mythic', apply: game => { game.modifiers.sacrificeEverything = true; applySacrificeEverythingIfReady(); } },
   ];
 
   const MUTATIONS = [
@@ -1306,6 +1310,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletHeroRoster: [],
     allWalletHeroRoster: [],
     selectedWalletHeroes: {},
+    warriorNftReplacementHeroId: '',
+    warriorNftReplacementWasGen0: false,
     gen0ClassActive: {},
     transferHeroSelection: {},
     transferHeroSearch: '',
@@ -1438,6 +1444,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       seerHealMultiplier: 1,
       seerDamageMultiplier: 1,
       seerHealingDisabled: false,
+      monkDamageMultiplier: 1,
+      fastFistsCooldownMultiplier: 1,
+      monkDarkSiphon: false,
+      sacrificeEverything: false,
+      sacrificeCreated: false,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -6738,7 +6749,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     setWalletHeroScanRunnerProgress(0);
     game.walletHeroScanRunnerTimer = setInterval(() => {
       const elapsed = Math.max(0, now() - Number(game.walletHeroScanStartedAt || now()));
-      const progress = Math.min(1, elapsed / 90000);
+      const progress = Math.min(1, elapsed / 70000);
       setWalletHeroScanRunnerProgress(progress);
       if (progress >= 1) stopWalletHeroScanRunnerTimer();
     }, 100);
@@ -6758,7 +6769,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     }
     stopWalletHeroScanRunnerTimer();
     const startedAt = now();
-    const durationMs = Math.max(0, ((1 - startProgress) * 90000) / 1.5);
+    const durationMs = Math.max(0, ((1 - startProgress) * 70000) / 12);
     if (!durationMs) {
       finishWalletHeroScanRunner();
       return Promise.resolve();
@@ -6779,7 +6790,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   function getWalletHeroScanRemainingMs() {
     const startedAt = Number(game.walletHeroScanStartedAt || 0);
     if (!startedAt) return 0;
-    return Math.max(0, 90000 - (now() - startedAt));
+    return Math.max(0, 70000 - (now() - startedAt));
   }
 
   function renderWalletHeroScanStatus() {
@@ -7362,6 +7373,8 @@ function renderDamageReport() {
     game.placingSatelliteSourceId = null;
     game.hoveredTowerId = null;
     game.placingWalletHeroId = null;
+    game.warriorNftReplacementHeroId = '';
+    game.warriorNftReplacementWasGen0 = false;
     game.gen0ClassActive = {};
     game.nextEnemyId = 1;
     game.nextTowerId = 1;
@@ -7462,6 +7475,11 @@ function renderDamageReport() {
       seerHealMultiplier: 1,
       seerDamageMultiplier: 1,
       seerHealingDisabled: false,
+      monkDamageMultiplier: 1,
+      fastFistsCooldownMultiplier: 1,
+      monkDarkSiphon: false,
+      sacrificeEverything: false,
+      sacrificeCreated: false,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -9760,8 +9778,37 @@ function canSubmitRewardClaims() {
     if (usesBonus) return null;
     const selectedWalletHero = getSelectedWalletHero(type);
     if (!selectedWalletHero) return null;
+    if (type === 'warrior' && canUseWarriorNftReplacement()) return selectedWalletHero;
     if (isGen0WalletHero(selectedWalletHero) && !isStartingWalletHeroPlacementWindow()) return null;
     return selectedWalletHero;
+  }
+
+  function hasSelectedWarriorWalletHero() {
+    return !!getSelectedWalletHero('warrior');
+  }
+
+  function getActiveNonSatelliteWarrior() {
+    return (game.towers || []).find((tower) => tower && tower.type === 'warrior' && !tower.isSatellite && !tower.isChampion) || null;
+  }
+
+  function canUseWarriorNftReplacement() {
+    if (game.phase === SETUP_PHASES.GAME_OVER) return false;
+    if (!hasSelectedWarriorWalletHero()) return false;
+    if (getActiveNonSatelliteWarrior()) return false;
+    if (game.placingHeroType === 'warrior' && !game.placingSatelliteSourceId) return false;
+    if (game.pendingMilestoneHeroPlacement && game.pendingMilestoneHeroPlacement.heroType === 'warrior') return false;
+    return Number(game.waveNumber || 0) > 0 || game.runningWave || Number(game.activeWaveBase || 0) > 0 || !!game.warriorNftReplacementHeroId;
+  }
+
+  function rememberWarriorNftForReplacement(tower) {
+    if (!tower || tower.type !== 'warrior' || tower.isSatellite || tower.isChampion || !tower.walletHeroId) return;
+    game.warriorNftReplacementHeroId = String(tower.walletHeroId);
+    game.warriorNftReplacementWasGen0 = !!tower.walletHeroIsGen0;
+    if (!game.selectedWalletHeroes || typeof game.selectedWalletHeroes !== 'object') game.selectedWalletHeroes = {};
+    const currentSelected = getSelectedWalletHero('warrior');
+    if (!currentSelected || String(currentSelected.id) !== String(tower.walletHeroId)) {
+      game.selectedWalletHeroes.warrior = String(tower.walletHeroId);
+    }
   }
 
   function clearUnplacedStartingGen0Placement() {
@@ -10487,6 +10534,8 @@ function canSubmitRewardClaims() {
     game.walletHeroRoster = [];
     game.allWalletHeroRoster = [];
     game.selectedWalletHeroes = {};
+    game.warriorNftReplacementHeroId = '';
+    game.warriorNftReplacementWasGen0 = false;
     game.transferHeroSelection = {};
     game.transferHeroSearch = '';
     game.transferHeroesBusy = false;
@@ -11417,7 +11466,10 @@ function canSubmitRewardClaims() {
         return Number(totem.expiresAfterWave || 0) > Number(game.waveNumber || 0);
       });
       const ghostBerserker = (!tower) ? (game.towers || []).find((entry) => entry && entry.type === 'berserker' && entry.hp > 0 && entry.berserkerGhostTile && entry.berserkerGhostTile.x === tile.x && entry.berserkerGhostTile.y === tile.y) : null;
-      if (tower) tile.el.classList.add(`tile-hero-${tower.type}`);
+      if (tower) {
+        tile.el.classList.add(`tile-hero-${tower.type}`);
+        if (tower.isSacrificeMonk) tile.el.classList.add('tile-sacrifice-monk', 'tile-pure-energy');
+      }
       if (activeSlowTotem) tile.el.classList.add('tile-has-slow-totem');
       const enemiesHere = game.enemies.filter(e => e.x === tile.x && e.y === tile.y).slice(0, 3);
 
@@ -11583,8 +11635,13 @@ function canSubmitRewardClaims() {
 
         const heroLabel = document.createElement('div');
         heroLabel.className = 'tile-hero-label';
-        heroLabel.textContent = tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (tower.isSatellite && tower.type === 'archer' ? 'SHADOW' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase())));
+        heroLabel.textContent = tower.isSacrificeMonk ? 'SACRIFICE' : (tower.isSoulSplit ? getTornSoulDisplayName(tower) : (isStatueTower(tower) ? 'STATUE' : (tower.isSatellite && tower.type === 'archer' ? 'SHADOW' : (HERO_TILE_LABELS[tower.type] || tower.type.toUpperCase()))));
         heroLabel.style.opacity = `${satelliteOpacity}`;
+        if (tower.isSacrificeMonk) {
+          heroLabel.classList.add('tile-pure-energy-label', 'tile-sacrifice-label');
+          heroLabel.style.color = '#ffffff';
+          heroLabel.style.textShadow = '0 0 12px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,0.95), 0 0 34px rgba(224,245,255,0.88)';
+        }
         if (tower.isSoulSplit) {
           heroLabel.classList.add('tile-torn-soul-label');
           if (isPureEnergyArchon(tower)) {
@@ -11693,7 +11750,7 @@ function canSubmitRewardClaims() {
         } else if (tower.type === 'monk' && tower.trainingPartnerActive) {
           const monkNote = document.createElement('div');
           monkNote.className = 'tile-hover-meta';
-          monkNote.textContent = 'Training Partner active • +25% damage • +25% speed • +1 range';
+          monkNote.textContent = tower.isSacrificeMonk ? 'SACRIFICE • Training Partner active • 75% damage' : 'Training Partner active • +25% damage • +25% speed • +1 range';
           hover.appendChild(monkNote);
         } else if (tower.type === 'berserker' && tower.berserkerMoonActive) {
           const moonNote = document.createElement('div');
@@ -12685,11 +12742,12 @@ function canSubmitRewardClaims() {
     const suppressStartingWarriorHire = shouldHideWarriorHireDuringStartingPlacement();
     const normalAvailable = heroTypes.filter(type => {
       if (type === 'warrior' && suppressStartingWarriorHire) return false;
+      if (type === 'warrior' && canUseWarriorNftReplacement()) return true;
       return !isHeroTypeLocked(type, { includePendingPlacement: true, includePendingMilestone: true });
     });
     const bonusAvailable = Number(game.bonusHeroHireCharges || 0) > 0 ? heroTypes.slice() : [];
     const cost = getNextHireCost(false);
-    const canHireNow = !reachedStandardHeroCap && !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0);
+    const canHireNow = !game.placingHeroType && game.phase !== SETUP_PHASES.GAME_OVER && (normalAvailable.some(type => type === 'warrior' && canUseWarriorNftReplacement()) || (!reachedStandardHeroCap && ((Number(game.jewel || 0) + 1e-9) >= cost) && (normalAvailable.length > 0 || bonusAvailable.length > 0)));
     updateMobileHireNotice(canHireNow);
     const championSelected = ensureChampionSelectionReady({ autoConfirm: false });
     const championWaited = getChampionWavesWaited();
@@ -12716,10 +12774,11 @@ function canSubmitRewardClaims() {
       const pendingThisType = game.placingHeroType === type;
       const placedCountOfType = (game.towers || []).filter((tower) => tower && tower.type === type && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length;
       const selectedWalletHero = getSelectedWalletHeroForHire(type, usesBonus);
-      const effectiveCost = usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus);
+      const warriorNftReplacement = !usesBonus && type === 'warrior' && canUseWarriorNftReplacement() && !!selectedWalletHero;
+      const effectiveCost = warriorNftReplacement ? 0 : (usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus));
       const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
       const gen0ButtonMode = getGen0HeroButtonMode(type, selectedWalletHero, usesBonus);
-      const ignoreCapForType = !usesBonus && type === 'warrior' && canAlwaysFieldOneWarrior();
+      const ignoreCapForType = (!usesBonus && type === 'warrior' && canAlwaysFieldOneWarrior()) || warriorNftReplacement;
       const blockedByCap = !ignoreCapForType && !usesBonus && reachedStandardHeroCap;
       btn.textContent = forceDisabled
         ? `${t.name} Hired`
@@ -12774,7 +12833,7 @@ function canSubmitRewardClaims() {
             showBanner('Your selected Warrior is your free starting Warrior. Place her during setup instead of hiring a second Warrior on wave 1.', 2200);
             return;
           }
-          if (!usesBonus && hasReachedStandardHeroBoardCap(true) && !(type === 'warrior' && canAlwaysFieldOneWarrior())) {
+          if (!usesBonus && hasReachedStandardHeroBoardCap(true) && !(type === 'warrior' && (canAlwaysFieldOneWarrior() || warriorNftReplacement))) {
             showBanner(`You can only field ${MAX_STANDARD_HEROES_ON_BOARD} heroes until a milestone hire offer appears.`, 1800);
             return;
           }
@@ -12806,8 +12865,8 @@ function canSubmitRewardClaims() {
           render();
         });
       }
-      card.appendChild(btn);
       if (gen0Line) card.appendChild(gen0Line);
+      card.appendChild(btn);
       els.hirePanel.appendChild(card);
     }
 
@@ -13091,7 +13150,7 @@ function canSubmitRewardClaims() {
       } else {
         game.phase = SETUP_PHASES.WARRIOR;
         setInstruction('Place your starting Warrior on any open tile. Before the first wave starts, you can still click a barrier to move it.');
-        els.skipSetupBtn.classList.remove('hidden');
+        els.skipSetupBtn?.classList.add('hidden');
       }
     } else {
       const prefix = game.rebuildingBarriers ? 'Rebuild your player barriers. Click one of your barriers to pick it back up.' : `Place ${getTargetPlayerObstacleCount()} player obstacles. Click one of your barriers to pick it back up before the first wave starts.`;
@@ -13189,7 +13248,7 @@ function canSubmitRewardClaims() {
     prepareNextWave();
     syncStartWaveButtonState();
     log(`Warrior placed at (${x + 1}, ${y + 1}).`);
-    els.skipSetupBtn.classList.add('hidden');
+    els.skipSetupBtn?.classList.add('hidden');
     return true;
   }
 
@@ -13267,6 +13326,10 @@ function canSubmitRewardClaims() {
     if (tower.isChampion) ensureChampionAutoAbilityState(tower);
     if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
+    if (type === 'monk') {
+      tower.damage *= Math.max(0, Number(game.modifiers.monkDamageMultiplier || 1));
+      if (game.modifiers.sacrificeEverything) tower.damage *= 0.75;
+    }
     if (type === 'berserker') tower.nextBerserkerWanderWave = Number(game.waveNumber || 0) + (BERSERKER_WANDER_MIN_WAVES + Math.floor(Math.random() * ((BERSERKER_WANDER_MAX_WAVES - BERSERKER_WANDER_MIN_WAVES) + 1)));
     return tower;
   }
@@ -13288,6 +13351,75 @@ function canSubmitRewardClaims() {
       else delete monk.buffs.monkPartner;
       monk.trainingPartnerActive = empowered;
     });
+  }
+
+  function getActiveWarriorForMonkSiphon() {
+    return (game.towers || []).find((tower) => tower && tower.type === 'warrior' && !tower.isSatellite && tower.hp > 0)
+      || (game.towers || []).find((tower) => tower && isStatueTower(tower) && tower.hp > 0)
+      || null;
+  }
+
+  function applyMonkDarkSiphon(sourceTower, appliedDamage) {
+    if (!sourceTower || sourceTower.type !== 'monk' || !game.modifiers.monkDarkSiphon) return;
+    const healTarget = getActiveWarriorForMonkSiphon();
+    if (!healTarget) return;
+    const healAmount = Math.max(0, Number(appliedDamage || 0) * 0.10);
+    if (healAmount <= 0) return;
+    healTower(healTarget, healAmount, null, { sourceTowerId: sourceTower.id, allowStatue: true, methodKey: 'dark_siphon', methodLabel: 'Dark Siphon' });
+  }
+
+  function getSacrificePlacementTile(monks) {
+    const sources = Array.isArray(monks) ? monks : getActiveMonks();
+    for (const source of sources) {
+      const candidates = [
+        ...adjacentTiles(source.x, source.y),
+        { x: source.x + 1, y: source.y + 1 },
+        { x: source.x + 1, y: source.y - 1 },
+        { x: source.x - 1, y: source.y + 1 },
+        { x: source.x - 1, y: source.y - 1 },
+      ];
+      for (const candidate of candidates) {
+        if (candidate && isOpenForTower(candidate.x, candidate.y)) return candidate;
+      }
+    }
+    for (let y = 0; y < HEIGHT; y += 1) {
+      for (let x = 0; x < WIDTH; x += 1) {
+        if (isOpenForTower(x, y)) return { x, y };
+      }
+    }
+    return null;
+  }
+
+  function applySacrificeEverythingIfReady() {
+    if (!game.modifiers.sacrificeEverything || game.modifiers.sacrificeCreated) return false;
+    const sourceMonks = getActiveMonks().filter((tower) => !tower.isSacrificeMonk);
+    if (sourceMonks.length < 2) return false;
+    const placement = getSacrificePlacementTile(sourceMonks);
+    if (!placement) {
+      showBanner('SACRIFICE is ready but needs an open tile.', 2200);
+      return false;
+    }
+    for (const monk of getActiveMonks()) {
+      if (!monk.sacrificeDamageAdjusted) {
+        monk.damage *= 0.75;
+        monk.sacrificeDamageAdjusted = true;
+      }
+    }
+    const sacrifice = createTower('monk', placement.x, placement.y);
+    sacrifice.name = 'SACRIFICE';
+    sacrifice.reportLabel = `SACRIFICE #${sacrifice.id.replace(/^t/, '')}`;
+    sacrifice.isSacrificeMonk = true;
+    sacrifice.sacrificeDamageAdjusted = true;
+    sacrifice.damage = Math.max(1, Number(sacrifice.damage || TOWER_TEMPLATES.monk.damage));
+    sacrifice.customPortraitUrl = getDefaultHeroImageForType('monk');
+    game.towers.push(sacrifice);
+    const tile = tileAt(placement.x, placement.y);
+    if (tile) tile.towerId = sacrifice.id;
+    game.modifiers.sacrificeCreated = true;
+    syncMonkTrainingPartnerState();
+    showBanner('SACRIFICE has taken the field.', 2200);
+    log('Sacrifice Everything created SACRIFICE. All Monks now deal 75% damage.');
+    return true;
   }
 
   function isReservedGhostTile(x, y, ignoreTowerId = null) {
@@ -13446,6 +13578,7 @@ function canSubmitRewardClaims() {
     if (abilityKey === 'kraken') finalCooldown += 1.5;
     if (abilityKey === 'starboard_cannons') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'multi_shot') finalCooldown = Math.max(0.5, finalCooldown - 1.5);
+    if (tower?.type === 'monk' && abilityKey === 'fast_fists') finalCooldown *= Math.max(0.1, Number(game.modifiers.fastFistsCooldownMultiplier || 1));
     return Math.max(0.5, finalCooldown - leadershipReduction);
   }
 
@@ -13630,10 +13763,10 @@ function canSubmitRewardClaims() {
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
       chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10.${common}${scale}`,
       evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage. Any attack that misses will show "MISS" on the Warrior or Statue.${common}${scale}`,
-      fast_fists: `Punches every enemy within 1 tile for ${Math.round(d * 2)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'fast_fists').toFixed(1)}s.${common}${scale}`,
+      fast_fists: `Punches every enemy within 1 tile for ${Math.round(d * 2)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'fast_fists').toFixed(1)}s.${game.modifiers.fastFistsCooldownMultiplier < 1 ? '<br><strong>Too Fast active:</strong> cooldown reduced by 25%.' : ''}${game.modifiers.monkDarkSiphon ? '<br><strong>Dark Siphon active:</strong> Monk damage heals the Warrior for 10% of damage dealt.' : ''}${common}${scale}`,
       windmill_kick: `Spins through all enemies within 2 tiles for ${Math.round(d * 1.5)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'windmill_kick').toFixed(1)}s.${common}${scale}`,
       levitation: `Passive. Monk ignores movement cooldown and can float from skirmish to skirmish without resting.${common}${scale}`,
-      training_partner: `Passive. When two Monks are fielded, both gain +25% damage, +25% speed, and +1 range.${common}${scale}`,
+      training_partner: `Passive. When two Monks are fielded, both gain +25% damage, +25% speed, and +1 range.${game.modifiers.sacrificeEverything ? '<br><strong>Sacrifice Everything active:</strong> creates SACRIFICE when two Monks are fielded; all Monks deal 75% damage.' : ''}${common}${scale}`,
       two_handed_swing: `Smashes up to 10 enemies within 2 tiles for ${Math.round(d * 1.75)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'two_handed_swing').toFixed(1)}s.${common}${scale}`,
       see_the_moon: `Freezes enemies within 2 tiles in fear for 3s. Feared enemies take 25% more damage during that time. Cooldown: ${getAbilityCooldownSeconds(tower, 'see_the_moon').toFixed(1)}s.${common}${scale}`,
       high_as_a_kite: `Passive. Every 14-20 cleared waves, Berserker charges to the front for 7 waves and leaves behind a ghost on her original tile. While away she deals 2x damage and attacks 1.5x faster.${common}${scale}`,
@@ -14133,7 +14266,7 @@ function canSubmitRewardClaims() {
         render();
         return;
       }
-    } else if (!usesBonusHire && !isMilestonePlacement && !String(typeToPlace).startsWith('champion_') && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
+    } else if (!usesBonusHire && !isMilestonePlacement && !String(typeToPlace).startsWith('champion_') && !(typeToPlace === 'warrior' && canUseWarriorNftReplacement()) && isHeroTypeLocked(typeToPlace, { includePendingPlacement: false, includePendingMilestone: false })) {
       const heroName = TOWER_TEMPLATES[typeToPlace]?.name || 'That hero';
       showBanner(`${heroName} is already in this run.`, 1600);
       game.placingHeroType = null;
@@ -14313,6 +14446,7 @@ function canSubmitRewardClaims() {
     game.placingHeroUsesBonus = false;
     game.placingSatelliteSourceId = null;
     syncMonkTrainingPartnerState();
+    applySacrificeEverythingIfReady();
     render();
   }
 
@@ -18809,6 +18943,7 @@ function canSubmitRewardClaims() {
     }
     for (const tower of [...game.towers]) {
       if (tower.hp <= 0) {
+        if (tower.type === 'warrior' && !tower.isSatellite && !tower.isChampion) rememberWarriorNftForReplacement(tower);
         triggerExplodingStatue(tower);
         removeTower(tower, `${tower.name} fell.`);
       }
@@ -18875,6 +19010,7 @@ function canSubmitRewardClaims() {
       recordTowerDamage(sourceTower, appliedDamage, methodKey, methodLabel);
       updateQuestMetric('damageTotal', appliedDamage);
       if (!sourceTower.isSatellite && !isStatueTower(sourceTower)) updateWeeklyBountyMetric('heroDamage', appliedDamage);
+      applyMonkDarkSiphon(sourceTower, appliedDamage);
       const baseDamage = Math.max(1, Number(sourceTower.damage || 0) || 0);
     }
     if (sourceTower) {
@@ -19518,21 +19654,28 @@ function canSubmitRewardClaims() {
 
   function ensureStartWaveHintEl() {
     if (els.startWaveHintEl) return els.startWaveHintEl;
+    const hireSection = document.querySelector('.hire-section');
+    const controlsStack = document.querySelector('.controls-stack');
     const stack = document.getElementById('startWaveStack');
-    if (!stack) return null;
+    const host = hireSection || controlsStack || stack;
+    if (!host) return null;
     const hint = document.createElement('div');
     hint.id = 'startWaveHint';
     hint.className = 'start-wave-hint';
     hint.hidden = true;
-    hint.style.marginTop = '6px';
+    hint.style.marginTop = '8px';
     hint.style.fontSize = '12px';
-    hint.style.lineHeight = '1.35';
-    hint.style.textAlign = 'center';
+    hint.style.lineHeight = '1.25';
+    hint.style.textAlign = 'left';
     hint.style.color = '#ffcc66';
     hint.style.textShadow = '0 0 8px rgba(0,0,0,0.42)';
-    hint.style.maxWidth = '260px';
+    hint.style.maxWidth = '100%';
     hint.style.whiteSpace = 'normal';
-    stack.appendChild(hint);
+    if (hireSection) {
+      hireSection.insertAdjacentElement('afterend', hint);
+    } else {
+      host.appendChild(hint);
+    }
     els.startWaveHintEl = hint;
     return hint;
   }
@@ -20257,7 +20400,7 @@ function canSubmitRewardClaims() {
       closeIntroModal();
     }
   });
-  els.skipSetupBtn.addEventListener('click', autoPlaceWarrior);
+  els.skipSetupBtn?.addEventListener('click', autoPlaceWarrior);
   els.upgradeBtn.addEventListener('click', () => {
     if (suppressNextUpgradeClick) {
       suppressNextUpgradeClick = false;
