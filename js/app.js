@@ -1006,7 +1006,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
     { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => buffTowerType(game, 'pirate', { rangeAdd: 1 }) },
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and improve attack speed by 15%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.85 },
-    { id: 'master_assassin', name: 'Master Assassin', desc: 'A mythic relic teaches the Archer Shadow to remain forever. Archer Shadows never dissipate.', cost: 0, rarity: 'mythic', apply: game => game.modifiers.masterAssassin = true },
+    { id: 'master_assassin', name: 'Master Assassin', desc: 'Mythic. Archer Shadows never dissipate. Archer Shadow level ups cost 25% less, and Archer level ups cost 15% less.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.masterAssassin = true; game.modifiers.masterAssassinArcherShadowUpgradeDiscount = 0.25; game.modifiers.masterAssassinArcherUpgradeDiscount = 0.15; } },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
     { id: 'dark_arts', name: 'Dark Arts', desc: 'Spend 350 Gold to flirt with dark magic so all Wizard cooldowns drop by 2 seconds, but Wizard damage falls by 10%.', cost: 350, rarity: 'legendary', apply: game => { game.modifiers.wizardCooldownFlatReduction += 2; game.modifiers.wizardSpellDamage *= 0.90; } },
     { id: 'dagger_training', name: 'Dagger Training', desc: 'Spend 350 Gold to drill dirty fighting so Archers, Pirate, and Archer Shadows cut enemies for 10% base damage once per hero.', cost: 350, rarity: 'legendary', apply: game => game.modifiers.daggerTraining = true },
@@ -1216,6 +1216,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     damageReportWrap: null,
     damageReportBody: null,
     damageReportTotal: null,
+    walletHeroScanStatus: null,
+    walletHeroScanStatusText: null,
     walletHeroBonusSection: document.getElementById('walletHeroBonusSection'),
     walletHeroBonusStatus: document.getElementById('walletHeroBonusStatus'),
     walletHeroBonusBody: document.getElementById('walletHeroBonusBody'),
@@ -1317,6 +1319,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     walletHeroLoadPending: false,
     walletHeroAutoLoadedKey: '',
     walletHeroLoadError: '',
+    walletHeroScanDoneVisibleUntil: 0,
+    walletHeroScanDoneTimer: 0,
     walletHeroPanelCollapsed: true,
     placingWalletHeroId: null,
     championRoster: [],
@@ -1428,6 +1432,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       ringOfFire: false,
       krakenCooldownAdjust: 0,
       masterAssassin: false,
+      masterAssassinArcherShadowUpgradeDiscount: 0,
+      masterAssassinArcherUpgradeDiscount: 0,
       seerPassiveHealsStatues: false,
       seerHealMultiplier: 1,
       seerDamageMultiplier: 1,
@@ -3292,7 +3298,7 @@ function formatQuestResetCountdown(dateKey) {
       }
       const payment = await Promise.race([
         isHonkPayment ? sendDfkHonkPayment(String(amountWei || '0')) : sendDfkJewelPayment(String(amountWei || '0')),
-        new Promise((_, reject) => window.setTimeout(() => reject(new Error('Wallet confirmation timed out. If you already approved it, use Refresh Wallet to recover the hero.')), 45000)),
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error('Wallet confirmation timed out. If you already approved it, use Refresh Wallet to recover the hero.')), 90000)),
       ]);
       if (paymentSessionId) {
         enqueuePendingDfkJewelVerification({
@@ -6685,6 +6691,127 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
 
+
+  function ensureWalletHeroScanStatusMount() {
+    if (els.walletHeroScanStatus && els.walletHeroScanStatusText) return;
+    const grid = els.grid;
+    if (!grid || !grid.parentElement) return;
+    const wrap = document.createElement('section');
+    wrap.id = 'walletHeroScanStatus';
+    wrap.className = 'wallet-hero-scan-status hidden';
+    wrap.setAttribute('aria-live', 'polite');
+    wrap.innerHTML = `
+      <div class="wallet-hero-scan-line">
+        <span class="wallet-hero-scan-spinner" aria-hidden="true"></span>
+        <span class="wallet-hero-scan-text" id="walletHeroScanStatusText">Checking wallet for NFTs and Gen0s…</span>
+      </div>
+      <div class="wallet-hero-scan-track" aria-hidden="true">
+        <img class="wallet-hero-scan-runner" src="assets/dark-summoner.gif" alt="">
+        <img class="wallet-hero-scan-portal" src="portal-trans.png" alt="">
+      </div>
+    `;
+    grid.insertAdjacentElement('afterend', wrap);
+    els.walletHeroScanStatus = wrap;
+    els.walletHeroScanStatusText = wrap.querySelector('#walletHeroScanStatusText');
+  }
+
+  function setWalletHeroScanRunnerProgress(progress) {
+    ensureWalletHeroScanStatusMount();
+    const wrap = els.walletHeroScanStatus;
+    if (!wrap) return;
+    const safeProgress = Math.max(0, Math.min(1, Number(progress || 0)));
+    game.walletHeroScanRunnerProgress = safeProgress;
+    wrap.style.setProperty('--wallet-hero-scan-progress', String(safeProgress));
+  }
+
+  function stopWalletHeroScanRunnerTimer() {
+    if (game.walletHeroScanRunnerTimer) {
+      clearInterval(game.walletHeroScanRunnerTimer);
+      game.walletHeroScanRunnerTimer = null;
+    }
+  }
+
+  function startWalletHeroScanRunner() {
+    stopWalletHeroScanRunnerTimer();
+    game.walletHeroScanStartedAt = now();
+    game.walletHeroScanRunnerProgress = 0;
+    setWalletHeroScanRunnerProgress(0);
+    game.walletHeroScanRunnerTimer = setInterval(() => {
+      const elapsed = Math.max(0, now() - Number(game.walletHeroScanStartedAt || now()));
+      const progress = Math.min(1, elapsed / 90000);
+      setWalletHeroScanRunnerProgress(progress);
+      if (progress >= 1) stopWalletHeroScanRunnerTimer();
+    }, 100);
+  }
+
+  function finishWalletHeroScanRunner() {
+    stopWalletHeroScanRunnerTimer();
+    setWalletHeroScanRunnerProgress(1);
+  }
+
+  function accelerateWalletHeroScanRunnerToPortal() {
+    ensureWalletHeroScanStatusMount();
+    const startProgress = Math.max(0, Math.min(1, Number(game.walletHeroScanRunnerProgress || 0)));
+    if (startProgress >= 1) {
+      finishWalletHeroScanRunner();
+      return Promise.resolve();
+    }
+    stopWalletHeroScanRunnerTimer();
+    const startedAt = now();
+    const durationMs = Math.max(0, ((1 - startProgress) * 90000) / 1.5);
+    if (!durationMs) {
+      finishWalletHeroScanRunner();
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      game.walletHeroScanRunnerTimer = setInterval(() => {
+        const elapsed = Math.max(0, now() - startedAt);
+        const progress = Math.min(1, startProgress + ((elapsed / durationMs) * (1 - startProgress)));
+        setWalletHeroScanRunnerProgress(progress);
+        if (progress >= 1) {
+          stopWalletHeroScanRunnerTimer();
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  function getWalletHeroScanRemainingMs() {
+    const startedAt = Number(game.walletHeroScanStartedAt || 0);
+    if (!startedAt) return 0;
+    return Math.max(0, 90000 - (now() - startedAt));
+  }
+
+  function renderWalletHeroScanStatus() {
+    ensureWalletHeroScanStatusMount();
+    const wrap = els.walletHeroScanStatus;
+    const text = els.walletHeroScanStatusText;
+    if (!wrap || !text) return;
+    const checking = !!game.walletHeroLoadPending;
+    const doneVisible = Number(game.walletHeroScanDoneVisibleUntil || 0) > now();
+    wrap.classList.toggle('hidden', !checking && !doneVisible);
+    wrap.classList.toggle('is-done', !checking && doneVisible);
+    wrap.classList.toggle('is-loading', checking);
+    if (checking) {
+      text.textContent = 'Checking your wallet for NFTs and Gen0s, please place the portal and barriers but wait a moment to place heroes.';
+    } else if (doneVisible) {
+      const count = Array.isArray(game.walletHeroRoster) ? game.walletHeroRoster.length : 0;
+      const gen0Count = (game.walletHeroRoster || []).filter((hero) => isGen0WalletHero(hero)).length;
+      text.textContent = `Wallet NFT check complete: ${count} eligible hero${count === 1 ? '' : 'es'} found${gen0Count ? `, ${gen0Count} Gen0` : ''}.`;
+    }
+  }
+
+  function showWalletHeroScanDoneNotice() {
+    game.walletHeroScanDoneVisibleUntil = now() + 3200;
+    finishWalletHeroScanRunner();
+    if (game.walletHeroScanDoneTimer) clearTimeout(game.walletHeroScanDoneTimer);
+    game.walletHeroScanDoneTimer = setTimeout(() => {
+      game.walletHeroScanDoneVisibleUntil = 0;
+      stopWalletHeroScanRunnerTimer();
+      renderWalletHeroScanStatus();
+    }, 3300);
+    renderWalletHeroScanStatus();
+  }
   function ensureDamageReportMount() {
     if (els.damageReportWrap && els.damageReportBody && els.damageReportTotal) return;
     const grid = els.grid;
@@ -7329,6 +7456,8 @@ function renderDamageReport() {
       ringOfFire: false,
       krakenCooldownAdjust: 0,
       masterAssassin: false,
+      masterAssassinArcherShadowUpgradeDiscount: 0,
+      masterAssassinArcherUpgradeDiscount: 0,
       seerPassiveHealsStatues: false,
       seerHealMultiplier: 1,
       seerDamageMultiplier: 1,
@@ -8817,7 +8946,7 @@ function canSubmitRewardClaims() {
   const DEFENDER_GOLD_SWAP_REWARD = 1500;
   const AVAX_DEFENDER_GOLD_SWAP_WEI = String(window.DFK_AVAX_GOLD_CRATE_PRICE_WEI || '1000000000000000');
   const AVAX_DEFENDER_GOLD_SWAP_REWARD = 2000;
-  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '450000000000000');
+  const AVAX_MILESTONE_HERO_WEI = String(window.DFK_AVAX_MILESTONE_HERO_PRICE_WEI || '900000000000000');
   const AVAX_MILESTONE_BARRIER_WEI = String(window.DFK_AVAX_MILESTONE_BARRIER_PRICE_WEI || AVAX_MILESTONE_HERO_WEI || '1000000000000000');
   const AVAX_TREASURY_ADDRESS = String(window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad').trim().toLowerCase();
   const MILESTONE_BARRIER_OFFER_DFK_COST = Number(window.DFK_MILESTONE_BARRIER_OFFER_DFK_COST || 50000);
@@ -9623,6 +9752,30 @@ function canSubmitRewardClaims() {
     return (game.walletHeroRoster || []).find(hero => hero.type === type && String(hero.id) === String(selectedId)) || null;
   }
 
+  function isStartingWalletHeroPlacementWindow() {
+    return Number(game.waveNumber || 0) === 0 && !game.runningWave && Number(game.activeWaveBase || 0) === 0 && game.phase !== SETUP_PHASES.GAME_OVER;
+  }
+
+  function getSelectedWalletHeroForHire(type, usesBonus = false) {
+    if (usesBonus) return null;
+    const selectedWalletHero = getSelectedWalletHero(type);
+    if (!selectedWalletHero) return null;
+    if (isGen0WalletHero(selectedWalletHero) && !isStartingWalletHeroPlacementWindow()) return null;
+    return selectedWalletHero;
+  }
+
+  function clearUnplacedStartingGen0Placement() {
+    if (!game.placingWalletHeroId) return;
+    const selected = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId));
+    if (!selected || !isGen0WalletHero(selected)) return;
+    if (isStartingWalletHeroPlacementWindow()) return;
+    game.placingHeroType = null;
+    game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
+    game.placingWalletHeroId = null;
+  }
+
   function getChampionWavesWaited() {
     const progressedWave = Math.max(0, Number(game.waveNumber || 0), Number(game.activeWaveBase || 0));
     const anchor = Math.max(0, Number(game.championWaitAnchorWave || 0));
@@ -10365,7 +10518,7 @@ function canSubmitRewardClaims() {
 
   function getWalletHeroPlacementCost(type, baseCost, usesBonus) {
     if (usesBonus) return baseCost;
-    return getSelectedWalletHero(type) ? 0 : baseCost;
+    return getSelectedWalletHeroForHire(type, usesBonus) ? 0 : baseCost;
   }
 
   function getArcherCooldownMultiplierForLevel(level) {
@@ -10663,6 +10816,7 @@ function canSubmitRewardClaims() {
     renderMilestoneHeroOffer();
     updateTopbar();
     renderGen0ActiveBanner();
+    renderWalletHeroScanStatus();
     renderDamageReport();
     if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
     if (typeof updateMobileInstallPrompt === 'function') updateMobileInstallPrompt();
@@ -10868,6 +11022,9 @@ function canSubmitRewardClaims() {
     if (!force && game.walletHeroAutoLoadedKey === currentAutoLoadKey) return;
     game.walletHeroLoadPending = true;
     game.walletHeroLoadError = '';
+    game.walletHeroScanDoneVisibleUntil = 0;
+    startWalletHeroScanRunner();
+    renderWalletHeroScanStatus();
     renderWalletHeroBonusPanel();
     try {
       const heroesByKey = new Map();
@@ -11061,7 +11218,12 @@ function canSubmitRewardClaims() {
       }
       game.walletHeroLoadError = error && error.message ? `Hero chain read failed: ${error.message}` : 'Hero chain read failed.';
     } finally {
+      const scanRemainingMs = getWalletHeroScanRemainingMs();
+      if (scanRemainingMs > 0) {
+        await accelerateWalletHeroScanRunnerToPortal();
+      }
       game.walletHeroLoadPending = false;
+      showWalletHeroScanDoneNotice();
       renderWalletHeroBonusPanel();
       renderHirePanel();
       renderTransferHeroesModal();
@@ -12553,7 +12715,7 @@ function canSubmitRewardClaims() {
       const btn = document.createElement('button');
       const pendingThisType = game.placingHeroType === type;
       const placedCountOfType = (game.towers || []).filter((tower) => tower && tower.type === type && tower.hp > 0 && !tower.isSatellite && !tower.isChampion).length;
-      const selectedWalletHero = !usesBonus ? getSelectedWalletHero(type) : null;
+      const selectedWalletHero = getSelectedWalletHeroForHire(type, usesBonus);
       const effectiveCost = usesBonus ? 0 : getWalletHeroPlacementCost(type, cost, usesBonus);
       const labelPrefix = usesBonus ? 'Hire Extra' : (selectedWalletHero ? 'Place NFT' : 'Hire');
       const gen0ButtonMode = getGen0HeroButtonMode(type, selectedWalletHero, usesBonus);
@@ -13458,7 +13620,7 @@ function canSubmitRewardClaims() {
       multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows. Cooldown: ${getAbilityCooldownSeconds(tower, 'multi_shot').toFixed(1)}s.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
       piercing_shot: `Hits up to 5 enemies for ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.6 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.45 * powerMult)}, and ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.35 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
-      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place an Archer Shadow. Level 100 Archers make newly created Archer Shadows last ${PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES} extra waves. Archer Shadow on any valid open tile. Archer Shadows start at half the level of the Archer who spawned them, rounded down, with a minimum of level 1. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.${game.modifiers.masterAssassin ? ' Master Assassin active: Archer Shadows never dissipate.' : ' Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.'}`,
+      eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place an Archer Shadow. Level 100 Archers make newly created Archer Shadows last ${PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES} extra waves. Archer Shadow on any valid open tile. Archer Shadows start at half the level of the Archer who spawned them, rounded down, with a minimum of level 1. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.${game.modifiers.masterAssassin ? ' Master Assassin active: Archer Shadows never dissipate, Archer Shadow level ups cost 25% less, and Archer level ups cost 15% less.' : ' Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.'}`,
       firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack. Burning enemies already slowed by chill or Ice Aura are slowed by an additional ${(FIREBOLT_BURN_ICE_AURA_SLOW_BONUS * 100).toFixed(0)}%.${common}${scale}`,
       frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. At level ${PURE_ENERGY_LEVEL}, the Archon becomes PURE ENERGY: +50% damage, +10% speed, no more leveling, ${Math.round((PURE_ENERGY_BURN_DURATION_MULTIPLIER - 1) * 100)}% longer burn duration, and wider detonation fire. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${getTornSoulBurnDurationSeconds(tower).toFixed(1)}s in a ${getTornSoulBurnRadius(tower)}-tile radius.${common}${scale}`,
@@ -13522,7 +13684,13 @@ function canSubmitRewardClaims() {
     const curvedMarkup = 1 + ((baseMarkup - 1) * 1.15);
     const satelliteMult = tower && tower.isSatellite ? SATELLITE_UPGRADE_COST_MULTIPLIER : 1;
     const championMult = tower && (tower.isChampion || String(tower.type || '').startsWith('champion_')) ? 0.5 : 1;
-    return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * championMult * 10) / 10;
+    let relicDiscountMult = 1;
+    if (tower && tower.type === 'archer' && game.modifiers && game.modifiers.masterAssassin) {
+      relicDiscountMult *= tower.isSatellite
+        ? (1 - Math.max(0, Number(game.modifiers.masterAssassinArcherShadowUpgradeDiscount || 0.25)))
+        : (1 - Math.max(0, Number(game.modifiers.masterAssassinArcherUpgradeDiscount || 0.15)));
+    }
+    return Math.round(base * UPGRADE_COST_MULTIPLIER * curvedMarkup * satelliteMult * championMult * relicDiscountMult * 10) / 10;
   }
 
   function upgradeTower(tower) {
@@ -15743,6 +15911,7 @@ function canSubmitRewardClaims() {
       if (game.replayCapture) game.replayCapture.lastBattleSnapshotAt = 0;
     }
     game.waveNumber = currentPlan.waveNumber;
+    clearUnplacedStartingGen0Placement();
     if (!Array.isArray(game.activeWavePlans)) game.activeWavePlans = [];
     game.activeWavePlans.push(cloneContinueData(currentPlan));
     game.currentPattern = getLiveWaveCount() > 1 ? 'mixed' : currentPlan.pattern;
@@ -19487,7 +19656,21 @@ function canSubmitRewardClaims() {
     .live-damage-report-method-value { font-size: 10px; font-weight: 700; color: #f5edd7; text-align: right; }
     .live-damage-report-gen0-value { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 8px; color: #ffe883; text-shadow: 0 0 5px rgba(255, 210, 45, 0.26); }
     .live-damage-report-empty { padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.035); color: rgba(220, 227, 239, 0.78); }
-    @media (max-width: 900px) { .live-damage-report { width: calc(100% - 12px); max-width: none; } .live-damage-report-header { flex-direction: column; align-items: flex-start; } .live-damage-report-header-right { align-items: flex-start; } .live-damage-report-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; padding: 5px 7px; } }
+    .wallet-hero-scan-status { width: 65%; max-width: 1120px; margin: 10px auto 0; padding: 9px 12px 7px; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; border: 1px solid rgba(129, 220, 255, 0.36); border-radius: 12px; background: rgba(12, 18, 30, 0.94); color: #dff7ff; font-size: 19px; font-weight: 800; letter-spacing: 0.01em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 24px rgba(74, 201, 255, 0.16); pointer-events: none; animation: walletHeroScanNoticeBreathe 1.25s ease-in-out infinite alternate; }
+    .wallet-hero-scan-status.hidden { display: none; }
+    .wallet-hero-scan-status.is-done { border-color: rgba(120, 243, 164, 0.32); color: #dfffe8; animation: none; }
+    .wallet-hero-scan-line { display: flex; align-items: center; justify-content: center; gap: 9px; text-align: center; }
+    .wallet-hero-scan-spinner { width: 15px; height: 15px; border-radius: 999px; border: 2px solid rgba(223,247,255,0.22); border-top-color: #9ce1ff; animation: walletHeroScanSpin 0.62s linear infinite; flex: 0 0 auto; }
+    .wallet-hero-scan-track { position: relative; height: 50px; overflow: hidden; border-radius: 999px; background: linear-gradient(90deg, rgba(156,225,255,0.10), rgba(120,243,164,0.14)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+    .wallet-hero-scan-runner { position: absolute; left: calc((100% - 92px) * var(--wallet-hero-scan-progress, 0)); bottom: -6px; width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 7px rgba(156,225,255,0.68)); animation: walletHeroScanBob 0.22s ease-in-out infinite alternate; }
+    .wallet-hero-scan-portal { position: absolute; right: 7px; bottom: 3px; width: 34px; height: 42px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 8px rgba(137, 240, 255, 0.55)); animation: walletHeroScanPortalPulse 0.8s ease-in-out infinite alternate; }
+    .wallet-hero-scan-status.is-done .wallet-hero-scan-spinner { border-color: rgba(120,243,164,0.28); border-top-color: #78f3a4; animation: walletHeroScanPulse 0.75s ease-in-out infinite alternate; }
+    @keyframes walletHeroScanSpin { to { transform: rotate(360deg); } }
+    @keyframes walletHeroScanPulse { from { transform: scale(0.86); opacity: 0.68; } to { transform: scale(1.08); opacity: 1; } }
+    @keyframes walletHeroScanNoticeBreathe { from { transform: translateY(0); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 16px rgba(74, 201, 255, 0.12); } to { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 28px rgba(74, 201, 255, 0.25); } }
+    @keyframes walletHeroScanPortalPulse { from { transform: scale(0.96); opacity: 0.72; } to { transform: scale(1.06); opacity: 1; } }
+    @keyframes walletHeroScanBob { from { transform: translateY(0) scaleX(1); } to { transform: translateY(-4px) scaleX(1.05); } }
+    @media (max-width: 900px) { .wallet-hero-scan-status, .live-damage-report { width: calc(100% - 12px); max-width: none; } .live-damage-report-header { flex-direction: column; align-items: flex-start; } .live-damage-report-header-right { align-items: flex-start; } .live-damage-report-row { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; padding: 5px 7px; } }
   `;
   document.head.appendChild(damageReportStyle);
 
