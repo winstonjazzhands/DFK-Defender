@@ -311,7 +311,7 @@ create policy "reward_claim_requests_read_none"
 create table if not exists public.daily_raffle_results (
   raffle_day date not null,
   raffle_type text not null default 'dfk',
-  draw_slot text not null default 'morning' check (draw_slot in ('morning', 'midday')),
+  draw_slot text not null default '00' check (draw_slot in ('00', '12')),
   raffle_chain_id bigint,
   window_start timestamptz not null,
   window_end timestamptz not null,

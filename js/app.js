@@ -4765,18 +4765,16 @@ function formatQuestResetCountdown(dateKey) {
     if (settledDate && Number.isFinite(settledDate.getTime())) return settledDate.getTime();
     const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raffleDay)) return NaN;
-    const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
-    const time = drawSlot === 'midday' ? '12:00:00.000Z' : '23:59:00.000Z';
+    const drawSlot = normalizeDailyRaffleDrawSlot(payload.drawSlot || payload.draw_slot || '00');
+    const time = drawSlot === '12' ? '12:00:00.000Z' : '23:59:00.000Z';
     return new Date(`${raffleDay}T${time}`).getTime();
   }
 
   function isRaffleSlotWinnerDisplayable(winner) {
     const payload = winner && typeof winner === 'object' ? winner : null;
     if (!payload) return false;
-    const drawSlot = String(payload.drawSlot || payload.draw_slot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+    const drawSlot = normalizeDailyRaffleDrawSlot(payload.drawSlot || payload.draw_slot || '00');
     const now = new Date();
-    if (drawSlot === 'midday' && now.getUTCHours() < 12) return false;
-    if (drawSlot === 'morning' && (now.getUTCHours() < 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() < 59))) return false;
     const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
     const today = getCurrentUtcDateOnly();
     if (raffleDay) {
@@ -4792,12 +4790,30 @@ function formatQuestResetCountdown(dateKey) {
     return !!(payload.name || payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.winner_wallet || payload.wallet_address || payload.wallet);
   }
 
-  function normalizeDailyRaffleWinnerEntry(entry, fallbackSlot = 'morning') {
+  function normalizeDailyRaffleDrawSlot(value) {
+    const slot = String(value || '').trim().toLowerCase();
+    if (slot === '12' || slot === 'midday' || slot === 'noon') return '12';
+    return '00';
+  }
+
+  function getDailyRaffleWinnerBySlot(source, slot) {
+    const wanted = normalizeDailyRaffleDrawSlot(slot);
+    if (!source || typeof source !== 'object') return null;
+    const legacyKey = wanted === '12' ? 'midday' : 'morning';
+    const direct = source[wanted] || source[`slot${wanted}`] || source[legacyKey];
+    if (direct && typeof direct === 'object') return direct;
+    for (const value of Object.values(source)) {
+      if (value && typeof value === 'object' && normalizeDailyRaffleDrawSlot(value.draw_slot || value.drawSlot) === wanted) return value;
+    }
+    return null;
+  }
+
+  function normalizeDailyRaffleWinnerEntry(entry, fallbackSlot = '00') {
     const payload = entry && typeof entry === 'object' ? entry : {};
-    const drawSlot = String(payload.draw_slot || payload.drawSlot || fallbackSlot || 'morning').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+    const drawSlot = normalizeDailyRaffleDrawSlot(payload.draw_slot || payload.drawSlot || fallbackSlot || '00');
     return {
       drawSlot,
-      label: drawSlot === 'midday' ? '12:00 UTC Winner' : '23:59 UTC Winner',
+      label: drawSlot === '12' ? '12:00 UTC Winner' : '23:59 UTC Winner',
       name: payload && (payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name) ? String(payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name).trim() : '',
       wallet: payload && (payload.winner_wallet || payload.wallet_address || payload.wallet) ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : '',
       raffleDay: payload && (payload.raffle_day || payload.raffleDay) ? String(payload.raffle_day || payload.raffleDay).trim() : '',
@@ -4819,9 +4835,9 @@ function formatQuestResetCountdown(dateKey) {
     if (leaderEl) leaderEl.style.display = 'none';
     const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
     if (!raffleEl) return;
-    const morningWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.morning, 'morning');
-    const middayWinner = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && game.latestDailyRaffleWinners.midday, 'midday');
-    const winnerMarkup = [middayWinner, morningWinner].map((winner) => {
+    const winner00 = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && (game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning), '00');
+    const winner12 = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && (game.latestDailyRaffleWinners['12'] || game.latestDailyRaffleWinners.midday), '12');
+    const winnerMarkup = [winner12, winner00].map((winner) => {
       const canShowWinner = isRaffleSlotWinnerDisplayable(winner);
       const raffleLabel = canShowWinner ? (winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') : 'Pending next draw';
       const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner));
@@ -5399,8 +5415,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
       const latestWinners = payload && payload.latest_winners && typeof payload.latest_winners === 'object' ? payload.latest_winners : {};
       return {
-        morning: latestWinners && typeof latestWinners.morning === 'object' ? latestWinners.morning : null,
-        midday: latestWinners && typeof latestWinners.midday === 'object' ? latestWinners.midday : null,
+        morning: getDailyRaffleWinnerBySlot(latestWinners, '00'),
+        midday: getDailyRaffleWinnerBySlot(latestWinners, '12'),
         latest: payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null,
       };
     } catch (_error) {
@@ -5461,8 +5477,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       const dailyRaffle = (payload && payload.meta && payload.meta.daily_raffle) ? payload.meta.daily_raffle : {};
       const metaLatestWinners = dailyRaffle && dailyRaffle.latest_winners && typeof dailyRaffle.latest_winners === 'object' ? dailyRaffle.latest_winners : {};
       let latestWinners = {
-        morning: metaLatestWinners && typeof metaLatestWinners.morning === 'object' ? metaLatestWinners.morning : null,
-        midday: metaLatestWinners && typeof metaLatestWinners.midday === 'object' ? metaLatestWinners.midday : null,
+        morning: getDailyRaffleWinnerBySlot(metaLatestWinners, '00'),
+        midday: getDailyRaffleWinnerBySlot(metaLatestWinners, '12'),
         latest: dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null,
       };
       if ((!latestWinners.morning || !(latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet))
@@ -5477,10 +5493,14 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       const hasMorningWinner = latestWinners && latestWinners.morning && (latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet || latestWinners.morning.name);
       const hasMiddayWinner = latestWinners && latestWinners.midday && (latestWinners.midday.winner_name || latestWinners.midday.vanity_name || latestWinners.midday.winner_wallet || latestWinners.midday.wallet_address || latestWinners.midday.wallet || latestWinners.midday.name);
       game.latestDailyRaffleWinners = {
-        morning: normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), 'morning'),
-        midday: normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, 'midday'),
+        '00': normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), '00'),
+        '12': normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, '12'),
+        morning: normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), '00'),
+        midday: normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, '12'),
       };
-      const latestWinner = fallbackLatestWinner || (game.latestDailyRaffleWinners.midday && (game.latestDailyRaffleWinners.midday.name || game.latestDailyRaffleWinners.midday.wallet) ? game.latestDailyRaffleWinners.midday : game.latestDailyRaffleWinners.morning);
+      const winner12ForLatest = game.latestDailyRaffleWinners['12'] || game.latestDailyRaffleWinners.midday || null;
+      const winner00ForLatest = game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning || null;
+      const latestWinner = fallbackLatestWinner || ((winner12ForLatest && (winner12ForLatest.name || winner12ForLatest.wallet)) ? winner12ForLatest : winner00ForLatest);
       game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name) ? String(latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name).trim() : '';
       game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : String(latestWinner && latestWinner.wallet || '').trim().toLowerCase();
       game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : String(latestWinner && latestWinner.raffleDay || '').trim();

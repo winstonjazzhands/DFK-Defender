@@ -48,7 +48,7 @@ type RaffleConfig = {
   cronSecretEnv: string;
 };
 
-type DrawSlot = 'morning' | 'midday';
+type DrawSlot = '00' | '12';
 
 function getRaffleConfig(raffleTypeRaw: string | null | undefined): RaffleConfig {
   const raffleType = String(raffleTypeRaw || '').trim().toLowerCase() === 'avax' ? 'avax' : 'dfk';
@@ -92,16 +92,18 @@ function addUtcHours(date: Date, hours: number) {
 }
 
 function getDrawSlot(value: string | null | undefined): DrawSlot {
-  return String(value || '').trim().toLowerCase() === 'midday' ? 'midday' : 'morning';
+  const slot = String(value || '').trim().toLowerCase();
+  if (slot === '12' || slot === 'midday' || slot === 'noon') return '12';
+  return '00';
 }
 
 function getDrawLabel(drawSlot: DrawSlot) {
-  return drawSlot === 'midday' ? '12:00 Winner' : '23:59 Winner';
+  return drawSlot === '12' ? '12:00 UTC Winner' : '00:00 UTC Winner';
 }
 
 function getDrawWindow(raffleDay: string, drawSlot: DrawSlot) {
   const drawBoundary = startOfUtcDay(raffleDay);
-  if (drawSlot === 'midday') {
+  if (drawSlot === '12') {
     return {
       windowStart: drawBoundary,
       windowEnd: addUtcHours(drawBoundary, 12),
@@ -117,9 +119,9 @@ function getDrawWindow(raffleDay: string, drawSlot: DrawSlot) {
 function getDefaultSettlementTarget(now: Date) {
   const todayStart = startOfUtcDay(now);
   if (now.getUTCHours() > 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() >= 59)) {
-    return { raffleDay: utcDateOnly(todayStart), drawSlot: 'morning' as DrawSlot };
+    return { raffleDay: utcDateOnly(todayStart), drawSlot: '00' as DrawSlot };
   }
-  return { raffleDay: utcDateOnly(todayStart), drawSlot: 'midday' as DrawSlot };
+  return { raffleDay: utcDateOnly(todayStart), drawSlot: '12' as DrawSlot };
 }
 
 function normalizeAddress(value: unknown) {
@@ -135,6 +137,17 @@ function sanitizeInt(value: unknown) {
   const parsed = Number(value || 0);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return Math.round(parsed);
+}
+
+async function pickWinner(wallets: string[], seed: string) {
+  const cleaned = Array.from(new Set((wallets || []).map(normalizeAddress).filter(Boolean))).sort();
+  if (!cleaned.length) return null;
+  const encoded = new TextEncoder().encode(`${seed}:${cleaned.join('|')}`);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoded));
+  let value = 0n;
+  for (const byte of digest.slice(0, 8)) value = (value << 8n) + BigInt(byte);
+  const index = Number(value % BigInt(cleaned.length));
+  return { wallet: cleaned[index], index, qualifier_count: cleaned.length };
 }
 
 async function resolvePlayerDisplayName(admin: ReturnType<typeof createAdmin>, wallet: unknown, fallbackName: unknown = '') {
@@ -209,40 +222,22 @@ async function fetchLatestWinner(admin: ReturnType<typeof createAdmin>, raffleTy
 
 
 function withDrawSlot(row: Record<string, unknown> | null, drawSlot: DrawSlot) {
-  return row ? { ...row, draw_slot: String(row.draw_slot || drawSlot) } : null;
+  return row ? { ...row, draw_slot: getDrawSlot(String(row.draw_slot || drawSlot)) } : null;
 }
 
 function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawSlot: DrawSlot) {
   if (!row) return null;
   const now = new Date();
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const midday = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
-  const endday = new Date(Date.UTC(todayStart.getUTCFullYear(), todayStart.getUTCMonth(), todayStart.getUTCDate(), 23, 59, 0, 0));
-  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  if (drawSlot === 'midday' && now < midday) return null;
-  if (drawSlot === 'morning' && now < endday) return null;
-
-  const settledRaw = String(row.settled_at || '').trim();
-  const settledAt = settledRaw ? new Date(settledRaw) : null;
-  if (settledAt && Number.isFinite(settledAt.getTime())) {
-    if (drawSlot === 'midday') return settledAt >= midday && settledAt < endday ? row : null;
-    return settledAt >= endday && settledAt < tomorrowStart ? row : null;
-  }
-
+  const today = utcDateOnly(startOfUtcDay(now));
   const raffleDay = String(row.raffle_day || '').slice(0, 10);
-  const today = todayStart.toISOString().slice(0, 10);
-  const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  if (drawSlot === 'morning') {
-    return now >= endday && raffleDay === today ? row : null;
-  }
-  return raffleDay === today ? row : null;
+  if (raffleDay !== today) return null;
+  if (getDrawSlot(String(row.draw_slot || drawSlot)) !== drawSlot) return null;
+  return row;
 }
 
 
 async function fetchCurrentWinnerForUtcDay(admin: ReturnType<typeof createAdmin>, raffleType: 'dfk' | 'avax', drawSlot: DrawSlot) {
   const now = new Date();
-  if (drawSlot === 'midday' && now.getUTCHours() < 12) return null;
-  if (drawSlot === 'morning' && (now.getUTCHours() < 23 || (now.getUTCHours() === 23 && now.getUTCMinutes() < 59))) return null;
   const today = utcDateOnly(startOfUtcDay(now));
   const selectVariants = [
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
@@ -263,14 +258,14 @@ async function fetchCurrentWinnerForUtcDay(admin: ReturnType<typeof createAdmin>
       if (allowTypeFilter && columns.includes('raffle_type')) query = query.eq('raffle_type', raffleType);
       if (slotAttempt && includeSlot) query = query.eq('draw_slot', slotAttempt);
       if (columns.includes('settled_at')) query = query.order('settled_at', { ascending: false, nullsFirst: false });
-      if (includeSlot) query = query.order('draw_slot', { ascending: drawSlot === 'morning' });
+      if (includeSlot) query = query.order('draw_slot', { ascending: drawSlot === '00' });
       const { data, error } = await query.limit(1).maybeSingle();
       if (!error) {
         if (!data) continue;
-        if (drawSlot === 'midday' && String((data as Record<string, unknown>).draw_slot || '').toLowerCase() !== 'midday') continue;
+        if (drawSlot === '12' && getDrawSlot(String((data as Record<string, unknown>).draw_slot || '')) !== '12') continue;
         return {
           ...(data as Record<string, unknown>),
-          draw_slot: String((data as Record<string, unknown>).draw_slot || drawSlot),
+          draw_slot: getDrawSlot(String((data as Record<string, unknown>).draw_slot || drawSlot)),
           winner_name: await resolvePlayerDisplayName(admin, (data as Record<string, unknown>).winner_wallet, (data as Record<string, unknown>).winner_name),
         };
       }
@@ -484,9 +479,19 @@ Deno.serve(async (req) => {
     const now = new Date();
     const todayStart = startOfUtcDay(now);
     const url = new URL(req.url);
-    const requestedDay = String(url.searchParams.get('raffleDay') || '').trim();
-    const requestedDrawSlot = getDrawSlot(url.searchParams.get('drawSlot'));
-    const config = getRaffleConfig(url.searchParams.get('raffleType'));
+    let body: Record<string, unknown> = {};
+    if (req.method !== 'GET') {
+      try {
+        body = await req.json();
+      } catch (_bodyError) {
+        body = {};
+      }
+    }
+    const requestedDay = String(url.searchParams.get('raffleDay') || body.raffleDay || body.raffle_day || '').trim();
+    const rawSlot = String(url.searchParams.get('drawSlot') || url.searchParams.get('slot') || body.drawSlot || body.draw_slot || body.slot || '').trim().toLowerCase();
+    const requestedDrawSlot = getDrawSlot(rawSlot);
+    const runBothSlots = rawSlot === 'both' || rawSlot === 'all';
+    const config = getRaffleConfig(url.searchParams.get('raffleType') || String(body.raffleType || body.raffle_type || ''));
     const cronSecret = String(Deno.env.get(config.cronSecretEnv) || Deno.env.get('DAILY_RAFFLE_CRON_SECRET') || '').trim();
     const providedCronSecret = String(req.headers.get('x-cron-secret') || '').trim();
     const allowSettle = req.method === 'POST' || !cronSecret || providedCronSecret === cronSecret;
@@ -500,19 +505,28 @@ Deno.serve(async (req) => {
 
     if (allowSettle) {
       if (requestedDay) {
-        await settleOne(requestedDay, requestedDrawSlot);
+        if (runBothSlots) {
+          await settleOne(requestedDay, '12');
+          await settleOne(requestedDay, '00');
+        } else {
+          await settleOne(requestedDay, requestedDrawSlot);
+        }
+      } else if (runBothSlots) {
+        const today = utcDateOnly(todayStart);
+        await settleOne(today, '12');
+        await settleOne(today, '00');
       } else {
         const target = getDefaultSettlementTarget(now);
-        await settleOne(target.raffleDay, target.drawSlot);
+        await settleOne(target.raffleDay, rawSlot ? requestedDrawSlot : target.drawSlot);
       }
     }
 
     const latestAnyWinner = await fetchLatestWinner(admin, config.raffleType, null);
-    const latestMorningWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, 'morning')
-      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, 'morning'), 'morning')
-      || withDrawSlot(filterCurrentDayRaffleWinner(latestAnyWinner, 'morning'), 'morning');
-    const latestMiddayWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, 'midday')
-      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, 'midday'), 'midday');
+    const latestMorningWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, '00')
+      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, '00'), '00')
+      || withDrawSlot(filterCurrentDayRaffleWinner(latestAnyWinner, '00'), '00');
+    const latestMiddayWinner = await fetchCurrentWinnerForUtcDay(admin, config.raffleType, '12')
+      || filterCurrentDayRaffleWinner(await fetchLatestWinner(admin, config.raffleType, '12'), '12');
     const currentDayStartIso = todayStart.toISOString();
     const middayIso = addUtcHours(todayStart, 12).toISOString();
     const endDayIso = new Date(Date.UTC(todayStart.getUTCFullYear(), todayStart.getUTCMonth(), todayStart.getUTCDate(), 23, 59, 0, 0)).toISOString();
@@ -544,6 +558,8 @@ Deno.serve(async (req) => {
       settled_raffles: settled,
       latest_winner: latestMiddayWinner || latestMorningWinner,
       latest_winners: {
+        '00': latestMorningWinner,
+        '12': latestMiddayWinner,
         morning: latestMorningWinner,
         midday: latestMiddayWinner,
       },
@@ -551,8 +567,8 @@ Deno.serve(async (req) => {
       current_windows: {
         midday: {
           raffle_day: utcDateOnly(todayStart),
-          draw_slot: 'midday',
-          label: getDrawLabel('midday'),
+          draw_slot: '12',
+          label: getDrawLabel('12'),
           qualifier_count: morningQualifierWallets.length,
           threshold_wave: 30,
           chain_id: config.chainId,
@@ -563,8 +579,8 @@ Deno.serve(async (req) => {
         },
         morning: {
           raffle_day: utcDateOnly(todayStart),
-          draw_slot: 'morning',
-          label: getDrawLabel('morning'),
+          draw_slot: '00',
+          label: getDrawLabel('00'),
           qualifier_count: middayQualifierWallets.length,
           threshold_wave: 30,
           chain_id: config.chainId,
@@ -574,7 +590,7 @@ Deno.serve(async (req) => {
           window_end: endDayIso,
         },
       },
-      automation_note: 'Schedule this function twice daily at 12:00 UTC and 23:59 UTC.',
+      automation_note: 'Schedule this function twice daily for slot 00 and slot 12 UTC.',
     });
   } catch (error) {
     const detail = serializeError(error);
