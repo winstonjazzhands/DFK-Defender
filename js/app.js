@@ -4753,8 +4753,10 @@ function formatQuestResetCountdown(dateKey) {
     return new Date().toISOString().slice(0, 10);
   }
 
-  function getRaffleSlotDisplayDay(_winner) {
-    return getCurrentUtcDateOnly();
+  function getRaffleSlotDisplayDay(winner) {
+    const payload = winner && typeof winner === 'object' ? winner : null;
+    const raffleDay = payload ? String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10) : '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(raffleDay) ? raffleDay : getCurrentUtcDateOnly();
   }
 
   function getRaffleWinnerDrawTimeMs(winner) {
@@ -4766,44 +4768,35 @@ function formatQuestResetCountdown(dateKey) {
     const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raffleDay)) return NaN;
     const drawSlot = normalizeDailyRaffleDrawSlot(payload.drawSlot || payload.draw_slot || '00');
-    const time = drawSlot === '12' ? '12:00:00.000Z' : '23:59:00.000Z';
+    const time = '00:00:00.000Z';
     return new Date(`${raffleDay}T${time}`).getTime();
   }
 
   function isRaffleSlotWinnerDisplayable(winner) {
     const payload = winner && typeof winner === 'object' ? winner : null;
     if (!payload) return false;
-    const drawSlot = normalizeDailyRaffleDrawSlot(payload.drawSlot || payload.draw_slot || '00');
-    const now = new Date();
-    const raffleDay = String(payload.raffleDay || payload.raffle_day || '').trim().slice(0, 10);
-    const today = getCurrentUtcDateOnly();
-    if (raffleDay) {
-      if (raffleDay !== today) return false;
-      return !!(payload.name || payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.winner_wallet || payload.wallet_address || payload.wallet);
-    }
-    const drawTimeMs = getRaffleWinnerDrawTimeMs(payload);
-    if (Number.isFinite(drawTimeMs)) {
-      const ageMs = now.getTime() - drawTimeMs;
-      if (ageMs < -5 * 60 * 1000) return false;
-      if (ageMs > 18 * 60 * 60 * 1000) return false;
-    }
+    // Show the latest stored winner for each draw slot. The 23:59 UTC draw often
+    // belongs to yesterday until tonight's draw has settled, so date/age gating
+    // makes the pill look broken even when the backend returned a valid winner.
     return !!(payload.name || payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.winner_wallet || payload.wallet_address || payload.wallet);
   }
 
-  function normalizeDailyRaffleDrawSlot(value) {
-    const slot = String(value || '').trim().toLowerCase();
-    if (slot === '12' || slot === 'midday' || slot === 'noon') return '12';
+  function normalizeDailyRaffleDrawSlot(_value) {
     return '00';
   }
 
   function getDailyRaffleWinnerBySlot(source, slot) {
     const wanted = normalizeDailyRaffleDrawSlot(slot);
     if (!source || typeof source !== 'object') return null;
-    const legacyKey = wanted === '12' ? 'midday' : 'morning';
-    const direct = source[wanted] || source[`slot${wanted}`] || source[legacyKey];
-    if (direct && typeof direct === 'object') return direct;
+    const legacyKey = 'morning';
+    const candidates = [source[wanted], source[`slot${wanted}`], source[legacyKey]];
+    for (const direct of candidates) {
+      if (!direct || typeof direct !== 'object') continue;
+      const explicitSlot = direct.draw_slot || direct.drawSlot || direct.display_slot || direct.displaySlot || '';
+      if (!explicitSlot || normalizeDailyRaffleDrawSlot(explicitSlot) === wanted) return direct;
+    }
     for (const value of Object.values(source)) {
-      if (value && typeof value === 'object' && normalizeDailyRaffleDrawSlot(value.draw_slot || value.drawSlot) === wanted) return value;
+      if (value && typeof value === 'object' && normalizeDailyRaffleDrawSlot(value.draw_slot || value.drawSlot || value.display_slot || value.displaySlot) === wanted) return value;
     }
     return null;
   }
@@ -4811,11 +4804,27 @@ function formatQuestResetCountdown(dateKey) {
   function normalizeDailyRaffleWinnerEntry(entry, fallbackSlot = '00') {
     const payload = entry && typeof entry === 'object' ? entry : {};
     const drawSlot = normalizeDailyRaffleDrawSlot(payload.draw_slot || payload.drawSlot || fallbackSlot || '00');
+    const rawWinners = Array.isArray(payload.winners) ? payload.winners : [];
+    const winners = rawWinners.length ? rawWinners.map((winner, index) => ({
+      index: Math.max(1, Number(winner.winner_index || winner.winnerIndex || index + 1) || index + 1),
+      name: winner && (winner.winner_name || winner.vanity_name || winner.display_name || winner.player_name || winner.name) ? String(winner.winner_name || winner.vanity_name || winner.display_name || winner.player_name || winner.name).trim() : '',
+      wallet: winner && (winner.winner_wallet || winner.wallet_address || winner.wallet) ? String(winner.winner_wallet || winner.wallet_address || winner.wallet).trim().toLowerCase() : '',
+    })).filter((winner) => winner.name || winner.wallet) : [];
+    if (!winners.length && payload && (payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name || payload.winner_wallet || payload.wallet_address || payload.wallet)) {
+      winners.push({
+        index: 1,
+        name: payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name ? String(payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name).trim() : '',
+        wallet: payload.winner_wallet || payload.wallet_address || payload.wallet ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : '',
+      });
+    }
+    winners.sort((a, b) => a.index - b.index);
+    const labelNames = winners.map((winner) => winner.name || truncateWalletAddress(winner.wallet)).filter(Boolean);
     return {
       drawSlot,
-      label: drawSlot === '12' ? '12:00 UTC Winner' : '23:59 UTC Winner',
-      name: payload && (payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name) ? String(payload.winner_name || payload.vanity_name || payload.display_name || payload.player_name || payload.name).trim() : '',
-      wallet: payload && (payload.winner_wallet || payload.wallet_address || payload.wallet) ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : '',
+      label: '00:00 UTC Winners',
+      name: labelNames.join(' + '),
+      wallet: winners[0] ? winners[0].wallet : (payload && (payload.winner_wallet || payload.wallet_address || payload.wallet) ? String(payload.winner_wallet || payload.wallet_address || payload.wallet).trim().toLowerCase() : ''),
+      winners,
       raffleDay: payload && (payload.raffle_day || payload.raffleDay) ? String(payload.raffle_day || payload.raffleDay).trim() : '',
       settledAt: payload && (payload.settled_at || payload.settledAt) ? String(payload.settled_at || payload.settledAt).trim() : '',
       qualifierCount: Math.max(0, Number(payload ? (payload.qualifier_count ?? payload.eligible_count ?? 0) : 0)),
@@ -4826,25 +4835,24 @@ function formatQuestResetCountdown(dateKey) {
     const total = Math.max(0, Number(game.globalDfkGoldBurnedTotal || 0));
     const totalRuns = Math.max(0, Number(game.globalTrackedRunsTotal || 0));
     if (els.totalRunsDisplay) {
-      els.totalRunsDisplay.textContent = `Total tracked runs: ${totalRuns.toLocaleString()}`;
+      els.totalRunsDisplay.textContent = 'Total tracked runs: ' + totalRuns.toLocaleString();
     }
     if (els.burnedGoldDisplay) {
-      els.burnedGoldDisplay.textContent = `Burned: ${total.toLocaleString()} DFK Gold`;
+      els.burnedGoldDisplay.textContent = 'Burned: ' + total.toLocaleString() + ' DFK Gold';
     }
     const leaderEl = document.getElementById('burnedGoldLeaderDisplay');
     if (leaderEl) leaderEl.style.display = 'none';
     const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
     if (!raffleEl) return;
-    const winner00 = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && (game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning), '00');
-    const winner12 = normalizeDailyRaffleWinnerEntry(game.latestDailyRaffleWinners && (game.latestDailyRaffleWinners['12'] || game.latestDailyRaffleWinners.midday), '12');
-    const winnerMarkup = [winner12, winner00].map((winner) => {
-      const canShowWinner = isRaffleSlotWinnerDisplayable(winner);
-      const raffleLabel = canShowWinner ? (winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') : 'Pending next draw';
-      const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner));
-      const dateMarkup = dateLabel && dateLabel !== '--' ? `<div class="raffle-winner-date">${escapeHtml(dateLabel)}</div>` : '';
-      return `<div class="raffle-winner-pill raffle-winner-${winner.drawSlot}">${dateMarkup}<div class="raffle-winner-title">${escapeHtml(winner.label)}</div><div class="raffle-winner-name">${escapeHtml(raffleLabel)}</div></div>`;
-    }).join('');
-    raffleEl.innerHTML = `<div class="raffle-winners-heading">Daily raffle winners</div><div class="raffle-winners-pills">${winnerMarkup}</div>`;
+    const winner00 = normalizeDailyRaffleWinnerEntry(getDailyRaffleWinnerBySlot(game.latestDailyRaffleWinners, '00'), '00');
+    const canShowWinner = isRaffleSlotWinnerDisplayable(winner00);
+    const nameMarkup = canShowWinner && winner00.winners && winner00.winners.length
+      ? winner00.winners.map((winner) => '<div class="raffle-winner-name">' + escapeHtml(winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') + '</div>').join('')
+      : '<div class="raffle-winner-name">Pending next draw</div>';
+    const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner00));
+    const dateMarkup = dateLabel && dateLabel !== '--' ? '<div class="raffle-winner-date">' + escapeHtml(dateLabel) + '</div>' : '';
+    const winnerMarkup = '<div class="raffle-winner-pill raffle-winner-' + winner00.drawSlot + '">' + dateMarkup + '<div class="raffle-winner-title">' + escapeHtml(winner00.label) + '</div>' + nameMarkup + '</div>';
+    raffleEl.innerHTML = '<div class="raffle-winners-heading">Daily raffle winners</div><div class="raffle-winners-pills">' + winnerMarkup + '</div>';
   }
 
   function getSupabaseFunctionConfig() {
@@ -5414,10 +5422,11 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       const response = await fetchSupabaseFunctionJson('daily-raffle', null, 'GET');
       const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
       const latestWinners = payload && payload.latest_winners && typeof payload.latest_winners === 'object' ? payload.latest_winners : {};
+      const winner00 = getDailyRaffleWinnerBySlot(latestWinners, '00') || (payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null);
       return {
-        morning: getDailyRaffleWinnerBySlot(latestWinners, '00'),
-        midday: getDailyRaffleWinnerBySlot(latestWinners, '12'),
-        latest: payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null,
+        morning: winner00,
+        midday: null,
+        latest: winner00,
       };
     } catch (_error) {
       return { morning: null, midday: null, latest: null };
@@ -5476,31 +5485,25 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       game.globalDfkGoldBurnedTotal = Math.max(0, Number(total || 0));
       const dailyRaffle = (payload && payload.meta && payload.meta.daily_raffle) ? payload.meta.daily_raffle : {};
       const metaLatestWinners = dailyRaffle && dailyRaffle.latest_winners && typeof dailyRaffle.latest_winners === 'object' ? dailyRaffle.latest_winners : {};
-      let latestWinners = {
-        morning: getDailyRaffleWinnerBySlot(metaLatestWinners, '00'),
-        midday: getDailyRaffleWinnerBySlot(metaLatestWinners, '12'),
-        latest: dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null,
-      };
-      if ((!latestWinners.morning || !(latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet))
-        && (!latestWinners.midday || !(latestWinners.midday.winner_name || latestWinners.midday.vanity_name || latestWinners.midday.winner_wallet || latestWinners.midday.wallet_address || latestWinners.midday.wallet))) {
-        latestWinners = await fetchLatestDailyRaffleWinnerDirect();
+      let latestWinners = await fetchLatestDailyRaffleWinnerDirect();
+      if (!latestWinners.morning || !(latestWinners.morning.winners || latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet)) {
+        latestWinners = {
+          morning: getDailyRaffleWinnerBySlot(metaLatestWinners, '00'),
+          midday: null,
+          latest: dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null,
+        };
       }
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
       game.globalTrackedRunsTotal = Math.max(0, Number(totalRuns || 0));
       const fallbackLatestWinner = latestWinners && latestWinners.latest ? latestWinners.latest : null;
-      const hasMorningWinner = latestWinners && latestWinners.morning && (latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet || latestWinners.morning.name);
-      const hasMiddayWinner = latestWinners && latestWinners.midday && (latestWinners.midday.winner_name || latestWinners.midday.vanity_name || latestWinners.midday.winner_wallet || latestWinners.midday.wallet_address || latestWinners.midday.wallet || latestWinners.midday.name);
+      const morningWinner = (latestWinners && latestWinners.morning) || fallbackLatestWinner || null;
       game.latestDailyRaffleWinners = {
-        '00': normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), '00'),
-        '12': normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, '12'),
-        morning: normalizeDailyRaffleWinnerEntry(hasMorningWinner ? latestWinners.morning : (!hasMiddayWinner ? fallbackLatestWinner : null), '00'),
-        midday: normalizeDailyRaffleWinnerEntry(hasMiddayWinner ? latestWinners.midday : null, '12'),
+        '00': normalizeDailyRaffleWinnerEntry(morningWinner, '00'),
+        morning: normalizeDailyRaffleWinnerEntry(morningWinner, '00'),
       };
-      const winner12ForLatest = game.latestDailyRaffleWinners['12'] || game.latestDailyRaffleWinners.midday || null;
-      const winner00ForLatest = game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning || null;
-      const latestWinner = fallbackLatestWinner || ((winner12ForLatest && (winner12ForLatest.name || winner12ForLatest.wallet)) ? winner12ForLatest : winner00ForLatest);
+      const latestWinner = game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning || fallbackLatestWinner;
       game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name) ? String(latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name).trim() : '';
       game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : String(latestWinner && latestWinner.wallet || '').trim().toLowerCase();
       game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : String(latestWinner && latestWinner.raffleDay || '').trim();
@@ -10198,7 +10201,25 @@ function canSubmitRewardClaims() {
         const isExpanded = expandedHeroId === heroId;
         const card = document.createElement('div');
         card.className = `champion-card champion-card-side${isSelected ? ' selected' : ''}${isExpanded ? ' expanded' : ''}`;
-        card.innerHTML = `<button type="button" class="champion-card-side-toggle champion-card-side-compact" aria-expanded="${isExpanded ? 'true' : 'false'}"><div class="champion-card-header champion-card-header-compact"><img class="champion-card-portrait champion-card-portrait-compact" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext champion-card-headtext-compact"><h3>${definition.label}</h3><div class="champion-card-meta champion-card-meta-compact"><span class="champion-chip">Lvl ${hero.level}</span></div></div></div></button>`;
+        const waited = getChampionWavesWaited();
+        const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+        const required = getChampionRequiredWaitWaves();
+        const placement = getChampionDeployPreview(waited);
+        const remaining = Math.max(0, required - waited);
+        const activeLine = deployed
+          ? `Active through wave ${escapeHtml(String(game.championActiveUntilWave || ''))}`
+          : (placement.ready ? `Ready now • lasts ${escapeHtml(String(placement.duration || 12))} waves` : `${escapeHtml(String(remaining))} wave${remaining === 1 ? '' : 's'} until deploy`);
+        const chainName = escapeHtml(hero.chainName || hero.chain || 'Wallet hero');
+        const detailsShouldShow = isSelected || isExpanded || !!game.selectedChampionConfirmed;
+        const detailsHtml = detailsShouldShow ? `
+          <div class="champion-card-side-details">
+            <div class="champion-detail-row"><span>Hero</span><strong>#${escapeHtml(String(hero.id || ''))}</strong></div>
+            <div class="champion-detail-row"><span>Chain</span><strong>${chainName}</strong></div>
+            <div class="champion-detail-row"><span>Status</span><strong>${activeLine}</strong></div>
+            <p class="champion-side-summary">${escapeHtml(definition.summary || '')}</p>
+            <ul class="champion-side-skills">${(definition.skills || []).map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>
+          </div>` : '';
+        card.innerHTML = `<button type="button" class="champion-card-side-toggle champion-card-side-compact" aria-expanded="${detailsShouldShow ? 'true' : 'false'}"><div class="champion-card-header champion-card-header-compact"><img class="champion-card-portrait champion-card-portrait-compact" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext champion-card-headtext-compact"><h3>${definition.label}</h3><div class="champion-card-meta champion-card-meta-compact"><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero #${escapeHtml(String(hero.id || ''))}</span></div></div></div></button>${detailsHtml}`;
         const toggle = card.querySelector('.champion-card-side-toggle');
         if (toggle) {
           toggle.addEventListener('click', () => {

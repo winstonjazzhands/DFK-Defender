@@ -8581,7 +8581,13 @@ body.story-active #startModeModal.modal-primed-under-intro button {
 .champion-card-headtext-compact h3{font-size:13px;line-height:1.02;}
 .champion-card-meta-compact{gap:4px;}
 .champion-card-side .champion-chip{font-size:10px;padding:2px 6px;}
-.champion-card-side-details{display:none !important;}
+.champion-card-side-details{display:block;margin-top:8px;padding:8px;border-radius:10px;background:rgba(8,11,20,.42);border:1px solid rgba(255,255,255,.10);}
+.champion-detail-row{display:flex;justify-content:space-between;gap:8px;font-size:10px;line-height:1.25;margin-bottom:4px;color:rgba(244,232,196,.82);}
+.champion-detail-row strong{color:#ffe79a;font-weight:800;text-align:right;}
+.champion-side-summary{margin:7px 0 6px;font-size:10.5px;line-height:1.32;color:rgba(244,232,196,.92);}
+.champion-side-skills{margin:0 0 0 14px;padding:0;}
+.champion-side-skills li{font-size:10px;line-height:1.25;margin-bottom:4px;color:rgba(244,232,196,.9);}
+.champion-side-skills li strong{color:#fff1a8;}
 .champion-collapsed-preview-card{gap:8px;padding:6px 8px;max-width:100%;margin:0 auto;width:100%;box-sizing:border-box;}
 .champion-collapsed-preview-portrait{width:41px;height:41px;flex:0 0 41px;border-radius:8px;}
 .champion-collapsed-preview-class{font-size:13px;line-height:1.02;}

@@ -21,6 +21,27 @@ type RangeWindow = {
   endTs?: string;
 };
 
+type RaffleDrawSlot = '00' | '12';
+type RaffleDisplaySlot = 'morning' | 'midday';
+
+function normalizeRaffleDrawSlot(slot?: string | null): RaffleDrawSlot | null {
+  const value = String(slot || '').trim().toLowerCase();
+  if (value === '00' || value === '0' || value === 'morning') return '00';
+  if (value === '12' || value === 'midday') return '12';
+  return null;
+}
+
+function displaySlotToDrawSlot(slot: RaffleDisplaySlot): RaffleDrawSlot {
+  return slot === 'morning' ? '00' : '12';
+}
+
+function drawSlotToDisplaySlot(slot?: string | null): RaffleDisplaySlot | null {
+  const normalized = normalizeRaffleDrawSlot(slot);
+  if (normalized === '00') return 'morning';
+  if (normalized === '12') return 'midday';
+  return null;
+}
+
 
 async function fetchPaginatedRows(admin: SupabaseClient, table: string, columns: string) {
   const pageSize = 1000;
@@ -442,39 +463,31 @@ function buildUsedWalletHeroesMap(rows: RunRow[]) {
 
 
 
-function withDrawSlot(row: Record<string, unknown> | null, drawSlot: 'morning' | 'midday') {
-  return row ? { ...row, draw_slot: String(row.draw_slot || drawSlot) } : null;
+function withDrawSlot(row: Record<string, unknown> | null, drawSlot: RaffleDisplaySlot) {
+  if (!row) return null;
+  const utcSlot = displaySlotToDrawSlot(drawSlot);
+  return { ...row, draw_slot: utcSlot, display_slot: drawSlot };
 }
 
-function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawSlot: 'morning' | 'midday') {
+function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawSlot: RaffleDisplaySlot) {
   if (!row) return null;
+  const expectedUtcSlot = displaySlotToDrawSlot(drawSlot);
+  const rowUtcSlot = normalizeRaffleDrawSlot(String(row.draw_slot || ''));
+  if (rowUtcSlot && rowUtcSlot !== expectedUtcSlot) return null;
+
   const now = new Date();
   const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const midday = new Date(todayStart.getTime() + 12 * 60 * 60 * 1000);
-  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  if (drawSlot === 'midday' && now < midday) return null;
-
-  const settledRaw = String(row.settled_at || '').trim();
-  const settledAt = settledRaw ? new Date(settledRaw) : null;
-  if (settledAt && Number.isFinite(settledAt.getTime())) {
-    if (drawSlot === 'morning') return settledAt >= todayStart && settledAt < midday ? row : null;
-    return settledAt >= midday && settledAt < tomorrowStart ? row : null;
-  }
-
-  const raffleDay = String(row.raffle_day || '').slice(0, 10);
   const today = todayStart.toISOString().slice(0, 10);
-  const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  if (drawSlot === 'morning') {
-    return raffleDay === today || (now < midday && raffleDay === yesterday) ? row : null;
-  }
-  return raffleDay === today ? row : null;
+  const raffleDay = String(row.raffle_day || '').slice(0, 10);
+  return raffleDay === today ? { ...row, draw_slot: expectedUtcSlot, display_slot: drawSlot } : null;
 }
 
 
-async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot: 'morning' | 'midday') {
+async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot: RaffleDisplaySlot) {
   const now = new Date();
-  if (drawSlot === 'midday' && now.getUTCHours() < 12) return null;
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
+  const utcSlot = displaySlotToDrawSlot(drawSlot);
+  const legacySlot = drawSlot;
   const selectVariants = [
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
@@ -489,20 +502,20 @@ async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: 
   let lastError: unknown = null;
   for (const columns of selectVariants) {
     const includeSlot = columns.includes('draw_slot');
-    const slotAttempts = includeSlot ? [drawSlot, null] : [null];
+    const slotAttempts = includeSlot ? [utcSlot, legacySlot] : [null];
     for (const slotAttempt of slotAttempts) {
       let query = admin.from('daily_raffle_results').select(columns).eq('raffle_day', today);
       if (allowTypeFilter && columns.includes('raffle_type')) query = query.eq('raffle_type', raffleType);
       if (slotAttempt && includeSlot) query = query.eq('draw_slot', slotAttempt);
       if (columns.includes('settled_at')) query = query.order('settled_at', { ascending: false, nullsFirst: false });
-      if (includeSlot) query = query.order('draw_slot', { ascending: drawSlot === 'morning' });
-      const { data, error } = await query.limit(1).maybeSingle();
+      query = query.limit(1);
+      const { data, error } = await query.maybeSingle();
       if (!error) {
         if (!data) continue;
-        if (drawSlot === 'midday' && String((data as Record<string, unknown>).draw_slot || '').toLowerCase() !== 'midday') continue;
         return {
           raffle_day: (data as Record<string, unknown>).raffle_day,
-          draw_slot: (data as Record<string, unknown>).draw_slot || drawSlot,
+          draw_slot: utcSlot,
+          display_slot: drawSlot,
           winner_wallet: (data as Record<string, unknown>).winner_wallet,
           winner_name: await resolvePlayerDisplayName(admin, (data as Record<string, unknown>).winner_wallet, (data as Record<string, unknown>).winner_name),
           qualifier_count: sanitizeInt((data as Record<string, unknown>).qualifier_count),
@@ -524,10 +537,11 @@ async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: 
     }
   }
   if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return null;
-  throw lastError || new Error('Current daily raffle result query failed.');
+  console.warn(JSON.stringify({ event: 'public-leaderboard raffle current winner unavailable', raffleType, drawSlot, lastError: normalizeError(lastError) }));
+  return null;
 }
 
-async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot?: 'morning' | 'midday' | null) {
+async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot?: RaffleDisplaySlot | null) {
   const selectVariants = [
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
     'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
@@ -548,7 +562,8 @@ async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: s
       query = query.eq('raffle_type', raffleType);
     }
     if (drawSlot && columns.includes('draw_slot')) {
-      query = query.eq('draw_slot', drawSlot);
+      const utcSlot = displaySlotToDrawSlot(drawSlot);
+      query = query.in('draw_slot', [utcSlot, drawSlot]);
     }
     if (columns.includes('settled_at')) {
       query = query.order('settled_at', { ascending: false, nullsFirst: false });
@@ -563,7 +578,8 @@ async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: s
       if (!data) return null;
       return {
         raffle_day: data.raffle_day,
-        draw_slot: data.draw_slot || null,
+        draw_slot: normalizeRaffleDrawSlot(data.draw_slot) || data.draw_slot || null,
+        display_slot: drawSlotToDisplaySlot(data.draw_slot) || drawSlot || null,
         winner_wallet: data.winner_wallet,
         winner_name: await resolvePlayerDisplayName(admin, data.winner_wallet, data.winner_name),
         qualifier_count: sanitizeInt(data.qualifier_count),

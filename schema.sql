@@ -311,7 +311,8 @@ create policy "reward_claim_requests_read_none"
 create table if not exists public.daily_raffle_results (
   raffle_day date not null,
   raffle_type text not null default 'dfk',
-  draw_slot text not null default '00' check (draw_slot in ('00', '12')),
+  draw_slot text not null default '00' check (draw_slot in ('00')),
+  winner_index integer not null default 1 check (winner_index between 1 and 2),
   raffle_chain_id bigint,
   window_start timestamptz not null,
   window_end timestamptz not null,
@@ -327,7 +328,7 @@ create table if not exists public.daily_raffle_results (
   settled_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint daily_raffle_results_pkey primary key (raffle_day, raffle_type, draw_slot)
+  constraint daily_raffle_results_pkey primary key (raffle_day, raffle_type, draw_slot, winner_index)
 );
 
 create index if not exists idx_daily_raffle_results_settled_at on public.daily_raffle_results (raffle_type, draw_slot, settled_at desc);
