@@ -10883,7 +10883,7 @@ body.how-to-play-open .center-panel {
 }
 
 
-/* v46.9.1.246: keep Gen0 place buttons the same vertical height as normal hire buttons */
+/* v46.9.1.247: keep Gen0 place buttons the same vertical height as normal hire buttons */
 .bottom-panel .hire-button-card-gen0 {
   position: relative;
   justify-content: flex-end;

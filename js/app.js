@@ -620,7 +620,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const CHRONO_PURGE_DURATION_SECONDS = 6;
   const SEER_EVASION_CHANCE = 0.10;
   const KRAKEN_BASE_DAMAGE = 10.115;
-  const KRAKEN_SLOW_PERCENT = 0.9;
+  const KRAKEN_SLOW_PERCENT = 0.75;
   const KRAKEN_DURATION_SECONDS = 10;
   const KRAKEN_RANGE_BONUS = 3;
   const BLINDING_LIGHT_TOTEM_RANGE = 2;
@@ -709,6 +709,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const GLOBAL_ENEMY_MOVE_INTERVAL_MULTIPLIER = 1.25;
   const ENEMY_MOVE_STEP_BUFFER_MS = 120;
   const MIN_ENEMY_VISUAL_MOVE_MS = 650;
+  const ENEMY_ROUTE_CACHE_TILES = 3;
+  const ENEMY_ROUTE_CACHE_TILES_LARGE = 2;
   const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
@@ -14951,6 +14953,142 @@ function canSubmitRewardClaims() {
     return { x: best.x, y: best.y };
   }
 
+
+  function clearEnemyRouteCache(enemy) {
+    if (!enemy) return;
+    enemy.routeCache = [];
+    enemy.routeCacheKey = '';
+  }
+
+  function getEnemyRouteCacheLimit(enemy) {
+    const sizeKey = getEnemySizeKey(enemy);
+    if (enemy?.isBoss || sizeKey === 'boss' || sizeKey === 'large') return ENEMY_ROUTE_CACHE_TILES_LARGE;
+    return ENEMY_ROUTE_CACHE_TILES;
+  }
+
+  function makeEnemyRouteCacheKey(enemy, navMode, navTargets = []) {
+    const flowKey = ensurePortalFlowField()?.key || '';
+    const targetKey = (navTargets || [])
+      .map(t => `${Number(t.x)},${Number(t.y)}`)
+      .sort()
+      .join('|');
+    const aggroKey = enemy?.aggroTargetId ? `aggro:${enemy.aggroTargetId}` : '';
+    const tauntKey = enemy?.tauntedTo?.id ? `taunt:${enemy.tauntedTo.id}` : '';
+    return `${navMode || 'portal'}::${flowKey}::${targetKey}::${aggroKey}::${tauntKey}`;
+  }
+
+  function isAdjacentStep(fromX, fromY, step) {
+    if (!step) return false;
+    return Math.abs(Number(step.x) - Number(fromX)) + Math.abs(Number(step.y) - Number(fromY)) === 1;
+  }
+
+  function isCachedEnemyStepValid(enemy, step) {
+    if (!enemy || !step) return false;
+    if (!isAdjacentStep(enemy.x, enemy.y, step)) return false;
+    return canEnemyEnter(step.x, step.y, enemy);
+  }
+
+  function choosePortalRouteStepAt(enemy, pos, prev, allowReverse = false, checkCrowd = false) {
+    const currentDistance = getPortalFlowDistance(pos.x, pos.y);
+    const steps = adjacentTiles(pos.x, pos.y)
+      .filter(step => {
+        if (checkCrowd) return canEnemyEnter(step.x, step.y, enemy);
+        return canEnemyEnterIgnoringCrowd(step.x, step.y, enemy);
+      })
+      .map(step => {
+        const distanceScore = getPortalFlowDistance(step.x, step.y);
+        const occupancyPenalty = checkCrowd ? getEnemyOccupancyPenalty(enemy, step.x, step.y, false) : 0;
+        const reversePenalty = (!allowReverse && prev && prev.x === step.x && prev.y === step.y && !(prev.x === pos.x && prev.y === pos.y)) ? 2 : 0;
+        return { ...step, score: distanceScore + occupancyPenalty + reversePenalty, distanceScore };
+      })
+      .filter(step => Number.isFinite(step.score))
+      .sort((a, b) => a.score - b.score)[0] || null;
+    if (!steps) return null;
+    if (Number.isFinite(currentDistance) && steps.distanceScore > currentDistance && !allowReverse) return null;
+    return { x: steps.x, y: steps.y };
+  }
+
+  function buildPortalRouteCache(enemy) {
+    const portalTargets = getPortalTargets();
+    if (!portalTargets.length) return [];
+
+    // Use the same committed path behavior for clear portal lanes that target
+    // navigation uses for blocked/aggro paths. The older portal cache selected
+    // each future step greedily from the flow field; on an open path that could
+    // rebuild into a slightly different cadence every tile and read as
+    // normal-speed movement followed by a faster lurch. A short pathfind slice
+    // gives the enemy one legal route to follow for the next few tiles, then it
+    // recalculates after that commitment is spent or invalidated.
+    const path = pathfind({ x: enemy.x, y: enemy.y }, portalTargets, {
+      enemy,
+      avoidBacktrack: true,
+      softCrowd: true,
+    });
+    if (path && path.length > 1) {
+      return path.slice(1, 1 + getEnemyRouteCacheLimit(enemy)).map(step => ({ x: step.x, y: step.y }));
+    }
+
+    // Flow-field fallback keeps enemies moving if the pathfinder cannot produce
+    // a full route due to transient crowding. This still returns a short legal
+    // segment, but the pathfind slice above is the preferred clear-path path.
+    const limit = getEnemyRouteCacheLimit(enemy);
+    const route = [];
+    let pos = { x: enemy.x, y: enemy.y };
+    let prev = { x: Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : enemy.x, y: Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : enemy.y };
+    for (let i = 0; i < limit; i += 1) {
+      const step = choosePortalRouteStepAt(enemy, pos, prev, false, i === 0);
+      if (!step) break;
+      route.push(step);
+      prev = pos;
+      pos = step;
+    }
+    return route;
+  }
+
+  function buildTargetRouteCache(enemy, navTargets) {
+    if (!navTargets?.length) return [];
+    const path = pathfind({ x: enemy.x, y: enemy.y }, navTargets, { enemy, avoidBacktrack: true, softCrowd: true });
+    if (!path || path.length <= 1) return [];
+    return path.slice(1, 1 + getEnemyRouteCacheLimit(enemy)).map(step => ({ x: step.x, y: step.y }));
+  }
+
+  function getCachedEnemyMoveStep(enemy, navMode, navTargets = [], current = now()) {
+    if (!enemy) return null;
+    if (isEnemyHardControlled(enemy)) {
+      clearEnemyRouteCache(enemy);
+      return null;
+    }
+    const cacheKey = makeEnemyRouteCacheKey(enemy, navMode, navTargets);
+    if (enemy.routeCacheKey !== cacheKey) {
+      clearEnemyRouteCache(enemy);
+      enemy.routeCacheKey = cacheKey;
+    }
+
+    while (Array.isArray(enemy.routeCache) && enemy.routeCache.length) {
+      const step = enemy.routeCache[0];
+      if (isCachedEnemyStepValid(enemy, step)) {
+        enemy.routeCache.shift();
+        return step;
+      }
+      clearEnemyRouteCache(enemy);
+      enemy.routeCacheKey = cacheKey;
+      break;
+    }
+
+    const route = navMode === 'portal'
+      ? buildPortalRouteCache(enemy)
+      : buildTargetRouteCache(enemy, navTargets);
+    enemy.routeCache = Array.isArray(route) ? route : [];
+    enemy.routeCacheKey = cacheKey;
+    if (!enemy.routeCache.length) return null;
+    const step = enemy.routeCache.shift();
+    if (!isCachedEnemyStepValid(enemy, step)) {
+      clearEnemyRouteCache(enemy);
+      return null;
+    }
+    return step;
+  }
+
   function getTilesInManhattanRange(cx, cy, radius) {
     const tiles = [];
     for (let x = cx - radius; x <= cx + radius; x++) {
@@ -15086,6 +15224,7 @@ function canSubmitRewardClaims() {
       enemy.moveEndAt = current + Math.max(100, Math.round(getEnemyMoveMs(enemy) * 0.65));
       enemy.attacking = false;
       enemy.targetPath = [];
+      clearEnemyRouteCache(enemy);
       enemy.stuckAt = 0;
       enemy.lastProgressAt = current;
       travelDx = Number(enemy.x) - Number(fromX);
@@ -15109,6 +15248,7 @@ function canSubmitRewardClaims() {
     if (Math.random() >= chance) return false;
     const current = now();
     applyDebuff(enemy, 'stunned', seconds, { ...data, appliedAt: current });
+    clearEnemyRouteCache(enemy);
     enemy.attacking = false;
     enemy.nextMoveAt = Math.max(enemy.nextMoveAt || 0, current + (seconds * 1000));
     enemy.nextAttackAt = Math.max(enemy.nextAttackAt || 0, current + (seconds * 1000));
@@ -16716,6 +16856,7 @@ function canSubmitRewardClaims() {
     enemy.tauntUntil = 0;
     enemy.aggroTargetId = null;
     enemy.targetPath = [];
+    clearEnemyRouteCache(enemy);
     enemy.navMode = 'portal';
     enemy.navCommitUntil = current + 600;
     enemy.lastStallRecoveryAt = current;
@@ -17718,6 +17859,7 @@ function canSubmitRewardClaims() {
       enemy.tauntUntil = 0;
       enemy.aggroTargetId = null;
       enemy.targetPath = [];
+      clearEnemyRouteCache(enemy);
       enemy.threat = {};
       enemy.navMode = 'portal';
       enemy.navCommitUntil = current + 350;
@@ -17905,15 +18047,13 @@ function canSubmitRewardClaims() {
     }
 
     if (!attackTarget && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
-      let nextStep = null;
-      if (navMode === 'portal') {
-        nextStep = getPortalFlowStep(enemy);
-      } else if (navTargets?.length) {
-        const path = pathfind({ x: enemy.x, y: enemy.y }, navTargets, { enemy, avoidBacktrack: true, softCrowd: true });
-        if (path && path.length > 1) {
-          enemy.targetPath = path;
-          nextStep = path[1];
-        }
+      let nextStep = getCachedEnemyMoveStep(enemy, navMode, navTargets, current);
+      if (nextStep && navMode !== 'portal') {
+        enemy.targetPath = [
+          { x: enemy.x, y: enemy.y },
+          nextStep,
+          ...((enemy.routeCache || []).map(step => ({ x: step.x, y: step.y })))
+        ];
       }
       if (!nextStep && !attackTarget && !forceStatueForBrute) {
         const warriorPlan = getReachableWarriorPlan(enemy);
@@ -17922,6 +18062,7 @@ function canSubmitRewardClaims() {
         } else if (!getPortalFlowStep(enemy, { allowReverse: true }) && warriorPlan?.path?.length > 1) {
           enemy.navMode = 'warrior';
           enemy.navCommitUntil = current + 350;
+          clearEnemyRouteCache(enemy);
           enemy.targetPath = warriorPlan.path;
           nextStep = warriorPlan.path[1];
         }
@@ -17930,6 +18071,7 @@ function canSubmitRewardClaims() {
         movedThisTick = moveEnemyToStep(enemy, nextStep, current);
         if (!movedThisTick) {
           enemy.targetPath = [];
+          clearEnemyRouteCache(enemy);
           enemy.nextMoveAt = current + Math.max(250, ENEMY_MOVE_STEP_BUFFER_MS);
         }
       }
@@ -18503,9 +18645,18 @@ function canSubmitRewardClaims() {
     const prevPos = getTilePixelPosition(fromTileX, fromTileY);
     const prevCenter = { x: prevPos.left + prevPos.width / 2, y: prevPos.top + prevPos.height / 2 };
     const startedAt = Number(enemy.moveStartedAt || 0);
-    const endedAt = Number(enemy.moveEndAt || 0);
-    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endedAt - startedAt);
-    const rawProgress = startedAt > 0 && endedAt > startedAt
+    const logicalEndAt = Number(enemy.moveEndAt || 0);
+    const readyAt = Number(enemy.nextMoveAt || 0);
+    // Use the whole movement cadence for the visual step, not only the logical
+    // move window. When the portal path is clear, enemies can chain legal steps
+    // every moveEnd + buffer interval. Rendering only to moveEnd made them reach
+    // a tile center early, pause, then appear to lurch into the next clear-path
+    // step. Extending the visual interpolation through nextMoveAt keeps clear
+    // path movement at one even pace while still staying inside prev -> current
+    // legal path segments.
+    const visualEndAt = readyAt > logicalEndAt ? readyAt : logicalEndAt;
+    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, visualEndAt - startedAt);
+    const rawProgress = startedAt > 0 && visualEndAt > startedAt
       ? (current - startedAt) / duration
       : 1;
     const progress = Math.max(0, Math.min(1, rawProgress));
@@ -19474,7 +19625,22 @@ function canSubmitRewardClaims() {
   }
 
   function applyDebuff(unit, keyName, seconds, data) {
-    unit.debuffs[keyName] = { ...data, until: now() + seconds * 1000 };
+    if (!unit.debuffs) unit.debuffs = {};
+    const until = now() + seconds * 1000;
+    if (keyName === 'kraken' && unit.debuffs.kraken) {
+      const existing = unit.debuffs.kraken;
+      unit.debuffs.kraken = {
+        ...existing,
+        ...data,
+        // Kraken should refresh/maintain one active effect, never stack a second Kraken slow or damage tick.
+        percent: Math.max(Number(existing.percent || 0), Number(data?.percent || 0)),
+        damage: Math.max(Number(existing.damage || 0), Number(data?.damage || 0)),
+        nextTickAt: existing.nextTickAt || data?.nextTickAt || now() + 1000,
+        until: Math.max(Number(existing.until || 0), until)
+      };
+      return;
+    }
+    unit.debuffs[keyName] = { ...data, until };
   }
 
   function applyDebuffTickDamage(unit, debuff, amount, methodKey, methodLabel) {
@@ -20829,10 +20995,14 @@ function canSubmitRewardClaims() {
     game.realLastTick = realNow;
     game.virtualNow += realDelta * game.timeScale;
     try {
-      update();
-      // Keep the battlefield live every frame, but throttle heavier UI refreshes.
+      // Render enemy movement before the logic tick starts the next tile step.
+      // When a clear portal path lets enemies chain moves every cadence, updating
+      // first could skip the last few pixels of the prior legal segment and read
+      // as a lurch. Rendering first lets each segment finish visually, then the
+      // next update can advance the logical tile for the following frame.
       renderGrid();
       renderEnemyLayer();
+      update();
       if (!game.lastSelectedPanelRefreshAt || (realNow - game.lastSelectedPanelRefreshAt) >= 120) {
         refreshSelectedPanelLive();
         game.lastSelectedPanelRefreshAt = realNow;
