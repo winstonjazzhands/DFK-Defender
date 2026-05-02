@@ -33,6 +33,8 @@
   });
 
   const BALANCE_CACHE_KEY = 'dfk_avax_run_balance_cache';
+  const TREASURY_SUMMARY_CACHE_KEY = 'dfk_avax_treasury_summary_cache_v1';
+  const REWARD_CLAIMS_CACHE_KEY = 'dfk_reward_claims_admin_cache_v1';
 
   const state = {
     activeRunPayment: null,
@@ -77,6 +79,23 @@
     }
   }
   function normalizeAddress(address) { return String(address || '').trim().toLowerCase(); }
+  function readJsonCache(key) {
+    try {
+      const raw = window.localStorage ? window.localStorage.getItem(key) : '';
+      return raw ? JSON.parse(raw) : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+  function writeJsonCache(key, value) {
+    try {
+      if (!window.localStorage || value == null) return;
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (_error) {}
+  }
+  function getTreasuryCacheWalletKey(walletAddress, suffix = '') {
+    return `${normalizeAddress(walletAddress)}:${String(suffix || '').trim().toLowerCase()}`;
+  }
   function escapeHtml(value) {
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;')
@@ -376,14 +395,15 @@ function renderRewardClaimsAdmin() {
       const winnerWallet = String(item.winner_wallet || '').trim();
       const winnerLabel = winnerName || shortWallet(winnerWallet);
       const typeLabel = String(item.raffle_type || '').trim().toUpperCase() || 'DFK';
+      const hasWinner = !!(winnerName || winnerWallet);
       const hasPayoutTx = !!String(item.payout_tx_hash || item.tx_hash || '').trim();
       const hasSettledAt = !!String(item.paid_at || item.settled_at || '').trim();
       const rawPayoutStatus = String(item.payout_status || item.status || '').trim();
-      const payoutStatus = (hasPayoutTx || hasSettledAt || ['paid', 'approved', 'sent', 'complete', 'completed'].includes(rawPayoutStatus.toLowerCase())) ? 'paid' : (rawPayoutStatus || 'pending');
+      const payoutStatus = !hasWinner ? 'no winner' : ((hasPayoutTx || hasSettledAt || ['paid', 'approved', 'sent', 'complete', 'completed'].includes(rawPayoutStatus.toLowerCase())) ? 'paid' : (rawPayoutStatus || 'pending'));
       return `<div class="reward-raffle-history-row">
         <div class="reward-raffle-day">${escapeHtml(day)}</div>
         <div class="reward-raffle-winner">
-          <div class="reward-raffle-winner-name">${escapeHtml(winnerLabel || '--')}</div>
+          <div class="reward-raffle-winner-name">${escapeHtml(winnerLabel || 'No winner recorded')}</div>
           <div class="reward-raffle-winner-wallet mono" title="${escapeHtml(winnerWallet)}">${escapeHtml(shortWallet(winnerWallet))}</div>
         </div>
         <div class="reward-raffle-pill">${escapeHtml(typeLabel)}</div>
@@ -923,15 +943,25 @@ function loadCachedBalance() {
     return { txHash, rewardCurrency: currency, amountWei, walletAddress: targetWallet };
   }
 
-  async function refreshTreasurySummary() {
+  async function refreshTreasurySummary(options = {}) {
     const wallet = getWallet();
+    const force = !!(options && options.force);
     if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) {
       state.treasurySummary = null;
       updateTreasuryUi();
       return null;
     }
+    const cacheKey = getTreasuryCacheWalletKey(wallet.address, 'summary');
+    const cache = readJsonCache(TREASURY_SUMMARY_CACHE_KEY) || {};
+    if (!force && cache[cacheKey]) {
+      state.treasurySummary = cache[cacheKey].summary || null;
+      updateTreasuryUi();
+      return state.treasurySummary;
+    }
     const summary = await callFunction(CONFIG.treasurySummaryFunction, { walletAddress: wallet.address });
     state.treasurySummary = summary || null;
+    cache[cacheKey] = { savedAt: new Date().toISOString(), summary: state.treasurySummary };
+    writeJsonCache(TREASURY_SUMMARY_CACHE_KEY, cache);
     updateTreasuryUi();
     return state.treasurySummary;
   }
@@ -1062,8 +1092,9 @@ function loadCachedBalance() {
     }
   }
 
-  async function refreshRewardClaimsAdmin() {
+  async function refreshRewardClaimsAdmin(options = {}) {
     const wallet = getWallet();
+    const force = !!(options && options.force);
     if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) {
       state.rewardClaims = null;
       state.rewardClaimsError = '';
@@ -1071,12 +1102,22 @@ function loadCachedBalance() {
       updateTreasuryUi();
       return null;
     }
+    const timeframe = state.rewardSpendTimeframe || 'all';
+    const cacheKey = getTreasuryCacheWalletKey(wallet.address, `claims:${timeframe}`);
+    const cache = readJsonCache(REWARD_CLAIMS_CACHE_KEY) || {};
+    if (!force && cache[cacheKey]) {
+      state.rewardClaims = cache[cacheKey].claims || null;
+      state.rewardClaimsError = '';
+      state.rewardClaimsLoading = false;
+      updateTreasuryUi();
+      return state.rewardClaims;
+    }
     state.rewardClaimsLoading = true;
     state.rewardClaimsError = '';
     updateTreasuryUi();
     try {
       await ensureTreasurySession();
-      const claimsResponse = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100, timeframe: state.rewardSpendTimeframe || 'all' });
+      const claimsResponse = await callFunction(CONFIG.rewardClaimsAdminFunction, { walletAddress: wallet.address, limit: 100, timeframe });
       const safeClaims = claimsResponse || { pendingCount: 0, items: [] };
       const whitelistItems = Array.isArray(safeClaims.whitelistItems) ? safeClaims.whitelistItems : [];
       if (!whitelistItems.length || String(safeClaims.schemaWarning || '').trim()) {
@@ -1088,6 +1129,8 @@ function loadCachedBalance() {
         } catch (_error) {}
       }
       state.rewardClaims = safeClaims;
+      cache[cacheKey] = { savedAt: new Date().toISOString(), claims: state.rewardClaims };
+      writeJsonCache(REWARD_CLAIMS_CACHE_KEY, cache);
       state.rewardClaimsPageByTab = { pending: 1, completed: 1, rejected: 1 };
       return state.rewardClaims;
     } catch (error) {
@@ -1566,8 +1609,8 @@ function loadCachedBalance() {
     if (refreshClaimsBtn) refreshClaimsBtn.addEventListener('click', async () => {
       refreshClaimsBtn.disabled = true;
       try {
-        await refreshTreasurySummary().catch(() => { updateTreasuryUi(); return null; });
-        await refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); return null; });
+        await refreshTreasurySummary({ force: true }).catch(() => { updateTreasuryUi(); return null; });
+        await refreshRewardClaimsAdmin({ force: true }).catch(() => { updateTreasuryUi(); return null; });
         await refreshRunBalance().catch(() => null);
         updateTreasuryUi();
       } finally {

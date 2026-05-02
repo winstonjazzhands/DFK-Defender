@@ -596,7 +596,7 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v10.3.3';
+const APP_VERSION = 'v10.3.4';
 const CURRENT_RUN_BUILD = 'V46.9.1.198';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
@@ -638,7 +638,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const GLOBAL_BIG_ENEMY_HP_MULTIPLIER = 1.15;
   const GLOBAL_SKITTER_COUNT_MULTIPLIER = 0.425;
   const GLOBAL_SKITTER_HP_MULTIPLIER = 1.30;
-  const BIG_ENEMY_SPEED_MULTIPLIER = 1.10;
+  const BIG_ENEMY_SPEED_MULTIPLIER = 1.00;
   const ENEMY_TILE_LIMITS = {
     boss: 9999,
     large: 6.25,
@@ -668,7 +668,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const DRAGOON_SPEAR_THROW_IMAGE_PATH = 'assets/throwing-dragoon-spear.png';
   const MONK_FAST_FISTS_IMAGE_PATH = 'assets/monk-fast-fists.png';
   const CHAMPION_AUTO_ABILITY_DELAY_MS = 2000;
-  const TOWER_ABILITY_CHAIN_DELAY_MS = 1500;
+  const TOWER_ABILITY_CHAIN_DELAY_MS = 250;
   const TORN_SOUL_BURN_DURATION_SECONDS = 10;
   const TORN_SOUL_BURN_RADIUS = 1;
   const TORN_SOUL_DAMAGE_MULTIPLIER = 1.15;
@@ -704,8 +704,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const PLAYER_OBSTACLE_COUNT = 9;
   const GLOBAL_HERO_DAMAGE_MULTIPLIER = 0.95;
   const NON_WARRIOR_HERO_HP_MULTIPLIER = 0.5;
-  const GLOBAL_ENEMY_HP_MULTIPLIER = 1.08;
+  const GLOBAL_ENEMY_HP_MULTIPLIER = 1.3176;
   const GLOBAL_BOSS_MOVE_INTERVAL_MULTIPLIER = 1.05;
+  const GLOBAL_ENEMY_MOVE_INTERVAL_MULTIPLIER = 1.25;
+  const ENEMY_MOVE_STEP_BUFFER_MS = 120;
+  const MIN_ENEMY_VISUAL_MOVE_MS = 650;
   const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
@@ -1487,6 +1490,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     introAutoShown: false,
     continueOfferUsed: false,
     paidContinueOfferUsed: false,
+    continuePaidRetryPending: false,
+    continueRetryCountdownPending: false,
     continueOfferPending: false,
     continueSnapshot: null,
     eliteWarningAcknowledgedWave: 0,
@@ -14882,8 +14887,13 @@ function canSubmitRewardClaims() {
       .map(t => `${t.x},${t.y},${isStatueTower(t) ? 'statue' : 'warrior'}`)
       .sort()
       .join('|');
+    const obstacles = (game.grid || [])
+      .filter(tile => tile && tile.obstacle)
+      .map(tile => `${tile.x},${tile.y},${tile.obstacle}`)
+      .sort()
+      .join('|');
     const portal = game.portal ? `${game.portal.x},${game.portal.y}` : 'none';
-    return `${portal}::${blockers}`;
+    return `${portal}::${blockers}::${obstacles}`;
   }
 
   function ensurePortalFlowField() {
@@ -14986,6 +14996,17 @@ function canSubmitRewardClaims() {
     return facingX < 0 ? -1 : 1;
   }
 
+  function getEnemyMoveReadyAt(enemy) {
+    if (!enemy) return 0;
+    const nextMoveAt = Number(enemy.nextMoveAt || 0);
+    const moveEndAt = Number(enemy.moveEndAt || 0);
+    return Math.max(nextMoveAt, moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS);
+  }
+
+  function canEnemyStartMove(enemy, current) {
+    return !!enemy && current >= getEnemyMoveReadyAt(enemy);
+  }
+
   function moveEnemyToStep(enemy, step, current) {
     if (!step) return false;
     if (!canEnemyEnter(step.x, step.y, enemy)) return false;
@@ -14994,9 +15015,10 @@ function canSubmitRewardClaims() {
     enemy.prevY = enemy.y;
     enemy.x = step.x;
     enemy.y = step.y;
+    const moveMs = getEnemyMoveMs(enemy);
     enemy.moveStartedAt = current;
-    enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-    enemy.nextMoveAt = current + Math.max(60, Math.round(getEnemyMoveMs(enemy) * 0.9));
+    enemy.moveEndAt = current + moveMs;
+    enemy.nextMoveAt = enemy.moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS;
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -15364,7 +15386,7 @@ function canSubmitRewardClaims() {
     const lane = BREACH_LANES[chooseLane()] || BREACH_LANES[LANE_NAMES[0]];
     const spawn = pickRandom(lane);
     const strongestBossHp = Math.max(...BOSSES.map(b => b.hp)) * BIG_ENEMY_HP_MULTIPLIER * getWaveHpMultiplier(waveNumber || 0);
-    const maxHp = strongestBossHp * 5 * 1.15 * getPostWave100EnemyHpMultiplier(waveNumber || 0);
+    const maxHp = strongestBossHp * 5 * 1.15 * getPostWave100EnemyHpMultiplier(waveNumber || 0) * GLOBAL_ENEMY_HP_MULTIPLIER;
     const enemy = {
       id: `e${game.nextEnemyId++}`,
       type: 'sky_terror',
@@ -15449,9 +15471,10 @@ function canSubmitRewardClaims() {
     enemy.prevY = enemy.y;
     enemy.x = step.x;
     enemy.y = step.y;
+    const moveMs = getEnemyMoveMs(enemy);
     enemy.moveStartedAt = current;
-    enemy.moveEndAt = current + getEnemyMoveMs(enemy);
-    enemy.nextMoveAt = current + Math.max(60, Math.round(getEnemyMoveMs(enemy) * 0.9));
+    enemy.moveEndAt = current + moveMs;
+    enemy.nextMoveAt = enemy.moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS;
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -15696,12 +15719,74 @@ function canSubmitRewardClaims() {
 
   function closeContinueOfferModal() {
     if (!els.continueOfferModal) return;
+    setContinuePaidRetryPending(false);
     els.continueOfferModal.classList.add('hidden');
     els.continueOfferModal.setAttribute('aria-hidden', 'true');
     game.introOpen = false;
     document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
     showStatusOverlay();
+  }
+
+  function setContinuePaidRetryPending(pending, label = 'Processing transaction...') {
+    game.continuePaidRetryPending = !!pending;
+    const buttons = [els.continueHellYeahBtn, els.continuePaidJewelBtn, els.continuePaidHonkBtn, els.continueNoThanksBtn];
+    for (const btn of buttons) {
+      if (!btn) continue;
+      btn.disabled = !!pending;
+      btn.classList.toggle('is-busy', !!pending);
+      btn.style.pointerEvents = pending ? 'none' : '';
+    }
+    if (els.continueOfferBody && pending) {
+      els.continueOfferBody.innerHTML = `<p><strong>${label}</strong></p><p>Please wait for the wallet confirmation to finish. Retry choices are locked so the payment cannot be duplicated or canceled mid-transaction.</p>`;
+    }
+    if (pending) {
+      if (els.continuePaidJewelBtn) els.continuePaidJewelBtn.textContent = 'Transaction pending...';
+      if (els.continuePaidHonkBtn) els.continuePaidHonkBtn.textContent = 'Transaction pending...';
+      if (els.continueHellYeahBtn) els.continueHellYeahBtn.textContent = 'Locked';
+      if (els.continueNoThanksBtn) els.continueNoThanksBtn.textContent = 'Locked';
+    } else if (els.continueNoThanksBtn) {
+      els.continueNoThanksBtn.textContent = 'No thanks';
+    }
+  }
+
+  function beginContinueRetryWave() {
+    game.continueRetryCountdownPending = false;
+    game.countdownMs = 0;
+    if (Array.isArray(game.pendingSpawns) && game.pendingSpawns.length) {
+      game.runningWave = true;
+      game.waveStartAt = now();
+      if (!Array.isArray(game.activeWavePlans) || !game.activeWavePlans.length) {
+        game.activeWavePlans = [cloneContinueData(game.nextWavePlan)].filter(Boolean);
+      }
+      if (!game.currentPattern) {
+        game.currentPattern = game.activeWavePlans.length > 1 ? 'mixed' : (game.nextWavePlan?.pattern || null);
+      }
+      stageUpcomingWavePlan(true);
+      syncStartWaveButtonState();
+      render();
+      updateAutoStartButton();
+      return true;
+    }
+    render();
+    updateAutoStartButton();
+    startWave();
+    return true;
+  }
+
+  function startContinueRetryCountdown(seconds, extraGold = 0) {
+    const safeSeconds = Math.max(1, Number(seconds || 0));
+    const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
+    game.continueRetryCountdownPending = true;
+    game.runningWave = false;
+    game.waveStartAt = 0;
+    game.countdownMs = safeSeconds * 1000;
+    game.autoStartReadyAt = 0;
+    setInstruction(`Wave ${retriedWaveLabel} retry begins in ${safeSeconds}s. Bonus: +${extraGold} gold.`);
+    showBanner(`Retry starts in ${safeSeconds} seconds.`, 2500);
+    syncStartWaveButtonState();
+    render();
+    updateAutoStartButton();
   }
 
   function openContinueOfferModal() {
@@ -15711,6 +15796,7 @@ function canSubmitRewardClaims() {
     closeQuestsModal();
     closeTrackedRunsModal();
     closeKnownRelicsModal();
+    setContinuePaidRetryPending(false);
     const freeAvailable = !game.continueOfferUsed;
     const paidAvailable = !game.paidContinueOfferUsed;
     const honkRetryLabel = getDfkPaymentLabelForJewelAmount(1, 'honk');
@@ -16270,24 +16356,8 @@ function canSubmitRewardClaims() {
     const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
     setInstruction(`Wave ${retriedWaveLabel} is getting a second shot. Bonus: +${extraGold} gold.`);
     log(`Continue used: replaying wave ${retriedWaveLabel} with +${extraGold} gold.`);
-    if (Array.isArray(game.pendingSpawns) && game.pendingSpawns.length) {
-      game.runningWave = true;
-      game.waveStartAt = now();
-      if (!Array.isArray(game.activeWavePlans) || !game.activeWavePlans.length) {
-        game.activeWavePlans = [cloneContinueData(game.nextWavePlan)].filter(Boolean);
-      }
-      if (!game.currentPattern) {
-        game.currentPattern = game.activeWavePlans.length > 1 ? 'mixed' : (game.nextWavePlan?.pattern || null);
-      }
-      stageUpcomingWavePlan(true);
-      syncStartWaveButtonState();
-      render();
-      updateAutoStartButton();
-      return true;
-    }
-    render();
-    updateAutoStartButton();
-    startWave();
+    const retryCountdownSeconds = options && options.paid ? 20 : 15;
+    startContinueRetryCountdown(retryCountdownSeconds, extraGold);
     return true;
   }
 
@@ -16370,8 +16440,9 @@ function canSubmitRewardClaims() {
   }
 
   function getLargeEnemySpeedMultiplier(waveNumber) {
-    const waveBoost = waveNumber <= 10 ? 1 : Math.min(1.25, 1 + ((waveNumber - 10) * 0.02));
-    return waveBoost * 1.15;
+    // Keep large cultists/brutes on the same movement pace as other enemies.
+    // They should only move slower/faster through explicit slow/haste effects, not a hidden large-enemy boost.
+    return 1;
   }
 
   function getBruteHpMultiplier(waveNumber) {
@@ -16792,7 +16863,10 @@ function canSubmitRewardClaims() {
 
     if (!game.runningWave && game.countdownMs > 0) {
       game.countdownMs = Math.max(0, game.countdownMs - delta);
-      if (game.countdownMs <= 0) prepareNextWave();
+      if (game.countdownMs <= 0) {
+        if (game.continueRetryCountdownPending) beginContinueRetryWave();
+        else prepareNextWave();
+      }
     }
 
     if (!game.runningWave) {
@@ -17728,7 +17802,7 @@ function canSubmitRewardClaims() {
       }
       let attackPortalNow = portalTargets.some(t => Math.abs(t.x - enemy.x) <= 1 && Math.abs(t.y - enemy.y) <= 1);
       let movedThisTick = false;
-      if (!attackPortalNow && current >= enemy.nextMoveAt && !isEnemyHardControlled(enemy)) {
+      if (!attackPortalNow && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
         const nextStep = getFlyingPortalStep(enemy);
         if (nextStep) movedThisTick = moveFlyingEnemyToStep(enemy, nextStep, current);
         attackPortalNow = portalTargets.some(t => Math.abs(t.x - enemy.x) <= 1 && Math.abs(t.y - enemy.y) <= 1);
@@ -17830,7 +17904,7 @@ function canSubmitRewardClaims() {
       enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : (navMode === 'statue' ? 660 : 550));
     }
 
-    if (!attackTarget && current >= enemy.nextMoveAt && !isEnemyHardControlled(enemy)) {
+    if (!attackTarget && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
       let nextStep = null;
       if (navMode === 'portal') {
         nextStep = getPortalFlowStep(enemy);
@@ -17856,7 +17930,7 @@ function canSubmitRewardClaims() {
         movedThisTick = moveEnemyToStep(enemy, nextStep, current);
         if (!movedThisTick) {
           enemy.targetPath = [];
-          enemy.nextMoveAt = current + 120;
+          enemy.nextMoveAt = current + Math.max(250, ENEMY_MOVE_STEP_BUFFER_MS);
         }
       }
     }
@@ -17950,7 +18024,7 @@ function canSubmitRewardClaims() {
     if (slowPercent > 0) mult *= (1 + (slowPercent * (1 - enemy.slowResistance)));
     const stormHastePercent = Math.max(0, Number(enemy?.debuffs?.storm_haste?.percent || 0));
     if (stormHastePercent > 0) mult *= Math.max(0.1, 1 - stormHastePercent);
-    return enemy.moveInterval * 1000 * mult * (game.enemies.some(e => e.type === 'skitter') ? (1 / 1.1) : 1);
+    return Math.max(MIN_ENEMY_VISUAL_MOVE_MS, enemy.moveInterval * 1000 * mult * GLOBAL_ENEMY_MOVE_INTERVAL_MULTIPLIER);
   }
 
   function canEnemyEnter(x, y, enemy) {
@@ -18415,30 +18489,41 @@ function canSubmitRewardClaims() {
     }
   }
 
+  function getEnemyBasePixelCenter(enemy) {
+    const pos = getTilePixelPosition(enemy.x, enemy.y);
+    return { x: pos.left + pos.width / 2, y: pos.top + pos.height / 2 };
+  }
+
+  function getEnemySmoothPixelCenter(enemy, current = now()) {
+    if (!enemy) return { x: 0, y: 0 };
+
+    const target = getEnemyBasePixelCenter(enemy);
+    const fromTileX = Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : Number(enemy.x);
+    const fromTileY = Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : Number(enemy.y);
+    const prevPos = getTilePixelPosition(fromTileX, fromTileY);
+    const prevCenter = { x: prevPos.left + prevPos.width / 2, y: prevPos.top + prevPos.height / 2 };
+    const startedAt = Number(enemy.moveStartedAt || 0);
+    const endedAt = Number(enemy.moveEndAt || 0);
+    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endedAt - startedAt);
+    const rawProgress = startedAt > 0 && endedAt > startedAt
+      ? (current - startedAt) / duration
+      : 1;
+    const progress = Math.max(0, Math.min(1, rawProgress));
+
+    // Keep the sprite inside the legal path segment selected by pathfinding.
+    // The older catch-up smoothing chased the current tile from wherever the
+    // sprite last rendered. If the enemy advanced again before the sprite fully
+    // arrived, that chase line could cut across a barrier even though the actual
+    // enemy tile path was legal. Segment interpolation keeps every visual frame
+    // between prevX/prevY and x/y only.
+    enemy.renderPx = prevCenter.x + ((target.x - prevCenter.x) * progress);
+    enemy.renderPy = prevCenter.y + ((target.y - prevCenter.y) * progress);
+    enemy.lastRenderAt = current;
+    return { x: enemy.renderPx, y: enemy.renderPy };
+  }
+
   function getEnemyPixelCenter(enemy) {
     if (!enemy) return { x: 0, y: 0 };
-    const current = now();
-    game.groundBurnEffects = (game.groundBurnEffects || []).filter(effect => effect.until > current);
-    for (const effect of game.groundBurnEffects) {
-      for (const tile of effect.tiles || []) {
-        const pos = getTilePixelPosition(tile.x, tile.y);
-        const sprite = document.createElement('img');
-        const tileSize = Math.max(pos.width, pos.height);
-        const lifeProgress = Math.max(0, Math.min(1, (effect.until - current) / Math.max(1, effect.until - effect.startedAt)));
-        sprite.src = effect.imagePath || PURPLE_FIRE_GIF_PATH;
-        sprite.alt = '';
-        sprite.setAttribute('aria-hidden', 'true');
-        sprite.style.position = 'absolute';
-        sprite.style.left = `${pos.left + (pos.width * 0.12)}px`;
-        sprite.style.top = `${pos.top + (pos.height * 0.02)}px`;
-        sprite.style.width = `${tileSize * 0.76}px`;
-        sprite.style.height = `${tileSize * 0.92}px`;
-        sprite.style.pointerEvents = 'none';
-        sprite.style.opacity = `${Math.max(0.4, Math.min(0.95, lifeProgress + 0.15))}`;
-        sprite.style.filter = 'drop-shadow(0 0 10px rgba(186, 116, 255, 0.95))';
-        els.enemyLayer.appendChild(sprite);
-      }
-    }
     const byTile = new Map();
     for (const e of game.enemies) {
       const k = `${e.x},${e.y}`;
@@ -18447,18 +18532,8 @@ function canSubmitRewardClaims() {
     }
     const enemiesHere = byTile.get(`${enemy.x},${enemy.y}`) || [enemy];
     const offset = getEnemyStackOffset(enemy, enemiesHere);
-    const pos = getTilePixelPosition(enemy.x, enemy.y);
-    let px = pos.left + pos.width / 2;
-    let py = pos.top + pos.height / 2;
-    if (enemy.moveEndAt && enemy.moveEndAt > enemy.moveStartedAt) {
-      const prog = Math.max(0, Math.min(1, (current - enemy.moveStartedAt) / (enemy.moveEndAt - enemy.moveStartedAt)));
-      const from = getTilePixelPosition(enemy.prevX ?? enemy.x, enemy.prevY ?? enemy.y);
-      const fx = from.left + from.width / 2;
-      const fy = from.top + from.height / 2;
-      px = fx + (px - fx) * prog;
-      py = fy + (py - fy) * prog;
-    }
-    return { x: px + offset.x, y: py + offset.y };
+    const center = getEnemySmoothPixelCenter(enemy);
+    return { x: center.x + offset.x, y: center.y + offset.y };
   }
 
   function getEnemyRenderSizeMultiplier(enemy) {
@@ -18486,6 +18561,27 @@ function canSubmitRewardClaims() {
     svg.setAttribute('width', `${layerWidth}`);
     svg.setAttribute('height', `${layerHeight}`);
     els.enemyLayer.appendChild(svg);
+    game.groundBurnEffects = (game.groundBurnEffects || []).filter(effect => effect.until > current);
+    for (const effect of game.groundBurnEffects) {
+      for (const tile of effect.tiles || []) {
+        const pos = getTilePixelPosition(tile.x, tile.y);
+        const sprite = document.createElement('img');
+        const tileSize = Math.max(pos.width, pos.height);
+        const lifeProgress = Math.max(0, Math.min(1, (effect.until - current) / Math.max(1, effect.until - effect.startedAt)));
+        sprite.src = effect.imagePath || PURPLE_FIRE_GIF_PATH;
+        sprite.alt = '';
+        sprite.setAttribute('aria-hidden', 'true');
+        sprite.style.position = 'absolute';
+        sprite.style.left = `${pos.left + (pos.width * 0.12)}px`;
+        sprite.style.top = `${pos.top + (pos.height * 0.02)}px`;
+        sprite.style.width = `${tileSize * 0.76}px`;
+        sprite.style.height = `${tileSize * 0.92}px`;
+        sprite.style.pointerEvents = 'none';
+        sprite.style.opacity = `${Math.max(0.4, Math.min(0.95, lifeProgress + 0.15))}`;
+        sprite.style.filter = 'drop-shadow(0 0 10px rgba(186, 116, 255, 0.95))';
+        els.enemyLayer.appendChild(sprite);
+      }
+    }
     game.projectileEffects = (game.projectileEffects || []).filter(effect => effect.until > current);
     for (const effect of game.projectileEffects) {
       if (current < (effect.startedAt || 0)) continue;
@@ -19000,17 +19096,9 @@ function canSubmitRewardClaims() {
       const enemiesHere = byTile.get(`${enemy.x},${enemy.y}`) || [enemy];
       const offset = getEnemyStackOffset(enemy, enemiesHere);
       const pos = getTilePixelPosition(enemy.x, enemy.y);
-      let px = pos.left + pos.width / 2;
-      let py = pos.top + pos.height / 2;
-      if (enemy.moveEndAt && enemy.moveEndAt > enemy.moveStartedAt) {
-        const rawProg = Math.max(0, Math.min(1, (current - enemy.moveStartedAt) / (enemy.moveEndAt - enemy.moveStartedAt)));
-        const prog = rawProg * rawProg * (3 - (2 * rawProg));
-        const from = getTilePixelPosition(enemy.prevX ?? enemy.x, enemy.prevY ?? enemy.y);
-        const fx = from.left + from.width / 2;
-        const fy = from.top + from.height / 2;
-        px = fx + (px - fx) * prog;
-        py = fy + (py - fy) * prog;
-      }
+      const center = getEnemySmoothPixelCenter(enemy, current);
+      const px = center.x;
+      const py = center.y;
       const enemySize = getEnemyVisualSize(enemy);
       const usePackbocSprite = !enemy.isBoss && (enemy.type === 'grunt' || enemy.type === 'runner' || enemy.type === 'skitter');
       const useImageSprite = enemy.isBoss || usePackbocSprite || enemy.type === 'brute';
@@ -20605,9 +20693,12 @@ function canSubmitRewardClaims() {
     closeEliteWaveModal();
   });
   els.continueHellYeahBtn?.addEventListener('click', () => {
+    if (game.continuePaidRetryPending) return;
     restoreContinueSnapshot(500);
   });
   els.continuePaidJewelBtn?.addEventListener('click', async () => {
+    if (game.continuePaidRetryPending) return;
+    setContinuePaidRetryPending(true, 'Confirming paid JEWEL retry...');
     try {
       await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'native_jewel'), 'Last Chance retry', {
         paymentAsset: 'native_jewel',
@@ -20616,11 +20707,14 @@ function canSubmitRewardClaims() {
       });
       restoreContinueSnapshot(2000, { paid: true });
     } catch (error) {
+      setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
       openContinueOfferModal();
     }
   });
   els.continuePaidHonkBtn?.addEventListener('click', async () => {
+    if (game.continuePaidRetryPending) return;
+    setContinuePaidRetryPending(true, 'Confirming paid HONK retry...');
     try {
       await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'honk'), 'Last Chance HONK retry', {
         paymentAsset: 'honk',
@@ -20629,11 +20723,13 @@ function canSubmitRewardClaims() {
       });
       restoreContinueSnapshot(2000, { paid: true });
     } catch (error) {
+      setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
       openContinueOfferModal();
     }
   });
   els.continueNoThanksBtn?.addEventListener('click', () => {
+    if (game.continuePaidRetryPending) return;
     forfeitLastChanceForRunTracking('declined');
     closeContinueOfferModal();
     finalizePortalLoss(true);

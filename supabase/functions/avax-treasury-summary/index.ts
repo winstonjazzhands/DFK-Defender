@@ -511,11 +511,21 @@ Deno.serve(async (req) => {
     const completedOutgoingRows = completedRewardClaims.concat(completedRaffleRows);
 
     const todayBurnRows = safeBurnRows.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
-    const resolvedDailyRaffleHistory = await Promise.all((Array.isArray(dailyRaffleHistory) ? dailyRaffleHistory : []).map(async (row) => ({
-      ...(row as Record<string, unknown>),
-      winner_name: await resolvePlayerDisplayName(admin, (row as Record<string, unknown>).winner_wallet, (row as Record<string, unknown>).winner_name),
-      payout_status: getResolvedPayoutStatus(row as RowLike, safeRewardClaimRows),
-    })));
+    const claimById = new Map(safeRewardClaimRows
+      .map((claim) => [String(claim.id || '').trim(), claim] as const)
+      .filter(([id]) => !!id));
+    const resolvedDailyRaffleHistory = await Promise.all((Array.isArray(dailyRaffleHistory) ? dailyRaffleHistory : []).map(async (row) => {
+      const raffleRow = row as Record<string, unknown>;
+      const linkedClaim = claimById.get(String(raffleRow.claim_id || '').trim()) || null;
+      const resolvedWallet = normalizeAddress(raffleRow.winner_wallet) || normalizeAddress(linkedClaim?.wallet_address) || '';
+      const resolvedName = await resolvePlayerDisplayName(admin, resolvedWallet, firstText(raffleRow.winner_name, linkedClaim?.player_name_snapshot));
+      return {
+        ...raffleRow,
+        winner_wallet: resolvedWallet || raffleRow.winner_wallet || '',
+        winner_name: resolvedName,
+        payout_status: resolvedWallet ? getResolvedPayoutStatus(row as RowLike, safeRewardClaimRows) : 'no winner',
+      };
+    }));
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
     const lifetimeBurnedGold = safeBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
     const todayBurnedGold = todayBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);

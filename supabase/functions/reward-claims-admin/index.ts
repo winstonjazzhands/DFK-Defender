@@ -28,6 +28,59 @@ function createAdmin() {
 
 
 
+
+function cleanDisplayName(value: unknown) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 64) : '';
+}
+
+async function resolvePlayerDisplayName(admin: ReturnType<typeof createAdmin>, wallet: unknown, fallbackName: unknown = '') {
+  const existingName = cleanDisplayName(fallbackName);
+  const walletAddress = normalizeAddress(String(wallet || ''));
+  if (!walletAddress) return existingName;
+
+  const nameFromRecord = (record: Record<string, unknown> | null | undefined) => {
+    if (!record) return '';
+    return cleanDisplayName(record.vanity_name)
+      || cleanDisplayName(record.display_name)
+      || cleanDisplayName(record.player_name)
+      || cleanDisplayName(record.name)
+      || cleanDisplayName(record.display_name_snapshot)
+      || cleanDisplayName(record.player_name_snapshot);
+  };
+
+  const lookups: Array<{ table: string; columns: string[]; walletColumns: string[]; orderColumn?: string }> = [
+    { table: 'players', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'player_profiles', columns: ['vanity_name, display_name', 'display_name, player_name', 'display_name'], walletColumns: ['wallet_address', 'wallet'] },
+    { table: 'runs', columns: ['display_name_snapshot, completed_at', 'player_name_snapshot, completed_at'], walletColumns: ['wallet_address', 'wallet'], orderColumn: 'completed_at' },
+  ];
+
+  for (const lookup of lookups) {
+    for (const columns of lookup.columns) {
+      for (const walletColumn of lookup.walletColumns) {
+        for (const operator of ['eq', 'ilike'] as const) {
+          try {
+            let query = admin.from(lookup.table).select(columns);
+            query = operator === 'eq'
+              ? query.eq(walletColumn, walletAddress)
+              : query.ilike(walletColumn, walletAddress);
+            if (lookup.orderColumn && columns.includes(lookup.orderColumn)) {
+              query = query.order(lookup.orderColumn, { ascending: false });
+            }
+            const { data, error } = await query.limit(1).maybeSingle();
+            if (!error && data) {
+              const resolved = nameFromRecord(data as Record<string, unknown>);
+              if (resolved) return resolved;
+            }
+          } catch (_error) {}
+        }
+      }
+    }
+  }
+
+  return existingName;
+}
+
 function formatWhen(iso: string | null | undefined) {
   const value = String(iso || '').trim();
   if (!value) return '';
@@ -314,6 +367,11 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     if (activityAt && (!entry.lastActivityAt || activityAt > entry.lastActivityAt)) entry.lastActivityAt = activityAt;
   }
 
+  await Promise.all(Array.from(spendByWallet.values()).map(async (entry) => {
+    const resolvedName = await resolvePlayerDisplayName(admin, entry.walletAddress, entry.playerName);
+    if (resolvedName) entry.playerName = resolvedName;
+  }));
+
   const lifetimeBurnRows = Array.isArray(burnRows) ? burnRows : [];
   const lifetimeTokenRows = mergedTokenRows;
   let lifetimeGoldBurned = 0;
@@ -341,6 +399,11 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
       lastActivityAtLabel: formatWhen(row.lastActivityAt),
     }))
     .sort((a, b) => {
+      const aMs = new Date(a.lastActivityAt || '').getTime();
+      const bMs = new Date(b.lastActivityAt || '').getTime();
+      const safeA = Number.isFinite(aMs) ? aMs : 0;
+      const safeB = Number.isFinite(bMs) ? bMs : 0;
+      if (safeB !== safeA) return safeB - safeA;
       const aScore = Number(a.dfkGoldBurned || 0) + Number(BigInt(a.jewelSpentWei || '0') / 1000000000000000n);
       const bScore = Number(b.dfkGoldBurned || 0) + Number(BigInt(b.jewelSpentWei || '0') / 1000000000000000n);
       return bScore - aScore;

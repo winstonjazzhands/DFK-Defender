@@ -10874,3 +10874,35 @@ body.how-to-play-open .center-panel {
 .champion-info-heading-row h2 {
   margin: 0;
 }
+
+/* Last Chance retry transaction lock */
+#continueOfferModal .small-action.is-busy {
+  opacity: 0.65;
+  cursor: wait;
+  filter: grayscale(0.25);
+}
+
+
+/* v46.9.1.246: keep Gen0 place buttons the same vertical height as normal hire buttons */
+.bottom-panel .hire-button-card-gen0 {
+  position: relative;
+  justify-content: flex-end;
+}
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0-note {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 2px;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  font-size: 8px;
+  line-height: 1;
+  z-index: 2;
+}
+.bottom-panel .hire-button-card-gen0 .hire-button-gen0 {
+  height: auto !important;
+  min-height: 0 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
