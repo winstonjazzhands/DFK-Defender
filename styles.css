@@ -10485,3 +10485,392 @@ body.how-to-play-open .center-panel {
   transform: scaleX(0.9);
   transform-origin: center center;
 }
+
+
+/* Wallet hero rarity display */
+.wallet-hero-card.wallet-hero-rarity-common { border-color: rgba(184, 190, 200, 0.55); }
+.wallet-hero-card.wallet-hero-rarity-uncommon { border-color: rgba(94, 210, 119, 0.72); box-shadow: 0 0 0 1px rgba(94, 210, 119, 0.12) inset; }
+.wallet-hero-card.wallet-hero-rarity-rare { border-color: rgba(95, 171, 255, 0.76); box-shadow: 0 0 0 1px rgba(95, 171, 255, 0.14) inset; }
+.wallet-hero-card.wallet-hero-rarity-legendary { border-color: rgba(255, 168, 67, 0.82); box-shadow: 0 0 0 1px rgba(255, 168, 67, 0.16) inset, 0 0 12px rgba(255, 168, 67, 0.12); }
+.wallet-hero-card.wallet-hero-rarity-mythic { border-color: rgba(188, 105, 255, 0.88); box-shadow: 0 0 0 1px rgba(188, 105, 255, 0.18) inset, 0 0 14px rgba(188, 105, 255, 0.14); }
+.wallet-hero-card.is-gen0 { border-color: rgba(255,215,92,0.9); }
+
+.tile-wallet-hero-rarity::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 3;
+  border: 2px solid rgba(184, 190, 200, 0.82);
+  box-shadow: inset 0 0 10px rgba(184, 190, 200, 0.20), 0 0 10px rgba(184, 190, 200, 0.18);
+}
+.tile-wallet-hero-rarity-uncommon::after { border-color: rgba(94, 210, 119, 0.92); box-shadow: inset 0 0 10px rgba(94, 210, 119, 0.22), 0 0 10px rgba(94, 210, 119, 0.18); }
+.tile-wallet-hero-rarity-rare::after { border-color: rgba(95, 171, 255, 0.95); box-shadow: inset 0 0 10px rgba(95, 171, 255, 0.24), 0 0 11px rgba(95, 171, 255, 0.20); }
+.tile-wallet-hero-rarity-legendary::after { border-color: rgba(255, 168, 67, 0.96); box-shadow: inset 0 0 11px rgba(255, 168, 67, 0.26), 0 0 13px rgba(255, 168, 67, 0.24); }
+.tile-wallet-hero-rarity-mythic::after { border-color: rgba(188, 105, 255, 0.98); box-shadow: inset 0 0 12px rgba(188, 105, 255, 0.30), 0 0 15px rgba(188, 105, 255, 0.26); }
+.tile-wallet-rarity-badge {
+  top: 40px !important;
+  left: 6px !important;
+  min-width: 24px;
+  text-align: center;
+  font-size: 9px !important;
+  letter-spacing: 0.04em;
+  padding: 1px 3px !important;
+  color: #fff !important;
+  background: rgba(38, 42, 50, 0.86) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.75) !important;
+  border: 1px solid rgba(255,255,255,0.35);
+  z-index: 5 !important;
+}
+.tile-wallet-rarity-common { background: rgba(92, 98, 108, 0.90) !important; }
+.tile-wallet-rarity-uncommon { background: rgba(22, 118, 52, 0.90) !important; }
+.tile-wallet-rarity-rare { background: rgba(32, 94, 178, 0.92) !important; }
+.tile-wallet-rarity-legendary { background: rgba(182, 92, 16, 0.94) !important; }
+.tile-wallet-rarity-mythic { background: rgba(116, 45, 170, 0.94) !important; }
+
+/* Rarity styles */
+.hero-tile.rarity-uncommon{border-color:rgba(120,255,120,0.6);background:rgba(120,255,120,0.08);}
+.hero-tile.rarity-rare{border-color:rgba(120,180,255,0.6);background:rgba(120,180,255,0.08);}
+.hero-tile.rarity-legendary{border-color:rgba(255,190,120,0.7);background:rgba(255,190,120,0.10);}
+.hero-tile.rarity-mythic{border-color:rgba(200,120,255,0.7);background:rgba(200,120,255,0.10);}
+
+/* v46.9.1.226: Wallet Heroes bonus info tooltip. */
+.wallet-hero-title-wrap{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.wallet-hero-info-icon{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  border:1px solid rgba(244,230,189,0.75);
+  border-radius:999px;
+  color:#f4e6bd;
+  background:rgba(244,230,189,0.08);
+  font-size:0.72rem;
+  font-weight:900;
+  line-height:1;
+  text-transform:none;
+  cursor:help;
+}
+.wallet-hero-info-icon:focus{
+  outline:2px solid rgba(244,230,189,0.45);
+  outline-offset:2px;
+}
+.wallet-hero-info-tooltip{
+  position:absolute;
+  left:50%;
+  top:calc(100% + 8px);
+  transform:translateX(-50%);
+  z-index:10050;
+  width:min(310px, 78vw);
+  padding:10px 12px;
+  border:1px solid rgba(244,230,189,0.35);
+  border-radius:12px;
+  background:rgba(23,16,38,0.98);
+  box-shadow:0 10px 26px rgba(0,0,0,0.45);
+  color:#f5edd4;
+  font-size:0.76rem;
+  font-weight:700;
+  line-height:1.35;
+  letter-spacing:0.01em;
+  text-align:left;
+  text-transform:none;
+  white-space:normal;
+  pointer-events:none;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity 120ms ease, visibility 120ms ease;
+}
+.wallet-hero-info-icon:hover .wallet-hero-info-tooltip,
+.wallet-hero-info-icon:focus .wallet-hero-info-tooltip{
+  opacity:1;
+  visibility:visible;
+}
+
+
+/* v46.9.1.227: Wallet Heroes in-menu bonus info and active bonus labels. */
+.wallet-hero-bonus-header{
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.wallet-hero-menu-title-wrap{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  margin-right:auto;
+}
+.wallet-hero-menu-title{
+  color:#f4e6bd;
+  font-weight:900;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  font-size:0.98rem;
+  text-shadow:0 1px 0 rgba(0,0,0,0.45);
+}
+.wallet-hero-menu-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.wallet-hero-selected-bonus,
+.wallet-hero-card-bonus{
+  display:block;
+  margin-top:3px;
+  color:#f4e6bd;
+  font-size:0.72rem;
+  font-weight:800;
+  line-height:1.25;
+  text-shadow:0 1px 2px rgba(0,0,0,0.55);
+}
+.wallet-hero-card-bonus{
+  opacity:0.95;
+}
+@media (max-width: 720px){
+  .wallet-hero-bonus-header{
+    align-items:flex-start;
+  }
+  .wallet-hero-menu-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+}
+
+/* v46.9.1.228: Clean in-menu Wallet Heroes info card; remove duplicate modal title. */
+.wallet-hero-panel.modal-open .wallet-hero-bonus-header::before,
+#walletHeroBonusSection.wallet-hero-panel.modal-open .wallet-hero-bonus-header::before{
+  content:none !important;
+  display:none !important;
+}
+#walletHeroBonusSection.wallet-hero-panel.modal-open .wallet-hero-bonus-header{
+  justify-content:space-between !important;
+}
+.wallet-hero-menu-title-wrap{
+  position:relative;
+}
+.wallet-hero-info-icon{
+  flex:0 0 auto;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.25), 0 0 10px rgba(244,230,189,0.12);
+}
+.wallet-hero-info-tooltip{
+  left:0 !important;
+  top:calc(100% + 10px) !important;
+  transform:none !important;
+  width:min(390px, calc(100vw - 52px)) !important;
+  padding:12px !important;
+  border-color:rgba(244,230,189,0.48) !important;
+  border-radius:14px !important;
+  background:linear-gradient(180deg, rgba(36,30,52,0.99), rgba(19,18,32,0.99)) !important;
+  box-shadow:0 16px 38px rgba(0,0,0,0.58), 0 0 18px rgba(244,230,189,0.10) !important;
+}
+.wallet-hero-info-tooltip::before{
+  content:'';
+  position:absolute;
+  left:16px;
+  top:-7px;
+  width:12px;
+  height:12px;
+  transform:rotate(45deg);
+  background:rgba(36,30,52,0.99);
+  border-left:1px solid rgba(244,230,189,0.48);
+  border-top:1px solid rgba(244,230,189,0.48);
+}
+.wallet-hero-info-heading{
+  display:block;
+  margin:0 0 8px;
+  color:#f4e6bd;
+  font-size:0.82rem;
+  font-weight:950;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+}
+.wallet-hero-info-row{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:10px;
+  align-items:start;
+  padding:7px 8px;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;
+  background:rgba(255,255,255,0.045);
+}
+.wallet-hero-info-row + .wallet-hero-info-row{ margin-top:6px; }
+.wallet-hero-info-name{ font-weight:950; color:#fff4cd; }
+.wallet-hero-info-value{ color:#e9dec6; font-weight:750; }
+.wallet-hero-info-row-gen0{ border-color:rgba(255,215,92,0.32); background:rgba(255,215,92,0.07); }
+.wallet-hero-info-row-uncommon{ border-color:rgba(120,255,120,0.26); background:rgba(120,255,120,0.055); }
+.wallet-hero-info-row-rare{ border-color:rgba(120,180,255,0.28); background:rgba(120,180,255,0.06); }
+.wallet-hero-info-row-legendary{ border-color:rgba(255,190,120,0.32); background:rgba(255,190,120,0.07); }
+.wallet-hero-info-row-mythic{ border-color:rgba(200,120,255,0.32); background:rgba(200,120,255,0.07); }
+@media (max-width:540px){
+  .wallet-hero-info-tooltip{ left:-8px !important; width:min(340px, calc(100vw - 36px)) !important; }
+  .wallet-hero-info-row{ grid-template-columns:1fr; gap:3px; }
+}
+
+.selected-info-rarity-buff {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(188, 105, 255, 0.42);
+  background: rgba(80, 42, 120, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.selected-info-rarity-buff strong {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #e7c7ff;
+}
+.selected-info-rarity-buff span {
+  font-size: 12px;
+  color: rgba(244, 232, 255, 0.92);
+}
+.champion-rarity-chip {
+  border: 1px solid rgba(255,255,255,.14);
+}
+.champion-rarity-common { color: #d5dae3; }
+.champion-rarity-uncommon { color: #9ff0a9; background: rgba(36, 118, 56, 0.22); border-color: rgba(94, 210, 119, 0.45); }
+.champion-rarity-rare { color: #9dccff; background: rgba(40, 96, 170, 0.22); border-color: rgba(95, 171, 255, 0.48); }
+.champion-rarity-legendary { color: #ffc47f; background: rgba(160, 92, 25, 0.22); border-color: rgba(255, 168, 67, 0.52); }
+.champion-rarity-mythic { color: #deb2ff; background: rgba(110, 53, 168, 0.24); border-color: rgba(188, 105, 255, 0.56); }
+.champion-info-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.champion-info-title-row p { margin: 0; }
+.champion-info-rarity-icon { flex: 0 0 auto; }
+.champion-info-card { cursor: default; }
+.champion-info-card:hover { transform: none; }
+.champion-info-modal-card .champion-modal-body {
+  max-height: min(58vh, 520px);
+  overflow: auto;
+}
+
+/* v46.9.1.231: Auto-select schema note inside Hero Bonus Info tooltip. */
+.wallet-hero-info-auto-select {
+  display: block;
+  margin: 7px 0 8px;
+  padding: 7px 8px;
+  border: 1px solid rgba(245, 214, 107, 0.24);
+  border-radius: 8px;
+  background: rgba(245, 214, 107, 0.08);
+  color: rgba(255, 246, 205, 0.95);
+  line-height: 1.35;
+}
+.wallet-hero-info-auto-title {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.wallet-hero-info-auto-path {
+  display: block;
+  font-size: 11px;
+  opacity: 0.95;
+}
+
+
+/* v46.9.1.234 champion info modal click-away fix */
+.champion-card:not(.champion-info-card) {
+  cursor: pointer;
+}
+.champion-card:not(.champion-info-card):hover {
+  border-color: rgba(255, 232, 160, 0.55);
+  box-shadow: 0 0 12px rgba(255, 220, 120, 0.14);
+}
+.champion-card-meta {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.champion-rarity-row {
+  display: flex;
+  width: 100%;
+  margin: 1px 0 6px;
+}
+.champion-rarity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.38);
+  box-shadow: 0 0 10px rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.12);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+}
+.champion-rarity-name {
+  text-transform: uppercase;
+}
+.champion-rarity-bonus {
+  opacity: 0.98;
+}
+.champion-rarity-common {
+  color: #f7f1de;
+  background: linear-gradient(180deg, rgba(96,96,106,0.95), rgba(48,48,58,0.95));
+}
+.champion-rarity-uncommon {
+  color: #ebffe9;
+  background: linear-gradient(180deg, rgba(55,176,83,0.96), rgba(23,105,44,0.96));
+  border-color: rgba(172,255,178,0.7);
+}
+.champion-rarity-rare {
+  color: #ecf7ff;
+  background: linear-gradient(180deg, rgba(55,151,237,0.98), rgba(28,84,168,0.98));
+  border-color: rgba(173,221,255,0.75);
+}
+.champion-rarity-legendary {
+  color: #fff7e6;
+  background: linear-gradient(180deg, rgba(237,160,35,0.98), rgba(159,85,18,0.98));
+  border-color: rgba(255,221,147,0.78);
+}
+.champion-rarity-mythic {
+  color: #fff0ff;
+  background: linear-gradient(180deg, rgba(180,89,255,0.98), rgba(103,44,190,0.98));
+  border-color: rgba(232,190,255,0.82);
+}
+.champion-card-side .champion-rarity-row {
+  margin: 3px 0 0;
+}
+.champion-card-side .champion-rarity-badge {
+  font-size: 9px;
+  padding: 2px 7px;
+}
+
+/* v46.9.1.236 champion info left menu position */
+.champion-info-menu-btn {
+  width: 100%;
+  margin: 8px 0;
+}
+
+/* v46.9.1.237 champion info header cleanup */
+.champion-info-modal-header {
+  align-items: center;
+}
+.champion-info-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.champion-info-heading-row h2 {
+  margin: 0;
+}

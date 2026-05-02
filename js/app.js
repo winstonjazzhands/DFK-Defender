@@ -1,3 +1,14 @@
+
+function getRarityClass(hero){
+  if(hero.generation === 0) return "";
+  const r = (hero.rarity || "").toLowerCase();
+  if(r==="uncommon") return "rarity-uncommon";
+  if(r==="rare") return "rarity-rare";
+  if(r==="legendary") return "rarity-legendary";
+  if(r==="mythic") return "rarity-mythic";
+  return "";
+}
+
 // build: v46.9.1.198
 
 let lastTouchEnd = 0;
@@ -1234,6 +1245,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     championPanelToggle: document.getElementById('championPanelToggle'),
     championPanelBody: document.getElementById('championPanelBody'),
     championPanelSummary: document.getElementById('championPanelSummary'),
+    championInfoMenuBtn: document.getElementById('championInfoMenuBtn'),
     championStatus: document.getElementById('championStatus'),
     championBody: document.getElementById('championBody'),
     refreshChampionsBtn: document.getElementById('refreshChampionsBtn'),
@@ -1251,6 +1263,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     championModalBody: document.getElementById('championModalBody'),
     championConfirmBtn: document.getElementById('championConfirmBtn'),
     championSkipBtn: document.getElementById('championSkipBtn'),
+    championInfoModal: document.getElementById('championInfoModal'),
+    championInfoModalBody: document.getElementById('championInfoModalBody'),
+    championInfoCloseBtn: document.getElementById('championInfoCloseBtn'),
+    championInfoChooseBtn: document.getElementById('championInfoChooseBtn'),
     championLockModal: document.getElementById('championLockModal'),
     championLockText: document.getElementById('championLockText'),
     championLockCancelBtn: document.getElementById('championLockCancelBtn'),
@@ -1364,6 +1380,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     autoStartToken: 0,
     lastTopbarUiRefreshAt: 0,
     lastSelectedPanelRefreshAt: 0,
+    openAbilityDetailsByTowerId: {},
     lastMobileFitRefreshAt: 0,
     bonusHeroHireCharges: 0,
     placingHeroUsesBonus: false,
@@ -2677,6 +2694,7 @@ function hasVisibleIntroStyleModal() {
     'seerIntroModal',
     'startModeModal',
     'championModal',
+    'championInfoModal',
     'championLockModal',
     'rewardPayoutNoticeModal',
   ];
@@ -8776,7 +8794,7 @@ function canSubmitRewardClaims() {
             <li><span class="intro-highlight">Prayer of Healing</span>: Heals all allies within 5 tiles for 3% of max HP. Cooldown: 5.0s.</li>
             <li><span class="intro-highlight">Swiftness</span>: Increases attack speed of nearby allies by 50% for 8 seconds. This is an unlock ability and is 100% stronger with a 50% longer cooldown. Cooldown: 45.0s.</li>
             <li><span class="intro-highlight">Blinding Light Totem</span>: Every 10 cleared waves, gains 1 Totem charge that can be placed for 7 waves. Enemies inside are slowed by 25% and have 10% reduced attack speed, with effects lingering for 5 seconds after leaving.</li>
-            <li><span class="intro-highlight">Healing Aura</span> (Level 15): Heals allies within 2 tiles for 38 HP per second, increasing by +2 HP per second per level. Always active once unlocked.</li>
+            <li><span class="intro-highlight">Healing Aura</span> (Level 1): Heals allies within 2 tiles for 1% of each target's max HP every second, growing up to 3% over 50 Priest levels. Always active.</li>
             <li><span class="intro-highlight">Divine Soldier</span> (Level 10): Reduces Prayer of Healing cooldown by 0.1s per level, to a minimum of 1.0s.</li>
           </ul>
         </div>
@@ -8957,6 +8975,8 @@ function canSubmitRewardClaims() {
     24: 'Dragoon', 25: 'Sage', 26: 'SpellBow', 28: 'DreadKnight'
   });
   const DFK_RARITY_NAMES = Object.freeze({ 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Legendary', 4: 'Mythic' });
+  const DFK_RARITY_CLASS_NAMES = Object.freeze({ 0: 'common', 1: 'uncommon', 2: 'rare', 3: 'legendary', 4: 'mythic' });
+  const DFK_RARITY_SHORT_NAMES = Object.freeze({ 0: 'COM', 1: 'UNC', 2: 'RARE', 3: 'LEG', 4: 'MYTH' });
   const CHAMPION_DEFINITIONS = Object.freeze({
     dreadknight: {
       key: 'dreadknight', heroClass: 'DreadKnight', label: 'Dreadknight', towerType: 'champion_dreadknight',
@@ -9163,23 +9183,39 @@ function canSubmitRewardClaims() {
   function getGen0BuffInfoMarkup(tower) {
     try {
       const hasActiveBuff = isGen0BonusTower(tower);
-      const selectedGen0Count = getSelectedGen0WalletHeroCount();
-      const activeClassCount = getActiveGen0ClassCount();
-      const towerClassActive = tower && isGen0ClassActive(tower.type);
-      if (!hasActiveBuff && selectedGen0Count < 1 && activeClassCount < 1) return '';
-      let title = hasActiveBuff ? 'GEN0 BUFF ACTIVE' : 'GEN0 BUFF ARMED';
-      let detail = '+20% damage • +10% attack speed • +10% max HP • +30% healing power';
-      if (!hasActiveBuff) {
-        if (towerClassActive) title = 'GEN0 CLASS BUFF ACTIVE';
-        detail = activeClassCount > 0
-          ? 'Gen0 class buff armed for this run. Future hires in unlocked Gen0 classes also receive +20% damage, +10% attack speed, +10% max HP, and +30% healing power.'
-          : (selectedGen0Count + ' selected Gen0 hero' + (selectedGen0Count === 1 ? '' : 'es') + ' will unlock the class buff when placed.');
-      }
+      if (!hasActiveBuff) return '';
+      const title = 'GEN0 BUFF ACTIVE';
+      const detail = '+20% damage • +10% attack speed • +10% max HP • +30% healing power';
       return '<div class="selected-info-gen0-buff"><strong>' + title + '</strong><span>' + escapeHtml(detail) + '</span></div>';
     } catch (error) {
       console.warn('[gen0-ui] failed to render buff info', error);
       return '';
     }
+  }
+
+  function getRarityBuffInfoMarkup(tower) {
+    try {
+      if (!tower || Number(tower.walletHeroRarityBonus || 0) <= 0) return '';
+      const rarityName = String(tower.walletHeroRarityName || getDfKRarityName(tower.walletHeroRarity) || 'Rarity').trim();
+      const percent = Math.round(Number(tower.walletHeroRarityBonus || 0) * 100);
+      return '<div class="selected-info-rarity-buff"><strong>' + escapeHtml(rarityName.toUpperCase()) + ' RARITY BUFF ACTIVE</strong><span>+' + percent + '% damage and max HP from this hero NFT.</span></div>';
+    } catch (error) {
+      console.warn('[rarity-ui] failed to render buff info', error);
+      return '';
+    }
+  }
+
+  function getChampionRarityChipMarkup(heroLike) {
+    const rarityName = String(heroLike?.rarityName || getDfKRarityName(heroLike?.rarity) || 'Common').trim();
+    const key = rarityName.toLowerCase();
+    const safeKey = ['uncommon', 'rare', 'legendary', 'mythic'].includes(key) ? key : 'common';
+    const bonus = getWalletHeroRarityCombatBonus(heroLike, { includeGen0: true });
+    const bonusText = bonus > 0 ? '+' + Math.round(bonus * 100) + '% DMG/HP' : 'No rarity bonus';
+    return '<span class="champion-rarity-badge champion-rarity-' + safeKey + '"><span class="champion-rarity-name">' + escapeHtml(rarityName || 'Common') + '</span><span class="champion-rarity-bonus">' + escapeHtml(bonusText) + '</span></span>';
+  }
+
+  function getChampionRarityRowMarkup(heroLike) {
+    return '<div class="champion-rarity-row">' + getChampionRarityChipMarkup(heroLike) + '</div>';
   }
 
   function getActiveGen0ClassNames() {
@@ -9288,6 +9324,8 @@ function canSubmitRewardClaims() {
       chainId: config ? config.chainId : next.chainId,
       chainName: config ? config.name : (next.chainName || 'Wallet'),
       transferSupported: config ? !!config.transferSupported : !!next.transferSupported,
+      rarity: Number.isFinite(Number(next.rarity)) ? Number(next.rarity) : (Number.isFinite(Number(next.rarity_id)) ? Number(next.rarity_id) : null),
+      rarityName: String(next.rarityName || next.rarity_name || (Number.isFinite(Number(next.rarity)) ? getDfKRarityName(Number(next.rarity)) : '')).trim(),
       imageUrl: normalizeHeroMediaUrl(next.imageUrl) || `https://heroes.defikingdoms.com/image/${encodeURIComponent(normalizedId || rawId)}`,
     };
   }
@@ -9314,11 +9352,56 @@ function canSubmitRewardClaims() {
     return raw;
   }
 
+  function getWalletHeroRarityRank(heroLike) {
+    if (!heroLike) return -1;
+    const numeric = Number(heroLike.rarity);
+    if (Number.isFinite(numeric)) return numeric;
+    const name = String(heroLike.rarityName || heroLike.rarity_name || '').trim().toLowerCase();
+    if (name === 'mythic') return 4;
+    if (name === 'legendary') return 3;
+    if (name === 'rare') return 2;
+    if (name === 'uncommon') return 1;
+    if (name === 'common') return 0;
+    return -1;
+  }
+
+  function getWalletHeroRarityCombatBonus(heroLike, options = {}) {
+    if (!heroLike || (!options.includeGen0 && isGen0WalletHero(heroLike))) return 0;
+    const rank = getWalletHeroRarityRank(heroLike);
+    if (rank >= 4) return 0.20;
+    if (rank === 3) return 0.15;
+    if (rank === 2) return 0.10;
+    if (rank === 1) return 0.05;
+    return 0;
+  }
+
+  function getWalletHeroRarityBonusLabel(heroLike) {
+    const bonus = getWalletHeroRarityCombatBonus(heroLike);
+    if (bonus <= 0) return '';
+    const rarityName = String(heroLike?.rarityName || getDfKRarityName(heroLike?.rarity)).trim();
+    return `${rarityName || 'Rarity'} bonus +${Math.round(bonus * 100)}% DMG/HP`;
+  }
+
+  function getWalletHeroActiveBonusLabel(heroLike) {
+    if (!heroLike) return 'No NFT bonus active';
+    if (isGen0WalletHero(heroLike)) return 'Active bonus: Gen0 +20% DMG, +10% SPEED, +10% LIFE, +30% HEALING';
+    const rarityLabel = getWalletHeroRarityBonusLabel(heroLike);
+    if (rarityLabel) return `Active bonus: ${rarityLabel}`;
+    const rarityName = String(heroLike.rarityName || getDfKRarityName(heroLike.rarity) || 'Common').trim();
+    return `Active bonus: ${rarityName} rarity, no stat bonus`;
+  }
+
   function compareWalletHeroes(a, b) {
     const typeDelta = DFK_SLOT_ORDER.indexOf(a.type) - DFK_SLOT_ORDER.indexOf(b.type);
     if (typeDelta !== 0) return typeDelta;
+
+    // Auto-select priority, within each class:
+    // Gen0 highest rarity + level > Gen0 highest rarity > Gen0 highest level >
+    // non-Gen0 highest rarity + level > non-Gen0 highest rarity > non-Gen0 highest level.
     const gen0Delta = (isGen0WalletHero(b) ? 1 : 0) - (isGen0WalletHero(a) ? 1 : 0);
     if (gen0Delta !== 0) return gen0Delta;
+    const rarityDelta = getWalletHeroRarityRank(b) - getWalletHeroRarityRank(a);
+    if (rarityDelta !== 0) return rarityDelta;
     const levelDelta = Number(b.level || 0) - Number(a.level || 0);
     if (levelDelta !== 0) return levelDelta;
     const chainDelta = String(a.chainKey || '').localeCompare(String(b.chainKey || ''));
@@ -9495,6 +9578,30 @@ function canSubmitRewardClaims() {
   function getDfKRarityName(rarity) {
     const id = Number(rarity);
     return DFK_RARITY_NAMES[id] || 'Unknown';
+  }
+
+  function getDfKRarityClassName(rarity) {
+    const id = Number(rarity);
+    return DFK_RARITY_CLASS_NAMES[id] || 'unknown';
+  }
+
+  function getDfKRarityShortName(rarity) {
+    const id = Number(rarity);
+    return DFK_RARITY_SHORT_NAMES[id] || 'NFT';
+  }
+
+  function getWalletHeroRarityParts(heroLike) {
+    if (!heroLike || isGen0WalletHero(heroLike)) return [];
+    const rarityName = String(heroLike.rarityName || getDfKRarityName(heroLike.rarity)).trim();
+    return rarityName && rarityName !== 'Unknown' ? [rarityName] : [];
+  }
+
+  function getTowerWalletHeroRarity(tower) {
+    if (!tower || !tower.walletHeroId || isGen0BonusTower(tower) || tower.walletHeroIsGen0 === true) return null;
+    const rarity = Number(tower.walletHeroRarity);
+    const name = String(tower.walletHeroRarityName || getDfKRarityName(rarity)).trim();
+    if (!Number.isFinite(rarity) || !name || name === 'Unknown') return null;
+    return { rarity, name, className: getDfKRarityClassName(rarity), shortName: getDfKRarityShortName(rarity) };
   }
 
   function getTransferHeroSearchValue() {
@@ -10109,13 +10216,17 @@ function canSubmitRewardClaims() {
       const existingLevel = existing ? Math.max(1, Number(existing.hero.level || 1)) : -1;
       const existingHeroId = existing ? Number(existing.hero.id || 0) : -1;
       const heroId = Number(hero.id || 0);
-      if (!existing || level > existingLevel || (level === existingLevel && heroId > existingHeroId)) {
+      const rarityRank = getWalletHeroRarityRank(hero);
+      const existingRarityRank = existing ? getWalletHeroRarityRank(existing.hero) : -1;
+      if (!existing || rarityRank > existingRarityRank || (rarityRank === existingRarityRank && level > existingLevel) || (rarityRank === existingRarityRank && level === existingLevel && heroId > existingHeroId)) {
         bestByChampionKey.set(key, { key, hero, definition: CHAMPION_DEFINITIONS[key] });
       }
     }
     const roster = Array.from(bestByChampionKey.values());
     if (!roster.length) roster.push(...getChampionTestRoster());
     return roster.sort((a, b) => {
+      const rarityDiff = getWalletHeroRarityRank(b.hero) - getWalletHeroRarityRank(a.hero);
+      if (rarityDiff !== 0) return rarityDiff;
       const levelDiff = Number(b.hero.level || 0) - Number(a.hero.level || 0);
       if (levelDiff !== 0) return levelDiff;
       return String(a.definition.label || '').localeCompare(String(b.definition.label || ''));
@@ -10147,8 +10258,9 @@ function canSubmitRewardClaims() {
           game.selectedChampionSnapshot = { key: lockedMatch.key, hero: { ...lockedMatch.hero }, definition: lockedMatch.definition };
         }
       } else {
-        game.selectedChampionKey = game.championRoster[0].key;
-        game.selectedChampionHeroId = String(game.championRoster[0].hero.id);
+        game.selectedChampionKey = '';
+        game.selectedChampionHeroId = '';
+        game.selectedChampionSnapshot = null;
         if (!game.selectedChampionConfirmed && Number(game.waveNumber || 0) === 0 && !game.runningWave) {
           game.championModalForceChoice = false;
         }
@@ -10169,13 +10281,7 @@ function canSubmitRewardClaims() {
     if (!roster.length) return null;
     let selected = getSelectedChampionRecord();
     if (!selected) {
-      const preferred = roster[0];
-      game.selectedChampionKey = preferred.key;
-      game.selectedChampionHeroId = String(preferred.hero.id);
-      if (!game.selectedChampionConfirmed || !game.selectedChampionSnapshot) {
-        game.selectedChampionSnapshot = { key: preferred.key, hero: { ...preferred.hero }, definition: preferred.definition };
-      }
-      selected = getSelectedChampionRecord() || preferred;
+      return null;
     }
     if (selected && options.autoConfirm && !game.selectedChampionConfirmed) {
       game.selectedChampionConfirmed = true;
@@ -10219,7 +10325,7 @@ function canSubmitRewardClaims() {
             <p class="champion-side-summary">${escapeHtml(definition.summary || '')}</p>
             <ul class="champion-side-skills">${(definition.skills || []).map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>
           </div>` : '';
-        card.innerHTML = `<button type="button" class="champion-card-side-toggle champion-card-side-compact" aria-expanded="${detailsShouldShow ? 'true' : 'false'}"><div class="champion-card-header champion-card-header-compact"><img class="champion-card-portrait champion-card-portrait-compact" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext champion-card-headtext-compact"><h3>${definition.label}</h3><div class="champion-card-meta champion-card-meta-compact"><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero #${escapeHtml(String(hero.id || ''))}</span></div></div></div></button>${detailsHtml}`;
+        card.innerHTML = `<button type="button" class="champion-card-side-toggle champion-card-side-compact" aria-expanded="${detailsShouldShow ? 'true' : 'false'}"><div class="champion-card-header champion-card-header-compact"><img class="champion-card-portrait champion-card-portrait-compact" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext champion-card-headtext-compact"><h3>${definition.label}</h3><div class="champion-card-meta champion-card-meta-compact"><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero #${escapeHtml(String(hero.id || ''))}</span></div>${getChampionRarityRowMarkup(hero)}</div></div></button>${detailsHtml}`;
         const toggle = card.querySelector('.champion-card-side-toggle');
         if (toggle) {
           toggle.addEventListener('click', () => {
@@ -10238,26 +10344,28 @@ function canSubmitRewardClaims() {
         container.appendChild(card);
         continue;
       }
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = `champion-card${isSelected ? ' selected' : ''}`;
-      card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div></div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>`;
-      card.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (game.selectedChampionConfirmed) {
-          const locked = getSelectedChampionRecord();
-          showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
-          return;
-        }
-        game.selectedChampionKey = entry.key;
-        game.selectedChampionHeroId = heroId;
-        if (!game.selectedChampionConfirmed) game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
-        renderChampionPanel();
-        if (options.inModal && els.championModalBody) {
-          renderChampionCards(els.championModalBody, { inModal: true });
-        }
-      });
+      const card = document.createElement(options.informational ? 'div' : 'button');
+      if (!options.informational) card.type = 'button';
+      card.className = `champion-card${isSelected ? ' selected' : ''}${options.informational ? ' champion-info-card' : ''}`;
+      card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div>${getChampionRarityRowMarkup(hero)}</div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>`;
+      if (!options.informational) {
+        card.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (game.selectedChampionConfirmed) {
+            const locked = getSelectedChampionRecord();
+            showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+            return;
+          }
+          game.selectedChampionKey = entry.key;
+          game.selectedChampionHeroId = heroId;
+          if (!game.selectedChampionConfirmed) game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
+          renderChampionPanel();
+          if (options.inModal && els.championModalBody) {
+            renderChampionCards(els.championModalBody, { inModal: true });
+          }
+        });
+      }
       container.appendChild(card);
     }
   }
@@ -10303,6 +10411,43 @@ function canSubmitRewardClaims() {
         activeUntil: Number(game.championActiveUntilWave || 0),
       });
     } catch (_error) {}
+  }
+
+  function showChampionInfoModal() {
+    if (!els.championInfoModal || !els.championInfoModalBody || !(game.championRoster || []).length) {
+      showBanner('No champion NFTs detected yet.', 1800);
+      return false;
+    }
+    try {
+      hideRewardPayoutNoticeModal();
+      closeIntroModal();
+      closeBountyModal();
+      closeQuestsModal();
+      closeTrackedRunsModal();
+      closeKnownRelicsModal();
+      closeContinueOfferModal();
+      closeGuestConnectConfirmModal({ preserveIntroState: true });
+      closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
+      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+    } catch (_error) {}
+    renderChampionCards(els.championInfoModalBody, { informational: true });
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    els.championInfoModal.style.zIndex = '21050';
+    els.championInfoModal.style.pointerEvents = 'auto';
+    const card = els.championInfoModal.querySelector('.intro-modal-card');
+    if (card) card.style.pointerEvents = 'auto';
+    els.championInfoModal.classList.remove('hidden');
+    els.championInfoModal.setAttribute('aria-hidden', 'false');
+    return true;
+  }
+
+  function hideChampionInfoModal() {
+    if (!els.championInfoModal) return;
+    els.championInfoModal.classList.add('hidden');
+    els.championInfoModal.setAttribute('aria-hidden', 'true');
+    syncIntroOpenClassFromVisibleModals();
   }
 
   function showChampionModal(forceOpen = false) {
@@ -10418,7 +10563,7 @@ function canSubmitRewardClaims() {
       showBanner(`${selected.definition.label} is already locked in for this run.`, 1800);
       return true;
     }
-    return showChampionLockModal();
+    return finalizeChampionConfirmation();
   }
 
   function renderChampionPanel() {
@@ -10427,6 +10572,11 @@ function canSubmitRewardClaims() {
     const hasWallet = !!getConnectedWalletAddress();
     els.championPanel.classList.toggle('hidden', !hasWallet);
     els.championPanel.setAttribute('aria-hidden', hasWallet ? 'false' : 'true');
+    if (els.championInfoMenuBtn) {
+      const showChampionInfoMenu = hasWallet && !!((game.championRoster || []).length) && !game.selectedChampionConfirmed && !(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
+      els.championInfoMenuBtn.classList.toggle('hidden', !showChampionInfoMenu);
+      els.championInfoMenuBtn.disabled = !showChampionInfoMenu;
+    }
     if (!hasWallet) {
       els.championStatus.textContent = 'Connect a wallet to detect champion NFTs on DFK Chain and Metis.';
       els.championBody.innerHTML = '';
@@ -10460,15 +10610,17 @@ function canSubmitRewardClaims() {
         : '';
     }
     if (els.deployChampionBtn) {
-      const selected = ensureChampionSelectionReady({ autoConfirm: false });
+      const selected = getSelectedChampionRecord();
+      const hasChampionRoster = !!((game.championRoster || []).length);
       const waited = getChampionWavesWaited();
       const deployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
       const required = getChampionRequiredWaitWaves();
       const ready = waited >= required && !deployed;
-      const canAutoConfirmForDeploy = Number(game.waveNumber || 0) > 0;
-      els.deployChampionBtn.disabled = !selected || deployed || waited < required || !!game.placingHeroType || (!game.selectedChampionConfirmed && !canAutoConfirmForDeploy);
-      els.deployChampionBtn.textContent = 'Deploy';
-      els.deployChampionBtn.classList.toggle('hidden', !!game.championPanelCollapsed && ready);
+      const showInfoButton = hasChampionRoster && !game.selectedChampionConfirmed && !deployed;
+      els.deployChampionBtn.disabled = showInfoButton ? false : (!selected || deployed || waited < required || !!game.placingHeroType);
+      els.deployChampionBtn.textContent = showInfoButton ? 'Champion' : 'Deploy';
+      els.deployChampionBtn.title = showInfoButton ? 'View detected champion skills, rarity, and level.' : 'Deploy the selected champion when ready.';
+      els.deployChampionBtn.classList.toggle('hidden', !!game.championPanelCollapsed && ready && !showInfoButton);
     }
     setChampionPanelCollapsed(!!game.championPanelCollapsed);
   }
@@ -10495,24 +10647,13 @@ function canSubmitRewardClaims() {
       game.placingWalletHeroId = null;
       game.championPlacementPending = null;
     }
-    if (!selected) {
-      if (canChooseChampionNow()) {
-        showChampionModal(true);
+    if (!selected || !game.selectedChampionConfirmed) {
+      if ((game.championRoster || []).length) {
+        showChampionInfoModal();
       } else {
         showBanner('No champion is available for this run.', 1800);
       }
       return;
-    }
-    if (!game.selectedChampionConfirmed) {
-      if (canChooseChampionNow()) {
-        showChampionModal(true);
-        showBanner('Lock in your champion before the run begins.', 2000);
-      } else {
-        game.selectedChampionConfirmed = true;
-        game.selectedChampionSnapshot = { key: selected.key, hero: { ...selected.hero }, definition: selected.definition };
-        game.championModalForceChoice = false;
-      }
-      if (!game.selectedChampionConfirmed) return;
     }
     if (game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId)) {
       showBanner('Champion is already on the field.', 1500);
@@ -10648,11 +10789,12 @@ function canSubmitRewardClaims() {
     const gen0DamageMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_DAMAGE_MULTIPLIER : 1;
     const gen0SpeedMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_SPEED_MULTIPLIER : 1;
     const gen0HpMult = isGen0BonusTower(tower) ? GEN0_WALLET_HERO_HP_MULTIPLIER : 1;
-    tower.damage = base.damage * gen0DamageMult;
-    tower.baseDamage = base.damage * gen0DamageMult;
+    const rarityMult = Number(tower.walletHeroRarityBonus || 0) > 0 ? (1 + Number(tower.walletHeroRarityBonus || 0)) : 1;
+    tower.damage = base.damage * gen0DamageMult * rarityMult;
+    tower.baseDamage = base.damage * gen0DamageMult * rarityMult;
     tower.range = base.range;
     tower.basicCooldown = ((TOWER_TEMPLATES.archer.attackInterval * 1000) / getArcherCooldownMultiplierForLevel(tower.level || 1)) / gen0SpeedMult;
-    tower.maxHp = (tower.isSatellite ? (base.hp * 0.5) : base.hp) * gen0HpMult;
+    tower.maxHp = (tower.isSatellite ? (base.hp * 0.5) : base.hp) * gen0HpMult * rarityMult;
     if (healToFull && tower.isSatellite) {
       tower.hp = tower.maxHp;
       return;
@@ -10952,12 +11094,18 @@ function canSubmitRewardClaims() {
       const satelliteWavesRemaining = Math.max(0, getSatelliteDissipateAfterWaves(tower) - getSatelliteWavesSurvived(tower));
       return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;"><span style="flex:1 1 auto;min-width:0;text-align:left;padding-left:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ARCHER SHADOW • ${rarityForLevel(tower.level)} • Level ${tower.level}</span><span style="flex:0 0 auto;margin-left:auto;text-align:right;padding-right:1px;white-space:nowrap;">${satelliteWavesRemaining} wave${satelliteWavesRemaining === 1 ? '' : 's'} left</span></div>`;
     }
-    const baseLabel = tower.isSoulSplit ? getTornSoulDisplayName(tower) : tower.type.toUpperCase();
+    const isChampionTower = !!(tower.isChampion || String(tower.type || '').startsWith('champion_'));
+    const baseLabel = tower.isSoulSplit
+      ? getTornSoulDisplayName(tower)
+      : (isChampionTower ? (tower.name || HERO_TILE_LABELS[tower.type] || String(tower.type || '').replace(/^champion_/, '').toUpperCase()) : tower.type.toUpperCase());
+    const rarityLabel = isChampionTower
+      ? String(tower.walletHeroRarityName || getDfKRarityName(tower.walletHeroRarity) || rarityForLevel(tower.level)).trim()
+      : rarityForLevel(tower.level);
     const safeLabel = escapeHtml(baseLabel);
     const decoratedLabel = isPureEnergyArchon(tower)
       ? `<span style="color:#ffffff;font-weight:800;letter-spacing:0.08em;text-shadow:0 0 10px rgba(255,255,255,0.95), 0 0 20px rgba(214,244,255,0.88), 0 0 34px rgba(214,244,255,0.72);">${safeLabel}</span>`
       : safeLabel;
-    return `${decoratedLabel} • ${rarityForLevel(tower.level)} • Level ${tower.level}`;
+    return `${decoratedLabel} • ${escapeHtml(rarityLabel || 'Rarity')} • Level ${tower.level}`;
   }
 
   function decoratePureEnergyText(text, tower) {
@@ -11053,11 +11201,42 @@ function canSubmitRewardClaims() {
     }
   }
 
+  function applyRarityCombatBonusToTower(tower, heroData) {
+    if (!tower || !heroData || tower.rarityCombatBonusApplied) return false;
+    const allowGen0Rarity = !!(tower.isChampion || String(tower.type || '').startsWith('champion_'));
+    if (!allowGen0Rarity && isGen0WalletHero(heroData)) return false;
+    const bonus = getWalletHeroRarityCombatBonus(heroData, { includeGen0: allowGen0Rarity });
+    if (bonus <= 0) return false;
+    const previousMaxHp = Number(tower.maxHp || 0);
+    const previousHp = Number(tower.hp || 0);
+    tower.walletHeroRarityBonus = bonus;
+    tower.rarityCombatBonusApplied = true;
+    if (tower.type === 'archer') {
+      normalizeArcherStats(tower);
+    } else {
+      const mult = 1 + bonus;
+      tower.damage = Math.max(0, Number(tower.damage || 0)) * mult;
+      tower.baseDamage = Math.max(0, Number(tower.baseDamage || tower.damage || 0)) * mult;
+      tower.maxHp = Math.max(1, Math.round(Number(tower.maxHp || 1) * mult));
+      tower.hp = Math.min(tower.maxHp, Math.max(1, Math.round(Number(tower.hp || tower.maxHp || 1) * mult)));
+    }
+    if (Number.isFinite(previousHp) && previousHp > 0 && Number.isFinite(previousMaxHp) && previousMaxHp > 0) {
+      const hpRatio = Math.max(0, Math.min(1, previousHp / previousMaxHp));
+      tower.hp = Math.max(1, Math.min(tower.maxHp, tower.maxHp * hpRatio));
+    }
+    const label = getWalletHeroRarityBonusLabel(heroData);
+    if (label && !String(tower.reportLabel || '').includes('Rarity')) tower.reportLabel = (tower.reportLabel || tower.name || 'Hero') + ` • Rarity +${Math.round(bonus * 100)}%`;
+    return true;
+  }
+
   function applyWalletHeroToTower(tower, heroData) {
     if (!tower || !heroData) return;
     tower.walletHeroId = String(heroData.id);
     tower.walletHeroLevel = Math.max(1, Number(heroData.level || 1));
     tower.walletHeroIsGen0 = isGen0WalletHero(heroData);
+    tower.walletHeroRarity = Number.isFinite(Number(heroData.rarity)) ? Number(heroData.rarity) : null;
+    tower.walletHeroRarityName = String(heroData.rarityName || getDfKRarityName(tower.walletHeroRarity)).trim();
+    tower.walletHeroRarityBonus = getWalletHeroRarityCombatBonus(heroData);
     tower.customPortraitUrl = '';
     tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Hero ${tower.walletHeroId}`;
     const targetLevel = Math.max(1, Number(heroData.level || 1));
@@ -11065,6 +11244,7 @@ function canSubmitRewardClaims() {
       applyTowerLevelStep(tower, nextLevel);
     }
     applyGen0WalletHeroCombatBonus(tower, heroData);
+    applyRarityCombatBonusToTower(tower, heroData);
   }
 
   function commitWalletHeroRoster(heroesByKey) {
@@ -11401,7 +11581,8 @@ function canSubmitRewardClaims() {
             <img src="${escapeHtml(getWalletHeroImage(selectedHero))}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} selected hero" loading="lazy" />
             <div class="wallet-hero-selected-meta">
               <div class="wallet-hero-selected-title">Hero #${escapeHtml(String(selectedHero.id))}</div>
-              <div class="wallet-hero-selected-sub">${getWalletHeroLineParts(selectedHero, [`Starts free at level ${String(selectedHero.level)}`]).map(escapeHtml).join(' • ')}</div>
+              <div class="wallet-hero-selected-sub">${getWalletHeroLineParts(selectedHero, [...getWalletHeroRarityParts(selectedHero), `Starts free at level ${String(selectedHero.level)}`]).map(escapeHtml).join(' • ')}</div>
+              <div class="wallet-hero-selected-bonus">${escapeHtml(getWalletHeroActiveBonusLabel(selectedHero))}</div>
             </div>
           </div>
         `;
@@ -11449,15 +11630,17 @@ function canSubmitRewardClaims() {
           button.type = 'button';
           const isSelectedHero = String((game.selectedWalletHeroes || {})[type] || '') === String(hero.id);
           const isGen0Hero = isGen0WalletHero(hero);
-          button.className = `wallet-hero-card${isSelectedHero ? ' is-selected' : ''}${isGen0Hero ? ' is-gen0' : ''}`;
+          const rarityClass = getDfKRarityClassName(hero.rarity);
+          button.className = `wallet-hero-card wallet-hero-rarity-${rarityClass}${isSelectedHero ? ' is-selected' : ''}${isGen0Hero ? ' is-gen0' : ''}`;
           const imageSrc = getWalletHeroImage(hero);
-          const badgeText = isGen0Hero ? (isSelectedHero ? 'GEN0 SELECTED' : 'GEN0 + BONUS') : (isSelectedHero ? 'Selected' : 'Use');
+          const badgeText = isGen0Hero ? (isSelectedHero ? 'GEN0 SELECTED' : 'GEN0 + BONUS') : (isSelectedHero ? 'Selected' : (hero.rarityName || 'Use'));
           button.innerHTML = `
             ${isGen0Hero ? `<span class="wallet-hero-card-badge wallet-hero-card-badge-top">${escapeHtml(badgeText)}</span>` : ''}
             <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(TOWER_TEMPLATES[type].name)} hero ${escapeHtml(String(hero.id))}" loading="lazy" />
             <span class="wallet-hero-card-meta">
               <span class="wallet-hero-card-title">Hero #${escapeHtml(String(hero.id))}</span>
-              <span class="wallet-hero-card-sub">${getWalletHeroLineParts(hero, [`Starts at level ${String(hero.level)} for free`]).map(escapeHtml).join(' • ')}</span>
+              <span class="wallet-hero-card-sub">${getWalletHeroLineParts(hero, [...getWalletHeroRarityParts(hero), `Starts at level ${String(hero.level)} for free`]).map(escapeHtml).join(' • ')}</span>
+              <span class="wallet-hero-card-bonus">${escapeHtml(getWalletHeroActiveBonusLabel(hero))}</span>
             </span>
             ${isGen0Hero ? '' : `<span class="wallet-hero-card-badge">${escapeHtml(badgeText)}</span>`}
           `;
@@ -11528,6 +11711,16 @@ function canSubmitRewardClaims() {
         small.className = 'tile-small';
         small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
+
+        const walletHeroRarity = getTowerWalletHeroRarity(tower);
+        if (walletHeroRarity) {
+          tile.el.classList.add('tile-wallet-hero-rarity', `tile-wallet-hero-rarity-${walletHeroRarity.className}`);
+          const rarityBadge = document.createElement('div');
+          rarityBadge.className = `tile-small tile-wallet-rarity-badge tile-wallet-rarity-${walletHeroRarity.className}`;
+          rarityBadge.textContent = walletHeroRarity.shortName;
+          rarityBadge.title = `${walletHeroRarity.name} wallet hero #${tower.walletHeroId}`;
+          tile.el.appendChild(rarityBadge);
+        }
 
         let stackedBuffBadgeCount = 0;
         const usesVerticalBuffStack = tower.type === 'monk' || tower.type === 'berserker';
@@ -11776,6 +11969,14 @@ function canSubmitRewardClaims() {
           gen0Note.className = 'tile-hover-meta';
           gen0Note.textContent = 'Gen0 bonus • +20% damage • +10% speed • +10% life • +30% healing';
           hover.appendChild(gen0Note);
+        } else {
+          const walletHeroRarity = getTowerWalletHeroRarity(tower);
+          if (walletHeroRarity) {
+            const rarityNote = document.createElement('div');
+            rarityNote.className = 'tile-hover-meta';
+            rarityNote.textContent = `${walletHeroRarity.name} wallet hero • #${tower.walletHeroId}`;
+            hover.appendChild(rarityNote);
+          }
         }
         if (isStatueTower(tower)) {
           const statueNote = document.createElement('div');
@@ -12558,10 +12759,17 @@ function canSubmitRewardClaims() {
     if (!row) return;
     const details = row.querySelector('.ability-row-details, .passive-card-body');
     if (!details) return;
+    const tower = getSelectedTower();
+    const detailKey = row.dataset.detailKey || row.querySelector('[data-ability-key]')?.dataset?.abilityKey || '';
     const willOpen = !row.classList.contains('open');
     closeAbilityDetails(row);
     row.classList.toggle('open', willOpen);
     details.classList.toggle('hidden', !willOpen);
+    if (tower && detailKey) {
+      if (!game.openAbilityDetailsByTowerId) game.openAbilityDetailsByTowerId = {};
+      if (willOpen) game.openAbilityDetailsByTowerId[tower.id] = detailKey;
+      else delete game.openAbilityDetailsByTowerId[tower.id];
+    }
     game.infoPopupPinned = false;
     hideAbilityInfo(true);
   }
@@ -12572,6 +12780,7 @@ function canSubmitRewardClaims() {
     game.renderedSelectionTowerId = tower ? tower.id : null;
     if (!tower) {
       game.infoPopupPinned = false;
+      game.openAbilityDetailsByTowerId = {};
       hideAbilityInfo(true);
       els.selectedInfo.textContent = 'Nothing selected.';
       els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to level up, move, or cast abilities.</div>';
@@ -12615,6 +12824,7 @@ function canSubmitRewardClaims() {
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
       Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
       ${getGen0BuffInfoMarkup(tower)}
+      ${getRarityBuffInfoMarkup(tower)}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
@@ -12635,6 +12845,7 @@ function canSubmitRewardClaims() {
       if (ability.passive) continue;
       const wrapper = document.createElement('div');
       wrapper.className = 'ability-row';
+      wrapper.dataset.detailKey = ability.key;
       const btn = document.createElement('button');
       const remain = Math.max(0, (getTowerAbilityReadyAt(tower, ability.key) - now()) / 1000);
       const locked = !isAbilityUnlocked(tower, ability.key);
@@ -12668,6 +12879,10 @@ function canSubmitRewardClaims() {
       wrapper.appendChild(btn);
       wrapper.appendChild(icon);
       wrapper.appendChild(details);
+      if (game.openAbilityDetailsByTowerId && game.openAbilityDetailsByTowerId[tower.id] === ability.key) {
+        wrapper.classList.add('open');
+        details.classList.remove('hidden');
+      }
       els.abilitiesPanel.appendChild(wrapper);
     }
     renderPassiveCards(tower);
@@ -12693,6 +12908,7 @@ function canSubmitRewardClaims() {
       Level Cap This Wave: L${getUpgradeLevelCap()}<br>
       Relics Owned: ${game.ownedRelics.length}${tower.type === 'seer' ? `<br>Active Seer Relics: ${escapeHtml(getActiveRelicSummaryForTower(tower))}` : ''}
       ${getGen0BuffInfoMarkup(tower)}
+      ${getRarityBuffInfoMarkup(tower)}
     `;
     els.upgradeBtn.disabled = !canUpgradeTower(tower) || !(game.phase === SETUP_PHASES.BATTLE || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.OBSTACLES);
     if (els.maxLevelBtn) els.maxLevelBtn.disabled = els.upgradeBtn.disabled || getMaxAffordableUpgradeCount(tower) < 1;
@@ -12794,14 +13010,20 @@ function canSubmitRewardClaims() {
     const championWaited = getChampionWavesWaited();
     const championRequired = getChampionRequiredWaitWaves();
     const championDeployed = !!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId));
-    const championReady = !!(championSelected && !championDeployed && championWaited >= championRequired && !game.placingHeroType && (game.selectedChampionConfirmed || Number(game.waveNumber || 0) > 0));
+    const hasChampionRoster = !!((game.championRoster || []).length);
+    // Keep the pre-selection Champion button visible even if ensureChampionSelectionReady()
+    // has a temporary highlighted/default champion. Only the explicit lock-in should hide
+    // the info-only window and switch this flow to deployment.
+    const championReady = !!(championSelected && game.selectedChampionConfirmed && !championDeployed && championWaited >= championRequired && !game.placingHeroType);
 
     if (championReady) {
       const championCard = document.createElement('div');
       championCard.className = 'card hire-button-card';
       const championBtn = document.createElement('button');
       championBtn.textContent = `Deploy ${championSelected.definition.label}`;
-      championBtn.addEventListener('click', () => beginChampionPlacement());
+      championBtn.addEventListener('click', () => {
+        beginChampionPlacement();
+      });
       championCard.appendChild(championBtn);
       els.hirePanel.appendChild(championCard);
     }
@@ -13559,7 +13781,7 @@ function canSubmitRewardClaims() {
       evasion: 20,
       starboard_cannons: 10,
       kraken: 16.5,
-      healing_aura: 15,
+      healing_aura: 1,
       eagle_nest: 1,
       soul_split: 1,
       slow_totem: 1,
@@ -13677,6 +13899,7 @@ function canSubmitRewardClaims() {
     for (const passiveEntry of passives) {
       const passive = document.createElement('div');
       passive.className = `card passive-card ${passiveEntry.locked ? 'passive-card-locked' : ''}`;
+      passive.dataset.detailKey = passiveEntry.key;
       if (tower.isSoulSplit) {
         passive.style.background = 'linear-gradient(135deg, rgba(84,84,92,0.94), rgba(55,47,77,0.94))';
         passive.style.borderColor = '#aaaab8';
@@ -13690,6 +13913,11 @@ function canSubmitRewardClaims() {
       }
       passive.innerHTML = `<button type="button" class="passive-card-header"><span class="passive-name">${passiveEntry.name}</span><span class="passive-card-caret">▾</span></button><div class="passive-card-body hidden">${subtitle}<p>${decoratePureEnergyText(passiveEntry.description, tower)}</p></div>`;
       const passiveHeader = passive.querySelector('.passive-card-header');
+      if (game.openAbilityDetailsByTowerId && game.openAbilityDetailsByTowerId[tower.id] === passiveEntry.key) {
+        passive.classList.add('open');
+        const body = passive.querySelector('.passive-card-body');
+        if (body) body.classList.remove('hidden');
+      }
       if (passiveHeader) passiveHeader.addEventListener('click', () => toggleAbilityDetails(passive));
       if (!tower.isSatellite && (passiveEntry.key === 'new_blood' || passiveEntry.key === 'eagle_nest' || passiveEntry.key === 'soul_split' || passiveEntry.key === 'slow_totem') && !passiveEntry.locked) {
         const charges = tower.satelliteCharges || 0;
@@ -13774,6 +14002,12 @@ function canSubmitRewardClaims() {
     return selected.slice(0, tileCount);
   }
 
+  function getPriestHealingAuraPercent(tower) {
+    const level = Math.max(1, Number(tower?.level || 1));
+    const progress = Math.min(1, Math.max(0, (level - 1) / 49));
+    return 0.01 + (0.02 * progress);
+  }
+
   function getAbilityDescription(tower, abilityKey) {
     const powerMult = getAbilityPowerMultiplier(tower, abilityKey);
     const stronger = powerMult > 1 ? ' This is an unlock skill, so it is 100% stronger and has 50% longer cooldown.' : '';
@@ -13815,7 +14049,7 @@ function canSubmitRewardClaims() {
       prayer_of_healing: `Heals nearby allies within 5 tiles for ${Math.round(PRAYER_OF_HEALING_HEAL_PERCENT * 100)}% of each target's max HP.${game.modifiers.sacredSculpting ? '<br><strong>Sacred Sculpting active:</strong> Statues can be healed for 30% of that amount.' : ''}${game.modifiers.prayerCooldownAdjust ? `<br><strong>Devotion active:</strong> Prayer of Healing cooldown reduced by ${game.modifiers.prayerCooldownAdjust.toFixed(1)}s.` : ''}${common}${scale}`,
       slow_totem: `Support Satellite. Every 10 cleared waves, the Priest gains 1 Blinding Light Totem charge. Place it on any open tile for ${BLINDING_LIGHT_TOTEM_DURATION_WAVES} waves. Enemies in the aura are slowed by ${(BLINDING_LIGHT_TOTEM_SLOW_PERCENT * 100).toFixed(0)}%, their attack speed is slowed by ${(BLINDING_LIGHT_TOTEM_ATTACK_SLOW_PERCENT * 100).toFixed(0)}%, and both effects linger for ${BLINDING_LIGHT_TOTEM_LINGER_SECONDS}s after leaving. Unlocks at level ${getAbilityUnlockLevel(tower, abilityKey)}.${scale}`,
       swiftness: `Boosts nearby allies' attack speed by ${Math.round(25 * powerMult)}% for 8s.${stronger}${common}${scale}`,
-      healing_aura: `Passive. Unlocks at level 15. Heals nearby allies within 2 tiles for ${Math.round(24 + tower.level)} HP each second. This starts at 25 HP per second on level 1, and every Priest level adds +1 HP per second to the aura.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${scale}`,
+      healing_aura: `Passive. Starts at level 1. Heals nearby allies within 2 tiles for ${(getPriestHealingAuraPercent(tower) * 100).toFixed(1)}% of each target's max HP every second. The aura starts at 1.0% and grows up to 3.0% over 50 Priest levels.${game.modifiers.sacredSculpting ? ' Statues within range are healed for 30% of the aura amount.' : ''}${scale}`,
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: ${getAbilityCooldownSeconds(tower, 'warning_shot').toFixed(1)}s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'starboard_cannons').toFixed(1)}s.${common}${scale}`,
@@ -14359,10 +14593,15 @@ function canSubmitRewardClaims() {
       if (selectedChampion && selectedChampion.hero) {
         tower.walletHeroId = String(selectedChampion.hero.id);
         tower.walletHeroLevel = Math.max(1, Number(selectedChampion.hero.level || 1));
+        tower.walletHeroIsGen0 = isGen0WalletHero(selectedChampion.hero);
+        tower.walletHeroRarity = Number.isFinite(Number(selectedChampion.hero.rarity)) ? Number(selectedChampion.hero.rarity) : null;
+        tower.walletHeroRarityName = String(selectedChampion.hero.rarityName || getDfKRarityName(tower.walletHeroRarity)).trim();
+        tower.walletHeroRarityBonus = getWalletHeroRarityCombatBonus(selectedChampion.hero, { includeGen0: true });
         tower.customPortraitUrl = getChampionPortraitImage(selectedChampion.hero, selectedChampion.definition?.key || tower.championKey || '');
         const targetLevel = Math.max(1, tower.walletHeroLevel);
         for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) applyTowerLevelStep(tower, nextLevel);
         tower.reportLabel = `${tower.name} • Champion Hero ${tower.walletHeroId}`;
+        applyRarityCombatBonusToTower(tower, selectedChampion.hero);
       }
     }
     if (pendingMilestonePlacement) {
@@ -17252,11 +17491,11 @@ function canSubmitRewardClaims() {
       const tickAt = tower.auraTickAt || 0;
       if (now() >= tickAt) {
         const auraTargets = game.towers.filter(t => t.id !== tower.id && !isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
-        const auraHeal = 24 + tower.level;
-        auraTargets.forEach(target => healTower(target, auraHeal, null, { sourceTowerId: tower.id, methodKey: 'healing_aura', methodLabel: 'Healing Aura' }));
+        const auraPercent = getPriestHealingAuraPercent(tower);
+        auraTargets.forEach(target => healTower(target, Math.max(1, target.maxHp * auraPercent), null, { sourceTowerId: tower.id, methodKey: 'healing_aura', methodLabel: 'Healing Aura' }));
         if (game.modifiers.sacredSculpting) {
           const statueTargets = game.towers.filter(t => isStatueTower(t) && dist(t, tower) <= 2 && t.hp < t.maxHp);
-          statueTargets.forEach(target => healTower(target, auraHeal * 0.2, null, { allowStatue: true, sourceTowerId: tower.id, methodKey: 'healing_aura_statue', methodLabel: 'Healing Aura (Statue)' }));
+          statueTargets.forEach(target => healTower(target, Math.max(1, target.maxHp * auraPercent * 0.3), null, { allowStatue: true, sourceTowerId: tower.id, methodKey: 'healing_aura_statue', methodLabel: 'Healing Aura (Statue)' }));
         }
         tower.auraTickAt = now() + 1000;
       }
@@ -19947,6 +20186,18 @@ function canSubmitRewardClaims() {
   els.championLockConfirmBtn?.addEventListener('click', () => {
     finalizeChampionConfirmation();
   });
+  els.championInfoMenuBtn?.addEventListener('click', () => {
+    showChampionInfoModal();
+  });
+  els.championInfoCloseBtn?.addEventListener('click', () => {
+    hideChampionInfoModal();
+  });
+  els.championInfoModal?.addEventListener('click', (event) => {
+    if (event.target === els.championInfoModal) hideChampionInfoModal();
+  });
+  els.championInfoModal?.querySelector('.intro-modal-card')?.addEventListener('click', (event) => {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  });
   els.chooseChampionBtn?.addEventListener('click', () => {
     if (game.selectedChampionConfirmed) {
       const selected = getSelectedChampionRecord();
@@ -19966,6 +20217,11 @@ function canSubmitRewardClaims() {
     cancelChampionModal();
   });
   els.walletHeroBonusToggle?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.closest('#walletHeroBonusInfo')) {
+      swallowModalEvent(event);
+      return;
+    }
     swallowModalEvent(event);
     setChampionPanelCollapsed(true);
     setWalletHeroPanelCollapsed(false);

@@ -372,13 +372,14 @@
 </button>
 <div class="wallet-panel-body wallet-hero-panel-body" id="walletHeroBonusPanelBody">
 <div class="wallet-hero-bonus-header">
-<button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshWalletHeroesBtn" type="button">Refresh NFTs</button>
-<button class="wallet-btn secondary wallet-hero-refresh-btn" id="closeWalletHeroesModalBtn" type="button">Close</button>
+<div class="wallet-hero-menu-title-wrap"><span class="wallet-hero-menu-title">Wallet Heroes</span><span aria-label="Wallet hero bonus details" class="wallet-hero-info-icon" id="walletHeroBonusInfo" role="button" tabindex="0">i<span class="wallet-hero-info-tooltip" role="tooltip"><span class="wallet-hero-info-heading">Hero Bonus Info</span><span class="wallet-hero-info-auto-select"><span class="wallet-hero-info-auto-title">Auto-select uses this schema to pick your heroes:</span><span class="wallet-hero-info-auto-path">gen0 with the highest rarity and highest level &gt; gen0 with highest rarity &gt; gen0 with highest level &gt; Highest rarity and highest level &gt; highest rarity &gt; highest level</span></span><span class="wallet-hero-info-row wallet-hero-info-row-gen0"><span class="wallet-hero-info-name">Gen0</span><span class="wallet-hero-info-value">+20% damage, +10% attack speed, +10% life, +30% healing</span></span><span class="wallet-hero-info-row"><span class="wallet-hero-info-name">Common</span><span class="wallet-hero-info-value">No rarity stat bonus</span></span><span class="wallet-hero-info-row wallet-hero-info-row-uncommon"><span class="wallet-hero-info-name">Uncommon</span><span class="wallet-hero-info-value">+5% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-rare"><span class="wallet-hero-info-name">Rare</span><span class="wallet-hero-info-value">+10% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-legendary"><span class="wallet-hero-info-name">Legendary</span><span class="wallet-hero-info-value">+15% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-mythic"><span class="wallet-hero-info-name">Mythic</span><span class="wallet-hero-info-value">+20% damage and HP</span></span></span></span></div>
+<div class="wallet-hero-menu-actions"><button class="wallet-btn secondary wallet-hero-refresh-btn" id="refreshWalletHeroesBtn" type="button">Refresh NFTs</button>
+<button class="wallet-btn secondary wallet-hero-refresh-btn" id="closeWalletHeroesModalBtn" type="button">Close</button></div>
 </div>
 <div class="wallet-tracking-summary" id="walletHeroBonusStatus">Connect a wallet on DFK Chain to load heroes.</div>
 <div class="wallet-hero-bonus-body" id="walletHeroBonusBody"></div>
 </div>
-</div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="championPanel">
+</div><button class="wallet-btn secondary tracking-btn champion-info-menu-btn hidden" id="championInfoMenuBtn" type="button">Champion Info</button><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="championPanel">
 <button aria-controls="championPanelBody" aria-expanded="false" class="wallet-panel-toggle wallet-hero-panel-toggle" id="championPanelToggle" type="button">
 <span class="wallet-panel-title-row">
 <span class="wallet-hero-bonus-title">Champions</span>
@@ -645,6 +646,16 @@
 <div class="intro-modal-footer start-mode-modal-footer">
 <button class="small-action" id="championConfirmBtn" type="button">Select champion</button>
 </div>
+</div>
+</div>
+<div aria-hidden="true" class="intro-modal hidden" id="championInfoModal">
+<div aria-labelledby="championInfoModalTitle" aria-modal="true" class="intro-modal-card champion-modal-card champion-info-modal-card panel" role="dialog">
+<div class="intro-modal-header champion-info-modal-header"><div class="champion-info-heading-row"><h2 id="championInfoModalTitle">Champion details</h2><span aria-label="Champion rarity bonus details" class="wallet-hero-info-icon champion-info-rarity-icon" id="championInfoRarityInfo" role="button" tabindex="0">i<span class="wallet-hero-info-tooltip" role="tooltip"><span class="wallet-hero-info-heading">Rarity Bonus Info</span><span class="wallet-hero-info-row"><span class="wallet-hero-info-name">Common</span><span class="wallet-hero-info-value">No rarity stat bonus</span></span><span class="wallet-hero-info-row wallet-hero-info-row-uncommon"><span class="wallet-hero-info-name">Uncommon</span><span class="wallet-hero-info-value">+5% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-rare"><span class="wallet-hero-info-name">Rare</span><span class="wallet-hero-info-value">+10% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-legendary"><span class="wallet-hero-info-name">Legendary</span><span class="wallet-hero-info-value">+15% damage and HP</span></span><span class="wallet-hero-info-row wallet-hero-info-row-mythic"><span class="wallet-hero-info-name">Mythic</span><span class="wallet-hero-info-value">+20% damage and HP</span></span></span></span></div></div>
+<div class="intro-body">
+<div class="champion-info-title-row"><p id="championInfoModalText">Select a champion first before deployment. These are the champions detected in your wallet.</p></div>
+<div class="champion-modal-body" id="championInfoModalBody"></div>
+</div>
+<div class="intro-modal-footer start-mode-modal-footer"><button class="small-action secondary" id="championInfoCloseBtn" type="button">Close</button></div>
 </div>
 </div>
 <div aria-hidden="true" class="intro-modal hidden" id="championLockModal">
@@ -938,7 +949,7 @@
     })();
   </script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-<script src="js/app.js?v=46.9.1.220"></script>
+<script src="js/app.js?v=46.9.1.239"></script>
 <script src="js/layout-fixes.js?v=46.9.1.103"></script>
 <div aria-label="Build version" class="version-badge" id="versionBadge"></div>
 <div class="story-overlay hidden" id="storyOverlay">
