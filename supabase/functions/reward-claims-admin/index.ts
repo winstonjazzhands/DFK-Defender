@@ -93,6 +93,17 @@ function formatWhen(iso: string | null | undefined) {
 }
 
 
+function normalizeSpendCurrency(row: Record<string, unknown>) {
+  const asset = String(row.payment_asset || row.asset || row.token_symbol || row.currency || '').trim().toLowerCase();
+  const kind = String(row.kind || '').trim().toLowerCase();
+  const chainId = Number(row.chain_id || row.chainId || 0);
+  const tokenAddress = String(row.token_address || row.tokenAddress || '').trim().toLowerCase();
+  if (asset.includes('honk') || tokenAddress === '0x11c3b7badc5359242c34c68c1f0f071bff49a3d8') return 'HONK';
+  if (asset.includes('avax') || chainId === 43114 || kind.includes('avax')) return 'AVAX';
+  return 'JEWEL';
+}
+
+
 function isCompletedWithdrawal(row: Record<string, unknown>) {
   const status = String(row.status || '').trim().toLowerCase();
   const paidAt = String(row.paid_at || '').trim();
@@ -147,6 +158,79 @@ function getRowEventTime(row: Record<string, unknown> | null | undefined) {
   );
 }
 
+
+function getDfkTokenSessionAmountWei(row: Record<string, unknown> | null | undefined) {
+  return firstNonEmptyString(
+    row?.paid_amount_wei,
+    row?.expected_amount_wei,
+    row?.amount_wei,
+    row?.amountWei,
+    row?.amount,
+  ) || '0';
+}
+
+function isDfkTokenSessionSubmittedLike(row: Record<string, unknown> | null | undefined) {
+  const status = String(row?.status || '').trim().toLowerCase();
+  return status === 'submitted'
+    || status === 'processing'
+    || status === 'broadcasted'
+    || status === 'broadcast'
+    || status === 'sent'
+    || status === 'pending';
+}
+
+function isDfkTokenSessionCompletedLike(row: Record<string, unknown> | null | undefined) {
+  const status = String(row?.status || '').trim().toLowerCase();
+  return status === 'verified'
+    || status === 'confirmed'
+    || status === 'paid'
+    || status === 'completed'
+    || status === 'approved'
+    || !!String(row?.verified_at || row?.confirmed_at || '').trim()
+    || !!String(row?.tx_hash || '').trim()
+    || !!String(row?.block_number || '').trim();
+}
+
+function shouldCountDfkTokenSessionLike(row: Record<string, unknown> | null | undefined) {
+  const amountWei = getDfkTokenSessionAmountWei(row);
+  if (!/^\d+$/.test(String(amountWei || '').trim())) return false;
+  if (BigInt(String(amountWei || '0')) <= 0n) return false;
+  const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+  return isDfkTokenSessionCompletedLike(row)
+    || isDfkTokenSessionSubmittedLike(row)
+    || !!String(row?.tx_hash || metadata.txHash || metadata.transactionHash || '').trim()
+    || !!String(row?.block_number || metadata.blockNumber || '').trim();
+}
+
+function normalizeTxHash(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function mergeDfkTokenPaymentRows(paymentRows: Record<string, unknown>[], sessionRows: Record<string, unknown>[]) {
+  const merged = Array.isArray(paymentRows) ? paymentRows.slice() : [];
+  const paidTxHashes = new Set(merged.map((row) => normalizeTxHash(row.tx_hash)).filter(Boolean));
+  const paidSessionIds = new Set(merged.map((row) => String(row.payment_session_id || '').trim()).filter(Boolean));
+  for (const row of (Array.isArray(sessionRows) ? sessionRows : [])) {
+    if (!shouldCountDfkTokenSessionLike(row)) continue;
+    const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {};
+    const txHash = normalizeTxHash(row.tx_hash || metadata.txHash || metadata.transactionHash);
+    const sessionId = String(row.id || '').trim();
+    if (txHash && paidTxHashes.has(txHash)) continue;
+    if (sessionId && paidSessionIds.has(sessionId)) continue;
+    merged.push({
+      ...row,
+      tx_hash: row.tx_hash || metadata.txHash || metadata.transactionHash || null,
+      block_number: row.block_number || metadata.blockNumber || null,
+      payment_asset: row.payment_asset || metadata.paymentAsset || metadata.payment_asset || 'native_jewel',
+      payment_session_id: sessionId || row.payment_session_id || null,
+      paid_amount_wei: getDfkTokenSessionAmountWei(row),
+      verified_at: row.verified_at || row.confirmed_at || row.created_at || null,
+      confirmed_at: row.verified_at || row.confirmed_at || row.created_at || null,
+    });
+  }
+  return merged;
+}
+
 function sortRowsByEventTimeDesc<T extends Record<string, unknown>>(rows: T[]) {
   return [...rows].sort((a, b) => {
     const aMs = new Date(getRowEventTime(a)).getTime();
@@ -169,7 +253,7 @@ async function safeSectionRows<T>(label: string, relationName: string, loader: (
 }
 
 async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, timeframe = 'all') {
-  const [claimSection, whitelistSection, burnSection, tokenSection, sessionSection] = await Promise.all([
+  const [claimSection, whitelistSection, burnSection, tokenSection, tokenSessionSection, sessionSection] = await Promise.all([
     safeSectionRows<any>('reward claims', 'reward_claim_requests', () => safeTableSelect<any>(admin.from('reward_claim_requests').select('*').order('requested_at', { ascending: false }).limit(limit), 'reward_claim_requests')),
     safeSectionRows<any>('reward whitelist', 'reward_claim_whitelist', () => safeTableSelect<any>(admin.from('reward_claim_whitelist').select('*'), 'reward_claim_whitelist')),
     safeSectionRows<any>('gold burns', 'dfk_gold_burns', () => safeTableSelect<any>(
@@ -180,6 +264,14 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
       const rows = await safeTableSelect<any>(
         admin.from('dfk_token_payments').select('*').limit(5000),
         'dfk_token_payments',
+        { allowMissingColumns: ['verified_at', 'confirmed_at', 'updated_at', 'created_at'] },
+      );
+      return sortRowsByEventTimeDesc(rows);
+    }),
+    safeSectionRows<any>('token payment sessions', 'dfk_token_payment_sessions', async () => {
+      const rows = await safeTableSelect<any>(
+        admin.from('dfk_token_payment_sessions').select('*').limit(5000),
+        'dfk_token_payment_sessions',
         { allowMissingColumns: ['verified_at', 'confirmed_at', 'updated_at', 'created_at'] },
       );
       return sortRowsByEventTimeDesc(rows);
@@ -197,8 +289,9 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
   const whitelistRows = whitelistSection.rows;
   const burnRows = burnSection.rows;
   const tokenRows = tokenSection.rows;
+  const tokenSessionRows = tokenSessionSection.rows;
   const sessionPaymentRows = sessionSection.rows;
-  const sectionWarnings = [claimSection.warning, whitelistSection.warning, burnSection.warning, tokenSection.warning, sessionSection.warning].filter(Boolean) as string[];
+  const sectionWarnings = [claimSection.warning, whitelistSection.warning, burnSection.warning, tokenSection.warning, tokenSessionSection.warning, sessionSection.warning].filter(Boolean) as string[];
 
   const allRows = rows || [];
   const completedRows = allRows.filter((row) => isCompletedWithdrawal(row));
@@ -295,7 +388,11 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     playerName: string;
     dfkGoldBurned: number;
     jewelSpentWei: bigint;
+    avaxSpentWei: bigint;
+    honkSpentWei: bigint;
     jewelSpendCount: number;
+    avaxSpendCount: number;
+    honkSpendCount: number;
     dfkGoldBurnCount: number;
     lastActivityAt: string | null;
   }>();
@@ -309,7 +406,11 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
         playerName: walletNameMap.get(normalized) || String(fallbackName || '').trim() || normalized,
         dfkGoldBurned: 0,
         jewelSpentWei: 0n,
+        avaxSpentWei: 0n,
+        honkSpentWei: 0n,
         jewelSpendCount: 0,
+        avaxSpendCount: 0,
+        honkSpendCount: 0,
         dfkGoldBurnCount: 0,
         lastActivityAt: null,
       };
@@ -340,13 +441,18 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     'jewel_milestone_hero_hire',
   ]);
 
+  const mergedDfkTokenRows = mergeDfkTokenPaymentRows(
+    Array.isArray(tokenRows) ? tokenRows : [],
+    Array.isArray(tokenSessionRows) ? tokenSessionRows : [],
+  );
   const mergedTokenRows = []
-    .concat(Array.isArray(tokenRows) ? tokenRows : [])
+    .concat(mergedDfkTokenRows)
     .concat(Array.isArray(sessionPaymentRows) ? sessionPaymentRows.map((row) => ({
       wallet_address: row.wallet_address,
       paid_amount_wei: row.paid_amount_wei || row.expected_amount_wei,
-      payment_asset: row.payment_asset,
+      payment_asset: row.payment_asset || 'AVAX',
       kind: row.kind,
+      chain_id: row.chain_id || 43114,
       verified_at: getRowEventTime(row) || null,
       confirmed_at: firstNonEmptyString(row.confirmed_at) || null,
       metadata: row.metadata,
@@ -362,8 +468,18 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
       : (row.metadata && typeof row.metadata === 'object' ? row.metadata : {});
     const entry = ensureSpendWallet(row.wallet_address, String((parsedMetadata && (parsedMetadata.playerName || parsedMetadata.player_name)) || '').trim());
     if (!entry) continue;
-    entry.jewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
-    entry.jewelSpendCount += 1;
+    const amountWei = BigInt(String(row.paid_amount_wei || '0'));
+    const spendCurrency = normalizeSpendCurrency(row);
+    if (spendCurrency === 'AVAX') {
+      entry.avaxSpentWei += amountWei;
+      entry.avaxSpendCount += 1;
+    } else if (spendCurrency === 'HONK') {
+      entry.honkSpentWei += amountWei;
+      entry.honkSpendCount += 1;
+    } else {
+      entry.jewelSpentWei += amountWei;
+      entry.jewelSpendCount += 1;
+    }
     if (activityAt && (!entry.lastActivityAt || activityAt > entry.lastActivityAt)) entry.lastActivityAt = activityAt;
   }
 
@@ -376,24 +492,36 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
   const lifetimeTokenRows = mergedTokenRows;
   let lifetimeGoldBurned = 0;
   let lifetimeJewelSpentWei = 0n;
+  let lifetimeAvaxSpentWei = 0n;
+  let lifetimeHonkSpentWei = 0n;
   for (const row of lifetimeBurnRows) {
     lifetimeGoldBurned += Number(row.burn_amount ?? row.amount ?? 0) || 0;
   }
   for (const row of lifetimeTokenRows) {
     const kind = String(row.kind || '').trim();
     if (!spendKinds.has(kind)) continue;
-    lifetimeJewelSpentWei += BigInt(String(row.paid_amount_wei || '0'));
+    const amountWei = BigInt(String(row.paid_amount_wei || '0'));
+    const spendCurrency = normalizeSpendCurrency(row);
+    if (spendCurrency === 'AVAX') lifetimeAvaxSpentWei += amountWei;
+    else if (spendCurrency === 'HONK') lifetimeHonkSpentWei += amountWei;
+    else lifetimeJewelSpentWei += amountWei;
   }
 
   const spendItems = Array.from(spendByWallet.values())
-    .filter((row) => row.dfkGoldBurned > 0 || row.jewelSpentWei > 0n)
+    .filter((row) => row.dfkGoldBurned > 0 || row.jewelSpentWei > 0n || row.avaxSpentWei > 0n || row.honkSpentWei > 0n)
     .map((row) => ({
       walletAddress: row.walletAddress,
       playerName: row.playerName,
       dfkGoldBurned: Number(row.dfkGoldBurned.toFixed(3)),
       jewelSpentWei: row.jewelSpentWei.toString(),
+      avaxSpentWei: row.avaxSpentWei.toString(),
+      honkSpentWei: row.honkSpentWei.toString(),
       jewelSpentText: row.jewelSpentWei.toString(),
+      avaxSpentText: row.avaxSpentWei.toString(),
+      honkSpentText: row.honkSpentWei.toString(),
       jewelSpendCount: row.jewelSpendCount,
+      avaxSpendCount: row.avaxSpendCount,
+      honkSpendCount: row.honkSpendCount,
       dfkGoldBurnCount: row.dfkGoldBurnCount,
       lastActivityAt: row.lastActivityAt,
       lastActivityAtLabel: formatWhen(row.lastActivityAt),
@@ -404,8 +532,8 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
       const safeA = Number.isFinite(aMs) ? aMs : 0;
       const safeB = Number.isFinite(bMs) ? bMs : 0;
       if (safeB !== safeA) return safeB - safeA;
-      const aScore = Number(a.dfkGoldBurned || 0) + Number(BigInt(a.jewelSpentWei || '0') / 1000000000000000n);
-      const bScore = Number(b.dfkGoldBurned || 0) + Number(BigInt(b.jewelSpentWei || '0') / 1000000000000000n);
+      const aScore = Number(a.dfkGoldBurned || 0) + Number(BigInt(a.jewelSpentWei || '0') / 1000000000000000n) + Number(BigInt(a.avaxSpentWei || '0') / 1000000000000000n) + Number(BigInt(a.honkSpentWei || '0') / 1000000000000000n);
+      const bScore = Number(b.dfkGoldBurned || 0) + Number(BigInt(b.jewelSpentWei || '0') / 1000000000000000n) + Number(BigInt(b.avaxSpentWei || '0') / 1000000000000000n) + Number(BigInt(b.honkSpentWei || '0') / 1000000000000000n);
       return bScore - aScore;
     })
     .slice(0, 200);
@@ -435,6 +563,8 @@ async function listClaims(admin: ReturnType<typeof createAdmin>, limit: number, 
     spendTimeframe: timeframe,
     lifetimeGoldBurned,
     lifetimeJewelSpentWei: lifetimeJewelSpentWei.toString(),
+    lifetimeAvaxSpentWei: lifetimeAvaxSpentWei.toString(),
+    lifetimeHonkSpentWei: lifetimeHonkSpentWei.toString(),
     schemaWarning,
     sectionWarnings,
   };

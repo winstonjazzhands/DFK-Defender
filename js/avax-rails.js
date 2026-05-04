@@ -35,6 +35,8 @@
   const BALANCE_CACHE_KEY = 'dfk_avax_run_balance_cache';
   const TREASURY_SUMMARY_CACHE_KEY = 'dfk_avax_treasury_summary_cache_v1';
   const REWARD_CLAIMS_CACHE_KEY = 'dfk_reward_claims_admin_cache_v1';
+  const TREASURY_SUMMARY_CACHE_TTL_MS = 90 * 1000;
+  const REWARD_CLAIMS_CACHE_TTL_MS = 90 * 1000;
 
   const state = {
     activeRunPayment: null,
@@ -53,6 +55,7 @@
     rewardClaimsTab: 'pending',
     rewardClaimsPageByTab: { pending: 1, completed: 1, rejected: 1 },
     rewardSpendCollapsed: false,
+    rewardQuestPlayerOpen: {},
     treasuryFlyoutOpen: false,
   };
   const ui = {};
@@ -95,6 +98,18 @@
   }
   function getTreasuryCacheWalletKey(walletAddress, suffix = '') {
     return `${normalizeAddress(walletAddress)}:${String(suffix || '').trim().toLowerCase()}`;
+  }
+
+  function isFreshCacheEntry(entry, ttlMs) {
+    if (!entry || typeof entry !== 'object') return false;
+    const savedAt = String(entry.savedAt || '').trim();
+    const savedMs = savedAt ? new Date(savedAt).getTime() : 0;
+    return Number.isFinite(savedMs) && savedMs > 0 && (Date.now() - savedMs) <= Number(ttlMs || 0);
+  }
+
+  function clearTreasuryCaches() {
+    try { if (window.localStorage) window.localStorage.removeItem(TREASURY_SUMMARY_CACHE_KEY); } catch (_error) {}
+    try { if (window.localStorage) window.localStorage.removeItem(REWARD_CLAIMS_CACHE_KEY); } catch (_error) {}
   }
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -207,6 +222,93 @@ function getRewardSpendTimeframeLabel(value) {
   if (value === 'this_week') return 'This Week';
   if (value === 'last_week') return 'Last Week';
   return 'All Time';
+}
+
+
+function parseRewardDecimal(value) {
+  const text = String(value == null ? '' : value).replace(/,/g, '').trim();
+  const match = text.match(/\d+(?:\.\d+)?/);
+  return match ? (Number(match[0]) || 0) : 0;
+}
+
+function formatRewardDecimal(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return '0';
+  return num.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+function buildQuestPlayerRows(completedItems) {
+  const rows = Array.isArray(completedItems) ? completedItems : [];
+  const players = new Map();
+  for (const item of rows) {
+    const type = String(item && (item.claimType || item.claimTypeLabel) || '').toLowerCase();
+    const currency = String(item && item.rewardCurrency || '').trim().toUpperCase();
+    const sourceRef = String(item && item.sourceRef || '').toLowerCase();
+    if (!(type.includes('daily_quest') || type.includes('daily reward') || type.includes('quest') || sourceRef.startsWith('quest:'))) continue;
+    if (currency && currency !== 'JEWEL') continue;
+    const wallet = normalizeAddress(item && item.walletAddress);
+    if (!wallet) continue;
+    const amount = parseRewardDecimal(item && (item.amountValue != null ? item.amountValue : item.amountText));
+    const day = String(item && (item.claimDay || item.paidAt || item.resolvedAt || item.requestedAt) || '').slice(0, 10) || 'Unknown day';
+    const key = wallet;
+    if (!players.has(key)) {
+      players.set(key, {
+        walletAddress: wallet,
+        playerName: String(item && item.playerName || '').trim(),
+        questCount: 0,
+        jewelTotal: 0,
+        lastActivity: '',
+        days: new Map(),
+      });
+    }
+    const player = players.get(key);
+    if (!player.playerName && item && item.playerName) player.playerName = String(item.playerName || '').trim();
+    player.questCount += 1;
+    player.jewelTotal += amount;
+    const activity = String(item && (item.paidAt || item.resolvedAt || item.approvedAt || item.requestedAt) || '').trim();
+    if (activity && (!player.lastActivity || activity > player.lastActivity)) player.lastActivity = activity;
+    if (!player.days.has(day)) player.days.set(day, { day, questCount: 0, jewelTotal: 0, titles: [] });
+    const dayEntry = player.days.get(day);
+    dayEntry.questCount += 1;
+    dayEntry.jewelTotal += amount;
+    const title = String(item && (item.reason || item.title || item.sourceRef) || '').trim();
+    if (title && dayEntry.titles.length < 6 && !dayEntry.titles.includes(title)) dayEntry.titles.push(title);
+  }
+  return Array.from(players.values()).map((player) => ({
+    ...player,
+    days: Array.from(player.days.values()).sort((a, b) => String(b.day).localeCompare(String(a.day))),
+  })).sort((a, b) => (b.questCount - a.questCount) || (b.jewelTotal - a.jewelTotal) || String(a.playerName || a.walletAddress).localeCompare(String(b.playerName || b.walletAddress)));
+}
+
+function renderQuestPlayerSummary(completedItems) {
+  const players = buildQuestPlayerRows(completedItems);
+  if (!players.length) return '<div class="reward-claims-admin-empty">No completed JEWEL quest claims found yet.</div>';
+  return `<div class="treasury-quest-player-list">${players.map((player) => {
+    const wallet = String(player.walletAddress || '').trim();
+    const open = !!(state.rewardQuestPlayerOpen && state.rewardQuestPlayerOpen[wallet]);
+    const label = String(player.playerName || shortWallet(wallet) || 'Unknown player').trim();
+    const daysMarkup = open ? `<div class="treasury-quest-player-days">${player.days.map((day) => `
+      <div class="treasury-quest-day-row">
+        <div>
+          <div class="treasury-quest-day-title">${escapeHtml(day.day)}</div>
+          <div class="treasury-quest-day-sub">${escapeHtml(day.titles.length ? day.titles.join(' · ') : 'Quest claims')}</div>
+        </div>
+        <div class="reward-claim-whitelist-pill">${escapeHtml(String(day.questCount))} quest${day.questCount === 1 ? '' : 's'}</div>
+        <div class="reward-claim-whitelist-pill is-on">${escapeHtml(formatRewardDecimal(day.jewelTotal))} JEWEL</div>
+      </div>`).join('')}</div>` : '';
+    return `<div class="treasury-quest-player-card ${open ? 'is-open' : ''}">
+      <button type="button" class="treasury-quest-player-row" data-quest-player-toggle="${escapeHtml(wallet)}" aria-expanded="${open ? 'true' : 'false'}">
+        <span class="treasury-quest-chevron">${open ? '▾' : '▸'}</span>
+        <span class="treasury-quest-player-main">
+          <span class="treasury-quest-player-name">${escapeHtml(label)}</span>
+          <span class="treasury-quest-player-wallet mono" title="${escapeHtml(wallet)}">${escapeHtml(shortWallet(wallet))}</span>
+        </span>
+        <span class="reward-claim-whitelist-pill">${escapeHtml(String(player.questCount))} quest${player.questCount === 1 ? '' : 's'}</span>
+        <span class="reward-claim-whitelist-pill is-on">${escapeHtml(formatRewardDecimal(player.jewelTotal))} JEWEL</span>
+      </button>
+      ${daysMarkup}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderRewardClaimsAdmin() {
@@ -378,14 +480,16 @@ function renderRewardClaimsAdmin() {
           <div class="reward-claim-whitelist-wallet">${escapeHtml(String(item.playerName || shownWallet || 'Unknown player'))}</div>
           <div class="reward-claim-whitelist-notes mono reward-spend-wallet" title="${escapeHtml(fullWallet)}">${escapeHtml(shownWallet)}</div>
         </div>
+        <div class="reward-claim-whitelist-pill">AVAX ${escapeHtml(formatShortAvaxFromWei(item.avaxSpentWei || '0'))}</div>
         <div class="reward-claim-whitelist-pill">JEWEL ${escapeHtml(formatJewelNumberFromWei(item.jewelSpentWei || '0'))}</div>
+        ${Number(item.honkSpendCount || 0) > 0 || String(item.honkSpentWei || '0') !== '0' ? `<div class="reward-claim-whitelist-pill">HONK ${escapeHtml(formatJewelNumberFromWei(item.honkSpentWei || '0'))}</div>` : ''}
         <div class="reward-claim-whitelist-pill">DFK Gold ${escapeHtml(String(Math.round(Number(item.dfkGoldBurned || 0)).toLocaleString()))}</div>
-        <div class="reward-claim-whitelist-pill">JEWEL tx ${escapeHtml(String(Number(item.jewelSpendCount || 0)))}</div>
+        <div class="reward-claim-whitelist-pill">Tx ${escapeHtml(String(Number(item.avaxSpendCount || 0) + Number(item.jewelSpendCount || 0) + Number(item.honkSpendCount || 0)))}</div>
         <div class="reward-claim-whitelist-pill">Gold burns ${escapeHtml(String(Number(item.dfkGoldBurnCount || 0)))}</div>
         <div class="reward-claim-whitelist-notes">${escapeHtml(item.lastActivityAtLabel || 'No activity time')}</div>
       </div>`;
     }).join('')}</div>`
-    : '<div class="reward-claims-admin-empty">No JEWEL or DFK Gold spend data for this timeframe yet.</div>';
+    : '<div class="reward-claims-admin-empty">No AVAX/JEWEL or DFK Gold spend data for this timeframe yet.</div>';
 
   const raffleHistory = Array.isArray(state.treasurySummary && state.treasurySummary.dailyRaffleHistory) ? state.treasurySummary.dailyRaffleHistory : [];
   const raffleMarkup = raffleHistory.length
@@ -424,10 +528,15 @@ function renderRewardClaimsAdmin() {
         <button class="reward-claims-section-toggle" data-reward-section-toggle="spend" type="button"><span class="chev">${state.rewardSpendCollapsed ? '▸' : '▾'}</span> Player spend list</button>
       </div>
       <div class="reward-claims-section-body">
-        <div class="wallet-tracking-summary">JEWEL spent on hero hires / gold swaps and DFK Gold burned by wallet. Showing: ${escapeHtml(getRewardSpendTimeframeLabel(state.rewardSpendTimeframe || 'all'))}.</div>
+        <div class="wallet-tracking-summary">AVAX/JEWEL spent on hero hires / gold swaps and DFK Gold burned by wallet. Showing: ${escapeHtml(getRewardSpendTimeframeLabel(state.rewardSpendTimeframe || 'all'))}.</div>
         ${spendControlsMarkup}
         ${spendMarkup}
       </div>
+    </div>
+    <div class="reward-claims-admin-group">
+      <div class="reward-claims-admin-subtitle">Quest JEWEL by player</div>
+      <div class="wallet-tracking-summary">Each player row shows completed JEWEL quest count and total. Click a player to see JEWEL claimed by day and how many quests made up that day.</div>
+      ${renderQuestPlayerSummary(completedItems)}
     </div>
     <div class="reward-claims-admin-group">
       <div class="reward-claims-admin-subtitle">Daily raffle winners</div>
@@ -467,6 +576,21 @@ function attachDirectRewardClaimActionListeners(rootEl) {
     button.__dfkDirectClaimActionBound = true;
     button.addEventListener('click', (event) => {
       handleRewardClaimAction(button, event);
+    });
+  });
+  host.querySelectorAll('[data-quest-player-toggle]').forEach((button) => {
+    if (!button) return;
+    button.setAttribute('type', 'button');
+    if (button.__dfkQuestPlayerToggleBound) return;
+    button.__dfkQuestPlayerToggleBound = true;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const wallet = normalizeAddress(button.getAttribute('data-quest-player-toggle') || '');
+      if (!wallet) return;
+      state.rewardQuestPlayerOpen = state.rewardQuestPlayerOpen || {};
+      state.rewardQuestPlayerOpen[wallet] = !state.rewardQuestPlayerOpen[wallet];
+      renderRewardClaimsAdmin();
     });
   });
 }
@@ -953,7 +1077,7 @@ function loadCachedBalance() {
     }
     const cacheKey = getTreasuryCacheWalletKey(wallet.address, 'summary');
     const cache = readJsonCache(TREASURY_SUMMARY_CACHE_KEY) || {};
-    if (!force && cache[cacheKey]) {
+    if (!force && isFreshCacheEntry(cache[cacheKey], TREASURY_SUMMARY_CACHE_TTL_MS)) {
       state.treasurySummary = cache[cacheKey].summary || null;
       updateTreasuryUi();
       return state.treasurySummary;
@@ -1105,7 +1229,7 @@ function loadCachedBalance() {
     const timeframe = state.rewardSpendTimeframe || 'all';
     const cacheKey = getTreasuryCacheWalletKey(wallet.address, `claims:${timeframe}`);
     const cache = readJsonCache(REWARD_CLAIMS_CACHE_KEY) || {};
-    if (!force && cache[cacheKey]) {
+    if (!force && isFreshCacheEntry(cache[cacheKey], REWARD_CLAIMS_CACHE_TTL_MS)) {
       state.rewardClaims = cache[cacheKey].claims || null;
       state.rewardClaimsError = '';
       state.rewardClaimsLoading = false;
@@ -1174,7 +1298,9 @@ function loadCachedBalance() {
     const payment = await sendWalletPayment({ amountWei: String(amountWei || '0') });
 
     if (!session || !session.paymentSessionId) {
-      refreshTreasurySummary().catch(() => {});
+      clearTreasuryCaches();
+      refreshTreasurySummary({ force: true }).catch(() => {});
+      refreshRewardClaimsAdmin({ force: true }).catch(() => {});
       if (normalizedKind === 'gold_crate' && window.game) {
         try {
           window.game.jewel = (Number(window.game.jewel || 0) + 2000);
@@ -1205,7 +1331,9 @@ function loadCachedBalance() {
         kind,
         metadata,
       });
-      refreshTreasurySummary().catch(() => {});
+      clearTreasuryCaches();
+      refreshTreasurySummary({ force: true }).catch(() => {});
+      refreshRewardClaimsAdmin({ force: true }).catch(() => {});
       if (normalizedKind === 'gold_crate' && window.game) {
         try {
           window.game.jewel = (Number(window.game.jewel || 0) + 2000);
@@ -1225,7 +1353,9 @@ function loadCachedBalance() {
       if (!allowSessionlessHeroHire) throw error;
       const message = error && error.message ? error.message : 'verification failed';
       console.warn('[AVAX Rails] hero_hire verification failed after payment, returning success to avoid blocking placement:', message);
-      refreshTreasurySummary().catch(() => {});
+      clearTreasuryCaches();
+      refreshTreasurySummary({ force: true }).catch(() => {});
+      refreshRewardClaimsAdmin({ force: true }).catch(() => {});
       return {
         paymentSessionId: session.paymentSessionId || null,
         clientRunId: resolvedRunId,
@@ -1757,6 +1887,7 @@ function loadCachedBalance() {
     purchaseCustom,
     refreshTreasurySummary,
     refreshRewardClaimsAdmin,
+    clearTreasuryCaches,
     getTreasurySummary: () => (state.treasurySummary ? { ...state.treasurySummary } : null),
     formatAvaxFromWei,
     getRunBalance: () => (state.balance ? { ...state.balance } : null),

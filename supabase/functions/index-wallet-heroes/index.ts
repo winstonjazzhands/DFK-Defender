@@ -75,6 +75,11 @@ type IndexedHero = {
   influence_value: string | null;
   summons_remaining: number | null;
   eligible: boolean;
+  source?: string;
+  index_status?: string;
+  indexed_at?: string;
+  last_seen_at?: string;
+  index_error?: string | null;
   updated_at: string;
 };
 
@@ -273,26 +278,62 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const walletAddress = normalizeAddress(body.walletAddress || body.address || body.wallet);
-    if (!walletAddress) return json({ error: 'walletAddress required.' }, 400);
 
     const requestedChain = String(body.chain || body.network || '').trim().toLowerCase();
     const chains: ChainKey[] = requestedChain === 'dfk' || requestedChain === 'metis'
       ? [requestedChain]
       : ['dfk', 'metis'];
 
-    const updatedAt = new Date().toISOString();
     const admin = createAdmin();
-    const perChain: Record<string, { ok: boolean; count: number; error?: string }> = {};
+    const pendingOnly = body.pendingOnly === true || body.mode === 'pending' || body.mode === 'process_pending';
+    let targetWallets = walletAddress ? [walletAddress] : [];
+    if (pendingOnly && !targetWallets.length) {
+      const limit = Math.max(1, Math.min(50, Number(body.limit || 20)));
+      const { data: pendingRows, error: pendingError } = await admin
+        .from('wallet_heroes')
+        .select('wallet_address')
+        .in('index_status', ['pending', 'queued', 'failed'])
+        .order('last_seen_at', { ascending: true, nullsFirst: true })
+        .limit(limit);
+      if (pendingError) throw pendingError;
+      targetWallets = Array.from(new Set((pendingRows || [])
+        .map((row: any) => normalizeAddress(row.wallet_address))
+        .filter(Boolean)));
+    }
+    if (!targetWallets.length) return json({ error: 'walletAddress required unless pendingOnly is true.' }, 400);
+
+    const updatedAt = new Date().toISOString();
+    const perWallet: Record<string, { perChain: Record<string, { ok: boolean; count: number; error?: string }>; indexedCount: number }> = {};
     const allRows: IndexedHero[] = [];
 
-    for (const chain of chains) {
-      try {
-        const rows = await fetchChainHeroes(walletAddress, chain, updatedAt);
-        perChain[chain] = { ok: true, count: rows.length };
-        allRows.push(...rows);
-      } catch (error) {
-        perChain[chain] = { ok: false, count: 0, error: error instanceof Error ? error.message : String(error || 'unknown error') };
+    for (const targetWallet of targetWallets) {
+      const perChain: Record<string, { ok: boolean; count: number; error?: string }> = {};
+      for (const chain of chains) {
+        try {
+          const rows = await fetchChainHeroes(targetWallet, chain, updatedAt);
+          const hydratedRows = rows.map((row) => ({
+            ...row,
+            source: 'index-wallet-heroes',
+            index_status: 'indexed',
+            indexed_at: updatedAt,
+            last_seen_at: updatedAt,
+            index_error: null,
+          }));
+          perChain[chain] = { ok: true, count: hydratedRows.length };
+          allRows.push(...hydratedRows);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error || 'unknown error');
+          perChain[chain] = { ok: false, count: 0, error: message };
+          if (pendingOnly) {
+            await admin
+              .from('wallet_heroes')
+              .update({ index_status: 'failed', index_error: message, updated_at: updatedAt })
+              .eq('wallet_address', targetWallet)
+              .eq('chain_name', chain);
+          }
+        }
       }
+      perWallet[targetWallet] = { perChain, indexedCount: 0 };
     }
 
     if (allRows.length) {
@@ -300,13 +341,18 @@ Deno.serve(async (req) => {
         .from('wallet_heroes')
         .upsert(allRows, { onConflict: 'wallet_address,hero_id,chain_id' });
       if (error) throw error;
+      for (const row of allRows) {
+        const bucket = perWallet[row.wallet_address];
+        if (bucket) bucket.indexedCount += 1;
+      }
     }
 
     return json({
       ok: true,
-      walletAddress,
+      walletAddress: targetWallets.length === 1 ? targetWallets[0] : null,
+      processedWallets: targetWallets,
       indexedCount: allRows.length,
-      perChain,
+      perWallet,
       heroes: allRows,
     });
   } catch (error) {

@@ -82,6 +82,10 @@ function addUtcDays(date: Date, days: number) {
   return new Date(date.getTime() + days * 86400000);
 }
 
+function previousUtcDateOnly(fromDate = new Date()) {
+  return utcDateOnly(addUtcDays(startOfUtcDay(fromDate), -1));
+}
+
 function getDrawSlot(_value?: string | null): DrawSlot {
   return '00';
 }
@@ -444,18 +448,19 @@ Deno.serve(async (req) => {
     const todayStart = startOfUtcDay(now);
     const url = new URL(req.url);
     let body: RowLike = {};
-    if (req.method !== 'GET') {
+    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       try { body = await req.json(); } catch (_error) { body = {}; }
     }
     const requestedDay = String(url.searchParams.get('raffleDay') || body.raffleDay || body.raffle_day || '').trim();
     const config = getRaffleConfig(url.searchParams.get('raffleType') || String(body.raffleType || body.raffle_type || ''));
     const cronSecret = String(Deno.env.get(config.cronSecretEnv) || Deno.env.get('DAILY_RAFFLE_CRON_SECRET') || '').trim();
     const providedCronSecret = String(req.headers.get('x-cron-secret') || '').trim();
-    const allowSettle = req.method === 'POST' || !cronSecret || providedCronSecret === cronSecret;
+    const isWriteMethod = req.method === 'POST' || req.method === 'GET';
+    const allowSettle = isWriteMethod && (!cronSecret || providedCronSecret === cronSecret);
+    const targetDay = requestedDay || previousUtcDateOnly(now);
 
     const settled: RowLike[] = [];
     if (allowSettle) {
-      const targetDay = requestedDay || utcDateOnly(todayStart);
       const rows = await settleRaffleForDay(admin, config, targetDay);
       settled.push(...rows);
     }
@@ -484,6 +489,9 @@ Deno.serve(async (req) => {
         morning: latest00Winner,
       },
       raffle_type: config.raffleType,
+      requested_raffle_day: requestedDay || null,
+      default_settle_day: targetDay,
+      settle_allowed: allowSettle,
       current_windows: {
         '00': {
           raffle_day: utcDateOnly(todayStart),

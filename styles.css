@@ -10906,3 +10906,162 @@ body.how-to-play-open .center-panel {
   padding-top: 8px !important;
   padding-bottom: 8px !important;
 }
+
+/* Treasury bounty player JEWEL summary */
+.treasury-bounty-player-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.treasury-bounty-player-card{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background:rgba(5,10,20,.34);
+  overflow:hidden;
+}
+.treasury-bounty-player-row{
+  width:100%;
+  display:grid;
+  grid-template-columns:auto minmax(160px,1fr) auto auto;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.treasury-bounty-player-row:hover,
+.treasury-bounty-player-card.is-open .treasury-bounty-player-row{
+  background:rgba(255,255,255,.07);
+}
+.treasury-bounty-chevron{
+  opacity:.85;
+  font-weight:900;
+}
+.treasury-bounty-player-main{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.treasury-bounty-player-name{
+  font-weight:800;
+  color:#fff8d6;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.treasury-bounty-player-wallet,
+.treasury-bounty-day-sub{
+  font-size:.78rem;
+  color:rgba(255,255,255,.62);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.treasury-bounty-player-days{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:0 12px 12px 36px;
+}
+.treasury-bounty-day-row{
+  display:grid;
+  grid-template-columns:minmax(140px,1fr) auto auto;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;
+  background:rgba(0,0,0,.18);
+}
+.treasury-bounty-day-title{
+  font-weight:800;
+  color:#ffffff;
+}
+@media (max-width: 760px){
+  .treasury-bounty-player-row,
+  .treasury-bounty-day-row{
+    grid-template-columns:1fr;
+  }
+  .treasury-bounty-player-days{
+    padding-left:12px;
+  }
+}
+
+/* Treasury quest player summary uses the same layout as the previous bounty summary. */
+.treasury-quest-player-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.treasury-quest-player-card{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background:rgba(5,10,20,.34);
+  overflow:hidden;
+}
+.treasury-quest-player-row{
+  width:100%;
+  display:grid;
+  grid-template-columns:auto minmax(160px,1fr) auto auto;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.treasury-quest-player-row:hover,
+.treasury-quest-player-card.is-open .treasury-quest-player-row{
+  background:rgba(255,255,255,.07);
+}
+.treasury-quest-chevron{
+  opacity:.85;
+  font-weight:900;
+}
+.treasury-quest-player-main{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.treasury-quest-player-name{
+  font-weight:800;
+  color:#fff8d6;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.treasury-quest-player-wallet,
+.treasury-quest-day-sub{
+  font-size:.78rem;
+  color:rgba(255,255,255,.62);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.treasury-quest-player-days{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:0 12px 12px 36px;
+}
+.treasury-quest-day-row{
+  display:grid;
+  grid-template-columns:minmax(140px,1fr) auto auto;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;
+  background:rgba(0,0,0,.18);
+}
+.treasury-quest-day-title{
+  font-weight:800;
+  color:#ffffff;
+}

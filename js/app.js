@@ -9,7 +9,7 @@ function getRarityClass(hero){
   return "";
 }
 
-// build: v46.9.1.198
+// build: v46.9.1.259
 
 let lastTouchEnd = 0;
 
@@ -596,8 +596,8 @@ function getRandomTree(){
 const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
-const APP_VERSION = 'v10.3.4';
-const CURRENT_RUN_BUILD = 'V46.9.1.198';
+const APP_VERSION = 'v10.3.5';
+const CURRENT_RUN_BUILD = 'V46.9.1.260';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
@@ -1020,7 +1020,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase her health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
     { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve herself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
-    { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => buffTowerType(game, 'pirate', { rangeAdd: 1 }) },
+    { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.pirateRangeAdd = Math.max(0, Number(game.modifiers.pirateRangeAdd || 0)) + 1; buffTowerType(game, 'pirate', { rangeAdd: 1 }); } },
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and improve attack speed by 15%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.85 },
     { id: 'master_assassin', name: 'Master Assassin', desc: 'Mythic. Archer Shadows never dissipate. Archer Shadow level ups cost 25% less, and Archer level ups cost 15% less.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.masterAssassin = true; game.modifiers.masterAssassinArcherShadowUpgradeDiscount = 0.25; game.modifiers.masterAssassinArcherUpgradeDiscount = 0.15; } },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
@@ -1038,6 +1038,13 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'too_fast', name: 'Too Fast', desc: 'Spend 200 Gold. Reduce Fast Fists cooldown by 25%.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.fastFistsCooldownMultiplier *= 0.75; } },
     { id: 'dark_siphon', name: 'Dark Siphon', desc: 'Spend 200 Gold. 10% of Monk damage steals life from the target and gives it to the Warrior.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.monkDarkSiphon = true; } },
     { id: 'sacrifice_everything', name: 'Sacrifice Everything', desc: "Mythic. The Monk splits its Ki in two and combines it with the other Monk's Ki to create a third Monk tile named SACRIFICE. All 3 Monks deal 75% damage. If only 1 Monk is present, this takes effect when a 2nd Monk takes the field.", cost: 0, rarity: 'mythic', apply: game => { game.modifiers.sacrificeEverything = true; applySacrificeEverythingIfReady(); } },
+    { id: 'berserker_enraged', name: 'Enraged', desc: 'Spend 100 Gold. The Berserker screams at the enemy and gains 7% damage.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'berserker', { damageMult: 1.07 }) },
+    { id: 'berserker_discard_useless_armor', name: 'Discard Useless Armor', desc: 'Spend 100 Gold. The Berserker removes a piece of useless armor and attacks 7% faster.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'berserker', { speedMult: 1.07 }) },
+    { id: 'berserker_stronger_shrooms', name: 'Stronger Shrooms', desc: 'Spend 200 Gold. The Berserker got an extra strong batch today, extending KITE by 2 waves.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.berserkerKiteExtraWaves += 2; } },
+    { id: 'berserker_adjusted_grip', name: 'Adjusted Grip', desc: 'Spend 200 Gold. The Berserker uses an unconventional two-handed grip that extends range by 1 tile.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'berserker', { rangeAdd: 1 }) },
+    { id: 'berserker_blood_debt', name: 'Blood Debt', desc: 'Spend 300 Gold. The Berserker gains 25% damage for the rest of the game but loses half of current HP at the start of every wave.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.berserkerBloodDebt = true; buffTowerType(game, 'berserker', { damageMult: 1.25 }); } },
+    { id: 'berserker_frenzy_loop', name: 'Frenzy Loop', desc: "Spend 300 Gold. The Berserker's anger feeds her damage, gaining +5% damage per Berserker kill each wave. Resets each wave and caps at +150%.", cost: 300, rarity: 'legendary', apply: game => { game.modifiers.berserkerFrenzyLoop = true; } },
+    { id: 'berserker_ghost_trail', name: 'Ghost Trail', desc: "Mythic. During KITE, the Berserker's ghost basic attacks for 50% of the Berserker's current damage.", cost: 0, rarity: 'mythic', apply: game => { game.modifiers.berserkerGhostTrail = true; } },
   ];
 
   const MUTATIONS = [
@@ -1442,6 +1449,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       priestHealing: 1,
       sacredAura: false,
       pirateSteal: 0.15,
+      pirateRangeAdd: 0,
       extraCannons: 0,
       shieldWall: false,
       rangerLine: false,
@@ -1471,6 +1479,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       monkDarkSiphon: false,
       sacrificeEverything: false,
       sacrificeCreated: false,
+      berserkerKiteExtraWaves: 0,
+      berserkerBloodDebt: false,
+      berserkerFrenzyLoop: false,
+      berserkerGhostTrail: false,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -3369,7 +3381,9 @@ function formatQuestResetCountdown(dateKey) {
         }
       }
       if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') {
-        window.DFKCryptoRails.refreshTreasurySummary().catch(() => {});
+        if (typeof window.DFKCryptoRails.clearTreasuryCaches === 'function') window.DFKCryptoRails.clearTreasuryCaches();
+        window.DFKCryptoRails.refreshTreasurySummary({ force: true }).catch(() => {});
+        if (typeof window.DFKCryptoRails.refreshRewardClaimsAdmin === 'function') window.DFKCryptoRails.refreshRewardClaimsAdmin({ force: true }).catch(() => {});
       }
       log(`${label || kind} paid with ${isHonkPayment ? 'HONK' : 'native JEWEL'}. Tx: ${payment.txHash}`);
       clearPendingMilestonePurchase();
@@ -5067,7 +5081,9 @@ function formatQuestResetCountdown(dateKey) {
       writePendingDfkJewelVerificationQueue(remaining);
       if (recoveredCount > 0) {
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshTreasurySummary === 'function') {
-          window.DFKCryptoRails.refreshTreasurySummary().catch(() => {});
+          if (typeof window.DFKCryptoRails.clearTreasuryCaches === 'function') window.DFKCryptoRails.clearTreasuryCaches();
+          window.DFKCryptoRails.refreshTreasurySummary({ force: true }).catch(() => {});
+          if (typeof window.DFKCryptoRails.refreshRewardClaimsAdmin === 'function') window.DFKCryptoRails.refreshRewardClaimsAdmin({ force: true }).catch(() => {});
         }
         if (options && options.notify) {
           showBanner(`Recovered ${recoveredCount} pending JEWEL treasury save${recoveredCount === 1 ? '' : 's'}.`, 2600);
@@ -5190,6 +5206,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       writePendingDfkgoldBurnQueue(remaining);
       if (savedCount > 0) {
         fetchGlobalBurnedGoldTotal(true).catch(() => {});
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearTreasuryCaches === 'function') window.DFKCryptoRails.clearTreasuryCaches();
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshRewardClaimsAdmin === 'function') window.DFKCryptoRails.refreshRewardClaimsAdmin({ force: true }).catch(() => {});
         if (options && options.notify) {
           showBanner(`Recovered ${savedCount} pending DFK Gold burn save${savedCount === 1 ? '' : 's'}.`, 2600);
         }
@@ -6268,6 +6286,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
         await recordDfkgoldBurn(tx.hash, walletAddress, safeBurnCost, safeAward);
         removePendingDfkgoldBurn(tx.hash);
         await fetchGlobalBurnedGoldTotal(true);
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearTreasuryCaches === 'function') window.DFKCryptoRails.clearTreasuryCaches();
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.refreshRewardClaimsAdmin === 'function') window.DFKCryptoRails.refreshRewardClaimsAdmin({ force: true }).catch(() => {});
       } catch (recordError) {
         enqueuePendingDfkgoldBurn({
           txHash: tx.hash,
@@ -7499,6 +7519,7 @@ function renderDamageReport() {
       priestHealing: 1,
       sacredAura: false,
       pirateSteal: 0.15,
+      pirateRangeAdd: 0,
       extraCannons: 0,
       shieldWall: false,
       rangerLine: false,
@@ -7528,6 +7549,10 @@ function renderDamageReport() {
       monkDarkSiphon: false,
       sacrificeEverything: false,
       sacrificeCreated: false,
+      berserkerKiteExtraWaves: 0,
+      berserkerBloodDebt: false,
+      berserkerFrenzyLoop: false,
+      berserkerGhostTrail: false,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -11254,6 +11279,39 @@ function canSubmitRewardClaims() {
     applyRarityCombatBonusToTower(tower, heroData);
   }
 
+
+  async function queueWalletHeroesForServerIndex(walletAddress, heroes) {
+    const address = String(walletAddress || '').trim().toLowerCase();
+    const list = Array.isArray(heroes) ? heroes.filter(Boolean) : [];
+    if (!address || !list.length) return;
+    try {
+      const payloadHeroes = list.map((hero) => ({
+        id: hero.id || hero.normalizedId || hero.hero_id,
+        normalizedId: hero.normalizedId || hero.id || hero.hero_id,
+        chainKey: hero.chainKey || hero.chain_name || hero.network,
+        chainId: hero.chainId || hero.chain_id,
+        classId: hero.classId || hero.class_id || hero.mainClass,
+        className: hero.className || hero.class_name,
+        level: hero.level,
+        rarity: hero.rarity || hero.rarity_id,
+        rarityName: hero.rarityName || hero.rarity_name,
+        generation: hero.generation,
+        isGen0: hero.isGen0 || hero.is_gen0,
+        summonsRemaining: hero.summonsRemaining || hero.summons_remaining,
+        type: hero.type || '',
+        eligible: Boolean(hero.type),
+      }));
+      const result = await callSupabaseFunctionJson('queue-hero-index', {
+        walletAddress: address,
+        heroes: payloadHeroes,
+      });
+      console.info('[wallet-hero-index-queue] queued wallet heroes', result);
+    } catch (error) {
+      // Index queue failures should never block wallet connect, hero selection, or gameplay.
+      console.warn('[wallet-hero-index-queue] queue failed', error);
+    }
+  }
+
   function commitWalletHeroRoster(heroesByKey) {
     const combinedHeroes = Array.from(heroesByKey.values()).filter(Boolean);
     game.allWalletHeroRoster = combinedHeroes.slice().sort((a, b) => {
@@ -11482,6 +11540,7 @@ function canSubmitRewardClaims() {
       }
 
       commitWalletHeroRoster(heroesByKey);
+      queueWalletHeroesForServerIndex(address, game.allWalletHeroRoster || []).catch(() => {});
       game.walletHeroAutoLoadedKey = `${String(address || '').toLowerCase()}::${Number(getConnectedWalletChainId() || 0)}`;
       if (!game.walletHeroRoster.length && chainErrors.length) {
         game.walletHeroLoadError = `Hero chain read failed: ${chainErrors.join(' and ')}`;
@@ -13594,13 +13653,22 @@ function canSubmitRewardClaims() {
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
     tower.abilityGlobalReadyAt = 0;
     if (tower.isChampion) ensureChampionAutoAbilityState(tower);
-    if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
+    if (type === 'pirate') {
+      tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
+      tower.range = Math.max(0, Number(tower.range || 0) + Math.max(0, Number(game.modifiers.pirateRangeAdd || 0)));
+    }
     if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     if (type === 'monk') {
       tower.damage *= Math.max(0, Number(game.modifiers.monkDamageMultiplier || 1));
       if (game.modifiers.sacrificeEverything) tower.damage *= 0.75;
     }
-    if (type === 'berserker') tower.nextBerserkerWanderWave = Number(game.waveNumber || 0) + (BERSERKER_WANDER_MIN_WAVES + Math.floor(Math.random() * ((BERSERKER_WANDER_MAX_WAVES - BERSERKER_WANDER_MIN_WAVES) + 1)));
+    if (type === 'berserker') {
+      if (game.modifiers.berserkerBloodDebt) tower.damage *= 1.25;
+      tower.berserkerFrenzyKillsThisWave = 0;
+      tower.berserkerFrenzyDamageMult = 1;
+      tower.berserkerGhostAttackCooldownMs = 0;
+      tower.nextBerserkerWanderWave = Number(game.waveNumber || 0) + (BERSERKER_WANDER_MIN_WAVES + Math.floor(Math.random() * ((BERSERKER_WANDER_MAX_WAVES - BERSERKER_WANDER_MIN_WAVES) + 1)));
+    }
     return tower;
   }
 
@@ -13721,7 +13789,7 @@ function canSubmitRewardClaims() {
     tower.berserkerOrigin = { x: tower.x, y: tower.y };
     tower.berserkerGhostTile = { x: tower.x, y: tower.y };
     tower.berserkerMoonActive = true;
-    tower.berserkerMoonReturnWave = Number(game.waveNumber || 0) + BERSERKER_WANDER_DURATION_WAVES;
+    tower.berserkerMoonReturnWave = Number(game.waveNumber || 0) + BERSERKER_WANDER_DURATION_WAVES + Math.max(0, Number(game.modifiers.berserkerKiteExtraWaves || 0));
     const fromTile = tileAt(tower.x, tower.y);
     if (fromTile) fromTile.towerId = null;
     tower.x = destination.x;
@@ -13751,6 +13819,23 @@ function canSubmitRewardClaims() {
     scheduleNextBerserkerWander(tower);
     showBanner('Berserker came back to her senses', 1600);
     return true;
+  }
+
+  function resetBerserkerFrenzyForWave() {
+    for (const tower of (game.towers || [])) {
+      if (!tower || tower.type !== 'berserker') continue;
+      tower.berserkerFrenzyKillsThisWave = 0;
+      tower.berserkerFrenzyDamageMult = 1;
+    }
+  }
+
+  function applyBerserkerBloodDebtForWave() {
+    if (!game.modifiers.berserkerBloodDebt) return;
+    for (const tower of (game.towers || [])) {
+      if (!tower || tower.type !== 'berserker' || tower.hp <= 0) continue;
+      tower.hp = Math.max(1, Number(tower.hp || 0) * 0.5);
+      createHitFlash(tower.x, tower.y, 'berserker', 'Blood Debt', { centerText: true, sizeMult: 0.9, duration: 650 });
+    }
   }
 
   function handleWaveClearHeroPassives(clearedWave) {
@@ -15138,7 +15223,29 @@ function canSubmitRewardClaims() {
     if (!enemy) return 0;
     const nextMoveAt = Number(enemy.nextMoveAt || 0);
     const moveEndAt = Number(enemy.moveEndAt || 0);
-    return Math.max(nextMoveAt, moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS);
+    // v46.9.1.252: keep one movement clock for every enemy path state.
+    // The old model had moveEndAt plus a separate buffer, while rendering tried
+    // to stretch across nextMoveAt. Clear portal paths could then read as
+    // normal motion followed by a small catch-up lurch. Each committed tile
+    // step now owns the full cadence in moveEndAt/nextMoveAt, so blocked and
+    // clear paths use the same timing model.
+    return Math.max(nextMoveAt, moveEndAt);
+  }
+
+  function getEnemyMoveCadenceMs(enemy) {
+    return Math.max(MIN_ENEMY_VISUAL_MOVE_MS, getEnemyMoveMs(enemy) + ENEMY_MOVE_STEP_BUFFER_MS);
+  }
+
+  function commitEnemyVisualStep(enemy, fromX, fromY, toX, toY, current, durationMs) {
+    if (!enemy) return;
+    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, Number(durationMs) || getEnemyMoveCadenceMs(enemy));
+    enemy.motionFromX = fromX;
+    enemy.motionFromY = fromY;
+    enemy.motionToX = toX;
+    enemy.motionToY = toY;
+    enemy.moveStartedAt = current;
+    enemy.moveEndAt = current + duration;
+    enemy.nextMoveAt = enemy.moveEndAt;
   }
 
   function canEnemyStartMove(enemy, current) {
@@ -15149,14 +15256,13 @@ function canSubmitRewardClaims() {
     if (!step) return false;
     if (!canEnemyEnter(step.x, step.y, enemy)) return false;
     updateEnemyFacingX(enemy, step.x);
-    enemy.prevX = enemy.x;
-    enemy.prevY = enemy.y;
+    const fromX = enemy.x;
+    const fromY = enemy.y;
+    enemy.prevX = fromX;
+    enemy.prevY = fromY;
     enemy.x = step.x;
     enemy.y = step.y;
-    const moveMs = getEnemyMoveMs(enemy);
-    enemy.moveStartedAt = current;
-    enemy.moveEndAt = current + moveMs;
-    enemy.nextMoveAt = enemy.moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS;
+    commitEnemyVisualStep(enemy, fromX, fromY, step.x, step.y, current, getEnemyMoveCadenceMs(enemy));
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -15607,14 +15713,13 @@ function canSubmitRewardClaims() {
     const tile = tileAt(step.x, step.y);
     if (!tile || tile.portal) return false;
     updateEnemyFacingX(enemy, step.x);
-    enemy.prevX = enemy.x;
-    enemy.prevY = enemy.y;
+    const fromX = enemy.x;
+    const fromY = enemy.y;
+    enemy.prevX = fromX;
+    enemy.prevY = fromY;
     enemy.x = step.x;
     enemy.y = step.y;
-    const moveMs = getEnemyMoveMs(enemy);
-    enemy.moveStartedAt = current;
-    enemy.moveEndAt = current + moveMs;
-    enemy.nextMoveAt = enemy.moveEndAt + ENEMY_MOVE_STEP_BUFFER_MS;
+    commitEnemyVisualStep(enemy, fromX, fromY, step.x, step.y, current, getEnemyMoveCadenceMs(enemy));
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -16535,6 +16640,8 @@ function canSubmitRewardClaims() {
       if (game.replayCapture) game.replayCapture.lastBattleSnapshotAt = 0;
     }
     game.waveNumber = currentPlan.waveNumber;
+    resetBerserkerFrenzyForWave();
+    applyBerserkerBloodDebtForWave();
     clearUnplacedStartingGen0Placement();
     if (!Array.isArray(game.activeWavePlans)) game.activeWavePlans = [];
     game.activeWavePlans.push(cloneContinueData(currentPlan));
@@ -17367,10 +17474,24 @@ function canSubmitRewardClaims() {
     return false;
   }
 
+  function updateBerserkerGhostTrail(tower, delta, current) {
+    if (!game.modifiers.berserkerGhostTrail || !tower || tower.type !== 'berserker' || !tower.berserkerMoonActive || !tower.berserkerGhostTile || tower.hp <= 0) return;
+    tower.berserkerGhostAttackCooldownMs = Math.max(0, Number(tower.berserkerGhostAttackCooldownMs || 0) - Number(delta || 0));
+    if (tower.berserkerGhostAttackCooldownMs > 0) return;
+    const ghostSource = { ...tower, x: tower.berserkerGhostTile.x, y: tower.berserkerGhostTile.y };
+    const target = nearestEnemyInRange(ghostSource, Math.max(1, Number(tower.range || 1)));
+    if (!target) return;
+    const damage = Math.max(0, Number(tower.damage || 0) * Math.max(1, Number(tower.berserkerFrenzyDamageMult || 1)) * 0.5);
+    damageEnemy(tower, target, damage, `${tower.name}'s ghost hit ${target.name}`, { key: 'berserker_ghost_trail', label: 'Ghost Trail' });
+    createAttackLine(ghostSource, target, heroColorKey('berserker'));
+    tower.berserkerGhostAttackCooldownMs = Math.max(200, tower.getAttackInterval() * 1000);
+  }
+
   function updateTower(tower, delta, current) {
     getActiveSlowTotems();
     tickEffects(tower, current);
     tower.attackCooldownMs = Math.max(0, tower.attackCooldownMs - delta);
+    updateBerserkerGhostTrail(tower, delta, current);
 
     if (game.modifiers.paladin && tower.type === 'warrior' && !isStatueTower(tower) && tower.hp > 0) {
       const nextPaladinHealAt = tower.paladinHealAt || 0;
@@ -17478,6 +17599,7 @@ function canSubmitRewardClaims() {
     if (tower.type === 'seer') damage *= getSeerDamageMultiplier();
     if (tower.type === 'monk' && tower.trainingPartnerActive) damage *= MONK_PARTNER_DAMAGE_MULTIPLIER;
     if (tower.type === 'berserker' && tower.berserkerMoonActive) damage *= 2;
+    if (tower.type === 'berserker') damage *= Math.max(1, Number(tower.berserkerFrenzyDamageMult || 1));
     if (tower.type === 'champion_sage') damage *= 1.25;
     if (tower.type === 'champion_spellbow') damage *= 1.2;
     if (tower.type === 'archer' && game.modifiers.rangerLine && isBehindWarrior(tower)) damage *= 1.05;
@@ -18640,35 +18762,27 @@ function canSubmitRewardClaims() {
     if (!enemy) return { x: 0, y: 0 };
 
     const target = getEnemyBasePixelCenter(enemy);
-    const fromTileX = Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : Number(enemy.x);
-    const fromTileY = Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : Number(enemy.y);
-    const prevPos = getTilePixelPosition(fromTileX, fromTileY);
-    const prevCenter = { x: prevPos.left + prevPos.width / 2, y: prevPos.top + prevPos.height / 2 };
+    const fromTileX = Number.isFinite(Number(enemy.motionFromX)) ? Number(enemy.motionFromX) : (Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : Number(enemy.x));
+    const fromTileY = Number.isFinite(Number(enemy.motionFromY)) ? Number(enemy.motionFromY) : (Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : Number(enemy.y));
+    const toTileX = Number.isFinite(Number(enemy.motionToX)) ? Number(enemy.motionToX) : Number(enemy.x);
+    const toTileY = Number.isFinite(Number(enemy.motionToY)) ? Number(enemy.motionToY) : Number(enemy.y);
+    const fromPos = getTilePixelPosition(fromTileX, fromTileY);
+    const toPos = getTilePixelPosition(toTileX, toTileY);
+    const fromCenter = { x: fromPos.left + fromPos.width / 2, y: fromPos.top + fromPos.height / 2 };
+    const toCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
     const startedAt = Number(enemy.moveStartedAt || 0);
-    const logicalEndAt = Number(enemy.moveEndAt || 0);
-    const readyAt = Number(enemy.nextMoveAt || 0);
-    // Use the whole movement cadence for the visual step, not only the logical
-    // move window. When the portal path is clear, enemies can chain legal steps
-    // every moveEnd + buffer interval. Rendering only to moveEnd made them reach
-    // a tile center early, pause, then appear to lurch into the next clear-path
-    // step. Extending the visual interpolation through nextMoveAt keeps clear
-    // path movement at one even pace while still staying inside prev -> current
-    // legal path segments.
-    const visualEndAt = readyAt > logicalEndAt ? readyAt : logicalEndAt;
-    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, visualEndAt - startedAt);
-    const rawProgress = startedAt > 0 && visualEndAt > startedAt
-      ? (current - startedAt) / duration
+    const endAt = Number(enemy.moveEndAt || 0);
+    const rawProgress = startedAt > 0 && endAt > startedAt
+      ? (current - startedAt) / Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endAt - startedAt)
       : 1;
     const progress = Math.max(0, Math.min(1, rawProgress));
 
-    // Keep the sprite inside the legal path segment selected by pathfinding.
-    // The older catch-up smoothing chased the current tile from wherever the
-    // sprite last rendered. If the enemy advanced again before the sprite fully
-    // arrived, that chase line could cut across a barrier even though the actual
-    // enemy tile path was legal. Segment interpolation keeps every visual frame
-    // between prevX/prevY and x/y only.
-    enemy.renderPx = prevCenter.x + ((target.x - prevCenter.x) * progress);
-    enemy.renderPy = prevCenter.y + ((target.y - prevCenter.y) * progress);
+    // v46.9.1.252: render from the committed segment, not from whatever
+    // prev/current tile happens to be after pathing. This keeps clear portal
+    // lanes and blocked lanes on the exact same tile-to-tile timing and avoids
+    // visual catch-up when the enemy can keep choosing legal forward steps.
+    enemy.renderPx = fromCenter.x + ((toCenter.x - fromCenter.x) * progress);
+    enemy.renderPy = fromCenter.y + ((toCenter.y - fromCenter.y) * progress);
     enemy.lastRenderAt = current;
     return { x: enemy.renderPx, y: enemy.renderPy };
   }
@@ -19490,6 +19604,13 @@ function canSubmitRewardClaims() {
     }
     if (enemy.sourceElite || enemy.isBoss || enemy.isFlyingSiege || enemy.isBossWaveSkitter) updateWeeklyBountyMetric('killsElite', 1);
     if (enemy.killedBy && enemy.killedBy !== 'statue') updateWeeklyBountyMetric('heroKills', 1);
+    if (game.modifiers.berserkerFrenzyLoop && enemy.killedBy === 'berserker') {
+      const berserker = (game.towers || []).find((tower) => tower && tower.id === enemy.lastHitTowerId && tower.type === 'berserker');
+      if (berserker) {
+        berserker.berserkerFrenzyKillsThisWave = Math.max(0, Number(berserker.berserkerFrenzyKillsThisWave || 0)) + 1;
+        berserker.berserkerFrenzyDamageMult = Math.min(2.5, 1 + (berserker.berserkerFrenzyKillsThisWave * 0.05));
+      }
+    }
     if (String(enemy.lastHitMethod || 'basic_attack') !== 'basic_attack') updateWeeklyBountyMetric('abilityKills', 1);
     if (enemy.debuffs && getEnemySlowPercent(enemy) > 0) updateWeeklyBountyMetric('killsSlowed', 1);
     if (enemy.debuffs && enemy.debuffs.burning) updateWeeklyBountyMetric('killsBurning', 1);
@@ -19523,6 +19644,7 @@ function canSubmitRewardClaims() {
     enemy.hp -= damage;
     if (sourceTower) {
       enemy.killedBy = sourceTower.type;
+      enemy.lastHitTowerId = sourceTower.id;
       enemy.lastHitMethod = String(damageMethod?.key || 'basic_attack');
       const methodKey = String(damageMethod?.key || 'basic_attack');
       const methodLabel = String(damageMethod?.label || 'Basic Attack');
