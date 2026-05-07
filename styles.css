@@ -11065,3 +11065,104 @@ body.how-to-play-open .center-panel {
   font-weight:800;
   color:#ffffff;
 }
+
+
+/* Run save status lightwindow */
+.run-save-status-lightwindow {
+  position: fixed;
+  inset: 0;
+  z-index: 140000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 8, 16, 0.58);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.run-save-status-lightwindow.hidden {
+  display: none !important;
+}
+
+.run-save-status-card {
+  min-width: min(360px, calc(100vw - 42px));
+  padding: 22px 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(239, 212, 150, 0.38);
+  background: linear-gradient(180deg, rgba(18, 25, 42, 0.98), rgba(8, 13, 24, 0.98));
+  box-shadow: 0 18px 48px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.04);
+  text-align: center;
+  color: #f8efd8;
+}
+
+.run-save-status-kicker {
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(235, 202, 133, 0.82);
+}
+
+.run-save-status-message {
+  font-size: 22px;
+  font-weight: 900;
+  text-shadow: 0 0 12px rgba(236, 204, 125, 0.34);
+}
+
+.run-save-status-lightwindow.is-failed .run-save-status-card {
+  border-color: rgba(255, 92, 92, 0.55);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.5), 0 0 22px rgba(255,70,70,0.22);
+}
+
+.run-save-status-lightwindow.is-failed .run-save-status-message {
+  color: #ffd1d1;
+}
+
+
+/* Wallet-dependent disabled controls */
+.wallet-dependent-disabled,
+button.wallet-dependent-disabled,
+input.wallet-dependent-disabled {
+  opacity: 0.42 !important;
+  filter: grayscale(0.65) saturate(0.55);
+  cursor: not-allowed !important;
+}
+
+button.wallet-dependent-disabled {
+  pointer-events: none;
+}
+
+
+
+/* Wallet connection gating */
+.wallet-dependent-disabled,
+.wallet-btn:disabled,
+.wallet-btn[aria-disabled="true"] {
+  opacity: 0.36 !important;
+  filter: grayscale(0.9) saturate(0.4) !important;
+  cursor: not-allowed !important;
+}
+
+.wallet-dependent-disabled:not(.hidden) {
+  box-shadow: none !important;
+}
+
+.wallet-connect-attention:not(:disabled) {
+  position: relative;
+  outline: 2px solid rgba(255, 213, 92, 0.92) !important;
+  box-shadow: 0 0 0 3px rgba(255, 213, 92, 0.22), 0 0 20px rgba(255, 213, 92, 0.52) !important;
+  animation: walletConnectAttentionPulse 1.25s ease-in-out infinite;
+}
+
+@keyframes walletConnectAttentionPulse {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 3px rgba(255, 213, 92, 0.18), 0 0 16px rgba(255, 213, 92, 0.42);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 5px rgba(255, 213, 92, 0.28), 0 0 26px rgba(255, 213, 92, 0.72);
+  }
+}
+

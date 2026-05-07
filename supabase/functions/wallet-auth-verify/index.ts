@@ -180,9 +180,12 @@ Deno.serve(async (req) => {
     await admin.from('wallet_sessions').delete().eq('wallet_address', normalized).lt('expires_at', new Date().toISOString());
 
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+    const sessionToken = crypto.randomUUID();
+
     const { data: sessionRow, error: sessionError } = await admin
       .from('wallet_sessions')
       .insert({
+        session_token: sessionToken,
         wallet_address: normalized,
         expires_at: expiresAt,
         last_seen_at: new Date().toISOString(),
@@ -193,9 +196,23 @@ Deno.serve(async (req) => {
       .single();
     if (sessionError || !sessionRow) throw sessionError || new Error('Session creation failed.');
 
-    return json({ sessionToken: sessionRow.session_token, expiresAt: sessionRow.expires_at, displayName: resolvedDisplayName }, 200);
+    const savedSessionToken = String(sessionRow.session_token || sessionToken).trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(savedSessionToken)) {
+      throw new Error('Wallet session creation returned an invalid session token.');
+    }
+
+    return json({
+      sessionToken: savedSessionToken,
+      session_token: savedSessionToken,
+      sessionId: savedSessionToken,
+      session_id: savedSessionToken,
+      expiresAt: sessionRow.expires_at,
+      expires_at: sessionRow.expires_at,
+      displayName: resolvedDisplayName,
+    }, 200);
   } catch (error) {
-    return json({ error: error.message || 'Verification failed.' }, 500);
+    const message = error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : '';
+    return json({ error: message || 'Verification failed.' }, 500);
   }
 });
 

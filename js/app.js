@@ -620,8 +620,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const CHRONO_PURGE_DURATION_SECONDS = 6;
   const SEER_EVASION_CHANCE = 0.10;
   const KRAKEN_BASE_DAMAGE = 10.115;
-  const KRAKEN_SLOW_PERCENT = 0.75;
-  const KRAKEN_DURATION_SECONDS = 10;
+  const KRAKEN_SLOW_PERCENT = 0.40;
+  const KRAKEN_DURATION_SECONDS = 15;
   const KRAKEN_RANGE_BONUS = 3;
   const BLINDING_LIGHT_TOTEM_RANGE = 2;
   const BLINDING_LIGHT_TOTEM_SLOW_PERCENT = 0.25;
@@ -709,8 +709,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const GLOBAL_ENEMY_MOVE_INTERVAL_MULTIPLIER = 1.25;
   const ENEMY_MOVE_STEP_BUFFER_MS = 120;
   const MIN_ENEMY_VISUAL_MOVE_MS = 650;
-  const ENEMY_ROUTE_CACHE_TILES = 3;
-  const ENEMY_ROUTE_CACHE_TILES_LARGE = 2;
+  const ENEMY_ROUTE_CACHE_TILES = 1;
+  const ENEMY_ROUTE_CACHE_TILES_LARGE = 1;
   const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
@@ -813,7 +813,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       abilities: [
         { key: 'warning_shot', name: 'Warning Shot', cooldown: 5.5 },
         { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 9 },
-        { key: 'kraken', name: 'Kraken', cooldown: 0 },
+        { key: 'kraken', name: 'Kraken', cooldown: 10 },
       ],
       passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
     },
@@ -4719,6 +4719,131 @@ function formatQuestResetCountdown(dateKey) {
     return normalizeAddress(walletState.address || '');
   }
 
+  function isWalletConnectedForUi() {
+    return !!getConnectedWalletAddress();
+  }
+
+  function getRunTrackingSessionStateForUi() {
+    try {
+      if (!window.DFKRunTracker || typeof window.DFKRunTracker.getState !== 'function') {
+        return { hasTracker: false, hasSession: false, status: '' };
+      }
+      const trackerState = window.DFKRunTracker.getState() || {};
+      const session = trackerState.session || null;
+      const status = String(trackerState.status || '').trim();
+      const expiresAt = session && session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
+      const expired = !!(expiresAt && Date.now() >= expiresAt);
+      return {
+        hasTracker: true,
+        hasSession: !!session && !expired,
+        status,
+        expired,
+      };
+    } catch (_error) {
+      return { hasTracker: false, hasSession: false, status: '' };
+    }
+  }
+
+  function applyWalletControlVisual(control, disabled, message = 'Connect wallet to use this.') {
+    if (!control) return;
+    const shouldDisable = !!disabled;
+    control.disabled = shouldDisable;
+    control.classList.toggle('wallet-dependent-disabled', shouldDisable);
+    control.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+    if (shouldDisable) {
+      if (!control.dataset.enabledTitle) control.dataset.enabledTitle = control.getAttribute('title') || '';
+      control.setAttribute('title', message);
+      control.style.setProperty('opacity', '0.36', 'important');
+      control.style.setProperty('filter', 'grayscale(0.9) saturate(0.4)', 'important');
+      control.style.setProperty('cursor', 'not-allowed', 'important');
+      control.style.setProperty('pointer-events', 'none', 'important');
+    } else {
+      const priorTitle = control.dataset.enabledTitle || '';
+      if (priorTitle) control.setAttribute('title', priorTitle);
+      else control.removeAttribute('title');
+      control.style.removeProperty('opacity');
+      control.style.removeProperty('filter');
+      control.style.removeProperty('cursor');
+      control.style.removeProperty('pointer-events');
+    }
+  }
+
+  function setWalletAttention(control, active, label = 'Connect wallet to continue.') {
+    if (!control) return;
+    control.classList.toggle('wallet-connect-attention', !!active);
+    if (active) {
+      control.setAttribute('title', label);
+      control.setAttribute('aria-live', 'polite');
+    }
+  }
+
+  function getWalletDependentProfileControls() {
+    return [
+      document.getElementById('saveVanityBtn'),
+      document.getElementById('enableTrackingBtn'),
+      document.getElementById('disableTrackingBtn'),
+      document.getElementById('clearStuckWavesBtn'),
+      document.getElementById('addGoldBtn'),
+      document.getElementById('championFastModeBtn'),
+      document.getElementById('metisInfluenceDebugBtn'),
+      document.getElementById('relicViewDfkgoldSwapBtn'),
+      document.getElementById('relicViewJewelGoldSwapBtn'),
+      document.getElementById('relicViewHonkGoldSwapBtn'),
+    ].filter(Boolean);
+  }
+
+  function updateWalletDependentControls() {
+    const connected = isWalletConnectedForUi();
+    const trackerState = getRunTrackingSessionStateForUi();
+    const needsRunTrackingSession = connected && trackerState.hasTracker && !trackerState.hasSession;
+    const connectBtn = document.getElementById('connectWalletBtn');
+    const enableTrackingBtn = document.getElementById('enableTrackingBtn');
+    const disconnectBtn = document.getElementById('disconnectWalletBtn');
+    const vanityInput = document.getElementById('walletVanityInput') || document.getElementById('vanityNameInput');
+
+    if (connectBtn) {
+      connectBtn.disabled = false;
+      connectBtn.classList.remove('wallet-dependent-disabled');
+      connectBtn.style.removeProperty('opacity');
+      connectBtn.style.removeProperty('filter');
+      connectBtn.style.removeProperty('cursor');
+      connectBtn.style.removeProperty('pointer-events');
+      setWalletAttention(connectBtn, !connected, 'Connect wallet to unlock wallet actions.');
+    }
+
+    if (disconnectBtn) {
+      applyWalletControlVisual(disconnectBtn, !connected, 'Connect wallet first.');
+      disconnectBtn.classList.toggle('hidden', !connected);
+      disconnectBtn.setAttribute('aria-hidden', connected ? 'false' : 'true');
+    }
+
+    getWalletDependentProfileControls().forEach((control) => {
+      const hidden = control.classList.contains('hidden');
+      const shouldDisable = !connected || hidden;
+      applyWalletControlVisual(control, shouldDisable, connected ? 'Unavailable right now.' : 'Connect wallet to use this.');
+    });
+
+    if (enableTrackingBtn) {
+      setWalletAttention(enableTrackingBtn, needsRunTrackingSession && !enableTrackingBtn.classList.contains('hidden'), 'Enable run tracking and sign once to submit tracked runs.');
+    }
+
+    if (vanityInput) {
+      vanityInput.disabled = !connected;
+      vanityInput.classList.toggle('wallet-dependent-disabled', !connected);
+      if (!connected) {
+        vanityInput.setAttribute('title', 'Connect wallet to set a vanity name.');
+        vanityInput.style.setProperty('opacity', '0.42', 'important');
+        vanityInput.style.setProperty('filter', 'grayscale(0.75)', 'important');
+        vanityInput.style.setProperty('cursor', 'not-allowed', 'important');
+      } else {
+        vanityInput.removeAttribute('title');
+        vanityInput.style.removeProperty('opacity');
+        vanityInput.style.removeProperty('filter');
+        vanityInput.style.removeProperty('cursor');
+      }
+    }
+  }
+
   function createDifficultyProfileForRun(options = {}) {
     const connected = !!options.connected;
     return connected
@@ -5462,8 +5587,16 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   async function fetchLatestDailyRaffleWinnerDirect() {
     try {
-      const response = await fetchSupabaseFunctionJson('daily-raffle', null, 'GET');
-      const payload = response && typeof response === 'object' ? ((response.data && typeof response.data === 'object') ? response.data : response) : {};
+      const { functionBaseUrl, key } = getSupabaseFunctionConfig();
+      if (!functionBaseUrl || !key) return { morning: null, midday: null, latest: null };
+      const response = await fetch(`${functionBaseUrl}/daily-raffle`, {
+        method: 'GET',
+        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Cache-Control': 'no-cache' },
+      });
+      if (!response.ok) return { morning: null, midday: null, latest: null };
+      const responseText = await response.text().catch(() => '');
+      const raw = responseText ? JSON.parse(responseText) : {};
+      const payload = raw && typeof raw === 'object' ? ((raw.data && typeof raw.data === 'object') ? raw.data : raw) : {};
       const latestWinners = payload && payload.latest_winners && typeof payload.latest_winners === 'object' ? payload.latest_winners : {};
       const winner00 = getDailyRaffleWinnerBySlot(latestWinners, '00') || (payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null);
       return {
@@ -6379,14 +6512,16 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function updateChampionFastModeButtonState() {
     if (!els.championFastModeBtn) return;
-    const allowed = canUseChampionFastModeToggle();
+    const connected = isWalletConnectedForUi();
+    const allowed = connected && canUseChampionFastModeToggle();
     const enabled = isChampionFastModeEnabled();
-    els.championFastModeBtn.classList.toggle('hidden', !allowed);
+    els.championFastModeBtn.classList.toggle('hidden', connected && !allowed);
     els.championFastModeBtn.disabled = !allowed;
+    els.championFastModeBtn.classList.toggle('wallet-dependent-disabled', !connected);
     els.championFastModeBtn.textContent = `Champion Fast Mode: ${enabled ? 'On' : 'Off'}`;
-    els.championFastModeBtn.title = allowed
-      ? (enabled ? 'Uses instant champion deploy timing for testing.' : 'Uses normal champion timing: 20 waves rest, 12 waves active, 24 if held to 40.')
-      : 'Connect 0x971b... to toggle champion fast mode.';
+    els.championFastModeBtn.title = connected
+      ? (allowed ? (enabled ? 'Uses instant champion deploy timing for testing.' : 'Uses normal champion timing: 20 waves rest, 12 waves active, 24 if held to 40.') : 'Connect 0x971b... to toggle champion fast mode.')
+      : 'Connect wallet to use this.';
   }
 
   function toggleChampionFastMode() {
@@ -6413,13 +6548,15 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function updateMetisInfluenceDebugButtonState() {
     if (!els.metisInfluenceDebugBtn) return;
-    const allowed = canUseMetisInfluenceDebug();
-    els.metisInfluenceDebugBtn.classList.toggle('hidden', !allowed);
+    const connected = isWalletConnectedForUi();
+    const allowed = connected && canUseMetisInfluenceDebug();
+    els.metisInfluenceDebugBtn.classList.toggle('hidden', connected && !allowed);
     els.metisInfluenceDebugBtn.disabled = !allowed || game.metisInfluenceDebugPending === true;
+    els.metisInfluenceDebugBtn.classList.toggle('wallet-dependent-disabled', !connected);
     els.metisInfluenceDebugBtn.textContent = game.metisInfluenceDebugPending ? 'Checking Metis Influence…' : 'Debug Metis Influence';
-    els.metisInfluenceDebugBtn.title = allowed
-      ? 'Checks Metis hero influence data for confirmed examples and your pledged wallet heroes, then logs a table.'
-      : 'Connect the authorized test wallet to run this diagnostic.';
+    els.metisInfluenceDebugBtn.title = connected
+      ? (allowed ? 'Checks Metis hero influence data for confirmed examples and your pledged wallet heroes, then logs a table.' : 'Connect the authorized test wallet to run this diagnostic.')
+      : 'Connect wallet to use this.';
   }
 
   async function loadMetisPledgedHeroIdsForAddress(address, contract) {
@@ -7176,6 +7313,7 @@ function renderDamageReport() {
       log('Tracked run submission deferred until last chance is resolved.');
       return;
     }
+    showRunSaveStatusLightwindow('Saving run…');
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     try {
@@ -7225,6 +7363,7 @@ function renderDamageReport() {
           }, 4);
         }, 220);
         showBanner('Tracked run saved.', 3200);
+        finishRunSaveStatusLightwindow('saved successful!');
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         markRecentTrackedRunSubmission();
@@ -7234,15 +7373,65 @@ function renderDamageReport() {
         } else {
           log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
         }
+        finishRunSaveStatusLightwindow('saved successful!');
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else {
         game.runTracking.submitted = false;
+        finishRunSaveStatusLightwindow('oh shit son save failed, tell winston', true);
         log(`Run tracking failed: ${response && response.error ? response.error : 'Unknown error'}.`);
       }
     } catch (error) {
       game.runTracking.submitted = false;
+      finishRunSaveStatusLightwindow('oh shit son save failed, tell winston', true);
       log(`Run tracking failed: ${error && error.message ? error.message : 'Unknown error'}.`);
     }
+  }
+
+  function ensureRunSaveStatusLightwindow() {
+    let overlay = document.getElementById('runSaveStatusLightwindow');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'runSaveStatusLightwindow';
+    overlay.className = 'run-save-status-lightwindow hidden';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = `
+      <div class="run-save-status-card" role="status" aria-live="polite">
+        <div class="run-save-status-kicker">Run Save</div>
+        <div class="run-save-status-message" id="runSaveStatusMessage">Saving run…</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function showRunSaveStatusLightwindow(message = 'Saving run…', final = false) {
+    const overlay = ensureRunSaveStatusLightwindow();
+    const messageEl = overlay.querySelector('#runSaveStatusMessage');
+    if (messageEl) messageEl.textContent = message;
+    overlay.classList.remove('hidden');
+    overlay.classList.toggle('is-final', !!final);
+    overlay.setAttribute('aria-hidden', 'false');
+    if (game.runSaveStatusTimer) {
+      clearTimeout(game.runSaveStatusTimer);
+      game.runSaveStatusTimer = null;
+    }
+  }
+
+  function finishRunSaveStatusLightwindow(message, failed = false) {
+    const overlay = ensureRunSaveStatusLightwindow();
+    const messageEl = overlay.querySelector('#runSaveStatusMessage');
+    if (messageEl) messageEl.textContent = message;
+    overlay.classList.add('is-final');
+    overlay.classList.toggle('is-failed', !!failed);
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+    if (game.runSaveStatusTimer) clearTimeout(game.runSaveStatusTimer);
+    game.runSaveStatusTimer = setTimeout(() => {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('is-final', 'is-failed');
+      overlay.setAttribute('aria-hidden', 'true');
+      game.runSaveStatusTimer = null;
+    }, failed ? 5200 : 1800);
   }
 
   function syncPremiumJewelsFromSettledBank(detail) {
@@ -11070,6 +11259,7 @@ function canSubmitRewardClaims() {
   }
 
   function render() {
+    window.setTimeout(updateWalletDependentControls, 0);
     for (const tower of game.towers || []) { normalizeArcherStats(tower); if (tower?.isSoulSplit) refreshPureEnergyState(tower); }
     syncStartWaveButtonState();
     renderGrid();
@@ -13872,7 +14062,7 @@ function canSubmitRewardClaims() {
       chrono_purge: 10,
       evasion: 20,
       starboard_cannons: 10,
-      kraken: 16.5,
+      kraken: 15,
       healing_aura: 1,
       eagle_nest: 1,
       soul_split: 1,
@@ -13924,13 +14114,12 @@ function canSubmitRewardClaims() {
     if (tower?.type === 'wizard') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'seer') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'warrior' && abilityKey === 'whirlwind') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.whirlwindCooldownAdjust || 0));
-    if (tower?.type === 'pirate' && abilityKey === 'kraken') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.krakenCooldownAdjust || 0));
+    if (tower?.type === 'pirate' && abilityKey === 'kraken') return Math.max(0.5, 10 - (game.modifiers.krakenCooldownAdjust || 0) - leadershipReduction);
     if (abilityKey === 'shield_bash') return scaledBase;
     const seerBaseCooldown = ['temporal_restoration', 'warstone', 'chrono_purge', 'evasion'].includes(abilityKey);
     let finalCooldown = (getAbilityIndex(tower, abilityKey) >= 2 && !seerBaseCooldown) ? scaledBase * 1.5 : scaledBase;
     if (abilityKey === 'fireball') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'warning_shot') finalCooldown += 1.5;
-    if (abilityKey === 'kraken') finalCooldown += 1.5;
     if (abilityKey === 'starboard_cannons') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'multi_shot') finalCooldown = Math.max(0.5, finalCooldown - 1.5);
     if (tower?.type === 'monk' && abilityKey === 'fast_fists') finalCooldown *= Math.max(0.1, Number(game.modifiers.fastFistsCooldownMultiplier || 1));
@@ -14145,7 +14334,7 @@ function canSubmitRewardClaims() {
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: ${getAbilityCooldownSeconds(tower, 'warning_shot').toFixed(1)}s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'starboard_cannons').toFixed(1)}s.${common}${scale}`,
-      kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Cooldown: ${getAbilityCooldownSeconds(tower, 'kraken').toFixed(1)}s.${stronger}${common}${scale}`,
+      kraken: `Applies a ${KRAKEN_DURATION_SECONDS}s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Unlocks at level ${getAbilityUnlockLevel(tower, 'kraken')}. Cooldown: ${getAbilityCooldownSeconds(tower, 'kraken').toFixed(1)}s.${scale}`,
       champion_big_sword: `He swings Damn Big Sword through every enemy within 1 tile for ${Math.round(tower.damage * 1.25)} damage.${common}${scale}`,
       champion_crush: `Stomps enemies within 2 tiles, knocks them back 5 tiles toward the void, and has a 50% chance to stun for 3s. Deals ${Math.round(tower.damage * 1.4)} damage.${common}${scale}`,
       champion_gauntlet: `Passive. Enemies that pass through this champion are slowed by 50% for 10s.${common}${scale}`,
@@ -15097,37 +15286,34 @@ function canSubmitRewardClaims() {
     const portalTargets = getPortalTargets();
     if (!portalTargets.length) return [];
 
-    // Use the same committed path behavior for clear portal lanes that target
-    // navigation uses for blocked/aggro paths. The older portal cache selected
-    // each future step greedily from the flow field; on an open path that could
-    // rebuild into a slightly different cadence every tile and read as
-    // normal-speed movement followed by a faster lurch. A short pathfind slice
-    // gives the enemy one legal route to follow for the next few tiles, then it
-    // recalculates after that commitment is spent or invalidated.
     const path = pathfind({ x: enemy.x, y: enemy.y }, portalTargets, {
       enemy,
       avoidBacktrack: true,
       softCrowd: true,
     });
+
     if (path && path.length > 1) {
-      return path.slice(1, 1 + getEnemyRouteCacheLimit(enemy)).map(step => ({ x: step.x, y: step.y }));
+      const step = { x: path[1].x, y: path[1].y };
+      return canEnemyEnter(step.x, step.y, enemy) ? [step] : [];
     }
 
-    // Flow-field fallback keeps enemies moving if the pathfinder cannot produce
-    // a full route due to transient crowding. This still returns a short legal
-    // segment, but the pathfind slice above is the preferred clear-path path.
-    const limit = getEnemyRouteCacheLimit(enemy);
-    const route = [];
-    let pos = { x: enemy.x, y: enemy.y };
-    let prev = { x: Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : enemy.x, y: Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : enemy.y };
-    for (let i = 0; i < limit; i += 1) {
-      const step = choosePortalRouteStepAt(enemy, pos, prev, false, i === 0);
-      if (!step) break;
-      route.push(step);
-      prev = pos;
-      pos = step;
-    }
-    return route;
+    const currentDistance = getPortalFlowDistance(enemy.x, enemy.y);
+    const prevX = Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : enemy.x;
+    const prevY = Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : enemy.y;
+    const step = adjacentTiles(enemy.x, enemy.y)
+      .filter(candidate => canEnemyEnter(candidate.x, candidate.y, enemy))
+      .map(candidate => {
+        const distanceScore = getPortalFlowDistance(candidate.x, candidate.y);
+        const reversePenalty = (candidate.x === prevX && candidate.y === prevY && !(prevX === enemy.x && prevY === enemy.y)) ? 2 : 0;
+        const occupancyPenalty = getEnemyOccupancyPenalty(enemy, candidate.x, candidate.y, false);
+        return { ...candidate, score: distanceScore + reversePenalty + occupancyPenalty, distanceScore };
+      })
+      .filter(candidate => Number.isFinite(candidate.score))
+      .sort((a, b) => a.score - b.score)[0] || null;
+
+    if (!step) return [];
+    if (Number.isFinite(currentDistance) && Number.isFinite(step.distanceScore) && step.distanceScore > currentDistance) return [];
+    return [{ x: step.x, y: step.y }];
   }
 
   function buildTargetRouteCache(enemy, navTargets) {
@@ -15160,9 +15346,7 @@ function canSubmitRewardClaims() {
       break;
     }
 
-    const route = navMode === 'portal'
-      ? buildPortalRouteCache(enemy)
-      : buildTargetRouteCache(enemy, navTargets);
+    const route = buildTargetRouteCache(enemy, navMode === 'portal' ? getPortalTargets() : navTargets);
     enemy.routeCache = Array.isArray(route) ? route : [];
     enemy.routeCacheKey = cacheKey;
     if (!enemy.routeCache.length) return null;
@@ -15221,35 +15405,39 @@ function canSubmitRewardClaims() {
 
   function getEnemyMoveReadyAt(enemy) {
     if (!enemy) return 0;
-    const nextMoveAt = Number(enemy.nextMoveAt || 0);
-    const moveEndAt = Number(enemy.moveEndAt || 0);
-    // v46.9.1.252: keep one movement clock for every enemy path state.
-    // The old model had moveEndAt plus a separate buffer, while rendering tried
-    // to stretch across nextMoveAt. Clear portal paths could then read as
-    // normal motion followed by a small catch-up lurch. Each committed tile
-    // step now owns the full cadence in moveEndAt/nextMoveAt, so blocked and
-    // clear paths use the same timing model.
-    return Math.max(nextMoveAt, moveEndAt);
+    return Math.max(Number(enemy.nextMoveAt || 0), Number(enemy.moveEndAt || 0));
   }
 
   function getEnemyMoveCadenceMs(enemy) {
     return Math.max(MIN_ENEMY_VISUAL_MOVE_MS, getEnemyMoveMs(enemy) + ENEMY_MOVE_STEP_BUFFER_MS);
   }
 
-  function commitEnemyVisualStep(enemy, fromX, fromY, toX, toY, current, durationMs) {
+  function canEnemyStartMove(enemy, current) {
+    return !!enemy && current >= getEnemyMoveReadyAt(enemy);
+  }
+
+  function initializeEnemyRenderPosition(enemy, x = enemy?.x, y = enemy?.y) {
     if (!enemy) return;
-    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, Number(durationMs) || getEnemyMoveCadenceMs(enemy));
+    const pos = getTilePixelPosition(x, y);
+    if (!pos) return;
+    enemy.renderPx = pos.left + (pos.width / 2);
+    enemy.renderPy = pos.top + (pos.height / 2);
+    enemy.lastRenderAt = now();
+  }
+
+  function commitEnemyLogicalStep(enemy, fromX, fromY, toX, toY, current = now()) {
+    if (!enemy) return;
+    if (!Number.isFinite(Number(enemy.renderPx)) || !Number.isFinite(Number(enemy.renderPy))) {
+      initializeEnemyRenderPosition(enemy, fromX, fromY);
+    }
     enemy.motionFromX = fromX;
     enemy.motionFromY = fromY;
     enemy.motionToX = toX;
     enemy.motionToY = toY;
     enemy.moveStartedAt = current;
-    enemy.moveEndAt = current + duration;
+    const cadence = getEnemyMoveCadenceMs(enemy);
+    enemy.moveEndAt = current + cadence;
     enemy.nextMoveAt = enemy.moveEndAt;
-  }
-
-  function canEnemyStartMove(enemy, current) {
-    return !!enemy && current >= getEnemyMoveReadyAt(enemy);
   }
 
   function moveEnemyToStep(enemy, step, current) {
@@ -15262,7 +15450,7 @@ function canSubmitRewardClaims() {
     enemy.prevY = fromY;
     enemy.x = step.x;
     enemy.y = step.y;
-    commitEnemyVisualStep(enemy, fromX, fromY, step.x, step.y, current, getEnemyMoveCadenceMs(enemy));
+    commitEnemyLogicalStep(enemy, fromX, fromY, step.x, step.y, current);
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -16034,6 +16222,72 @@ function canSubmitRewardClaims() {
     updateAutoStartButton();
   }
 
+  function getFirstOpenChampionDeploymentTile() {
+    const portal = game.grid.find((tile) => tile && tile.portal) || game.grid.find((tile) => tile && tile.type === 'portal');
+    const candidates = [];
+    if (portal) {
+      for (let radius = 1; radius <= Math.max(WIDTH, HEIGHT); radius += 1) {
+        for (let x = portal.x - radius; x <= portal.x + radius; x += 1) {
+          for (let y = portal.y - radius; y <= portal.y + radius; y += 1) {
+            if (!inBounds(x, y)) continue;
+            if (Math.abs(x - portal.x) + Math.abs(y - portal.y) !== radius) continue;
+            candidates.push({ x, y });
+          }
+        }
+        const open = candidates.find((tile) => isOpenForTower(tile.x, tile.y));
+        if (open) return open;
+      }
+    }
+    return game.grid.find((tile) => tile && isOpenForTower(tile.x, tile.y)) || null;
+  }
+
+  function deploySelectedChampionImmediatelyFromPaidRetry() {
+    const selected = ensureChampionSelectionReady({ autoConfirm: true });
+    if (!selected || !game.selectedChampionConfirmed) return false;
+    if (game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId)) return false;
+    const tile = getFirstOpenChampionDeploymentTile();
+    if (!tile) {
+      showBanner('Paid retry champion deployment failed: no open tile.', 2200);
+      return false;
+    }
+    const previousPlacement = {
+      placingHeroType: game.placingHeroType,
+      placingHeroCost: game.placingHeroCost,
+      placingHeroUsesBonus: game.placingHeroUsesBonus,
+      placingSatelliteSourceId: game.placingSatelliteSourceId,
+      placingWalletHeroId: game.placingWalletHeroId,
+      championPlacementPending: game.championPlacementPending ? cloneContinueData(game.championPlacementPending) : null,
+      waitAnchor: game.championWaitAnchorWave,
+    };
+    game.championWaitAnchorWave = Math.min(Number(game.championWaitAnchorWave || 0), Number(game.waveNumber || 0) - getChampionRequiredWaitWaves());
+    game.placingHeroType = selected.definition.towerType;
+    game.placingHeroCost = 0;
+    game.placingHeroUsesBonus = false;
+    game.placingSatelliteSourceId = null;
+    game.placingWalletHeroId = null;
+    game.championPlacementPending = {
+      key: selected.key,
+      heroId: String(selected.hero?.id || ''),
+      towerType: selected.definition.towerType,
+      waitedAtStart: getChampionRequiredWaitWaves(),
+      startedAt: now(),
+      paidRetryImmediate: true,
+    };
+    placeHiredHero(tile.x, tile.y);
+    if (!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId))) {
+      game.placingHeroType = previousPlacement.placingHeroType;
+      game.placingHeroCost = previousPlacement.placingHeroCost;
+      game.placingHeroUsesBonus = previousPlacement.placingHeroUsesBonus;
+      game.placingSatelliteSourceId = previousPlacement.placingSatelliteSourceId;
+      game.placingWalletHeroId = previousPlacement.placingWalletHeroId;
+      game.championPlacementPending = previousPlacement.championPlacementPending;
+      game.championWaitAnchorWave = previousPlacement.waitAnchor;
+      return false;
+    }
+    showBanner(`${selected.definition.label} deployed immediately from paid retry.`, 2400);
+    return true;
+  }
+
   function openContinueOfferModal() {
     if (!els.continueOfferModal) return;
     closeIntroModal();
@@ -16047,8 +16301,8 @@ function canSubmitRewardClaims() {
     const honkRetryLabel = getDfkPaymentLabelForJewelAmount(1, 'honk');
     if (els.continueOfferBody) {
       els.continueOfferBody.innerHTML = freeAvailable
-        ? `<p>The portal fell. You can restart this round once for free with <strong>500 extra gold</strong>.</p><p>You may also save the free retry and use a paid retry for <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`
-        : `<p>The portal fell again. Your free retry has been used, but you can buy one more retry with <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`;
+        ? `<p>The portal fell. You can restart this round once for free with <strong>500 extra gold</strong>.</p><p>You may also save the free retry and use a paid retry for <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong> plus immediate champion deployment if one is selected.</p>`
+        : `<p>The portal fell again. Your free retry has been used, but you can buy one more retry with <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong> plus immediate champion deployment if one is selected.</p>`;
     }
     if (els.continueHellYeahBtn) {
       els.continueHellYeahBtn.textContent = freeAvailable ? 'Free retry' : 'Free retry used';
@@ -16056,12 +16310,12 @@ function canSubmitRewardClaims() {
       els.continueHellYeahBtn.classList.toggle('hidden', !freeAvailable);
     }
     if (els.continuePaidJewelBtn) {
-      els.continuePaidJewelBtn.textContent = 'Retry for 1 JEWEL + 2000 gold';
+      els.continuePaidJewelBtn.textContent = 'Retry for 1 JEWEL';
       els.continuePaidJewelBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || !hasWalletJewelForWei(getDfkPaymentWeiForJewelAmount(1, 'native_jewel'));
       els.continuePaidJewelBtn.classList.toggle('hidden', !paidAvailable);
     }
     if (els.continuePaidHonkBtn) {
-      els.continuePaidHonkBtn.textContent = `Retry for ${honkRetryLabel} + 2000 gold`;
+      els.continuePaidHonkBtn.textContent = `Retry for ${honkRetryLabel}`;
       els.continuePaidHonkBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || getWalletHonkBalance() + 1e-9 < getHonkPurchaseAmountFromJewel(1);
       els.continuePaidHonkBtn.classList.toggle('hidden', !paidAvailable);
     }
@@ -16968,8 +17222,6 @@ function canSubmitRewardClaims() {
     enemy.navCommitUntil = current + 600;
     enemy.lastStallRecoveryAt = current;
     moveEnemyToStep(enemy, bestStep, current);
-    enemy.moveEndAt = current + Math.min(220, getEnemyMoveMs(enemy));
-    enemy.nextMoveAt = enemy.moveEndAt;
     markProgress(`${enemy.name} recovered forward movement.`);
     return true;
   }
@@ -18165,12 +18417,12 @@ function canSubmitRewardClaims() {
       }
     } else {
       enemy.navMode = navMode;
-      enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : (navMode === 'statue' ? 660 : 550));
+      enemy.navCommitUntil = current + (navMode === 'statue' ? 660 : 550);
     }
 
     if (!attackTarget && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
       let nextStep = getCachedEnemyMoveStep(enemy, navMode, navTargets, current);
-      if (nextStep && navMode !== 'portal') {
+      if (nextStep) {
         enemy.targetPath = [
           { x: enemy.x, y: enemy.y },
           nextStep,
@@ -18761,7 +19013,6 @@ function canSubmitRewardClaims() {
   function getEnemySmoothPixelCenter(enemy, current = now()) {
     if (!enemy) return { x: 0, y: 0 };
 
-    const target = getEnemyBasePixelCenter(enemy);
     const fromTileX = Number.isFinite(Number(enemy.motionFromX)) ? Number(enemy.motionFromX) : (Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : Number(enemy.x));
     const fromTileY = Number.isFinite(Number(enemy.motionFromY)) ? Number(enemy.motionFromY) : (Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : Number(enemy.y));
     const toTileX = Number.isFinite(Number(enemy.motionToX)) ? Number(enemy.motionToX) : Number(enemy.x);
@@ -18772,15 +19023,10 @@ function canSubmitRewardClaims() {
     const toCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
     const startedAt = Number(enemy.moveStartedAt || 0);
     const endAt = Number(enemy.moveEndAt || 0);
-    const rawProgress = startedAt > 0 && endAt > startedAt
-      ? (current - startedAt) / Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endAt - startedAt)
-      : 1;
+    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endAt - startedAt);
+    const rawProgress = startedAt > 0 && endAt > startedAt ? (current - startedAt) / duration : 1;
     const progress = Math.max(0, Math.min(1, rawProgress));
 
-    // v46.9.1.252: render from the committed segment, not from whatever
-    // prev/current tile happens to be after pathing. This keeps clear portal
-    // lanes and blocked lanes on the exact same tile-to-tile timing and avoids
-    // visual catch-up when the enemy can keep choosing legal forward steps.
     enemy.renderPx = fromCenter.x + ((toCenter.x - fromCenter.x) * progress);
     enemy.renderPy = fromCenter.y + ((toCenter.y - fromCenter.y) * progress);
     enemy.lastRenderAt = current;
@@ -20510,6 +20756,8 @@ function canSubmitRewardClaims() {
     updateTestGoldButtonState();
     updateChampionFastModeButtonState();
     updateMetisInfluenceDebugButtonState();
+    updateWalletDependentControls();
+    window.setTimeout(updateWalletDependentControls, 0);
     renderDamageReport();
     render();
     if (!detail || !detail.address) {
@@ -20533,6 +20781,7 @@ function canSubmitRewardClaims() {
   els.addGoldBtn?.addEventListener('click', grantTestGold);
   els.championFastModeBtn?.addEventListener('click', toggleChampionFastMode);
   els.metisInfluenceDebugBtn?.addEventListener('click', debugMetisInfluenceForWalletHeroes);
+  updateWalletDependentControls();
 
   window.addEventListener('dfk:tracked-runs-refresh-requested', () => {
     refreshBountyBoard().catch(() => {});
@@ -20637,6 +20886,8 @@ function canSubmitRewardClaims() {
     try { syncTopMenuWalletResources(); } catch (_error) {}
     updateJewelTradeUi();
     updateRelicSwapUi();
+    updateWalletDependentControls();
+    window.setTimeout(updateWalletDependentControls, 0);
   });
   els.speedToggleBtn?.addEventListener('click', () => {
     setPlayMode('easy');
@@ -20994,6 +21245,7 @@ function canSubmitRewardClaims() {
         retryGold: 2000,
       });
       restoreContinueSnapshot(2000, { paid: true });
+      deploySelectedChampionImmediatelyFromPaidRetry();
     } catch (error) {
       setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
@@ -21010,6 +21262,7 @@ function canSubmitRewardClaims() {
         retryGold: 2000,
       });
       restoreContinueSnapshot(2000, { paid: true });
+      deploySelectedChampionImmediatelyFromPaidRetry();
     } catch (error) {
       setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
@@ -21117,14 +21370,9 @@ function canSubmitRewardClaims() {
     game.realLastTick = realNow;
     game.virtualNow += realDelta * game.timeScale;
     try {
-      // Render enemy movement before the logic tick starts the next tile step.
-      // When a clear portal path lets enemies chain moves every cadence, updating
-      // first could skip the last few pixels of the prior legal segment and read
-      // as a lurch. Rendering first lets each segment finish visually, then the
-      // next update can advance the logical tile for the following frame.
+      update();
       renderGrid();
       renderEnemyLayer();
-      update();
       if (!game.lastSelectedPanelRefreshAt || (realNow - game.lastSelectedPanelRefreshAt) >= 120) {
         refreshSelectedPanelLive();
         game.lastSelectedPanelRefreshAt = realNow;

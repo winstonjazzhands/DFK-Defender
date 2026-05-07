@@ -22,7 +22,7 @@
   const QUEUE_RECORD_VERSION = 2;
 
   function persistSessionToken(token) {
-    if (!token) return;
+    if (!token || isBadRunTrackingSessionToken(token)) return;
     try { sessionStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token); } catch (_error) {}
     try { localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token); } catch (_error) {}
   }
@@ -51,6 +51,127 @@
   function nowMs() { return Date.now(); }
   function tokenFingerprint(token) { const v = String(token || ''); return v ? `${v.slice(0, 6)}…${v.slice(-4)}` : ''; }
 
+  function isUuidLike(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+
+  function isBadRunTrackingSessionToken(token) {
+    const text = String(token || '').trim();
+    if (!text) return true;
+    if (/^sb_(publishable|anon)_/i.test(text)) return true;
+
+    // The submit-run shared wallet-session lookup expects a UUID session id.
+    // Do not send Supabase JWTs, opaque JWTs, or other random strings as x-session-token.
+    const parts = text.split('.');
+    if (parts.length === 3 && parts.every(Boolean)) return true;
+    if (!isUuidLike(text)) return true;
+
+    return false;
+  }
+
+  function extractWalletSessionToken(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    const candidates = [
+      payload.sessionToken,
+      payload.session_token,
+      payload.walletSessionToken,
+      payload.wallet_session_token,
+      payload.sessionId,
+      payload.session_id,
+      payload.id,
+      payload.token,
+      payload.session && payload.session.sessionToken,
+      payload.session && payload.session.session_token,
+      payload.session && payload.session.id,
+    ];
+    for (const candidate of candidates) {
+      const token = String(candidate || '').trim();
+      if (token && !isBadRunTrackingSessionToken(token)) return token;
+    }
+    return '';
+  }
+
+  function getUsableRunTrackingSession(session) {
+    if (!session || !session.sessionToken) return null;
+    if (isBadRunTrackingSessionToken(session.sessionToken)) return null;
+    return session;
+  }
+
+  const RUN_TRACKING_SESSION_VERSION = 'v46_9_1_284';
+  const RUN_TRACKING_SESSION_VERSION_KEY = 'dfkRunTrackingSessionVersion';
+
+  function isSessionRefreshRequiredError(error) {
+    const code = String(error && error.code || '').trim().toLowerCase();
+    const message = String(error && error.message || '').trim().toLowerCase();
+    return code === 'session_refresh_required'
+      || code === 'session_lookup_failed'
+      || code === 'missing_session_token'
+      || code === 'session_expired'
+      || code === 'session_revoked'
+      || code === 'session_device_mismatch'
+      || code === 'session_origin_mismatch'
+      || code === 'wallet_mismatch'
+      || /session refresh required|session lookup failed|valid session token required|session rejected|session expired|session revoked|session device mismatch|session origin mismatch|wallet mismatch/i.test(message);
+  }
+
+  function clearRunTrackingSessionForRefresh(address = '') {
+    const normalized = normalizeAddress(address || state.address || getTrackingAddress() || '');
+    const keys = Object.keys(localStorage || {});
+    for (const key of keys) {
+      const lower = key.toLowerCase();
+      const targetsRunSession = lower.includes('runtrackersession')
+        || lower.includes('run-tracker-session')
+        || lower.includes('walletsession')
+        || lower.includes('wallet-session')
+        || (normalized && lower.includes(normalized) && lower.includes('session'));
+      if (targetsRunSession) {
+        try { localStorage.removeItem(key); } catch (_error) {}
+      }
+    }
+    try { sessionStorage.removeItem(SESSION_TOKEN_STORAGE_KEY); } catch (_error) {}
+    try { localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY); } catch (_error) {}
+    state.session = null;
+    state.lastAuthenticatedAddress = null;
+  }
+
+  function enforceRunTrackingSessionVersion() {
+    try {
+      const saved = localStorage.getItem(RUN_TRACKING_SESSION_VERSION_KEY);
+      if (saved === RUN_TRACKING_SESSION_VERSION) return false;
+      clearRunTrackingSessionForRefresh();
+      localStorage.setItem(RUN_TRACKING_SESSION_VERSION_KEY, RUN_TRACKING_SESSION_VERSION);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async function refreshRunTrackingSessionForUpload(walletAddress, options = {}) {
+    const normalized = normalizeAddress(walletAddress || state.address || getTrackingAddress() || '');
+    if (!normalized) throw new Error('Wallet reconnect required before run upload.');
+    clearRunTrackingSessionForRefresh(normalized);
+    applyStatus('Run Tracking: Refreshing session…', 'warn');
+
+    if (typeof ensureSession === 'function') {
+      const session = await ensureSession(normalized, { interactive: !!options.interactive, force: true });
+      if (session && session.sessionToken) return session;
+    }
+
+    if (typeof authenticateWallet === 'function') {
+      const session = await authenticateWallet(normalized, { interactive: !!options.interactive, force: true });
+      if (session && session.sessionToken) return session;
+    }
+
+    const restored = restoreSession(normalized);
+    if (restored && !isSessionStale(restored)) {
+      state.session = restored;
+      state.lastAuthenticatedAddress = normalized;
+      return restored;
+    }
+
+    throw new Error('Run tracking session refresh failed.');
+  }
+
   function sessionStorageKey(address) {
     return `dfkRunTrackerSession:${normalizeAddress(address)}`;
   }
@@ -65,39 +186,75 @@
     render();
   }
 
+  function setWalletDependentDisabled(el, disabled, label = 'Connect wallet to use this.') {
+    if (!el) return;
+    const shouldDisable = !!disabled;
+    el.disabled = shouldDisable;
+    el.classList.toggle('wallet-dependent-disabled', shouldDisable);
+    el.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+    if (shouldDisable) {
+      if (!el.dataset.enabledTitle) el.dataset.enabledTitle = el.getAttribute('title') || '';
+      el.setAttribute('title', label);
+      el.style.setProperty('opacity', '0.36', 'important');
+      el.style.setProperty('filter', 'grayscale(0.9) saturate(0.4)', 'important');
+      el.style.setProperty('cursor', 'not-allowed', 'important');
+      el.style.setProperty('pointer-events', 'none', 'important');
+    } else {
+      const priorTitle = el.dataset.enabledTitle || '';
+      if (priorTitle) el.setAttribute('title', priorTitle);
+      else el.removeAttribute('title');
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('filter');
+      el.style.removeProperty('cursor');
+      el.style.removeProperty('pointer-events');
+    }
+  }
+
   function render() {
     setText(ui.status, state.status);
     setText(ui.summary, state.summary);
     if (ui.status) ui.status.className = `wallet-tracking-status ${state.statusClass}`.trim();
+    const walletConnected = !!state.address;
     if (ui.enableBtn) {
       const showEnable = !state.session;
-      ui.enableBtn.disabled = !showEnable || !state.address || !state.client;
+      setWalletDependentDisabled(ui.enableBtn, !showEnable || !walletConnected || !state.client);
       ui.enableBtn.textContent = 'Enable Run Tracking';
       ui.enableBtn.classList.toggle('hidden', !showEnable);
       ui.enableBtn.setAttribute('aria-hidden', showEnable ? 'false' : 'true');
     }
     if (ui.disableBtn) {
-      const showDisable = !!state.session;
-      ui.disableBtn.disabled = !showDisable || !state.address || !state.client;
+      const showDisable = !!state.session || !!restoreSession(state.address || state.lastAuthenticatedAddress || '');
+      setWalletDependentDisabled(ui.disableBtn, !showDisable || !walletConnected);
       ui.disableBtn.textContent = 'Disable Run Tracking';
       ui.disableBtn.classList.toggle('hidden', !showDisable);
       ui.disableBtn.setAttribute('aria-hidden', showDisable ? 'false' : 'true');
     }
     if (ui.clearStuckWavesBtn) {
       const showClear = !!state.session;
-      ui.clearStuckWavesBtn.disabled = !showClear;
+      setWalletDependentDisabled(ui.clearStuckWavesBtn, !showClear || !walletConnected);
       ui.clearStuckWavesBtn.textContent = 'Clear Stuck Waves';
       ui.clearStuckWavesBtn.classList.toggle('hidden', !showClear);
       ui.clearStuckWavesBtn.setAttribute('aria-hidden', showClear ? 'false' : 'true');
     }
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
-    if (ui.saveVanityBtn) ui.saveVanityBtn.disabled = !state.session || !state.client || !state.address;
+    if (ui.vanityInput) ui.vanityInput.classList.toggle('wallet-dependent-disabled', !walletConnected);
+    if (ui.saveVanityBtn) setWalletDependentDisabled(ui.saveVanityBtn, !state.session || !state.client || !walletConnected);
     if (ui.vanitySection) {
-      const showVanity = !!state.address;
+      const showVanity = true;
       ui.vanitySection.classList.toggle('hidden', !showVanity);
       ui.vanitySection.setAttribute('aria-hidden', showVanity ? 'false' : 'true');
     }
+    try {
+      window.dispatchEvent(new CustomEvent('dfk-defense:tracking-state', {
+        detail: {
+          enabled: isTrackingEnabled(),
+          hasSession: !!state.session,
+          status: state.status,
+          address: state.address || state.lastAuthenticatedAddress || null,
+        },
+      }));
+    } catch (_error) {}
   }
 
   function getWalletState() {
@@ -123,7 +280,7 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || !parsed.sessionToken) return null;
-      if (isSessionStale(parsed)) {
+      if (isBadRunTrackingSessionToken(parsed.sessionToken) || isSessionStale(parsed)) {
         localStorage.removeItem(sessionStorageKey(address));
         return null;
       }
@@ -655,12 +812,34 @@ function attachSecureSubmission(queueId, secureSubmission) {
       'Content-Type': 'application/json',
       apikey: CONFIG.key,
     };
-    if (token) headers['x-session-token'] = token;
-    const response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload || {}),
-    });
+    if (token) {
+      if (isBadRunTrackingSessionToken(token)) {
+        const err = new Error('Run tracking session refresh required.');
+        err.code = 'session_refresh_required';
+        err.status = 401;
+        throw err;
+      }
+      headers['x-session-token'] = token;
+    }
+    const controller = new AbortController();
+    const timeoutMs = functionName === CONFIG.submitFunction ? 20000 : 15000;
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetch(`${CONFIG.url}/functions/v1/${functionName}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload || {}),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const err = new Error(error && error.name === 'AbortError' ? `${functionName} timed out.` : (error && error.message ? error.message : 'Network request failed.'));
+      err.code = error && error.name === 'AbortError' ? 'timeout' : 'fetch_failed';
+      err.status = error && error.name === 'AbortError' ? 408 : 0;
+      throw err;
+    } finally {
+      window.clearTimeout(timeout);
+    }
     const responseText = await response.text().catch(() => '');
     let json = null;
     if (responseText) {
@@ -702,7 +881,7 @@ function attachSecureSubmission(queueId, secureSubmission) {
   }
 
   function isAuthErrorMessage(message) {
-    return /invalid or expired session|session not found|missing authorization header|jwt|expired|unauthorized|wallet mismatch|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
+    return /invalid or expired session|session lookup failed|session not found|missing authorization header|jwt|expired|unauthorized|wallet mismatch|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_lookup_failed|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
   }
 
   function isRetryableUploadError(error) {
@@ -719,6 +898,22 @@ function attachSecureSubmission(queueId, secureSubmission) {
     const delay = Math.max(0, Number(ms || 0));
     if (!delay) return;
     await new Promise((resolve) => window.setTimeout(resolve, delay));
+  }
+
+  function withTimeout(promise, ms, message = 'Operation timed out.') {
+    let timer = null;
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = window.setTimeout(() => {
+          const error = new Error(message);
+          error.code = 'timeout';
+          reject(error);
+        }, Math.max(1000, Number(ms || 0)));
+      }),
+    ]).finally(() => {
+      if (timer) window.clearTimeout(timer);
+    });
   }
 
   async function submitTrackedRunWithRetry(payload, sessionToken, options = {}) {
@@ -1091,15 +1286,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       return true;
     } catch (error) {
       const message = String(error && error.message ? error.message : 'Disable failed');
-      if (/session not found|session revoked|session expired|wallet mismatch|unauthorized/i.test(message)) {
+      if (/session not found|session revoked|session expired|session lookup failed|session refresh required|wallet mismatch|unauthorized/i.test(message)) {
         clearSession(walletAddress);
         state.session = null;
         state.summary = 'Tracked Runs: -- · Best Wave: --';
         applyStatus('Run Tracking: Disabled', 'warn');
         return true;
       }
-      applyStatus(`Run Tracking: ${message || 'Disable failed'}`, 'bad');
-      return false;
+      clearSession(walletAddress);
+      state.session = null;
+      state.summary = 'Tracked Runs: -- · Best Wave: --';
+      applyStatus('Run Tracking: Disabled locally', 'warn');
+      return true;
     }
   }
 
@@ -1180,8 +1378,9 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           walletProvider: wallet.providerInfo && wallet.providerInfo.name ? wallet.providerInfo.name : null,
         });
         if (verifyPayload && verifyPayload.displayName) state.profileName = String(verifyPayload.displayName);
-        if (verifyPayload && verifyPayload.sessionToken) {
-          state.sessionToken = String(verifyPayload.sessionToken);
+        const extractedSessionToken = extractWalletSessionToken(verifyPayload);
+        if (extractedSessionToken) {
+          state.sessionToken = extractedSessionToken;
           persistSessionToken(state.sessionToken);
         }
       } catch (error) {
@@ -1206,8 +1405,13 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           throw error;
         }
       }
+      const finalSessionToken = extractWalletSessionToken(verifyPayload);
+      if (!finalSessionToken) {
+        console.warn('[run-tracker] verify response did not contain a UUID wallet session token', verifyPayload);
+        throw new Error('Run tracking session response was invalid. Redeploy verify-run-session / wallet session functions.');
+      }
       const session = {
-        sessionToken: verifyPayload.sessionToken,
+        sessionToken: finalSessionToken,
         expiresAt: verifyPayload.expiresAt,
         authenticatedAt: new Date().toISOString(),
       };
@@ -1303,13 +1507,13 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       }
     }
 
-    const currentSession = restoreSession(walletAddress);
+    const currentSession = getUsableRunTrackingSession(restoreSession(walletAddress));
     if (currentSession) {
       state.session = currentSession;
       state.lastAuthenticatedAddress = walletAddress;
     }
 
-    if (!state.session || isSessionStale(state.session)) {
+    if (!getUsableRunTrackingSession(state.session) || isSessionStale(state.session)) {
       clearSession(walletAddress);
       state.session = null;
       if (interactive) {
@@ -1354,6 +1558,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         }
       }
       const payloadToSubmit = normalizeQueuedRunPayload((queueItem && queueItem.payload) || normalizedPayload, walletAddress);
+      if (!getUsableRunTrackingSession(state.session)) throw Object.assign(new Error('Run tracking session refresh required.'), { code: 'session_refresh_required' });
       const result = await submitTrackedRunWithRetry(payloadToSubmit, state.session.sessionToken, {
         maxAttempts: interactive ? 3 : 2,
       });
@@ -1361,6 +1566,34 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       return { ok: true, queued: false, result };
     } catch (error) {
       const message = error && error.message ? error.message : 'Upload failed';
+      if (isSessionRefreshRequiredError(error)) {
+        clearRunTrackingSessionForRefresh(walletAddress);
+        if (interactive) {
+          try {
+            await refreshRunTrackingSessionForUpload(walletAddress, { interactive: true });
+            const retried = await submitTrackedRunWithRetry(normalizeQueuedRunPayload(queueItem.payload, walletAddress), state.session.sessionToken, {
+              maxAttempts: 1,
+            });
+            markQueuedRunUploaded(queueItem.queueId);
+            applyStatus('Run Tracking: Session refreshed', 'good');
+            return { ok: true, queued: false, result: retried, sessionRefreshed: true };
+          } catch (retryError) {
+            const retryMessage = retryError && retryError.message ? retryError.message : message;
+            updateQueueStatus(queueItem.queueId, 'pending_auth', {
+              lastError: retryMessage,
+              nextRetryAt: null,
+            });
+            applyStatus('Run Tracking: Wallet signature needed to refresh session', 'bad');
+            return { ok: false, queued: true, authRequired: true, error: retryMessage, sessionRefreshRequired: true };
+          }
+        }
+        updateQueueStatus(queueItem.queueId, 'pending_auth', {
+          lastError: 'Run tracking session refresh required.',
+          nextRetryAt: null,
+        });
+        flushPendingRunsSoon({ address: walletAddress, delayMs: 500, interactive: true, force: true });
+        return { ok: false, queued: true, authRequired: true, error: 'Run tracking session refresh required.', sessionRefreshRequired: true };
+      }
       if (isAuthErrorMessage(message)) {
         clearSession(walletAddress);
         state.session = null;
@@ -1466,9 +1699,20 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
 
       let uploaded = 0;
+      let failed = 0;
       for (const item of queue) {
-        const result = await uploadQueuedRun(item, { interactive });
-        if (result && result.ok) uploaded += 1;
+        try {
+          const result = await withTimeout(uploadQueuedRun(item, { interactive }), interactive ? 60000 : 30000, 'Pending run upload timed out.');
+          if (result && result.ok) uploaded += 1;
+          else if (result && !result.ok) failed += 1;
+        } catch (error) {
+          failed += 1;
+          const message = error && error.message ? error.message : 'Pending run upload timed out.';
+          updateQueueStatus(item.queueId, 'pending', {
+            lastError: message,
+            nextRetryAt: new Date(nowMs() + 60_000).toISOString(),
+          });
+        }
       }
 
       purgeUploadedQueueRecords(address);
@@ -1478,12 +1722,12 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       const pending = getPendingQueueCount(address);
       if (pending > 0) {
         const statusText = buildStatusText();
-        applyStatus(statusText, /pending secure submission/i.test(statusText) ? 'bad' : 'warn');
+        applyStatus(failed > 0 ? `${statusText} · Retry paused` : statusText, /pending secure submission/i.test(statusText) ? 'bad' : 'warn');
       } else if (state.address) {
         applyStatus(buildStatusText(), isTrackingEnabled() ? 'good' : 'warn');
       }
 
-      return { uploaded, pending };
+      return { uploaded, pending, failed };
     })();
 
     try {
@@ -1785,6 +2029,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
   }
 
   async function init() {
+    enforceRunTrackingSessionVersion();
     if (state.initialized) return;
     state.initialized = true;
     bindUi();
