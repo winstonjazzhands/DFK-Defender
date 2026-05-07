@@ -11166,3 +11166,61 @@ button.wallet-dependent-disabled {
   }
 }
 
+
+
+.third-party-outage-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 44px 7px 14px;
+  background: #ffd84d;
+  color: #000;
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: center;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.third-party-outage-banner.hidden {
+  display: none !important;
+}
+
+.third-party-outage-banner-message {
+  color: #000;
+  font-weight: 900;
+}
+
+.third-party-outage-banner-close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 2px solid #000;
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  line-height: 18px;
+  padding: 0;
+  background: transparent;
+  color: #000;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.third-party-outage-banner-close:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+body.third-party-outage-banner-visible {
+  padding-top: 34px;
+}
+

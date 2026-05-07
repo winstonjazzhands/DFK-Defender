@@ -759,6 +759,21 @@ function loadCachedBalance() {
       : null;
   }
   function tokenFingerprint(token) { const v = String(token || ''); return v ? `${v.slice(0, 6)}…${v.slice(-4)}` : ''; }
+  function isUuidLike(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+  function isBadTreasurySessionToken(token) {
+    const text = String(token || '').trim();
+    if (!text) return true;
+    if (/^sb_(publishable|anon)_/i.test(text)) return true;
+    const parts = text.split('.');
+    if (parts.length === 3 && parts.every(Boolean)) return true;
+    return !isUuidLike(text);
+  }
+  function getUsableTreasurySessionToken(token) {
+    const text = String(token || '').trim();
+    return isBadTreasurySessionToken(text) ? '' : text;
+  }
   function isNetworkLikeError(message) {
     const msg = String(message || '').toLowerCase();
     return msg.includes('failed to fetch') || msg.includes('load failed') || msg.includes('networkerror') || msg.includes('cors') || msg.includes('preflight');
@@ -784,14 +799,15 @@ function loadCachedBalance() {
     const existingToken = trackerState && trackerState.session && trackerState.session.sessionToken
       ? String(trackerState.session.sessionToken)
       : '';
-    if (existingToken) return existingToken;
+    if (getUsableTreasurySessionToken(existingToken)) return getUsableTreasurySessionToken(existingToken);
     if (typeof tracker.authenticate !== 'function') {
       throw new Error('Run tracking session missing. Enable run tracking first.');
     }
     const session = await tracker.authenticate();
     const token = session && session.sessionToken ? String(session.sessionToken) : '';
-    if (!token) throw new Error('Run tracking session missing. Enable run tracking first.');
-    return token;
+    const usableToken = getUsableTreasurySessionToken(token);
+    if (!usableToken) throw new Error('Run tracking session missing. Enable run tracking first.');
+    return usableToken;
   }
 
   async function refreshTreasurySessionToken(forceRefresh = false) {
@@ -799,24 +815,25 @@ function loadCachedBalance() {
     if (!tracker) return '';
     if (forceRefresh && typeof tracker.reauthenticate === 'function') {
       const session = await tracker.reauthenticate();
-      return session && session.sessionToken ? String(session.sessionToken) : '';
+      return getUsableTreasurySessionToken(session && session.sessionToken ? String(session.sessionToken) : '');
     }
     if (typeof tracker.authenticate === 'function') {
       const session = await tracker.authenticate(forceRefresh ? { forceRefresh: true } : undefined);
-      return session && session.sessionToken ? String(session.sessionToken) : getTrackerSessionToken();
+      return getUsableTreasurySessionToken(session && session.sessionToken ? String(session.sessionToken) : getTrackerSessionToken());
     }
     return getTrackerSessionToken();
   }
 
   function isTreasurySessionError(message) {
-    return /session token required|session not found|session expired|session revoked|wallet mismatch|missing authorization header|unauthorized|invalid or expired session|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
+    return /session token required|session refresh required|invalid_session_token_format|session_lookup_failed|session not found|session expired|session revoked|wallet mismatch|missing authorization header|unauthorized|invalid or expired session|session device mismatch|session origin mismatch|missing user agent|missing_session_token|session_refresh_required|session_expired|session_revoked|session_device_mismatch|session_origin_mismatch/i.test(String(message || ''));
   }
 
   function getTrackerSessionToken() {
     const trackerState = window.DFKRunTracker && typeof window.DFKRunTracker.getState === 'function'
       ? window.DFKRunTracker.getState()
       : null;
-    return (trackerState && trackerState.session && trackerState.session.sessionToken) || '';
+    const token = (trackerState && trackerState.session && trackerState.session.sessionToken) || '';
+    return getUsableTreasurySessionToken(token);
   }
 
   function buildTreasuryHeaders(sessionToken) {
@@ -824,13 +841,14 @@ function loadCachedBalance() {
       'Content-Type': 'application/json',
       apikey: CONFIG.supabaseAnonKey,
     };
-    if (sessionToken) headers['x-session-token'] = sessionToken;
+    const usableSessionToken = getUsableTreasurySessionToken(sessionToken);
+    if (usableSessionToken) headers['x-session-token'] = usableSessionToken;
     return headers;
   }
 
   async function callFunction(name, payload) {
     if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) throw new Error('Supabase functions are not configured.');
-    let sessionToken = getTrackerSessionToken();
+    let sessionToken = getUsableTreasurySessionToken(getTrackerSessionToken());
 
     async function logSessionDiagnostic(reason, activeToken, error) {
       if (!window.DFKRunTracker || typeof window.DFKRunTracker.debugSession !== 'function') return;
@@ -875,14 +893,19 @@ function loadCachedBalance() {
         const message = json && (json.error || json.message || json.failureReason) ? String(json.error || json.message || json.failureReason) : `${name} failed.`;
         const requestId = response.headers.get('x-request-id') || response.headers.get('cf-ray') || '';
         const errorCode = json && (json.code || json.errorCode || json.reason) ? String(json.code || json.errorCode || json.reason) : '';
-        console.warn('[avax-rails] function call failed', {
+        const logPayload = {
           functionName: name,
           status: response.status,
           code: errorCode || null,
           tokenFingerprint: tokenFingerprint(activeToken),
           requestId,
           response: json || raw || null,
-        });
+        };
+        if (isTreasurySessionError(`${message} ${errorCode}`)) {
+          console.info('[avax-rails] session refresh needed', logPayload);
+        } else {
+          console.warn('[avax-rails] function call failed', logPayload);
+        }
         const err = enhanceFunctionError(name, new Error(`${message}${requestId ? ` [requestId=${requestId}]` : ''}`));
         err.status = response.status;
         err.code = errorCode || '';

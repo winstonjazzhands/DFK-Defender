@@ -41,6 +41,8 @@
     authPromise: null,
     queueFlushPromise: null,
     queueFlushTimer: null,
+    authPausedUntil: 0,
+    lastAuthFailureAt: 0,
   };
 
   const ui = {};
@@ -50,6 +52,22 @@
   function setText(el, text) { if (el) el.textContent = text; }
   function nowMs() { return Date.now(); }
   function tokenFingerprint(token) { const v = String(token || ''); return v ? `${v.slice(0, 6)}…${v.slice(-4)}` : ''; }
+
+  function isUserRejectedAuthError(error) {
+    const message = String(error && (error.message || error.code || error.reason) || '').toLowerCase();
+    const code = Number(error && error.code || 0);
+    return code === 4001 || message.includes('user rejected') || message.includes('user denied') || message.includes('rejected the request');
+  }
+
+  function isRunTrackingAuthPaused() {
+    return Number(state.authPausedUntil || 0) > nowMs();
+  }
+
+  function pauseRunTrackingAuth(ms = 120000, reason = 'Run tracking signature paused.') {
+    state.authPausedUntil = nowMs() + Math.max(15000, Number(ms || 0));
+    state.lastAuthFailureAt = nowMs();
+    applyStatus(reason, 'bad');
+  }
 
   function isUuidLike(value) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
@@ -217,7 +235,7 @@
     const walletConnected = !!state.address;
     if (ui.enableBtn) {
       const showEnable = !state.session;
-      setWalletDependentDisabled(ui.enableBtn, !showEnable || !walletConnected || !state.client);
+      setWalletDependentDisabled(ui.enableBtn, !showEnable || !walletConnected || !CONFIG.url || !CONFIG.key);
       ui.enableBtn.textContent = 'Enable Run Tracking';
       ui.enableBtn.classList.toggle('hidden', !showEnable);
       ui.enableBtn.setAttribute('aria-hidden', showEnable ? 'false' : 'true');
@@ -239,7 +257,7 @@
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
     if (ui.vanityInput) ui.vanityInput.classList.toggle('wallet-dependent-disabled', !walletConnected);
-    if (ui.saveVanityBtn) setWalletDependentDisabled(ui.saveVanityBtn, !state.session || !state.client || !walletConnected);
+    if (ui.saveVanityBtn) setWalletDependentDisabled(ui.saveVanityBtn, !state.session || !CONFIG.url || !CONFIG.key || !walletConnected);
     if (ui.vanitySection) {
       const showVanity = true;
       ui.vanitySection.classList.toggle('hidden', !showVanity);
@@ -1231,7 +1249,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       state.lastAuthenticatedAddress = normalizeAddress(wallet.address);
       return restored;
     }
-    return authenticate();
+    return authenticate({ manual: !!options.manual });
   }
 
   function buildLoginMessage(nonce, address) {
@@ -1255,7 +1273,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     const walletAddress = getTrackingAddress();
     const sessionToken = state.session && state.session.sessionToken ? state.session.sessionToken : '';
 
-    if (!state.client) {
+    if (!CONFIG.url || !CONFIG.key) {
       if (walletAddress) clearSession(walletAddress);
       state.session = null;
       state.summary = 'Tracked Runs: -- · Best Wave: --';
@@ -1338,6 +1356,10 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
   }
 
   async function authenticate(options = {}) {
+    const manual = !!(options && options.manual);
+    if (!manual && isRunTrackingAuthPaused()) {
+      throw new Error('Run tracking signature paused. Click Enable Run Tracking to try again.');
+    }
     if (state.authPromise) return state.authPromise;
 
     state.authPromise = (async () => {
@@ -1364,10 +1386,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       applyStatus('Run Tracking: Waiting for signature…', 'warn');
       const noncePayload = await callFunction(CONFIG.nonceFunction, { address: wallet.address });
       const message = noncePayload && noncePayload.message ? String(noncePayload.message) : buildLoginMessage(noncePayload.nonce, wallet.address);
-      const signature = await wallet.selectedProvider.request({
-        method: 'personal_sign',
-        params: [message, wallet.address],
-      });
+      let signature = '';
+      try {
+        signature = await wallet.selectedProvider.request({
+          method: 'personal_sign',
+          params: [message, wallet.address],
+        });
+      } catch (error) {
+        if (isUserRejectedAuthError(error)) {
+          pauseRunTrackingAuth(120000, 'Run Tracking: Signature rejected. Click Enable Run Tracking to try again.');
+        }
+        throw error;
+      }
       let verifyPayload;
       try {
         verifyPayload = await callFunction(CONFIG.verifyFunction, {
@@ -1385,15 +1415,23 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         }
       } catch (error) {
         const errorMessage = String(error && error.message ? error.message : '');
-        if (/nonce (?:already used|mismatch|expired)|nonce not found/i.test(errorMessage)) {
+        if (/nonce (?:already used|mismatch|expired)/i.test(errorMessage)) {
           const retryNoncePayload = await callFunction(CONFIG.nonceFunction, { address: wallet.address });
           const retryMessage = retryNoncePayload && retryNoncePayload.message
             ? String(retryNoncePayload.message)
             : buildLoginMessage(retryNoncePayload.nonce, wallet.address);
-          const retrySignature = await wallet.selectedProvider.request({
-            method: 'personal_sign',
-            params: [retryMessage, wallet.address],
-          });
+          let retrySignature = '';
+          try {
+            retrySignature = await wallet.selectedProvider.request({
+              method: 'personal_sign',
+              params: [retryMessage, wallet.address],
+            });
+          } catch (error) {
+            if (isUserRejectedAuthError(error)) {
+              pauseRunTrackingAuth(120000, 'Run Tracking: Signature rejected. Click Enable Run Tracking to try again.');
+            }
+            throw error;
+          }
           verifyPayload = await callFunction(CONFIG.verifyFunction, {
             address: wallet.address,
             message: retryMessage,
@@ -1432,46 +1470,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
   }
 
   async function refreshSummary(options = {}) {
-    if (!state.client || !state.address) {
-      state.summary = 'Tracked Runs: -- · Best Wave: --';
-      render();
-      return null;
-    }
-    const address = normalizeAddress(state.address);
-    const pendingCount = getPendingQueueCount(address);
-    const securePendingCount = getPendingSecureCount(address);
-    const { data, error } = await state.client
-      .from('players')
-      .select('wallet_address,display_name,vanity_name,best_wave,total_runs,last_run_at')
-      .eq('wallet_address', address)
-      .maybeSingle();
-    if (error) {
-      state.summary = pendingCount > 0
-        ? `Tracked Runs: -- · Best Wave: -- · Pending: ${pendingCount}${securePendingCount > 0 ? ` (Secure: ${securePendingCount})` : ''}`
-        : 'Tracked Runs: -- · Best Wave: --';
-      render();
-      return null;
-    }
-    if (!data) {
-      state.summary = pendingCount > 0
-        ? `Tracked Runs: 0 · Best Wave: 0 · Pending: ${pendingCount}${securePendingCount > 0 ? ` (Secure: ${securePendingCount})` : ''}`
-        : 'Tracked Runs: 0 · Best Wave: 0';
-      render();
-      return null;
-    }
-    state.vanityName = data.vanity_name || null;
-    const runs = Number(data.total_runs || 0);
-    const bestWave = Number(data.best_wave || 0);
-    state.summary = pendingCount > 0
-      ? `Tracked Runs: ${runs} · Best Wave: ${bestWave} · Pending: ${pendingCount}${securePendingCount > 0 ? ` (Secure: ${securePendingCount})` : ''}`
-      : `Tracked Runs: ${runs} · Best Wave: ${bestWave}`;
+    const address = normalizeAddress(state.address || getTrackingAddress() || '');
+    const pendingCount = address ? getPendingQueueCount(address) : 0;
+    const securePendingCount = address ? getPendingSecureCount(address) : 0;
+    const pendingCopy = pendingCount > 0 ? ` · Pending: ${pendingCount}${securePendingCount > 0 ? ` (Secure: ${securePendingCount})` : ''}` : '';
+    state.summary = address ? `Tracked Runs: -- · Best Wave: --${pendingCopy}` : 'Tracked Runs: -- · Best Wave: --';
     render();
     if (options && options.flushPending && pendingCount > 0 && state.session && !isSessionStale(state.session)) {
       try {
         await processPendingRuns({ address, interactive: false, force: true });
       } catch (_error) {}
     }
-    return data;
+    return null;
   }
 
   async function uploadQueuedRun(queueItem, options = {}) {
@@ -1479,7 +1489,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     const interactive = !!options.interactive;
     const walletAddress = normalizeAddress(queueItem.walletAddress || (queueItem.payload && queueItem.payload.walletAddress) || '');
     if (!walletAddress) return { ok: false, queued: true, error: 'Missing wallet address.' };
-    if (!state.client) return { ok: false, queued: true, error: 'Supabase is not configured.' };
+    if (!CONFIG.url || !CONFIG.key) return { ok: false, queued: true, error: 'Supabase is not configured.' };
 
     const secureRequired = requiresSecureSubmission(queueItem.payload);
     if (secureRequired) {
@@ -1516,18 +1526,12 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     if (!getUsableRunTrackingSession(state.session) || isSessionStale(state.session)) {
       clearSession(walletAddress);
       state.session = null;
-      if (interactive) {
-        try {
-          await ensureAuthenticatedSession({ forceRefresh: true });
-        } catch (error) {
-          const message = error && error.message ? error.message : 'Signature needed.';
-          markQueuedRunFailed(queueItem.queueId, message);
-          return { ok: false, queued: true, authRequired: true, error: message };
-        }
-      } else {
-        markQueuedRunFailed(queueItem.queueId, 'Signature needed.');
-        return { ok: false, queued: true, authRequired: true, error: 'Signature needed.' };
-      }
+      updateQueueStatus(queueItem.queueId, 'pending_auth', {
+        lastError: 'Wallet signature needed. Click Enable Run Tracking to continue.',
+        nextRetryAt: null,
+      });
+      pauseRunTrackingAuth(120000, 'Run Tracking: Wallet signature needed. Click Enable Run Tracking to continue.');
+      return { ok: false, queued: true, authRequired: true, error: 'Signature needed.' };
     }
 
     try {
@@ -1591,26 +1595,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
           lastError: 'Run tracking session refresh required.',
           nextRetryAt: null,
         });
-        flushPendingRunsSoon({ address: walletAddress, delayMs: 500, interactive: true, force: true });
+        pauseRunTrackingAuth(120000, 'Run Tracking: Wallet signature needed. Click Enable Run Tracking to continue.');
         return { ok: false, queued: true, authRequired: true, error: 'Run tracking session refresh required.', sessionRefreshRequired: true };
       }
       if (isAuthErrorMessage(message)) {
         clearSession(walletAddress);
         state.session = null;
-        if (interactive) {
-          try {
-            await ensureAuthenticatedSession({ forceRefresh: true });
-            const retried = await submitTrackedRunWithRetry(normalizeQueuedRunPayload(queueItem.payload, walletAddress), state.session.sessionToken, {
-              maxAttempts: interactive ? 3 : 2,
-            });
-            markQueuedRunUploaded(queueItem.queueId);
-            return { ok: true, queued: false, result: retried };
-          } catch (retryError) {
-            const retryMessage = retryError && retryError.message ? retryError.message : message;
-            markQueuedRunFailed(queueItem.queueId, retryMessage);
-            return { ok: false, queued: true, authRequired: true, error: retryMessage };
-          }
-        }
+        updateQueueStatus(queueItem.queueId, 'pending_auth', {
+          lastError: 'Wallet signature needed. Click Enable Run Tracking to continue.',
+          nextRetryAt: null,
+        });
+        pauseRunTrackingAuth(120000, 'Run Tracking: Wallet signature needed. Click Enable Run Tracking to continue.');
+        return { ok: false, queued: true, authRequired: true, error: message };
       }
       if (String(error && error.code || '').trim().toLowerCase() === 'secure_payload_hash_mismatch') {
         try {
@@ -1689,6 +1685,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     const interactive = !!options.interactive;
     const force = !!options.force;
     if (!address) return { uploaded: 0, pending: 0 };
+    if (!interactive && isRunTrackingAuthPaused()) return { uploaded: 0, pending: getPendingQueueCount(address), failed: 0, authPaused: true };
     if (state.queueFlushPromise && !force) return state.queueFlushPromise;
 
     state.queueFlushPromise = (async () => {
@@ -1747,6 +1744,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         if (pendingCount <= 0) return;
         const currentSession = restoreSession(address);
         if (!currentSession || isSessionStale(currentSession)) return;
+        if (isRunTrackingAuthPaused()) return;
         state.session = currentSession;
         state.lastAuthenticatedAddress = address;
         processPendingRuns({ address, interactive: !!options.interactive, force: !!options.force }).catch(() => {});
@@ -1789,14 +1787,22 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         return { ok: false, queued: false, error: 'Local queue save failed.' };
       }
 
-      if (!state.client) {
+      if (!CONFIG.url || !CONFIG.key) {
         applyStatus('Run Tracking: Saved locally, upload pending', 'warn');
         return { ok: false, queued: true, localOnly: true, queueId: queueItem.queueId };
       }
 
       const secureRequired = requiresSecureSubmission(payload);
+      if (!getUsableRunTrackingSession(state.session) || isSessionStale(state.session)) {
+        updateQueueStatus(queueItem.queueId, 'pending_auth', {
+          lastError: 'Wallet signature needed. Click Enable Run Tracking to upload.',
+          nextRetryAt: null,
+        });
+        applyStatus('Run Tracking: Saved locally. Click Enable Run Tracking to upload.', 'warn');
+        return { ok: false, queued: true, authRequired: true, queueId: queueItem.queueId };
+      }
       applyStatus(secureRequired ? 'Run Tracking: High-value run pending secure submission' : 'Run Tracking: Saving run…', 'warn');
-      const result = await uploadQueuedRun(queueItem, { interactive: true });
+      const result = await uploadQueuedRun(queueItem, { interactive: false });
       await refreshSummary().catch(() => null);
 
       if (result && result.ok) {
@@ -1886,7 +1892,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
       state.session = restoreSession(state.address);
       if (state.session) state.lastAuthenticatedAddress = normalizeAddress(state.address);
     }
-    if (!state.client) {
+    if (!CONFIG.url || !CONFIG.key) {
       applyStatus('Run Tracking: Not configured', 'warn');
       return;
     }
@@ -1909,7 +1915,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
   }
 
   async function saveVanityName() {
-    if (!state.client) {
+    if (!CONFIG.url || !CONFIG.key) {
       applyStatus('Run Tracking: Not configured', 'warn');
       return;
     }
@@ -1932,7 +1938,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
         result = await callFunction('set-vanity-name', { vanityName }, state.session && state.session.sessionToken ? state.session.sessionToken : '');
       } catch (error) {
         if (!isAuthErrorMessage(error && error.message ? error.message : error)) throw error;
-        await ensureAuthenticatedSession({ forceRefresh: true });
+        await ensureAuthenticatedSession({ forceRefresh: true, manual: true });
         result = await callFunction('set-vanity-name', { vanityName }, state.session && state.session.sessionToken ? state.session.sessionToken : '');
       }
       state.vanityName = result && Object.prototype.hasOwnProperty.call(result, 'vanityName') ? (result.vanityName || null) : vanityName;
@@ -1972,8 +1978,10 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
 
         ui.enableBtn.disabled = true;
         try {
-          await authenticate();
+          state.authPausedUntil = 0;
+          await authenticate({ manual: true, forceRefresh: true });
           if (enablingDuringActiveUntrackedGame) await restartGameForTrackingIfNeeded();
+          try { await processPendingRuns({ address: state.address || getTrackingAddress(), interactive: false, force: true }); } catch (_error) {}
           applyStatus('Run Tracking: Ready', 'good');
         } catch (error) {
           applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad');
@@ -2034,9 +2042,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     state.initialized = true;
     bindUi();
     scheduleQueueFlush();
-    if (window.supabase && CONFIG.url && CONFIG.key) {
-      state.client = window.supabase.createClient(CONFIG.url, CONFIG.key, { auth: { persistSession: false, autoRefreshToken: false } });
-    }
+    state.client = null; // Avoid direct browser REST calls; run tracking uses Edge Functions only.
     window.addEventListener('dfk-defense:wallet-state', (event) => {
       handleWalletState(event.detail).catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
     });
@@ -2053,7 +2059,7 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
   window.DFKRunTracker = {
     init,
     authenticate,
-    reauthenticate: () => authenticate({ forceRefresh: true }),
+    reauthenticate: () => authenticate({ forceRefresh: true, manual: true }),
     debugSession,
     disableTracking,
     refreshSummary,

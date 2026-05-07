@@ -9,7 +9,7 @@ function getRarityClass(hero){
   return "";
 }
 
-// build: v46.9.1.259
+// build: v46.9.1.297
 
 let lastTouchEnd = 0;
 
@@ -1161,6 +1161,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     addGoldBtn: document.getElementById('addGoldBtn'),
     championFastModeBtn: document.getElementById('championFastModeBtn'),
     metisInfluenceDebugBtn: document.getElementById('metisInfluenceDebugBtn'),
+    postThirdPartyOutageBtn: document.getElementById('postThirdPartyOutageBtn'),
+    thirdPartyOutageBanner: document.getElementById('thirdPartyOutageBanner'),
+    thirdPartyOutageBannerMessage: document.getElementById('thirdPartyOutageBannerMessage'),
+    thirdPartyOutageBannerClose: document.getElementById('thirdPartyOutageBannerClose'),
     relicViewDfkgoldSwapBtn: document.getElementById('relicViewDfkgoldSwapBtn'),
     relicViewJewelGoldSwapBtn: document.getElementById('relicViewJewelGoldSwapBtn'),
     relicViewHonkGoldSwapBtn: document.getElementById('relicViewHonkGoldSwapBtn'),
@@ -2931,7 +2935,16 @@ function formatQuestResetCountdown(dateKey) {
     closeKnownRelicsModal();
     game.modalDismiss = null;
     game.questBoardView = 'quests';
-    ensureDailyQuestBoard(true);
+    if (els.postThirdPartyOutageBtn && els.postThirdPartyOutageBtn.dataset.wired !== '1') {
+    els.postThirdPartyOutageBtn.dataset.wired = '1';
+    els.postThirdPartyOutageBtn.addEventListener('click', postThirdPartyOutageNotice);
+  }
+  if (els.thirdPartyOutageBannerClose && els.thirdPartyOutageBannerClose.dataset.wired !== '1') {
+    els.thirdPartyOutageBannerClose.dataset.wired = '1';
+    els.thirdPartyOutageBannerClose.addEventListener('click', dismissThirdPartyOutageBanner);
+  }
+
+  ensureDailyQuestBoard(true);
     renderDailyQuestsBoard();
     updateQuestBoardToggle();
     game.introOpen = true;
@@ -4786,6 +4799,7 @@ function formatQuestResetCountdown(dateKey) {
       document.getElementById('addGoldBtn'),
       document.getElementById('championFastModeBtn'),
       document.getElementById('metisInfluenceDebugBtn'),
+      document.getElementById('postThirdPartyOutageBtn'),
       document.getElementById('relicViewDfkgoldSwapBtn'),
       document.getElementById('relicViewJewelGoldSwapBtn'),
       document.getElementById('relicViewHonkGoldSwapBtn'),
@@ -4843,6 +4857,101 @@ function formatQuestResetCountdown(dateKey) {
       }
     }
   }
+
+  const THIRD_PARTY_OUTAGE_BANNER_MESSAGE = "we're experiencing a third party outage, games should automatically be consumed when the third party comes back up";
+  const THIRD_PARTY_OUTAGE_ACTIVE_KEY = 'dfkThirdPartyOutageBannerActive:v1';
+  const THIRD_PARTY_OUTAGE_DISMISSED_KEY = 'dfkThirdPartyOutageBannerDismissed:v1';
+
+  function isThirdPartyOutageActive() {
+    try {
+      return localStorage.getItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY) === '1';
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function setThirdPartyOutageActive(active) {
+    try {
+      if (active) localStorage.setItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY, '1');
+      else localStorage.removeItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY);
+    } catch (_error) {}
+  }
+
+  function hasDismissedThirdPartyOutageBanner() {
+    try {
+      return localStorage.getItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY) === '1';
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function setDismissedThirdPartyOutageBanner(dismissed) {
+    try {
+      if (dismissed) localStorage.setItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY, '1');
+      else localStorage.removeItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY);
+    } catch (_error) {}
+  }
+
+  function renderThirdPartyOutageBanner(options = {}) {
+    const force = !!(options && options.force);
+    const active = force || isThirdPartyOutageActive();
+    const dismissed = hasDismissedThirdPartyOutageBanner();
+    const banner = els.thirdPartyOutageBanner || document.getElementById('thirdPartyOutageBanner');
+    const messageEl = els.thirdPartyOutageBannerMessage || document.getElementById('thirdPartyOutageBannerMessage');
+    if (!banner) return;
+    if (messageEl) messageEl.textContent = THIRD_PARTY_OUTAGE_BANNER_MESSAGE;
+    const shouldShow = active && (!dismissed || force);
+    banner.classList.toggle('hidden', !shouldShow);
+    banner.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+    document.body.classList.toggle('third-party-outage-banner-visible', shouldShow);
+  }
+
+  function postThirdPartyOutageNotice() {
+    setThirdPartyOutageActive(true);
+    setDismissedThirdPartyOutageBanner(false);
+    renderThirdPartyOutageBanner({ force: true });
+    showBanner('Third-party outage notice posted.', 2200);
+  }
+
+  function dismissThirdPartyOutageBanner() {
+    setDismissedThirdPartyOutageBanner(true);
+    renderThirdPartyOutageBanner();
+  }
+
+  function isThirdPartyOutageLikeError(error) {
+    const message = String(error && (error.message || error.details || error.error || error.code) || error || '').toLowerCase();
+    return message.includes('connection terminated due to connection timeout')
+      || message.includes('connection timeout')
+      || message.includes('third party')
+      || message.includes('521')
+      || message.includes('522')
+      || message.includes('failed to fetch')
+      || message.includes('edge_function_error')
+      || message.includes('internal server error')
+      || message.includes('supabase');
+  }
+
+  function maybeAutoPostThirdPartyOutageNotice(error) {
+    if (!isThirdPartyOutageLikeError(error)) return false;
+    setThirdPartyOutageActive(true);
+    renderThirdPartyOutageBanner();
+    return true;
+  }
+
+  function updateThirdPartyOutageButtonState() {
+    const btn = els.postThirdPartyOutageBtn || document.getElementById('postThirdPartyOutageBtn');
+    if (!btn) return;
+    const connected = isWalletConnectedForUi();
+    const allowed = connected && canUseChampionFastModeToggle();
+    btn.classList.toggle('hidden', connected && !allowed);
+    btn.disabled = !allowed;
+    btn.classList.toggle('wallet-dependent-disabled', !connected);
+    btn.textContent = isThirdPartyOutageActive() ? 'Repost Outage Notice' : 'Post Outage Notice';
+    btn.title = connected
+      ? (allowed ? 'Shows the yellow third-party outage notice to players on this browser/build.' : 'Connect the authorized test wallet to post outage notices.')
+      : 'Connect wallet to use this.';
+  }
+
 
   function createDifficultyProfileForRun(options = {}) {
     const connected = !!options.connected;
@@ -5410,18 +5519,57 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     return { baseUrl, key };
   }
 
+  const SUPABASE_REST_CIRCUIT_BREAKER_KEY = 'dfkSupabaseRestCircuitBreakerUntil';
+  const SUPABASE_REST_CIRCUIT_BREAKER_MS = 10 * 60 * 1000;
+
+  function isSupabaseRestCircuitBreakerOpen() {
+    try {
+      const until = Number(localStorage.getItem(SUPABASE_REST_CIRCUIT_BREAKER_KEY) || 0);
+      return Number.isFinite(until) && Date.now() < until;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function tripSupabaseRestCircuitBreaker(reason = '') {
+    try {
+      localStorage.setItem(SUPABASE_REST_CIRCUIT_BREAKER_KEY, String(Date.now() + SUPABASE_REST_CIRCUIT_BREAKER_MS));
+    } catch (_error) {}
+    if (reason) console.warn('[supabase-rest] disabled temporarily', reason);
+    try { maybeAutoPostThirdPartyOutageNotice(reason); } catch (_error) {}
+  }
+
+  function isSupabaseRestTransportError(error) {
+    const message = String(error && error.message ? error.message : error || '').toLowerCase();
+    return message.includes('failed to fetch')
+      || message.includes('net::err_failed')
+      || message.includes('cors')
+      || message.includes('521')
+      || message.includes('522')
+      || message.includes('rest query failed')
+      || message.includes('rest count failed');
+  }
+
   async function fetchSupabaseRestCount(table, selectColumn = 'wallet_address') {
+    if (isSupabaseRestCircuitBreakerOpen()) throw new Error('Supabase REST temporarily disabled.');
     const { baseUrl, key } = getSupabaseRestConfig();
     const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(selectColumn)}`;
-    const response = await fetch(endpoint, {
-      method: 'HEAD',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        Prefer: 'count=exact',
-      },
-    });
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'HEAD',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Prefer: 'count=exact',
+        },
+      });
+    } catch (error) {
+      tripSupabaseRestCircuitBreaker(error && error.message ? error.message : 'REST count fetch failed');
+      throw error;
+    }
     if (!response.ok) {
+      if (response.status >= 500) tripSupabaseRestCircuitBreaker(`REST count failed for ${table}: ${response.status}`);
       throw new Error(`REST count failed for ${table}: ${response.status}`);
     }
     const range = String(response.headers.get('content-range') || '');
@@ -5430,19 +5578,27 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
   async function fetchSupabaseRestPaginated(table, columns, pageSize = 1000) {
+    if (isSupabaseRestCircuitBreakerOpen()) throw new Error('Supabase REST temporarily disabled.');
     const { baseUrl, key } = getSupabaseRestConfig();
     const rows = [];
     let from = 0;
+    const safePageSize = Math.min(250, Math.max(50, Number(pageSize || 250)));
     while (true) {
       const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`;
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-          Range: `${from}-${from + pageSize - 1}`,
-        },
-      });
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            Range: `${from}-${from + safePageSize - 1}`,
+          },
+        });
+      } catch (error) {
+        tripSupabaseRestCircuitBreaker(error && error.message ? error.message : 'REST query fetch failed');
+        throw error;
+      }
       const responseText = await response.text().catch(() => '');
       let payload = [];
       if (responseText) {
@@ -5453,13 +5609,14 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
         }
       }
       if (!response.ok) {
+        if (response.status >= 500) tripSupabaseRestCircuitBreaker(`REST query failed for ${table}: ${response.status}`);
         const message = Array.isArray(payload) ? '' : (payload && (payload.message || payload.error || ''));
         throw new Error(message || `REST query failed for ${table}: ${response.status}`);
       }
       const batch = Array.isArray(payload) ? payload : [];
       rows.push(...batch);
-      if (batch.length < pageSize) break;
-      from += pageSize;
+      if (batch.length < safePageSize || rows.length >= 1000) break;
+      from += safePageSize;
     }
     return rows;
   }
@@ -5505,36 +5662,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
   async function fetchGlobalBurnedGoldTotalsViaRest() {
-    let totalRuns = 0;
-    try {
-      totalRuns = await fetchSupabaseRestCount('runs', 'wallet_address');
-    } catch (_error) {
-      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
-      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
-      return {
-        total: summaryFromRuns.total,
-        totalRuns: summaryFromRuns.totalRuns,
-        topBurner: summaryFromRuns.topBurner,
-      };
-    }
-
-    try {
-      const burnRows = await fetchSupabaseRestPaginated('dfk_gold_burns', 'wallet_address,burn_amount,amount');
-      const burnSummary = summarizeBurnTotalsFromRows(burnRows);
-      return {
-        total: burnSummary.total,
-        totalRuns,
-        topBurner: burnSummary.topBurner,
-      };
-    } catch (_error) {
-      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
-      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
-      return {
-        total: summaryFromRuns.total,
-        totalRuns: totalRuns || summaryFromRuns.totalRuns,
-        topBurner: summaryFromRuns.topBurner,
-      };
-    }
+    throw new Error('Direct Supabase REST disabled; use public-leaderboard or Edge Functions.');
   }
 
   function findFirstNumericFieldDeep(value, fieldNames, depth = 0) {
@@ -5697,9 +5825,9 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function startGlobalBurnedGoldRefreshLoop() {
     if (game.globalDfkGoldRefreshTimer) return;
-    fetchGlobalBurnedGoldTotal(true).catch(() => {});
+    if (!isSupabaseRestCircuitBreakerOpen()) fetchGlobalBurnedGoldTotal(true).catch(() => {});
     game.globalDfkGoldRefreshTimer = window.setInterval(() => {
-      fetchGlobalBurnedGoldTotal(true).catch(() => {});
+      if (!isSupabaseRestCircuitBreakerOpen()) fetchGlobalBurnedGoldTotal(true).catch(() => {});
     }, 5 * 60 * 1000);
   }
 
@@ -6529,6 +6657,8 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       showBanner('Champion fast mode is only available on the authorized wallet.', 2200);
       updateChampionFastModeButtonState();
     updateMetisInfluenceDebugButtonState();
+  updateThirdPartyOutageButtonState();
+  renderThirdPartyOutageBanner();
       return;
     }
     const nextEnabled = !isChampionFastModeEnabled();
@@ -7270,6 +7400,26 @@ function renderDamageReport() {
     }
   }
 
+  function withRunSaveTimeout(promise, timeoutMs = 12000) {
+    let timer = null;
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise((resolve) => {
+        timer = window.setTimeout(() => {
+          resolve({
+            ok: false,
+            queued: true,
+            localOnly: true,
+            timedOut: true,
+            error: 'Run save UI timed out; local queue should retry upload.',
+          });
+        }, Math.max(1000, Number(timeoutMs || 0)));
+      }),
+    ]).finally(() => {
+      if (timer) window.clearTimeout(timer);
+    });
+  }
+
   function captureTrackedRunNow(result = 'abandoned') {
     if (!hasTrackableRunInProgress() || !canQueueTrackedRunSubmission()) return false;
     const payload = buildCompletedRunPayload(result);
@@ -7317,10 +7467,10 @@ function renderDamageReport() {
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     try {
-      const response = await runTrackerCallSafely(
+      const response = await withRunSaveTimeout(runTrackerCallSafely(
         () => window.DFKRunTracker.submitCompletedRun(payload),
         { ok: false, queued: true, error: 'Run tracker call failed.' }
-      );
+      ), 12000);
       if (response && response.ok) {
         markRecentTrackedRunSubmission();
         const trackedRunId = String(response && response.result && response.result.runId ? response.result.runId : '').trim();
@@ -7367,7 +7517,10 @@ function renderDamageReport() {
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         markRecentTrackedRunSubmission();
-        if (response && response.secureSignatureRequired) {
+        if (response && response.timedOut) {
+          showBanner('Run saved locally. Upload is still pending and will retry.', 5200);
+          log(`Run save UI timed out at wave ${game.waveNumber}; local queue will retry upload.`);
+        } else if (response && response.secureSignatureRequired) {
           showBanner('High-value run pending secure submission. Sign and submit before closing if possible.', 6200);
           log(`High-value run saved locally at wave ${game.waveNumber}. Secure signature still required before backend save.`);
         } else {
@@ -7414,6 +7567,11 @@ function renderDamageReport() {
     if (game.runSaveStatusTimer) {
       clearTimeout(game.runSaveStatusTimer);
       game.runSaveStatusTimer = null;
+    }
+    if (!final) {
+      game.runSaveStatusTimer = setTimeout(() => {
+        finishRunSaveStatusLightwindow('saved locally — upload pending');
+      }, 15000);
     }
   }
 
@@ -11259,7 +11417,7 @@ function canSubmitRewardClaims() {
   }
 
   function render() {
-    window.setTimeout(updateWalletDependentControls, 0);
+    window.setTimeout(() => { updateWalletDependentControls(); updateThirdPartyOutageButtonState(); renderThirdPartyOutageBanner(); }, 0);
     for (const tower of game.towers || []) { normalizeArcherStats(tower); if (tower?.isSoulSplit) refreshPureEnergyState(tower); }
     syncStartWaveButtonState();
     renderGrid();
@@ -20756,6 +20914,7 @@ function canSubmitRewardClaims() {
     updateTestGoldButtonState();
     updateChampionFastModeButtonState();
     updateMetisInfluenceDebugButtonState();
+    updateThirdPartyOutageButtonState();
     updateWalletDependentControls();
     window.setTimeout(updateWalletDependentControls, 0);
     renderDamageReport();
@@ -21541,6 +21700,9 @@ function canSubmitRewardClaims() {
     showBanner('Guest game canceled. Starting a tracked run.', 2600);
     await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
   };
+
+  window.DFKPostThirdPartyOutageNotice = postThirdPartyOutageNotice;
+  window.DFKDismissThirdPartyOutageBanner = dismissThirdPartyOutageBanner;
 
   window.DFKDefenseGameControl = {
     hasMeaningfulRunInProgress,

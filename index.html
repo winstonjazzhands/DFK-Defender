@@ -7,7 +7,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
-<title>DFK Defender v46.9.1.284</title>
+<title>DFK Defender v46.9.1.297</title>
 <link href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2750%27 font-size=%2748%27%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E" rel="icon"/>
 <link href="styles.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -225,6 +225,11 @@
 </style>
 </link></head>
 <body>
+<div aria-hidden="true" class="third-party-outage-banner hidden" id="thirdPartyOutageBanner" role="status">
+  <span class="third-party-outage-banner-message" id="thirdPartyOutageBannerMessage">we're experiencing a third party outage, games should automatically be consumed when the third party comes back up</span>
+  <button aria-label="Clear outage message" class="third-party-outage-banner-close" id="thirdPartyOutageBannerClose" type="button">×</button>
+</div>
+
 <div aria-live="polite" class="mobile-rotate-prompt" id="mobileRotatePrompt">
 <div class="mobile-rotate-card panel">
 <div aria-hidden="true" class="mobile-rotate-icon">📱↻</div>
@@ -360,6 +365,7 @@
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="championFastModeBtn" title="Authorized champion timing test toggle" type="button">Champion Fast Mode: Off</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="metisInfluenceDebugBtn" title="Authorized Metis hero influence debug" type="button">Debug Metis Influence</button>
+<button class="wallet-btn secondary tracking-btn hidden" id="postThirdPartyOutageBtn" title="Authorized outage notice broadcast" type="button">Post Outage Notice</button>
 
 </div>
 </div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="walletHeroBonusSection">
@@ -905,10 +911,10 @@
 </img></aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.config.js"></script>
-<script src="js/security-wallet.js?v=46.9.1.98"></script>
-<script src="js/avax-rails.js?v=46.9.1.256"></script>
+<script src="js/security-wallet.js?v=46.9.1.99"></script>
+<script src="js/avax-rails.js?v=46.9.1.257"></script>
 <script src="js/multi-chain-rails.js?v=46.9.1.97"></script>
-<script src="js/run-tracker.js?v=46.9.1.135"></script>
+<script src="js/run-tracker.js?v=46.9.1.139"></script>
 <script src="js/leaderboard-flyout.js"></script>
 <script>
     (function () {

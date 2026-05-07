@@ -9,6 +9,37 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+const STAGE_TIMEOUT_MS = 8500;
+const OPTIONAL_STAGE_TIMEOUT_MS = 3000;
+const LEADERBOARD_RUN_LIMIT = 1200;
+const LIFETIME_RUN_LIMIT = 2500;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: number | null = null;
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), Math.max(1000, timeoutMs));
+    }),
+  ]).finally(() => {
+    if (timer !== null) clearTimeout(timer);
+  });
+}
+
+async function runOptionalStage<T>(requestId: string, stage: string, fallback: T, fn: () => Promise<T>, timeoutMs = OPTIONAL_STAGE_TIMEOUT_MS): Promise<T> {
+  try {
+    return await runStage(requestId, stage, () => withTimeout(fn(), timeoutMs, stage));
+  } catch (error) {
+    console.warn(JSON.stringify({
+      event: 'public-leaderboard optional stage skipped',
+      requestId,
+      stage,
+      ...normalizeError(error),
+    }));
+    return fallback;
+  }
+}
+
 type PlayerRow = Record<string, unknown>;
 type RunRow = Record<string, unknown>;
 type BurnRow = Record<string, unknown>;
@@ -87,27 +118,27 @@ Deno.serve(async (req) => {
         endTs: rangeSelection.selectedRange.endTs || null,
       } : null,
     }));
-    const players = await runStage(requestId, 'fetchPlayers', () => fetchPlayers(admin));
-    const runs = await runStage(requestId, 'fetchRunsForRange', () => fetchRunsForRange(admin, rangeSelection.selectedRange, rangeSelection.raffleType));
-    const lifetimeRuns = await runStage(requestId, 'fetchAllRuns', () => fetchAllRuns(admin));
-    const burnRows = await runStage(requestId, 'fetchBurnRowsForRange', () => fetchBurnRowsForRange(admin, rangeSelection.selectedRange));
-    const lifetimeBurnRows = await runStage(requestId, 'fetchAllBurnRows', () => fetchAllBurnRows(admin));
-    let latestDfkDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk)', () => fetchLatestDailyRaffleWinner(admin, 'dfk'));
-    let latestDfkMorningRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,morning)', () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'morning'));
-    let latestDfkMiddayRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,midday)', () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'midday'));
-    let latestAvaxDailyRaffleWinner = await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax)', () => fetchLatestDailyRaffleWinner(admin, 'avax'));
-    let latestAvaxMorningRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,morning)', () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'morning'));
-    let latestAvaxMiddayRaffleWinner = await runStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,midday)', () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'midday'));
+    const players = await runOptionalStage(requestId, 'fetchPlayers', [] as PlayerRow[], () => fetchPlayers(admin), 2000);
+    const runs = await runStage(requestId, 'fetchRunsForRange', () => withTimeout(fetchRunsForRange(admin, rangeSelection.selectedRange, rangeSelection.raffleType), STAGE_TIMEOUT_MS, 'fetchRunsForRange'));
+    const lifetimeRuns = await runOptionalStage(requestId, 'fetchRecentLifetimeRuns', runs as RunRow[], () => fetchAllRuns(admin), 3500);
+    const burnRows = await runOptionalStage(requestId, 'fetchBurnRowsForRange', [] as BurnRow[], () => fetchBurnRowsForRange(admin, rangeSelection.selectedRange), OPTIONAL_STAGE_TIMEOUT_MS);
+    const lifetimeBurnRows = await runOptionalStage(requestId, 'fetchAllBurnRows', [] as BurnRow[], () => fetchAllBurnRows(admin), OPTIONAL_STAGE_TIMEOUT_MS);
+    let latestDfkDailyRaffleWinner = await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk'));
+    let latestDfkMorningRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,morning)', null, () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'morning'));
+    let latestDfkMiddayRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,midday)', null, () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'midday'));
+    let latestAvaxDailyRaffleWinner = await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax'));
+    let latestAvaxMorningRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,morning)', null, () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'morning'));
+    let latestAvaxMiddayRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,midday)', null, () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'midday'));
     latestDfkMorningRaffleWinner = latestDfkMorningRaffleWinner
-      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,morning:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'morning')), 'morning')
+      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,morning:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'morning')), 'morning')
       || withDrawSlot(filterCurrentDayRaffleWinner(latestDfkDailyRaffleWinner, 'morning'), 'morning');
     latestDfkMiddayRaffleWinner = latestDfkMiddayRaffleWinner
-      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,midday:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'midday')), 'midday');
+      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,midday:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'midday')), 'midday');
     latestAvaxMorningRaffleWinner = latestAvaxMorningRaffleWinner
-      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax,morning:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'avax', 'morning')), 'morning')
+      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax,morning:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax', 'morning')), 'morning')
       || withDrawSlot(filterCurrentDayRaffleWinner(latestAvaxDailyRaffleWinner, 'morning'), 'morning');
     latestAvaxMiddayRaffleWinner = latestAvaxMiddayRaffleWinner
-      || filterCurrentDayRaffleWinner(await runStage(requestId, 'fetchLatestDailyRaffleWinner(avax,midday:fallback)', () => fetchLatestDailyRaffleWinner(admin, 'avax', 'midday')), 'midday');
+      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax,midday:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax', 'midday')), 'midday');
     latestDfkDailyRaffleWinner = latestDfkMiddayRaffleWinner || latestDfkMorningRaffleWinner;
     latestAvaxDailyRaffleWinner = latestAvaxMiddayRaffleWinner || latestAvaxMorningRaffleWinner;
 
@@ -206,11 +237,58 @@ Deno.serve(async (req) => {
         url: req.url,
       },
     }));
-    return json({
-      error: normalized.message || 'Leaderboard load failed.',
-      error_detail: normalized,
-      request_id: requestId,
-    }, 500);
+    try {
+      const fallback = await quickLeaderboardFallback(createAdmin());
+      return json({
+        rows: fallback.rows,
+        global_dfk_gold_burned: 0,
+        top_burner: null,
+        lifetime: {
+          total_runs: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+          tracked_runs_total: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+          runs_count: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+          run_count: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+          global_dfk_gold_burned: 0,
+          global_burned_total: 0,
+          top_burner: null,
+        },
+        lifetime_total_runs: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+        lifetimeTrackedRuns: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+        lifetime_run_count: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+        lifetime_runs_count: fallback.rows.reduce((sum: number, row: Record<string, unknown>) => sum + sanitizeInt(row.total_runs), 0),
+        lifetime_global_dfk_gold_burned: 0,
+        lifetimeDfkGoldBurned: 0,
+        lifetime_burned_total: 0,
+        lifetime_top_burner: null,
+        meta: {
+          degraded: true,
+          source: fallback.source,
+          request_id: requestId,
+          original_error: normalized.message || 'Leaderboard load failed.',
+          daily_raffle: {
+            threshold_wave: 30,
+            latest_winner: null,
+            latest_winners: { morning: null, midday: null },
+          },
+        },
+      }, 200);
+    } catch (fallbackError) {
+      return json({
+        rows: [],
+        global_dfk_gold_burned: 0,
+        top_burner: null,
+        lifetime: { total_runs: 0, tracked_runs_total: 0, runs_count: 0, run_count: 0, global_dfk_gold_burned: 0, global_burned_total: 0, top_burner: null },
+        lifetime_total_runs: 0,
+        lifetimeTrackedRuns: 0,
+        lifetime_run_count: 0,
+        lifetime_runs_count: 0,
+        lifetime_global_dfk_gold_burned: 0,
+        lifetimeDfkGoldBurned: 0,
+        lifetime_burned_total: 0,
+        lifetime_top_burner: null,
+        meta: { degraded: true, request_id: requestId, original_error: normalized.message || 'Leaderboard load failed.', fallback_error: normalizeError(fallbackError).message || 'Fallback failed.' },
+      }, 200);
+    }
   }
 });
 
@@ -310,25 +388,32 @@ async function runStage<T>(requestId: string, stage: string, fn: () => Promise<T
       stage,
       ...normalizeError(error),
     }));
-    throw Object.assign(new Error(`Stage ${stage} failed: ${normalizeError(error).message || 'Unknown error'}`), {
+    const normalized = normalizeError(error);
+    const rawMessage = String(normalized.message || 'Unknown error');
+    const compactMessage = rawMessage.includes('<!DOCTYPE html') || rawMessage.length > 420
+      ? `${rawMessage.slice(0, 220)}…`
+      : rawMessage;
+    throw Object.assign(new Error(`Stage ${stage} failed: ${compactMessage}`), {
       stage,
       cause: error,
-      normalizedCause: normalizeError(error),
+      normalizedCause: normalized,
     });
   }
 }
 
 async function fetchPlayers(admin: SupabaseClient) {
   const selectVariants = [
-    'wallet_address, vanity_name, display_name, used_wallet_heroes, best_wave, total_runs, total_waves_cleared, last_run_at, updated_at',
-    'wallet_address, vanity_name, display_name, best_wave, total_runs, total_waves_cleared, last_run_at, updated_at',
-    'wallet_address, display_name, best_wave, total_runs, total_waves_cleared, last_run_at, updated_at',
-    'wallet_address, display_name, best_wave, total_runs, total_waves_cleared',
+    'wallet_address, vanity_name, display_name, used_wallet_heroes, updated_at',
+    'wallet_address, vanity_name, display_name, updated_at',
+    'wallet_address, display_name, updated_at',
+    'wallet_address, display_name',
   ];
 
   let lastError: unknown = null;
   for (const columns of selectVariants) {
-    const { data, error } = await admin.from('players').select(columns);
+    let query = admin.from('players').select(columns).limit(5000);
+    if (columns.includes('updated_at')) query = query.order('updated_at', { ascending: false, nullsFirst: false });
+    const { data, error } = await query;
     if (!error) return (Array.isArray(data) ? data : []) as PlayerRow[];
     lastError = error;
     if (isMissingColumnError(error)) continue;
@@ -340,81 +425,78 @@ async function fetchPlayers(admin: SupabaseClient) {
 }
 
 async function fetchAllRuns(admin: SupabaseClient) {
-  const selectVariants = [
-    'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, chain_id, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-  ];
-
-  let lastError: unknown = null;
-  for (const columns of selectVariants) {
-    const result = await fetchPaginatedRows(admin, 'runs', columns);
-    if (!result.error) return result.rows as RunRow[];
-    lastError = result.error;
-    if (isMissingColumnError(result.error)) continue;
-    throw result.error;
-  }
-  throw lastError || new Error('Runs query failed.');
+  return fetchRecentRuns(admin, LIFETIME_RUN_LIMIT);
 }
 
 async function fetchRunsForRange(admin: SupabaseClient, range: RangeWindow, raffleType?: string | null) {
+  const rangeStart = range.startTs || `${range.start}T00:00:00.000Z`;
+  const rangeEnd = range.endTs || nextUtcDay(range.end);
+
   const selectVariants = [
     'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
     'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
     'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
     'wallet_address, chain_id, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, chain_id, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
     'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
-    'wallet_address, stats_json, heroes_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, stats_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, heroes_json, wave_reached, waves_cleared, created_at, run_started_at',
-    'wallet_address, wave_reached, waves_cleared, created_at, run_started_at',
   ];
 
-  const rangeStartMs = range.startTs ? Date.parse(range.startTs) : Date.parse(`${range.start}T00:00:00.000Z`);
-  const rangeEndMs = range.endTs ? Date.parse(range.endTs) : Date.parse(nextUtcDay(range.end));
-
   let lastError: unknown = null;
-  let shouldFallbackToClientFilter = false;
   for (const columns of selectVariants) {
-    if (shouldFallbackToClientFilter) {
-      const result = await fetchPaginatedRows(admin, 'runs', columns);
-      if (!result.error) {
-        return (result.rows as RunRow[]).filter((row) => rowMatchesRange(row, rangeStartMs, rangeEndMs) && matchesRaffleChain(row, raffleType));
-      }
-      lastError = result.error;
-      if (isMissingColumnError(result.error)) continue;
-      if (isMissingRelationError(result.error)) return [];
-      throw result.error;
+    const attempts: Array<{ timeColumn: string; start: string; end: string }> = [
+      { timeColumn: 'completed_at', start: rangeStart, end: rangeEnd },
+      { timeColumn: 'created_at', start: rangeStart, end: rangeEnd },
+    ];
+    for (const attempt of attempts) {
+      if (!columns.includes(attempt.timeColumn)) continue;
+      let query = admin
+        .from('runs')
+        .select(columns)
+        .gte(attempt.timeColumn, attempt.start)
+        .lt(attempt.timeColumn, attempt.end)
+        .order('wave_reached', { ascending: false })
+        .order(attempt.timeColumn, { ascending: false })
+        .limit(LEADERBOARD_RUN_LIMIT);
+      const { data, error } = await query;
+      if (!error) return ((Array.isArray(data) ? data : []) as RunRow[]).filter((row) => matchesRaffleChain(row, raffleType));
+      lastError = error;
+      if (isMissingColumnError(error)) continue;
+      if (isMissingRelationError(error)) return [];
+      throw error;
     }
-
-    let query = admin.from('runs').select(columns);
-    query = query.gte('completed_at', range.start).lt('completed_at', nextUtcDay(range.end));
-    const { data, error } = await query;
-    if (!error) return ((Array.isArray(data) ? data : []) as RunRow[]).filter((row) => matchesRaffleChain(row, raffleType));
-    lastError = error;
-    if (isMissingColumnError(error)) {
-      shouldFallbackToClientFilter = true;
-      continue;
-    }
-    if (isMissingRelationError(error)) return [];
-    throw error;
   }
-  if (shouldFallbackToClientFilter) return [];
+
+  if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return [];
   throw lastError || new Error('Runs query failed.');
 }
 
+async function fetchRecentRuns(admin: SupabaseClient, limit = LIFETIME_RUN_LIMIT) {
+  const selectVariants = [
+    'wallet_address, chain_id, stats_json, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, stats_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, heroes_json, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, chain_id, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+    'wallet_address, wave_reached, waves_cleared, completed_at, created_at, run_started_at',
+  ];
+
+  let lastError: unknown = null;
+  for (const columns of selectVariants) {
+    const orderColumn = columns.includes('completed_at') ? 'completed_at' : (columns.includes('created_at') ? 'created_at' : 'wave_reached');
+    const { data, error } = await admin
+      .from('runs')
+      .select(columns)
+      .order('wave_reached', { ascending: false })
+      .order(orderColumn, { ascending: false })
+      .limit(limit);
+    if (!error) return (Array.isArray(data) ? data : []) as RunRow[];
+    lastError = error;
+    if (isMissingColumnError(error)) continue;
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  }
+
+  if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return [];
+  throw lastError || new Error('Runs query failed.');
+}
 
 function inferRaffleChainLabel(chainId: unknown, raffleType?: string | null) {
   const parsed = sanitizeInt(chainId);
@@ -922,6 +1004,50 @@ function safeSerialize(value: unknown) {
     }
   }
 }
+
+
+async function quickLeaderboardFallback(admin: SupabaseClient) {
+  const variants = [
+    'wallet_address, vanity_name, display_name, used_wallet_heroes, best_wave, total_runs, total_waves_cleared, last_run_at, updated_at',
+    'wallet_address, display_name, best_wave, total_runs, total_waves_cleared, last_run_at, updated_at',
+    'wallet_address, best_wave, total_runs, total_waves_cleared',
+  ];
+  for (const columns of variants) {
+    const { data, error } = await admin
+      .from('public_run_leaderboard')
+      .select(columns)
+      .order('best_wave', { ascending: false })
+      .limit(100);
+    if (!error) {
+      const rows = (Array.isArray(data) ? data : []).map((row: Record<string, unknown>) => {
+        const wallet = normalizeAddress(row.wallet_address || '');
+        const displayName = row.vanity_name || row.display_name || wallet || 'Unknown Player';
+        return {
+          wallet_address: wallet,
+          wallet,
+          vanity_name: row.vanity_name || null,
+          display_name: displayName,
+          player_name: displayName,
+          used_wallet_heroes: Boolean(row.used_wallet_heroes),
+          best_wave: sanitizeInt(row.best_wave),
+          total_runs: sanitizeInt(row.total_runs),
+          runs: sanitizeInt(row.total_runs),
+          total_waves_cleared: sanitizeInt(row.total_waves_cleared),
+          last_run_at: row.last_run_at || row.updated_at || null,
+          updated_at: row.updated_at || row.last_run_at || null,
+          dfk_gold_burned: 0,
+          raffle_qualified: sanitizeInt(row.best_wave) >= 30,
+          daily_raffle_qualified: sanitizeInt(row.best_wave) >= 30,
+          raffle_chain: null,
+        };
+      });
+      return { rows, source: 'public_run_leaderboard_fallback' };
+    }
+    if (!isMissingColumnError(error)) break;
+  }
+  return { rows: [], source: 'empty_fallback' };
+}
+
 
 function createAdmin() {
   const url = Deno.env.get('SUPABASE_URL');

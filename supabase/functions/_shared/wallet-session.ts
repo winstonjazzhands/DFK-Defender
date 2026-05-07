@@ -24,6 +24,10 @@ function json(payload: unknown, status: number, corsHeaders: Record<string, stri
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
+function isUuidLike(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
+
 export function normalizeAddress(address: string | null | undefined) {
   return String(address || '').trim().toLowerCase();
 }
@@ -34,10 +38,23 @@ export function extractSessionToken(req: Request) {
   const authToken = authHeader.replace(/^Bearer\s+/i, '').trim();
 
   const isAnonLike = (value: string) => /^sb_(publishable|anon)_/i.test(String(value || '').trim());
-  const cleanAuth = authToken && !isAnonLike(authToken) ? authToken : '';
-  const cleanXSession = xSessionHeader && !isAnonLike(xSessionHeader) ? xSessionHeader : '';
+  const isJwtLike = (value: string) => {
+    const parts = String(value || '').trim().split('.');
+    return parts.length === 3 && parts.every(Boolean);
+  };
+  const isValidWalletSessionToken = (value: string) => {
+    const token = String(value || '').trim();
+    return !!token && !isAnonLike(token) && !isJwtLike(token) && isUuidLike(token);
+  };
 
-  return cleanAuth || cleanXSession || authToken || xSessionHeader || '';
+  // Wallet session auth must come from x-session-token first. Authorization can be the
+  // Supabase anon/API JWT in some environments, and that must never be treated as a run session.
+  if (isValidWalletSessionToken(xSessionHeader)) return xSessionHeader;
+  if (isValidWalletSessionToken(authToken)) return authToken;
+
+  // Never return an invalid/JWT token. Returning it causes Postgres UUID casts to throw
+  // session_lookup_failed instead of producing a clean refresh/missing-session response.
+  return '';
 }
 
 export async function validateSessionContext(req: Request, session: Record<string, unknown>, corsHeaders: Record<string, string>) {
@@ -75,6 +92,19 @@ export async function loadValidWalletSession(
     return { response: json({ error: 'Valid session token required.', code: 'missing_session_token' }, 401, corsHeaders) };
   }
 
+  if (!isUuidLike(token)) {
+    const tokenText = String(token || '').trim();
+    return {
+      response: json({
+        error: 'Run tracking session refresh required.',
+        code: 'session_refresh_required',
+        originalCode: 'invalid_session_token_format',
+        tokenLooksJwt: tokenText.split('.').length === 3,
+        tokenLength: tokenText.length,
+      }, 401, corsHeaders),
+    };
+  }
+
   const selectVariants = [
     'session_token, wallet_address, expires_at, revoked_at, session_origin, user_agent_hash',
     'session_token, wallet_address, expires_at, revoked_at, session_origin',
@@ -95,6 +125,16 @@ export async function loadValidWalletSession(
       const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
       lastError = error;
       if (message.includes('column') && message.includes('does not exist')) continue;
+      if (message.includes('invalid input syntax for type uuid')) {
+        return {
+          response: json({
+            error: 'Run tracking session refresh required.',
+            code: 'session_refresh_required',
+            originalCode: 'session_lookup_failed',
+            details: String((error as { message?: unknown } | null)?.message || ''),
+          }, 401, corsHeaders),
+        };
+      }
       return {
         response: json({ error: 'Session lookup failed.', code: 'session_lookup_failed', details: String((error as { message?: unknown } | null)?.message || '') }, 500, corsHeaders),
       };

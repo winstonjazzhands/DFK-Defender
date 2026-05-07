@@ -25,6 +25,59 @@ function cleanName(value: unknown) {
   return name || null;
 }
 
+async function verifySignedNonce(nonce: string, expectedWallet: string) {
+  if (!nonce.startsWith('v2.')) return { ok: false, reason: 'not_stateless_nonce' };
+  const parts = nonce.split('.');
+  if (parts.length !== 3) return { ok: false, reason: 'bad_nonce_parts' };
+
+  const payload = b64urlDecode(parts[1]);
+  const signature = parts[2];
+  const expectedSignature = await hmacHex(payload);
+  if (!timingSafeEqualHex(signature, expectedSignature)) return { ok: false, reason: 'bad_nonce_signature' };
+
+  const [wallet, expiresAtMsText] = payload.split('.');
+  if (normalizeAddress(wallet) !== expectedWallet) return { ok: false, reason: 'wallet_mismatch' };
+  const expiresAtMs = Number(expiresAtMsText || 0);
+  if (!Number.isFinite(expiresAtMs) || Date.now() >= expiresAtMs) return { ok: false, reason: 'nonce_expired' };
+  return { ok: true, reason: 'ok' };
+}
+
+async function hmacHex(payload: string) {
+  const secret = Deno.env.get('WALLET_AUTH_NONCE_SECRET')
+    || Deno.env.get('RUN_SUBMIT_CHALLENGE_SECRET')
+    || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    || '';
+  if (!secret) throw new Error('Missing nonce signing secret.');
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function b64urlDecode(value: string) {
+  const padded = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`;
+  return atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+}
+
+function timingSafeEqualHex(a: string, b: string) {
+  const left = String(a || '').toLowerCase();
+  const right = String(b || '').toLowerCase();
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) diff |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  return diff === 0;
+}
+
+function isMissingColumnError(error: unknown) {
+  const message = String((error && typeof error === 'object' && 'message' in error ? (error as { message?: unknown }).message : '') || '').toLowerCase();
+  return message.includes('column') && (message.includes('does not exist') || message.includes('not found in schema cache'));
+}
+
 function getErrorMessage(error: unknown) {
   if (!error || typeof error !== 'object') return '';
   const source = error as {
@@ -137,20 +190,23 @@ Deno.serve(async (req) => {
     const recovered = verifyMessage(String(message), String(signature)).toLowerCase();
     if (recovered !== normalized) return json({ error: 'Signature does not match wallet.' }, 401);
 
-    const nonceMatch = String(message).match(/Nonce:\s*([A-Za-z0-9-]+)/i);
+    const nonceMatch = String(message).match(/Nonce:\s*([A-Za-z0-9._-]+)/i);
     const nonce = nonceMatch ? nonceMatch[1] : '';
     if (!nonce) return json({ error: 'Nonce missing from signed message.' }, 400);
 
     const admin = createAdmin();
-    const { data: nonceRow, error: nonceError } = await admin
-      .from('wallet_auth_nonces')
-      .select('wallet_address, nonce, expires_at, used_at')
-      .eq('wallet_address', normalized)
-      .single();
-    if (nonceError || !nonceRow) return json({ error: 'Nonce not found.' }, 404);
-    if (nonceRow.used_at) return json({ error: 'Nonce already used.' }, 409);
-    if (nonceRow.nonce !== nonce) return json({ error: 'Nonce mismatch.' }, 401);
-    if (Date.now() >= new Date(nonceRow.expires_at).getTime()) return json({ error: 'Nonce expired.' }, 401);
+    const statelessNonceCheck = await verifySignedNonce(nonce, normalized);
+    if (!statelessNonceCheck.ok) {
+      const { data: nonceRow, error: nonceError } = await admin
+        .from('wallet_auth_nonces')
+        .select('wallet_address, nonce, expires_at, used_at')
+        .eq('wallet_address', normalized)
+        .single();
+      if (nonceError || !nonceRow) return json({ error: 'Nonce not found.', code: 'nonce_not_found', statelessReason: statelessNonceCheck.reason }, 404);
+      if (nonceRow.used_at) return json({ error: 'Nonce already used.', code: 'nonce_already_used' }, 409);
+      if (nonceRow.nonce !== nonce) return json({ error: 'Nonce mismatch.', code: 'nonce_mismatch' }, 401);
+      if (Date.now() >= new Date(nonceRow.expires_at).getTime()) return json({ error: 'Nonce expired.', code: 'nonce_expired' }, 401);
+    }
 
     const signedOrigin = extractMessageOrigin(String(message));
     const headerOrigin = requestOrigin(req);
@@ -161,40 +217,131 @@ Deno.serve(async (req) => {
     const userAgentHash = await currentUserAgentHash(req) || null;
 
     const requestedDisplayName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 64) : null;
-    const { data: existingPlayer } = await admin
-      .from('players')
-      .select('display_name, vanity_name')
-      .eq('wallet_address', normalized)
-      .maybeSingle();
-    const chainDisplayName = requestedDisplayName ? null : await resolveChainDisplayName(normalized);
+    let existingPlayer: { display_name?: unknown; vanity_name?: unknown } | null = null;
+    try {
+      const { data, error } = await admin
+        .from('players')
+        .select('display_name, vanity_name')
+        .eq('wallet_address', normalized)
+        .maybeSingle();
+      if (!error && data) existingPlayer = data;
+    } catch (_error) {
+      // Player lookup is optional. Authentication must not fail because profile enrichment is down.
+    }
+    const chainDisplayName = null; // Do not block wallet auth on DFK profile RPC lookup.
     const resolvedDisplayName = cleanName(existingPlayer?.vanity_name) || cleanName(existingPlayer?.display_name) || requestedDisplayName || chainDisplayName || null;
 
-    const { error: playerError } = await admin.from('players').upsert({
-      wallet_address: normalized,
-      display_name: resolvedDisplayName,
-      last_run_at: null,
-    }, { onConflict: 'wallet_address' });
-    if (playerError) throw playerError;
+    try {
+      const { error: playerError } = await admin.from('players').upsert({
+        wallet_address: normalized,
+        display_name: resolvedDisplayName,
+        last_run_at: null,
+      }, { onConflict: 'wallet_address' });
+      if (playerError && !isMissingColumnError(playerError)) console.warn(JSON.stringify({ event: 'wallet-auth-verify player upsert skipped', error: playerError.message || String(playerError) }));
+    } catch (playerError) {
+      console.warn(JSON.stringify({ event: 'wallet-auth-verify player upsert failed', error: playerError instanceof Error ? playerError.message : String(playerError) }));
+    }
 
-    await admin.from('wallet_auth_nonces').update({ used_at: new Date().toISOString() }).eq('wallet_address', normalized);
-    await admin.from('wallet_sessions').delete().eq('wallet_address', normalized).lt('expires_at', new Date().toISOString());
+    try {
+      if (!statelessNonceCheck.ok) {
+        await admin.from('wallet_auth_nonces').update({ used_at: new Date().toISOString() }).eq('wallet_address', normalized);
+      } else {
+        await admin.from('wallet_auth_nonces').delete().eq('wallet_address', normalized);
+      }
+    } catch (_error) {
+      // Nonce cleanup is optional.
+    }
+    try {
+      // Replace any old active/stale row for this wallet. Some deployments enforce one session per wallet.
+      await admin.from('wallet_sessions').delete().eq('wallet_address', normalized);
+    } catch (_error) {
+      // Session cleanup is optional; insert/upsert below still attempts to recover.
+    }
 
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
     const sessionToken = crypto.randomUUID();
 
-    const { data: sessionRow, error: sessionError } = await admin
-      .from('wallet_sessions')
-      .insert({
+    const nowIso = new Date().toISOString();
+    const sessionInsertAttempts: Array<Record<string, unknown>> = [
+      {
         session_token: sessionToken,
         wallet_address: normalized,
         expires_at: expiresAt,
-        last_seen_at: new Date().toISOString(),
+        revoked_at: null,
+        created_at: nowIso,
+        last_seen_at: nowIso,
         session_origin: sessionOrigin,
         user_agent_hash: userAgentHash,
-      })
-      .select('session_token, expires_at, session_origin')
-      .single();
-    if (sessionError || !sessionRow) throw sessionError || new Error('Session creation failed.');
+      },
+      {
+        session_token: sessionToken,
+        wallet_address: normalized,
+        expires_at: expiresAt,
+        revoked_at: null,
+        created_at: nowIso,
+        last_seen_at: nowIso,
+        session_origin: sessionOrigin,
+      },
+      {
+        session_token: sessionToken,
+        wallet_address: normalized,
+        expires_at: expiresAt,
+        created_at: nowIso,
+        last_seen_at: nowIso,
+      },
+      {
+        session_token: sessionToken,
+        wallet_address: normalized,
+        expires_at: expiresAt,
+        created_at: nowIso,
+      },
+      {
+        session_token: sessionToken,
+        wallet_address: normalized,
+        expires_at: expiresAt,
+      },
+    ];
+
+    let sessionRow: Record<string, unknown> | null = null;
+    let lastSessionError: unknown = null;
+    for (const payload of sessionInsertAttempts) {
+      const insertResult = await admin
+        .from('wallet_sessions')
+        .insert(payload)
+        .select('session_token, expires_at')
+        .single();
+      if (!insertResult.error && insertResult.data) {
+        sessionRow = insertResult.data as Record<string, unknown>;
+        break;
+      }
+      lastSessionError = insertResult.error;
+
+      // If the deployment enforces a unique wallet row, try replacing it by wallet address.
+      const message = String((insertResult.error as { message?: unknown } | null)?.message || '').toLowerCase();
+      if (message.includes('duplicate') || message.includes('unique') || message.includes('conflict')) {
+        const upsertResult = await admin
+          .from('wallet_sessions')
+          .upsert(payload, { onConflict: 'wallet_address' })
+          .select('session_token, expires_at')
+          .single();
+        if (!upsertResult.error && upsertResult.data) {
+          sessionRow = upsertResult.data as Record<string, unknown>;
+          break;
+        }
+        lastSessionError = upsertResult.error;
+      }
+
+      if (!isMissingColumnError(insertResult.error)) break;
+    }
+    if (!sessionRow) {
+      const details = normalizeError(lastSessionError);
+      return json({
+        error: 'Session creation failed.',
+        code: 'session_creation_failed',
+        details: details.message,
+        raw: details,
+      }, 500);
+    }
 
     const savedSessionToken = String(sessionRow.session_token || sessionToken).trim();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(savedSessionToken)) {
@@ -211,17 +358,38 @@ Deno.serve(async (req) => {
       displayName: resolvedDisplayName,
     }, 200);
   } catch (error) {
-    const message = error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : '';
-    return json({ error: message || 'Verification failed.' }, 500);
+    const normalized = normalizeError(error);
+    console.error(JSON.stringify({ event: 'wallet-auth-verify failed', ...normalized }));
+    return json({
+      error: 'Verification failed.',
+      code: 'verification_failed',
+      details: normalized.message,
+      raw: normalized,
+    }, 500);
   }
 });
 
+function normalizeError(error: unknown) {
+  if (error instanceof Error) return { name: error.name, message: error.message, stack: error.stack };
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    return {
+      name: typeof record.name === 'string' ? record.name : null,
+      message: typeof record.message === 'string' ? record.message : (() => { try { return JSON.stringify(error); } catch { return String(error); } })(),
+      code: record.code ?? null,
+      details: record.details ?? null,
+      hint: record.hint ?? null,
+      raw: (() => { try { return JSON.stringify(error); } catch { return String(error); } })(),
+    };
+  }
+  return { message: String(error || 'Unknown error'), raw: error ?? null };
+}
+
 function createAdmin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  const url = Deno.env.get('SUPABASE_URL');
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !serviceRole) throw new Error('Missing Supabase environment configuration.');
+  return createClient(url, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 function json(payload: unknown, status = 200) {

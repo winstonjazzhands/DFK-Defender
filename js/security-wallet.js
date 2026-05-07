@@ -340,9 +340,10 @@
 
   async function fetchProfileName(address) {
     if (!address) return null;
+    // Avoid noisy MetaMask/DFK Chain RPC profile calls during normal wallet connect.
+    // Profile lookup should be backend/function-only and optional.
     const functionName = await resolveProfileNameViaFunction(address);
-    if (functionName) return functionName;
-    return await fetchProfileNameFromChain(address);
+    return functionName || null;
   }
 
   async function transferHeroes(tokenIds, recipient, options = {}) {
