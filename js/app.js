@@ -7771,6 +7771,7 @@ function renderDamageReport() {
     savePremiumJewels();
     game.phase = SETUP_PHASES.PORTAL;
     game.resumedFromLocalSave = false;
+    game.runTrackingProceedWithoutTracking = false;
     game.runTracking = {
       clientRunId: pendingRunId,
       startedAt: new Date().toISOString(),
@@ -13716,6 +13717,107 @@ function canSubmitRewardClaims() {
     els.relicModal.classList.remove('hidden');
   }
 
+
+  function shouldPromptBeforeUntrackedPortalStart() {
+    return Boolean(
+      game.phase === SETUP_PHASES.PORTAL
+      && !game.portal
+      && !game.runTrackingProceedWithoutTracking
+      && getConnectedWalletAddress()
+      && !isRunTrackingEnabled()
+    );
+  }
+
+  function openRunTrackingNotEnabledModal() {
+    return new Promise((resolve) => {
+      let modal = document.getElementById('runTrackingNotEnabledModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'runTrackingNotEnabledModal';
+        modal.className = 'modal hidden';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+          <div class="intro-modal-card run-tracking-warning-card" role="dialog" aria-modal="true" aria-labelledby="runTrackingNotEnabledTitle">
+            <div class="intro-kicker">Run Tracking</div>
+            <h2 id="runTrackingNotEnabledTitle">Run tracking not enabled, proceed without run tracking?</h2>
+            <div class="intro-body">
+              <p>This run will not count for tracked runs, leaderboard credit, daily quests, bounties, or payout review unless run tracking is enabled before the game starts.</p>
+            </div>
+            <div class="intro-actions run-tracking-warning-actions">
+              <button id="runTrackingProceedUntrackedBtn" class="secondary" type="button">Yes</button>
+              <button id="runTrackingEnableAndRestartBtn" type="button">No, please enable run tracking</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+      }
+      const proceedBtn = modal.querySelector('#runTrackingProceedUntrackedBtn');
+      const enableBtn = modal.querySelector('#runTrackingEnableAndRestartBtn');
+      const finish = (answer) => {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        game.introOpen = false;
+        document.body.classList.remove('intro-open');
+        syncStatusOverlayVisibility(false);
+        setBoardInputLocked(false);
+        resolve(answer);
+      };
+      if (proceedBtn) proceedBtn.onclick = () => finish('proceed');
+      if (enableBtn) enableBtn.onclick = () => finish('enable');
+      modal.onclick = (event) => {
+        if (event.target === modal) finish('cancel');
+      };
+      closeIntroModal();
+      closeBountyModal();
+      closeQuestsModal();
+      closeTrackedRunsModal();
+      closeKnownRelicsModal();
+      closeContinueOfferModal();
+      closeGuestConnectConfirmModal({ preserveIntroState: true });
+      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
+      game.modalDismiss = null;
+      game.introOpen = true;
+      document.body.classList.add('intro-open');
+      syncStatusOverlayVisibility(true);
+      setBoardInputLocked(true);
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      try { (enableBtn || proceedBtn)?.focus(); } catch (_error) {}
+    });
+  }
+
+  async function enableRunTrackingAndRestartFromPortalWarning() {
+    if (!window.DFKRunTracker || typeof window.DFKRunTracker.authenticate !== 'function') {
+      showBanner('Run tracking is not ready. Refresh the page and try again.', 3200);
+      return false;
+    }
+    showBanner('Opening run tracking signature…', 1800);
+    try {
+      await window.DFKRunTracker.authenticate({ manual: true, forceRefresh: true });
+      showBanner('Run tracking enabled. Starting a fresh tracked game.', 2600);
+      return await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Run tracking was not enabled.';
+      showBanner(message, 4200);
+      setInstruction(message);
+      return false;
+    }
+  }
+
+  async function guardPortalPlacementTrackingChoice() {
+    if (!shouldPromptBeforeUntrackedPortalStart()) return true;
+    const answer = await openRunTrackingNotEnabledModal();
+    if (answer === 'proceed') {
+      game.runTrackingProceedWithoutTracking = true;
+      showBanner('Proceeding without run tracking. This run will not be tracked.', 2600);
+      return true;
+    }
+    if (answer === 'enable') {
+      await enableRunTrackingAndRestartFromPortalWarning();
+      return false;
+    }
+    return false;
+  }
+
   function canPlacePortal(x, y) {
     const minPortalX = Math.max(4, Math.floor(WIDTH * 0.42));
     if (x < minPortalX || y > HEIGHT - 2 || x > WIDTH - 2) return false;
@@ -14859,7 +14961,7 @@ function canSubmitRewardClaims() {
     return true;
   }
 
-  function handleTileClick(x, y) {
+  async function handleTileClick(x, y) {
     clearPathPreview();
     const tile = tileAt(x, y);
 
@@ -14879,6 +14981,10 @@ function canSubmitRewardClaims() {
     }
 
     if (game.phase === SETUP_PHASES.PORTAL) {
+      if (!(await guardPortalPlacementTrackingChoice())) {
+        render();
+        return;
+      }
       if (!placePortal(x, y)) showBanner('Invalid portal placement', 1200);
       render();
       return;
@@ -15267,6 +15373,48 @@ function canSubmitRewardClaims() {
     log(`${tower.name} moved to (${nx + 1}, ${ny + 1}).`);
     recordReplayEvent('tower_move', { towerId: tower.id, type: tower.type, x: nx, y: ny });
     syncMonkTrainingPartnerState();
+    return true;
+  }
+
+
+  function isTypingInFormControl(target) {
+    const el = target instanceof Element ? target : null;
+    if (!el) return false;
+    const tag = String(el.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+  }
+
+  function handleSelectedMonkArrowMove(event) {
+    if (!event || isTypingInFormControl(event.target)) return false;
+    const directions = {
+      ArrowLeft: { dx: -1, dy: 0, label: 'left' },
+      ArrowRight: { dx: 1, dy: 0, label: 'right' },
+      ArrowUp: { dx: 0, dy: -1, label: 'up' },
+      ArrowDown: { dx: 0, dy: 1, label: 'down' },
+    };
+    const dir = directions[event.key];
+    if (!dir) return false;
+    const tower = getSelectedTower();
+    if (!tower || tower.type !== 'monk') return false;
+    if (game.replayMode || game.placingHeroType || game.pendingManualAbilityPlacement || hasCancelablePendingAction()) return false;
+    const nx = Number(tower.x || 0) + dir.dx;
+    const ny = Number(tower.y || 0) + dir.dy;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!inBounds(nx, ny)) {
+      showBanner('Monk cannot move off the board.', 1000);
+      return true;
+    }
+    if (!moveTower(tower, nx, ny)) {
+      const tile = tileAt(nx, ny);
+      const reason = tile?.obstacle === 'player'
+        ? 'Monk cannot move through barriers.'
+        : (tile?.towerId ? 'Monk cannot move onto another hero.' : 'Monk needs an open adjacent tile.');
+      showBanner(reason, 1200);
+      return true;
+    }
+    game.movingTowerId = null;
+    render();
     return true;
   }
 
@@ -21867,7 +22015,7 @@ function canSubmitRewardClaims() {
     }
     const tileEl = event.target.closest('.tile');
     if (!tileEl) return;
-    handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y));
+    handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y)).catch((error) => showCrashReport('tile-click', error));
   });
 
   // Preview portal / obstacle placements on hover.
@@ -21967,6 +22115,7 @@ function canSubmitRewardClaims() {
   startPendingDfkgoldBurnQueueLoop();
   startPendingDfkJewelVerificationQueueLoop();
   document.addEventListener('keydown', (event) => {
+    if (handleSelectedMonkArrowMove(event)) return;
     if (event.key === 'Escape' && game.introOpen) {
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();
       if (els.trackedRunsModal && !els.trackedRunsModal.classList.contains('hidden')) closeTrackedRunsModal();
