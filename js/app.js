@@ -1322,6 +1322,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
 
   const MAX_LIVE_WAVES = 3;
   const SAVED_GAME_STORAGE_KEY = 'dfkDefenderSavedGame:v1';
+  const SAVED_GAME_RESUME_LEDGER_KEY = 'dfkDefenderSavedGameResumeLedger:v1';
+  const SAVED_GAME_MAX_RESUMES_PER_RUN = 3;
+
 
   const game = {
     phase: SETUP_PHASES.PORTAL,
@@ -9318,6 +9321,12 @@ function canSubmitRewardClaims() {
     champion_dragoon: 'assets/hero_tile_dragoon.png',
     champion_spellbow: 'assets/hero_tile_spellbow.png',
   };
+  const HERO_TILE_ALTERNATE_IMAGES = {
+    archer: ['assets/hero_tile_archer.png', 'assets/hero_tile_archer2.png'],
+    monk: ['assets/hero_tile_monk.png', 'assets/hero_tile_monk2.png'],
+    pirate: ['assets/hero_tile_pirate.png', 'assets/hero_tile_pirate2.png'],
+    priest: ['assets/hero_tile_priest.png', 'assets/hero_tile_priest2.png'],
+  };
 
   const HERO_TILE_LABELS = {
     warrior: 'WARRIOR',
@@ -9946,6 +9955,26 @@ function canSubmitRewardClaims() {
     return HERO_TILE_IMAGES[type] || '';
   }
 
+  function getDefaultHeroImageForTower(tower) {
+    if (!tower || !tower.type) return '';
+    const type = String(tower.type || '').trim();
+    const variants = HERO_TILE_ALTERNATE_IMAGES[type];
+    if (!Array.isArray(variants) || variants.length <= 1 || tower.isSatellite || isStatueTower(tower)) {
+      return getDefaultHeroImageForType(type);
+    }
+    const sameClass = (game.towers || [])
+      .filter((candidate) => candidate && candidate.type === type && !candidate.isSatellite && !isStatueTower(candidate))
+      .slice()
+      .sort((a, b) => {
+        const aPlaced = Number(a.placedAt || a.createdAt || 0);
+        const bPlaced = Number(b.placedAt || b.createdAt || 0);
+        if (aPlaced !== bPlaced) return aPlaced - bPlaced;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
+    const index = Math.max(0, sameClass.findIndex((candidate) => candidate === tower || String(candidate.id || '') === String(tower.id || '')));
+    return variants[index % variants.length] || getDefaultHeroImageForType(type);
+  }
+
   function getWalletHeroImage(hero) {
     const primary = normalizeHeroMediaUrl(hero && hero.imageUrl ? hero.imageUrl : '');
     if (primary) return primary;
@@ -10218,7 +10247,9 @@ function canSubmitRewardClaims() {
 
   function handleWalletHeroImageError(imgEl, heroLike) {
     if (!imgEl) return;
-    const fallback = getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
+    const fallback = heroLike && heroLike.id && Array.isArray(game.towers) && game.towers.some((tower) => tower === heroLike || String(tower.id || '') === String(heroLike.id || ''))
+      ? getDefaultHeroImageForTower(heroLike)
+      : getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
     if (fallback && imgEl.getAttribute('src') !== fallback) {
       imgEl.src = fallback;
       return;
@@ -12189,7 +12220,7 @@ function canSubmitRewardClaims() {
           tile.el.appendChild(wavesLeftBadge);
         }
 
-        const defaultPortraitSrc = getDefaultHeroImageForType(tower.type);
+        const defaultPortraitSrc = getDefaultHeroImageForTower(tower);
         if (defaultPortraitSrc) {
           const portraitUnderlay = document.createElement('img');
           portraitUnderlay.className = 'tile-hero-portrait tile-hero-portrait-underlay';
@@ -12205,7 +12236,8 @@ function canSubmitRewardClaims() {
         portrait.draggable = false;
         portrait.decoding = 'async';
         portrait.loading = 'eager';
-        portrait.src = getWalletHeroFallbackSources(tower)[0] || defaultPortraitSrc || '';
+        const towerPortraitSources = [tower.customPortraitUrl ? String(tower.customPortraitUrl).trim() : '', defaultPortraitSrc].filter(Boolean);
+        portrait.src = towerPortraitSources[0] || '';
         portrait.addEventListener('error', () => handleWalletHeroImageError(portrait, tower), { once: false });
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
@@ -16551,6 +16583,75 @@ function canSubmitRewardClaims() {
     try { localStorage.removeItem(SAVED_GAME_STORAGE_KEY); } catch (_error) {}
   }
 
+  function readSavedGameResumeLedger() {
+    try {
+      const raw = localStorage.getItem(SAVED_GAME_RESUME_LEDGER_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function getSavedGameLedgerCount(runKey) {
+    const key = String(runKey || 'local-single-run');
+    const ledger = readSavedGameResumeLedger();
+    return Math.max(0, Number(ledger[key] || 0));
+  }
+
+  function setSavedGameLedgerCount(runKey, count) {
+    try {
+      const key = String(runKey || 'local-single-run');
+      const ledger = readSavedGameResumeLedger();
+      ledger[key] = Math.max(0, Number(count || 0));
+      localStorage.setItem(SAVED_GAME_RESUME_LEDGER_KEY, JSON.stringify(ledger));
+    } catch (_error) {}
+  }
+
+  function getSavedGameSavedExitCount(saved = null) {
+    const current = saved || readSavedGame();
+    const runKey = current?.runKey || getSavedGameRunKey(current?.snapshot || null);
+    const savedCount = Math.max(0, Number(current?.resumeSaveCount || 0));
+    return Math.max(savedCount, getSavedGameLedgerCount(runKey));
+  }
+
+  function getSavedGameRunKey(snapshot = null) {
+    const source = snapshot || game || {};
+    const tracking = source.runTracking || game.runTracking || {};
+    return String(
+      tracking.clientRunId
+      || source.clientRunId
+      || tracking.startedAt
+      || source.runStartedAt
+      || 'local-single-run'
+    );
+  }
+
+  function isSavedGameExitReason(reason = '') {
+    return reason === 'gameboard_exit' || reason === 'pagehide' || reason === 'beforeunload' || reason === 'closed';
+  }
+
+  function getSavedGameResumeCountForSnapshot(snapshot, reason = '') {
+    const previous = readSavedGame();
+    const runKey = getSavedGameRunKey(snapshot);
+    const previousRunKey = previous?.runKey || getSavedGameRunKey(previous?.snapshot || null);
+    const previousCount = previousRunKey === runKey ? getSavedGameSavedExitCount(previous) : getSavedGameLedgerCount(runKey);
+    if (!isSavedGameExitReason(reason)) return Math.max(0, previousCount);
+    return Math.max(0, previousCount) + 1;
+  }
+
+  function getSavedGameResumeSlotsLeft(resumeSaveCount = 0) {
+    const usedExitSaves = Math.max(0, Number(resumeSaveCount || 0));
+    return Math.max(0, SAVED_GAME_MAX_RESUMES_PER_RUN - usedExitSaves + 1);
+  }
+
+  function getSavedGameResumeSlotMessage(resumeSaveCount = 0) {
+    const left = getSavedGameResumeSlotsLeft(resumeSaveCount);
+    const prefix = `${left}/${SAVED_GAME_MAX_RESUMES_PER_RUN} resumes left`;
+    if (left === 1) return `${prefix}, this is your last resume`;
+    return prefix;
+  }
+
   function persistSavedGame(reason = 'autosave', planOverride = null) {
     try {
       if (game.savedGameResumeCheckPending) return false;
@@ -16560,10 +16661,16 @@ function canSubmitRewardClaims() {
       }
       const snapshot = buildSavedGameSnapshot(planOverride);
       const nextWave = snapshot.nextWavePlan?.waveNumber || (Number(snapshot.waveNumber || 0) + 1);
+      const runKey = getSavedGameRunKey(snapshot);
+      const resumeSaveCount = getSavedGameResumeCountForSnapshot(snapshot, reason);
+      if (isSavedGameExitReason(reason)) setSavedGameLedgerCount(runKey, resumeSaveCount);
       localStorage.setItem(SAVED_GAME_STORAGE_KEY, JSON.stringify({
         version: 1,
         savedAt: new Date().toISOString(),
         reason,
+        runKey,
+        resumeSaveCount,
+        finalResumeWarning: resumeSaveCount >= SAVED_GAME_MAX_RESUMES_PER_RUN,
         waveNumber: Number(snapshot.waveNumber || 0),
         nextWave,
         snapshot,
@@ -16571,6 +16678,43 @@ function canSubmitRewardClaims() {
       return true;
     } catch (error) {
       console.warn('Saved game write failed.', error);
+      return false;
+    }
+  }
+
+  function handleSavedGameBoardExit(reason = 'gameboard_exit') {
+    try {
+      const now = Date.now();
+      if (game.lastSavedGameBoardExitAt && (now - game.lastSavedGameBoardExitAt) < 1500) return false;
+      game.lastSavedGameBoardExitAt = now;
+      if (game.phase === SETUP_PHASES.GAME_OVER || !hasMeaningfulRunInProgress()) {
+        clearSavedGame();
+        return false;
+      }
+      const snapshot = buildSavedGameSnapshot();
+      const previous = readSavedGame();
+      const runKey = getSavedGameRunKey(snapshot);
+      const previousRunKey = previous?.runKey || getSavedGameRunKey(previous?.snapshot || null);
+      const previousCount = previousRunKey === runKey ? getSavedGameSavedExitCount(previous) : getSavedGameLedgerCount(runKey);
+      if (previousCount >= SAVED_GAME_MAX_RESUMES_PER_RUN) {
+        clearSavedGame();
+        log(`Saved-game limit reached. Run concluded at wave ${Number(game.waveNumber || 0)}.`);
+        captureTrackedRunNow('closed');
+        return false;
+      }
+      const saved = persistSavedGame(reason);
+      const current = readSavedGame();
+      if (saved && current) {
+        const slotMessage = getSavedGameResumeSlotMessage(current.resumeSaveCount);
+        log(slotMessage);
+        showBanner(slotMessage, current.finalResumeWarning ? 5200 : 3200);
+      }
+      if (saved && current?.finalResumeWarning && previousCount < SAVED_GAME_MAX_RESUMES_PER_RUN) {
+        log('Final local save used for this run. Leaving the board again will conclude the run at the current wave.');
+      }
+      return saved;
+    } catch (error) {
+      console.warn('Saved game board-exit handling failed.', error);
       return false;
     }
   }
@@ -16615,6 +16759,12 @@ function canSubmitRewardClaims() {
   function openSavedGamePrompt(saved) {
     if (!saved || !saved.snapshot || document.getElementById('savedGameResumeModal')) return;
     const wave = Number(saved.nextWave || saved.snapshot.nextWavePlan?.waveNumber || saved.snapshot.waveNumber || 1);
+    const resumeSaveCount = getSavedGameSavedExitCount(saved);
+    const finalResumeWarning = !!saved.finalResumeWarning || resumeSaveCount >= SAVED_GAME_MAX_RESUMES_PER_RUN;
+    const resumeSlotMessage = getSavedGameResumeSlotMessage(resumeSaveCount);
+    const finalWarningHtml = finalResumeWarning
+      ? '<p class="bounty-strip-copy" style="margin-top:0.75rem; color:#ffd27a;"><strong>Final saved resume for this run:</strong> if you leave the gameboard again, the run will be concluded at the wave you are on when you leave.</p>'
+      : '';
     const modal = document.createElement('div');
     modal.id = 'savedGameResumeModal';
     modal.className = 'intro-modal';
@@ -16630,6 +16780,8 @@ function canSubmitRewardClaims() {
         <div class="intro-body">
           <p><strong>Connect your wallet and resume the game, or start a new game.</strong></p>
           <p>This will restore your board at the beginning of wave ${Number.isFinite(wave) ? wave : 1}. Autostart will stay off so you can look over the board before enemies come out.</p>
+          <p class="bounty-strip-copy" style="margin-top:0.75rem; color:${finalResumeWarning ? '#ffd27a' : '#bfffd0'};"><strong>${resumeSlotMessage}</strong></p>
+          ${finalWarningHtml}
           <p id="savedGameWalletStatus" class="bounty-strip-copy" style="margin-top:0.75rem;">Wallet connection is required before resuming this saved run.</p>
         </div>
         <div class="intro-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
@@ -16706,6 +16858,12 @@ function canSubmitRewardClaims() {
       if (restored) {
         setInstruction(`Saved game loaded. Wave ${Number.isFinite(wave) ? wave : (game.nextWavePlan?.waveNumber || game.waveNumber + 1)} is ready when you are.`);
         log('Saved game restored. Autostart is off. Start the next wave when ready.');
+        showBanner(resumeSlotMessage, finalResumeWarning ? 5200 : 3200);
+        log(resumeSlotMessage);
+        if (finalResumeWarning) {
+          showBanner('Final saved resume: leaving the board again will conclude this run.', 4200);
+          log('Final saved resume for this run. If you leave the gameboard again, this run will be concluded at the current wave.');
+        }
         render();
       } else {
         clearSavedGame();
@@ -21356,10 +21514,10 @@ function canSubmitRewardClaims() {
   });
 
   window.addEventListener('pagehide', () => {
-    captureTrackedRunNow('closed');
+    handleSavedGameBoardExit('pagehide');
   });
   window.addEventListener('beforeunload', () => {
-    captureTrackedRunNow('closed');
+    handleSavedGameBoardExit('beforeunload');
   });
   window.addEventListener('dfk-defense:wallet-state', (event) => {
     const detail = event && event.detail ? event.detail : null;
