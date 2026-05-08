@@ -254,6 +254,7 @@
       ui.clearStuckWavesBtn.classList.toggle('hidden', !showClear);
       ui.clearStuckWavesBtn.setAttribute('aria-hidden', showClear ? 'false' : 'true');
     }
+    updateManageQueuedRunsButton();
     if (ui.vanityStatus) ui.vanityStatus.textContent = `Vanity Name: ${state.vanityName || '--'}`;
     if (ui.vanityInput && document.activeElement !== ui.vanityInput) ui.vanityInput.value = state.vanityName || '';
     if (ui.vanityInput) ui.vanityInput.classList.toggle('wallet-dependent-disabled', !walletConnected);
@@ -441,6 +442,187 @@
     writeQueue(filtered);
     return { removed, remaining: filtered.length };
   }
+
+
+
+  function getQueuedRunsForPlayer(address) {
+    const normalized = normalizeAddress(address || state.address || getTrackingAddress() || '');
+    if (!normalized) return [];
+    return getQueueForAddress(normalized)
+      .filter((item) => item && item.status !== 'uploaded')
+      .sort((a, b) => {
+        const aTime = new Date(a.createdAt || (a.payload && a.payload.completedAt) || 0).getTime() || 0;
+        const bTime = new Date(b.createdAt || (b.payload && b.payload.completedAt) || 0).getTime() || 0;
+        return bTime - aTime;
+      });
+  }
+
+  function formatQueuedRunDate(value) {
+    const time = new Date(value || 0);
+    if (!Number.isFinite(time.getTime())) return 'Unknown date';
+    try {
+      return time.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch (_error) {
+      return time.toISOString();
+    }
+  }
+
+  function describeQueuedRunStatus(item) {
+    const status = String(item && item.status || 'pending_upload').replace(/_/g, ' ');
+    if (item && item.status === 'pending_secure_signature') return 'needs run signature';
+    if (item && item.status === 'pending_auth') return 'needs tracking signature';
+    if (item && item.status === 'failed') return 'retry needed';
+    return status || 'pending upload';
+  }
+
+  function escapeQueuedRunHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function queuedRunMetric(item, key, fallback = 0) {
+    const payload = item && item.payload ? item.payload : {};
+    const value = Number(payload[key]);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function renderQueuedRunsModalStatus(modal, text, klass = '') {
+    const statusEl = modal ? modal.querySelector('[data-queued-runs-status]') : null;
+    if (!statusEl) return;
+    statusEl.textContent = text || '';
+    statusEl.className = `queued-runs-summary ${klass}`.trim();
+  }
+
+  function updateManageQueuedRunsButton() {
+    if (!ui.manageQueuedRunsBtn) return;
+    const walletConnected = !!(state.address || getTrackingAddress());
+    const count = walletConnected ? getPendingQueueCount(state.address || getTrackingAddress()) : 0;
+    ui.manageQueuedRunsBtn.textContent = count > 0 ? `Manage Queued Runs (${count})` : 'Manage Queued Runs';
+    setWalletDependentDisabled(ui.manageQueuedRunsBtn, !walletConnected, 'Connect wallet to manage queued runs.');
+  }
+
+  function closeQueuedRunsModal() {
+    const existing = document.getElementById('queuedRunsModalBackdrop');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  }
+
+  async function submitSingleQueuedRun(queueId, modal) {
+    const address = normalizeAddress(state.address || getTrackingAddress() || '');
+    const item = getQueuedRunsForPlayer(address).find((entry) => entry && entry.queueId === queueId);
+    if (!item) {
+      renderQueuedRunsModalStatus(modal, 'That queued run is no longer pending.', 'good');
+      openQueuedRunsModal();
+      return;
+    }
+    renderQueuedRunsModalStatus(modal, 'Submitting queued run… sign if prompted.', '');
+    const result = await uploadQueuedRun(item, { interactive: true });
+    purgeUploadedQueueRecords(address);
+    await refreshSummary().catch(() => null);
+    notifyTrackingDataChanged();
+    openQueuedRunsModal();
+    const reopened = document.getElementById('queuedRunsModalBackdrop');
+    if (result && result.ok) renderQueuedRunsModalStatus(reopened, 'Queued run submitted.', 'good');
+    else renderQueuedRunsModalStatus(reopened, `Still queued: ${result && result.error ? result.error : 'upload did not complete.'}`, 'bad');
+  }
+
+  async function retryAllQueuedRuns(modal) {
+    const address = normalizeAddress(state.address || getTrackingAddress() || '');
+    renderQueuedRunsModalStatus(modal, 'Retrying all queued runs… sign if prompted.', '');
+    const result = await processPendingRuns({ address, interactive: true, force: true });
+    openQueuedRunsModal();
+    const reopened = document.getElementById('queuedRunsModalBackdrop');
+    const uploaded = Number(result && result.uploaded || 0);
+    const pending = Number(result && result.pending || 0);
+    const failed = Number(result && result.failed || 0);
+    if (pending <= 0) renderQueuedRunsModalStatus(reopened, `Retry complete. Uploaded ${uploaded} queued run${uploaded === 1 ? '' : 's'}.`, 'good');
+    else renderQueuedRunsModalStatus(reopened, `Retry complete. Uploaded ${uploaded}; ${pending} still queued${failed ? `; ${failed} failed this attempt` : ''}.`, 'bad');
+  }
+
+  function openQueuedRunsModal() {
+    closeQueuedRunsModal();
+    const address = normalizeAddress(state.address || getTrackingAddress() || '');
+    const runs = getQueuedRunsForPlayer(address);
+    const backdrop = document.createElement('div');
+    backdrop.id = 'queuedRunsModalBackdrop';
+    backdrop.className = 'queued-runs-backdrop';
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    const cards = runs.length ? runs.map((item) => {
+      const payload = item && item.payload ? item.payload : {};
+      const created = item.createdAt || payload.completedAt || payload.startedAt || '';
+      const completed = payload.completedAt || created;
+      const waveReached = Math.max(queuedRunMetric(item, 'waveReached'), queuedRunMetric(item, 'wavesCleared'));
+      const result = String(payload.result || 'run').replace(/_/g, ' ');
+      const status = describeQueuedRunStatus(item);
+      const attempts = Math.max(0, Number(item.attempts || 0) || 0);
+      const error = item.lastError ? `<div class="queued-run-error">${escapeQueuedRunHtml(item.lastError)}</div>` : '';
+      return `
+        <div class="queued-run-card" data-queue-id="${escapeQueuedRunHtml(item.queueId)}">
+          <div class="queued-run-main">
+            <div class="queued-run-title">Wave ${escapeQueuedRunHtml(waveReached || '--')} · ${escapeQueuedRunHtml(result)}</div>
+            <div class="queued-run-meta">
+              <span class="queued-run-pill">Recorded ${escapeQueuedRunHtml(formatQueuedRunDate(created))}</span>
+              <span class="queued-run-pill">Completed ${escapeQueuedRunHtml(formatQueuedRunDate(completed))}</span>
+              <span class="queued-run-pill">${escapeQueuedRunHtml(status)}</span>
+              <span class="queued-run-pill">Attempts ${escapeQueuedRunHtml(attempts)}</span>
+            </div>
+            ${error}
+          </div>
+          <div class="queued-run-actions">
+            <button type="button" class="queued-run-submit" data-submit-queued-run="${escapeQueuedRunHtml(item.queueId)}">Submit</button>
+          </div>
+        </div>`;
+    }).join('') : '<div class="queued-runs-empty">No queued runs for this connected wallet.</div>';
+
+    backdrop.innerHTML = `
+      <div class="queued-runs-modal">
+        <div class="queued-runs-header">
+          <div>
+            <div class="queued-runs-title">Queued Runs</div>
+            <div class="queued-runs-subtitle">Runs are sorted newest first. High-value runs may ask for a fresh signature before upload.</div>
+          </div>
+          <button type="button" class="queued-runs-close" data-close-queued-runs aria-label="Close queued runs">×</button>
+        </div>
+        <div class="queued-runs-body">
+          <div class="queued-runs-summary" data-queued-runs-status>${runs.length ? `${runs.length} pending run${runs.length === 1 ? '' : 's'} found.` : 'Nothing needs attention right now.'}</div>
+          ${cards}
+        </div>
+        <div class="queued-runs-footer">
+          <button type="button" class="queued-runs-action secondary" data-close-queued-runs>Close</button>
+          <button type="button" class="queued-runs-action" data-retry-all-queued-runs ${runs.length ? '' : 'disabled'}>Retry All</button>
+        </div>
+      </div>`;
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop || event.target.closest('[data-close-queued-runs]')) {
+        closeQueuedRunsModal();
+        return;
+      }
+      const submitBtn = event.target.closest('[data-submit-queued-run]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitSingleQueuedRun(submitBtn.getAttribute('data-submit-queued-run'), backdrop).catch((error) => {
+          renderQueuedRunsModalStatus(backdrop, error && error.message ? error.message : 'Queued run submit failed.', 'bad');
+          submitBtn.disabled = false;
+        });
+        return;
+      }
+      const retryBtn = event.target.closest('[data-retry-all-queued-runs]');
+      if (retryBtn && !retryBtn.disabled) {
+        retryBtn.disabled = true;
+        retryAllQueuedRuns(backdrop).catch((error) => {
+          renderQueuedRunsModalStatus(backdrop, error && error.message ? error.message : 'Retry all failed.', 'bad');
+          retryBtn.disabled = false;
+        });
+      }
+    });
+    document.body.appendChild(backdrop);
+    updateManageQueuedRunsButton();
+  }
+
 
   function clearRecentSubmissionMarker(address) {
     const normalized = normalizeAddress(address);
@@ -1765,16 +1947,18 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     }, 10000);
   }
 
-  async function submitCompletedRun(runPayload) {
+  async function submitCompletedRun(runPayload, options = {}) {
+    let walletAddress = '';
+    let payload = null;
     try {
       const wallet = getWalletState();
-      const walletAddress = wallet && wallet.address ? wallet.address : getTrackingAddress();
+      walletAddress = wallet && wallet.address ? wallet.address : getTrackingAddress();
       if (!walletAddress) return { ok: false, queued: false, error: 'Missing wallet address.' };
       if (wallet && wallet.address) {
         state.address = wallet.address;
         state.profileName = wallet.profileName || null;
       }
-      const payload = {
+      payload = {
         ...runPayload,
         displayName: wallet && wallet.profileName ? wallet.profileName : (state.profileName || null),
         walletAddress: normalizeAddress(walletAddress),
@@ -1794,15 +1978,30 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
 
       const secureRequired = requiresSecureSubmission(payload);
       if (!getUsableRunTrackingSession(state.session) || isSessionStale(state.session)) {
-        updateQueueStatus(queueItem.queueId, 'pending_auth', {
-          lastError: 'Wallet signature needed. Click Enable Run Tracking to upload.',
-          nextRetryAt: null,
-        });
-        applyStatus('Run Tracking: Saved locally. Click Enable Run Tracking to upload.', 'warn');
-        return { ok: false, queued: true, authRequired: true, queueId: queueItem.queueId };
+        if (options && options.interactive) {
+          try {
+            await authenticate({ manual: true, forceRefresh: true });
+          } catch (authError) {
+            const authMessage = authError && authError.message ? authError.message : 'Wallet signature needed. Click Enable Run Tracking to upload.';
+            updateQueueStatus(queueItem.queueId, 'pending_auth', {
+              lastError: authMessage,
+              nextRetryAt: null,
+            });
+            applyStatus('Run Tracking: Wallet signature needed to submit this run', 'bad');
+            return { ok: false, queued: true, authRequired: true, queueId: queueItem.queueId, error: authMessage };
+          }
+        }
+        if (!getUsableRunTrackingSession(state.session) || isSessionStale(state.session)) {
+          updateQueueStatus(queueItem.queueId, 'pending_auth', {
+            lastError: 'Wallet signature needed. Click Enable Run Tracking to upload.',
+            nextRetryAt: null,
+          });
+          applyStatus('Run Tracking: Saved locally. Click Enable Run Tracking to upload.', 'warn');
+          return { ok: false, queued: true, authRequired: true, queueId: queueItem.queueId };
+        }
       }
-      applyStatus(secureRequired ? 'Run Tracking: High-value run pending secure submission' : 'Run Tracking: Saving run…', 'warn');
-      const result = await uploadQueuedRun(queueItem, { interactive: false });
+      applyStatus(secureRequired ? 'Run Tracking: High-value run secure submit opened' : 'Run Tracking: Saving run…', 'warn');
+      const result = await uploadQueuedRun(queueItem, { interactive: !!(options && options.interactive) });
       await refreshSummary().catch(() => null);
 
       if (result && result.ok) {
@@ -1958,10 +2157,16 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     ui.enableBtn = qs('enableTrackingBtn');
     ui.disableBtn = qs('disableTrackingBtn');
     ui.clearStuckWavesBtn = qs('clearStuckWavesBtn');
+    ui.manageQueuedRunsBtn = qs('manageQueuedRunsBtn');
     ui.vanitySection = qs('walletVanitySection');
     ui.vanityInput = qs('walletVanityInput');
     ui.vanityStatus = qs('walletVanityStatus');
     ui.saveVanityBtn = qs('saveVanityBtn');
+    if (ui.manageQueuedRunsBtn) {
+      ui.manageQueuedRunsBtn.addEventListener('click', () => {
+        openQueuedRunsModal();
+      });
+    }
     if (ui.saveVanityBtn) {
       ui.saveVanityBtn.addEventListener('click', () => {
         saveVanityName().catch((error) => applyStatus(`Run Tracking: ${error.message || 'Failed'}`, 'bad'));
@@ -2066,11 +2271,14 @@ async function requestSecureRunSignature(queueItem, walletAddress) {
     flushPendingRuns: (options = {}) => processPendingRuns(options),
     submitCompletedRun,
     submitCompletedRunKeepalive,
+    requiresSecureSubmission,
     processPendingRuns,
     isTrackingEnabled,
     shouldWarnBeforeEnable,
     getTrackingAddress,
     getState: () => ({ ...state }),
+    getQueuedRuns: (address = '') => getQueuedRunsForPlayer(address || state.address || getTrackingAddress()),
+    openQueuedRunsModal,
     clearWalletQueueState,
   };
 

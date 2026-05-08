@@ -1321,6 +1321,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   ensureMilestoneOfferModalElements();
 
   const MAX_LIVE_WAVES = 3;
+  const SAVED_GAME_STORAGE_KEY = 'dfkDefenderSavedGame:v1';
 
   const game = {
     phase: SETUP_PHASES.PORTAL,
@@ -1512,6 +1513,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     continueRetryCountdownPending: false,
     continueOfferPending: false,
     continueSnapshot: null,
+    resumedFromLocalSave: false,
     eliteWarningAcknowledgedWave: 0,
     eliteFinalSpawnReleasedWave: 0,
     eliteFinalSpawnKilledWave: 0,
@@ -4524,6 +4526,8 @@ function formatQuestResetCountdown(dateKey) {
       goldOnHand: Math.max(0, Math.round(Number(game.jewel || 0))),
       premiumJewels: Math.max(0, Math.round(Number(game.premiumJewels || 0))),
       continueAvailable: hasAvailableLastChanceForRunTracking(),
+      resumedFromLocalSave: !!game.resumedFromLocalSave,
+      resumed_from_local_save: !!game.resumedFromLocalSave,
       paymentSummary,
       heroes: buildRunTrackingHeroes(),
       replayData: buildReplayPayload(result),
@@ -4538,6 +4542,8 @@ function formatQuestResetCountdown(dateKey) {
         crashed: Boolean(game.crashed),
         usedWalletHeroes: game.towers.some(t => !!t.walletHeroId),
         usedWalletHeroCount: game.towers.filter(t => !!t.walletHeroId).length,
+        resumedFromLocalSave: !!game.resumedFromLocalSave,
+        resumed_from_local_save: !!game.resumedFromLocalSave,
         dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
         foundRelicIds: Array.from(new Set((Array.isArray(game.foundRelics) ? game.foundRelics : []).map((id) => String(id || '').trim()).filter(Boolean))),
       },
@@ -7463,14 +7469,15 @@ function renderDamageReport() {
       log('Tracked run submission deferred until last chance is resolved.');
       return;
     }
-    showRunSaveStatusLightwindow('Saving run…');
+    const highValueRunSave = !!(window.DFKRunTracker && typeof window.DFKRunTracker.requiresSecureSubmission === 'function' && window.DFKRunTracker.requiresSecureSubmission(payload));
+    if (!highValueRunSave) showRunSaveStatusLightwindow('Saving run…');
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     try {
       const response = await withRunSaveTimeout(runTrackerCallSafely(
-        () => window.DFKRunTracker.submitCompletedRun(payload),
+        () => window.DFKRunTracker.submitCompletedRun(payload, { interactive: highValueRunSave }),
         { ok: false, queued: true, error: 'Run tracker call failed.' }
-      ), 12000);
+      ), highValueRunSave ? 120000 : 12000);
       if (response && response.ok) {
         markRecentTrackedRunSubmission();
         const trackedRunId = String(response && response.result && response.result.runId ? response.result.runId : '').trim();
@@ -7526,7 +7533,11 @@ function renderDamageReport() {
         } else {
           log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
         }
-        finishRunSaveStatusLightwindow('saved successful!');
+        if (highValueRunSave && response && response.secureSignatureRequired) {
+          // Do not show a success state until the high-value run has actually been signed and accepted by the backend.
+        } else {
+          finishRunSaveStatusLightwindow('saved successful!');
+        }
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else {
         game.runTracking.submitted = false;
@@ -7720,6 +7731,7 @@ function renderDamageReport() {
 
   async function resetGame(options = {}) {
     const skipTrackedResetConfirm = !!(options && options.skipTrackedResetConfirm);
+    if (!(options && options.preserveSavedGame)) clearSavedGame();
     if (!skipTrackedResetConfirm) {
       const canReset = await maybeConfirmAndCaptureTrackedReset();
       if (!canReset) return false;
@@ -7758,6 +7770,7 @@ function renderDamageReport() {
     game.premiumJewels -= game.runEntryCost;
     savePremiumJewels();
     game.phase = SETUP_PHASES.PORTAL;
+    game.resumedFromLocalSave = false;
     game.runTracking = {
       clientRunId: pendingRunId,
       startedAt: new Date().toISOString(),
@@ -13748,6 +13761,7 @@ function canSubmitRewardClaims() {
     clearPortalTiles();
     game.portal = null;
     game.phase = SETUP_PHASES.PORTAL;
+    game.resumedFromLocalSave = false;
     game.runTracking = {
       clientRunId: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       startedAt: new Date().toISOString(),
@@ -13795,6 +13809,7 @@ function canSubmitRewardClaims() {
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
     recordReplayEvent('portal_place', { x, y });
     captureReplayWaveSnapshot('portal_placed');
+    persistSavedGame('portal_placed');
     return true;
   }
 
@@ -13834,6 +13849,7 @@ function canSubmitRewardClaims() {
       setInstruction(`${prefix} ${game.playerObstacleCount}/${getTargetPlayerObstacleCount()} placed.`);
       if (game.waveNumber === 0) els.startWaveBtn.disabled = true;
     }
+    persistSavedGame('barrier_placed');
     return true;
   }
 
@@ -13926,6 +13942,7 @@ function canSubmitRewardClaims() {
     syncStartWaveButtonState();
     log(`Warrior placed at (${x + 1}, ${y + 1}).`);
     els.skipSetupBtn?.classList.add('hidden');
+    persistSavedGame('warrior_placed');
     return true;
   }
 
@@ -16308,6 +16325,260 @@ function canSubmitRewardClaims() {
     };
   }
 
+
+  function buildSavedGameSnapshot(planOverride = null) {
+    const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
+    return {
+      phase: game.phase,
+      portal: cloneContinueData(game.portal),
+      towers: cloneContinueData(game.towers),
+      waveNumber: Number(game.waveNumber || 0),
+      countdownMs: 0,
+      runningWave: false,
+      playerObstacleCount: Number(game.playerObstacleCount || 0),
+      selectedId: game.selectedId,
+      movingTowerId: null,
+      placingHeroType: null,
+      placingHeroCost: 0,
+      placingSatelliteSourceId: null,
+      hoveredTowerId: null,
+      nextEnemyId: game.nextEnemyId,
+      nextTowerId: game.nextTowerId,
+      nextWavePlan: replayPlan,
+      pendingSpawns: null,
+      activeWavePlans: [],
+      activeWaveBase: Number(game.waveNumber || 0),
+      currentPattern: replayPlan?.pattern || null,
+      activeMutation: null,
+      recentMutations: cloneContinueData(game.recentMutations),
+      recentLanes: cloneContinueData(game.recentLanes),
+      hireCount: game.hireCount,
+      autoStartEnabled: false,
+      autoStartDelayMs: game.autoStartDelayMs,
+      autoStartReadyAt: 0,
+      autoStartToken: (game.autoStartToken || 0) + 1,
+      bonusHeroHireCharges: game.bonusHeroHireCharges,
+      placingHeroUsesBonus: false,
+      rebuildingBarriers: false,
+      barrierRefitCount: game.barrierRefitCount,
+      bonusBarrierCount: game.bonusBarrierCount,
+      jewel: game.jewel,
+      premiumJewels: game.premiumJewels,
+      runEntryCost: game.runEntryCost,
+      milestoneJewelsGranted: cloneContinueData(game.milestoneJewelsGranted),
+      portalHp: game.portalHp,
+      relicChoices: cloneContinueData(game.relicChoices),
+      dfkGoldSwapOfferOpen: !!game.dfkGoldSwapOfferOpen,
+      dfkGoldSwapOfferReason: game.dfkGoldSwapOfferReason || '',
+      dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
+      milestoneHeroOffer: cloneContinueData(game.milestoneHeroOffer),
+      milestoneHeroOffersSeen: cloneContinueData(game.milestoneHeroOffersSeen),
+      milestoneBarrierOffer: cloneContinueData(game.milestoneBarrierOffer),
+      milestoneBarrierOffersSeen: cloneContinueData(game.milestoneBarrierOffersSeen),
+      pendingMilestoneHeroPlacement: cloneContinueData(game.pendingMilestoneHeroPlacement),
+      ownedRelics: cloneContinueData(game.ownedRelics),
+      startingRelicClaimed: !!game.startingRelicClaimed,
+      foundRelics: cloneContinueData(game.foundRelics),
+      modifiers: cloneContinueData(game.modifiers),
+      grid: snapshotGridState(),
+      eliteWarningAcknowledgedWave: game.eliteWarningAcknowledgedWave,
+      eliteFinalSpawnReleasedWave: game.eliteFinalSpawnReleasedWave,
+      eliteFinalSpawnKilledWave: game.eliteFinalSpawnKilledWave,
+      runTracking: cloneContinueData(game.runTracking),
+      resumedFromLocalSave: !!game.resumedFromLocalSave,
+      runWalletConnected: !!game.runWalletConnected,
+      difficultyProfile: cloneContinueData(game.difficultyProfile),
+      selectedWalletHeroes: cloneContinueData(game.selectedWalletHeroes),
+      selectedChampionKey: game.selectedChampionKey || '',
+      selectedChampionHeroId: game.selectedChampionHeroId || '',
+      selectedChampionConfirmed: !!game.selectedChampionConfirmed,
+      selectedChampionSnapshot: cloneContinueData(game.selectedChampionSnapshot),
+      championWaitAnchorWave: Number(game.championWaitAnchorWave || 0),
+      championDeployedTowerId: game.championDeployedTowerId || null,
+      championActiveUntilWave: Number(game.championActiveUntilWave || 0),
+    };
+  }
+
+  function clearSavedGame() {
+    try { localStorage.removeItem(SAVED_GAME_STORAGE_KEY); } catch (_error) {}
+  }
+
+  function persistSavedGame(reason = 'autosave', planOverride = null) {
+    try {
+      if (game.savedGameResumeCheckPending) return false;
+      if (game.phase === SETUP_PHASES.GAME_OVER || !hasMeaningfulRunInProgress()) {
+        clearSavedGame();
+        return false;
+      }
+      const snapshot = buildSavedGameSnapshot(planOverride);
+      const nextWave = snapshot.nextWavePlan?.waveNumber || (Number(snapshot.waveNumber || 0) + 1);
+      localStorage.setItem(SAVED_GAME_STORAGE_KEY, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        reason,
+        waveNumber: Number(snapshot.waveNumber || 0),
+        nextWave,
+        snapshot,
+      }));
+      return true;
+    } catch (error) {
+      console.warn('Saved game write failed.', error);
+      return false;
+    }
+  }
+
+  function readSavedGame() {
+    try {
+      const raw = localStorage.getItem(SAVED_GAME_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.snapshot) return null;
+      return parsed;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function applySavedGameResume(saved) {
+    const snap = saved && saved.snapshot ? saved.snapshot : null;
+    if (!snap) return false;
+    try {
+      game.continueSnapshot = cloneContinueData(snap);
+      game.runTracking = cloneContinueData(snap.runTracking) || game.runTracking;
+      game.resumedFromLocalSave = true;
+      if (game.runTracking && typeof game.runTracking === 'object') game.runTracking.resumedFromLocalSave = true;
+      game.runWalletConnected = !!snap.runWalletConnected;
+      if (snap.difficultyProfile) game.difficultyProfile = cloneContinueData(snap.difficultyProfile);
+      if (snap.selectedWalletHeroes) game.selectedWalletHeroes = cloneContinueData(snap.selectedWalletHeroes) || {};
+      game.selectedChampionKey = snap.selectedChampionKey || '';
+      game.selectedChampionHeroId = snap.selectedChampionHeroId || '';
+      game.selectedChampionConfirmed = !!snap.selectedChampionConfirmed;
+      game.selectedChampionSnapshot = cloneContinueData(snap.selectedChampionSnapshot) || null;
+      game.championWaitAnchorWave = Number(snap.championWaitAnchorWave || 0);
+      game.championDeployedTowerId = snap.championDeployedTowerId || null;
+      game.championActiveUntilWave = Number(snap.championActiveUntilWave || 0);
+      return restoreContinueSnapshot(0, { savedResume: true });
+    } catch (error) {
+      console.warn('Saved game restore failed.', error);
+      return false;
+    }
+  }
+
+  function openSavedGamePrompt(saved) {
+    if (!saved || !saved.snapshot || document.getElementById('savedGameResumeModal')) return;
+    const wave = Number(saved.nextWave || saved.snapshot.nextWavePlan?.waveNumber || saved.snapshot.waveNumber || 1);
+    const modal = document.createElement('div');
+    modal.id = 'savedGameResumeModal';
+    modal.className = 'intro-modal';
+    modal.setAttribute('aria-hidden', 'false');
+    modal.innerHTML = `
+      <div class="intro-modal-card panel" role="dialog" aria-modal="true" aria-labelledby="savedGameResumeTitle" style="max-width:560px; width:min(92vw, 560px);">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Saved Run</div>
+            <h2 id="savedGameResumeTitle">Saved game detected</h2>
+          </div>
+        </div>
+        <div class="intro-body">
+          <p><strong>Connect your wallet and resume the game, or start a new game.</strong></p>
+          <p>This will restore your board at the beginning of wave ${Number.isFinite(wave) ? wave : 1}. Autostart will stay off so you can look over the board before enemies come out.</p>
+          <p id="savedGameWalletStatus" class="bounty-strip-copy" style="margin-top:0.75rem;">Wallet connection is required before resuming this saved run.</p>
+        </div>
+        <div class="intro-modal-footer" style="display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
+          <button id="savedGameConnectBtn" type="button" class="secondary">Connect</button>
+          <button id="savedGameResumeYesBtn" type="button" disabled style="opacity:0.55; cursor:not-allowed;">Resume</button>
+          <button id="savedGameNewGameBtn" type="button" class="secondary">New Game</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(false);
+    const resumeBtn = modal.querySelector('#savedGameResumeYesBtn');
+    const connectBtn = modal.querySelector('#savedGameConnectBtn');
+    const statusEl = modal.querySelector('#savedGameWalletStatus');
+    const setResumeEnabled = (enabled) => {
+      if (!resumeBtn) return;
+      resumeBtn.disabled = !enabled;
+      resumeBtn.style.opacity = enabled ? '' : '0.55';
+      resumeBtn.style.cursor = enabled ? '' : 'not-allowed';
+    };
+    const refreshWalletState = () => {
+      const walletAddress = getConnectedWalletAddress();
+      const connected = !!walletAddress;
+      setResumeEnabled(connected);
+      if (statusEl) {
+        statusEl.textContent = connected
+          ? `Wallet connected: ${truncateWalletAddress(walletAddress)}. You can resume this saved run.`
+          : 'Wallet connection is required before resuming this saved run.';
+      }
+      if (connectBtn) connectBtn.textContent = connected ? 'Connected' : 'Connect';
+      return connected;
+    };
+    const close = () => {
+      modal.remove();
+      document.body.classList.remove('intro-open');
+      game.introOpen = false;
+      game.savedGameResumeCheckPending = false;
+      syncStatusOverlayVisibility(true);
+      showStatusOverlay();
+    };
+    connectBtn?.addEventListener('click', async () => {
+      if (refreshWalletState()) return;
+      if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.connectWallet !== 'function') {
+        if (statusEl) statusEl.textContent = 'Wallet connector is unavailable. Reload the page and try again.';
+        return;
+      }
+      connectBtn.disabled = true;
+      connectBtn.textContent = 'Connecting…';
+      if (statusEl) statusEl.textContent = 'Opening your wallet…';
+      try {
+        const address = await window.DFKDefenseWallet.connectWallet();
+        if (address) {
+          if (typeof refreshWalletEconomyDetails === 'function') refreshWalletEconomyDetails();
+          refreshWalletState();
+          showBanner('Wallet connected. Resume is available.', 2200);
+        } else if (statusEl) {
+          statusEl.textContent = 'Wallet connection was canceled. Connect before resuming.';
+        }
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error?.message || 'Wallet connection failed. Try again.';
+      } finally {
+        connectBtn.disabled = false;
+        refreshWalletState();
+      }
+    });
+    resumeBtn?.addEventListener('click', () => {
+      if (!refreshWalletState()) {
+        showBanner('Connect your wallet before resuming this saved run.', 2400);
+        return;
+      }
+      const restored = applySavedGameResume(saved);
+      close();
+      if (restored) {
+        setInstruction(`Saved game loaded. Wave ${Number.isFinite(wave) ? wave : (game.nextWavePlan?.waveNumber || game.waveNumber + 1)} is ready when you are.`);
+        log('Saved game restored. Autostart is off. Start the next wave when ready.');
+        render();
+      } else {
+        clearSavedGame();
+        showBanner('Saved game could not be restored and was cleared.', 2600);
+      }
+    });
+    modal.querySelector('#savedGameNewGameBtn')?.addEventListener('click', () => {
+      clearSavedGame();
+      close();
+      log('Saved game cleared. Starting fresh.');
+    });
+    refreshWalletState();
+  }
+
+  function maybePromptForSavedGame() {
+    const saved = readSavedGame();
+    if (!saved) return false;
+    openSavedGamePrompt(saved);
+    return true;
+  }
+
   function closeContinueOfferModal() {
     if (!els.continueOfferModal) return;
     setContinuePaidRetryPending(false);
@@ -16913,6 +17184,7 @@ function canSubmitRewardClaims() {
     showFinalGameOverModal();
     markProgress('The portal was destroyed.');
     log('The portal was destroyed.');
+    clearSavedGame();
     submitCompletedRunOnce('loss');
     render();
   }
@@ -16920,7 +17192,7 @@ function canSubmitRewardClaims() {
   function restoreContinueSnapshot(extraGold = 0, options = {}) {
     const snap = game.continueSnapshot;
     if (!snap) return false;
-    markLastChanceResolvedForRunTracking('used');
+    if (!(options && options.savedResume)) markLastChanceResolvedForRunTracking('used');
     applyGridSnapshot(snap.grid);
     game.phase = snap.phase;
     game.portal = cloneContinueData(snap.portal);
@@ -16929,14 +17201,28 @@ function canSubmitRewardClaims() {
       Object.assign(tower, savedTower);
       tower.template = TOWER_TEMPLATES[tower.type] || tower.template;
       tower.abilities = tower.template?.abilities || savedTower.abilities || [];
-      tower.abilityReadyAt = { ...(savedTower.abilityReadyAt || {}) };
-      tower.abilityGlobalReadyAt = Math.max(0, Number(savedTower.abilityGlobalReadyAt || 0));
-      for (const ability of tower.abilities) {
-        if (!(ability.key in tower.abilityReadyAt)) tower.abilityReadyAt[ability.key] = 0;
-      }
-      if (tower.isChampion) {
-        tower.championAutoAbilityReadyAt = { ...(savedTower.championAutoAbilityReadyAt || {}) };
-        ensureChampionAutoAbilityState(tower);
+      if (options && options.savedResume) {
+        tower.attackCooldownMs = 0;
+        tower.moveReadyAt = now();
+        tower.abilityReadyAt = {};
+        tower.abilityGlobalReadyAt = 0;
+        for (const ability of tower.abilities) {
+          if (ability && ability.key) tower.abilityReadyAt[ability.key] = 0;
+        }
+        if (tower.isChampion) {
+          tower.championAutoAbilityReadyAt = {};
+          ensureChampionAutoAbilityState(tower);
+        }
+      } else {
+        tower.abilityReadyAt = { ...(savedTower.abilityReadyAt || {}) };
+        tower.abilityGlobalReadyAt = Math.max(0, Number(savedTower.abilityGlobalReadyAt || 0));
+        for (const ability of tower.abilities) {
+          if (!(ability.key in tower.abilityReadyAt)) tower.abilityReadyAt[ability.key] = 0;
+        }
+        if (tower.isChampion) {
+          tower.championAutoAbilityReadyAt = { ...(savedTower.championAutoAbilityReadyAt || {}) };
+          ensureChampionAutoAbilityState(tower);
+        }
       }
       if (!tower.damageByMethod) tower.damageByMethod = {};
       if (!tower.buffs) tower.buffs = {};
@@ -16965,7 +17251,7 @@ function canSubmitRewardClaims() {
     game.recentMutations = cloneContinueData(snap.recentMutations) || [];
     game.recentLanes = cloneContinueData(snap.recentLanes) || [];
     game.hireCount = snap.hireCount;
-    game.autoStartEnabled = snap.autoStartEnabled;
+    game.autoStartEnabled = (options && options.savedResume) ? false : snap.autoStartEnabled;
     game.autoStartDelayMs = snap.autoStartDelayMs;
     game.autoStartReadyAt = 0;
     game.autoStartToken = snap.autoStartToken;
@@ -17010,6 +17296,22 @@ function canSubmitRewardClaims() {
     game.autoStartReadyAt = 0;
     game.autoStartToken = (game.autoStartToken || 0) + 1;
     closeContinueOfferModal();
+    if (options && options.savedResume) {
+      game.resumedFromLocalSave = true;
+      if (game.runTracking && typeof game.runTracking === 'object') game.runTracking.resumedFromLocalSave = true;
+      game.continueOfferUsed = false;
+      game.paidContinueOfferUsed = false;
+      game.countdownMs = 0;
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+      game.autoStartToken = (game.autoStartToken || 0) + 1;
+      const resumedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
+      setInstruction(`Saved game loaded. Wave ${resumedWaveLabel} is ready when you are.`);
+      log(`Saved game restored at the beginning of wave ${resumedWaveLabel}.`);
+      syncStartWaveButtonState();
+      render();
+      return true;
+    }
     const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
     setInstruction(`Wave ${retriedWaveLabel} is getting a second shot. Bonus: +${extraGold} gold.`);
     log(`Continue used: replaying wave ${retriedWaveLabel} with +${extraGold} gold.`);
@@ -17049,6 +17351,7 @@ function canSubmitRewardClaims() {
       game.milestoneHeroOffer = null;
       game.milestoneBarrierOffer = null;
       saveContinueSnapshot(currentPlan);
+      persistSavedGame('wave_start', currentPlan);
       if (game.replayCapture) game.replayCapture.lastBattleSnapshotAt = 0;
     }
     game.waveNumber = currentPlan.waveNumber;
@@ -17701,6 +18004,7 @@ function canSubmitRewardClaims() {
     syncStartWaveButtonState();
     maybeRemindChampionDeployment({ waited: getChampionWavesWaited() });
     captureReplayWaveSnapshot(`wave_${finalWaveNumber}_cleared`);
+    persistSavedGame('wave_cleared');
     render();
   }
 
@@ -21544,6 +21848,10 @@ function canSubmitRewardClaims() {
         updateMobileBoardFit();
         game.lastMobileFitRefreshAt = realNow;
       }
+      if (!game.runningWave && (!game.lastSavedGameAt || (realNow - game.lastSavedGameAt) >= 5000)) {
+        persistSavedGame('idle_checkpoint');
+        game.lastSavedGameAt = realNow;
+      }
     } catch (error) {
       showCrashReport('runtime', error);
       return;
@@ -21712,8 +22020,12 @@ function canSubmitRewardClaims() {
 
   ensureDailyQuestBoard(true);
   applyVersionStamp();
-  resetGame();
-  if (!isReplayUrlView()) openStartModeModal();
+  game.savedGameResumeCheckPending = !!readSavedGame();
+  Promise.resolve(resetGame({ preserveSavedGame: true })).finally(() => {
+    if (!isReplayUrlView()) {
+      if (!maybePromptForSavedGame()) openStartModeModal();
+    }
+  });
   game.lastTick = now();
   setPlayMode('easy', false);
   updatePauseButton();
