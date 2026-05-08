@@ -13734,10 +13734,10 @@ function canSubmitRewardClaims() {
       if (!modal) {
         modal = document.createElement('div');
         modal.id = 'runTrackingNotEnabledModal';
-        modal.className = 'modal hidden';
+        modal.className = 'intro-modal hidden run-tracking-warning-modal';
         modal.setAttribute('aria-hidden', 'true');
         modal.innerHTML = `
-          <div class="intro-modal-card run-tracking-warning-card" role="dialog" aria-modal="true" aria-labelledby="runTrackingNotEnabledTitle">
+          <div class="intro-modal-card run-tracking-warning-card panel" role="dialog" aria-modal="true" aria-labelledby="runTrackingNotEnabledTitle">
             <div class="intro-kicker">Run Tracking</div>
             <h2 id="runTrackingNotEnabledTitle">Run tracking not enabled, proceed without run tracking?</h2>
             <div class="intro-body">
@@ -22601,8 +22601,38 @@ style.innerHTML = `
 .lightwindow, .modal, .overlay-container {
   min-height: 140% !important;
 }
+
+/* v46.9.1.298: keep run-tracking warning centered over the game instead of falling into page flow. */
+#runTrackingNotEnabledModal.run-tracking-warning-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 24000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 18px !important;
+  min-height: 100vh !important;
+  background: rgba(26, 17, 8, 0.74) !important;
+  backdrop-filter: blur(3px);
+}
+#runTrackingNotEnabledModal.run-tracking-warning-modal.hidden {
+  display: none !important;
+}
+#runTrackingNotEnabledModal .run-tracking-warning-card {
+  width: min(680px, calc(100vw - 36px)) !important;
+  max-height: min(80vh, 520px) !important;
+  margin: 0 auto !important;
+}
+#runTrackingNotEnabledModal .run-tracking-warning-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 `;
 document.head.appendChild(style);
+
 /* === END UI TWEAK PATCH === */
 
 
