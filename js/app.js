@@ -1,4 +1,24 @@
 
+function dfkForceIntroClosedUnlessManual() {
+  try {
+    if (window.__dfkAllowManualIntroOpen) return;
+    const modal = document.getElementById('introModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('intro-open');
+  } catch (error) {}
+}
+document.addEventListener('DOMContentLoaded', () => {
+  dfkForceIntroClosedUnlessManual();
+  setTimeout(dfkForceIntroClosedUnlessManual, 50);
+  setTimeout(dfkForceIntroClosedUnlessManual, 250);
+  setTimeout(dfkForceIntroClosedUnlessManual, 1000);
+});
+
+window.__dfkAllowManualIntroOpen = false;
+
 function getRarityClass(hero){
   if(hero.generation === 0) return "";
   const r = (hero.rarity || "").toLowerCase();
@@ -1073,6 +1093,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     mobileModeBtn: document.getElementById('mobileModeBtn'),
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
+    newsBtn: document.getElementById('newsBtn'),
     loreBtn: document.getElementById('loreBtn'),
     bountyBtn: document.getElementById('bountyBtn'),
     questsBtn: document.getElementById('questsBtn'),
@@ -1094,6 +1115,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     trackedRunsModal: document.getElementById('trackedRunsModal'),
     trackedRunsBody: document.getElementById('trackedRunsBody'),
     closeTrackedRunsBtn: document.getElementById('closeTrackedRunsBtn'),
+    newsModal: document.getElementById('newsModal'),
+    newsBody: document.getElementById('newsBody'),
+    closeNewsBtn: document.getElementById('closeNewsBtn'),
+    mobileFuncNewsBtn: document.getElementById('mobileFuncNewsBtn'),
     knownRelicsModal: document.getElementById('knownRelicsModal'),
     knownRelicsBody: document.getElementById('knownRelicsBody'),
     closeKnownRelicsBtn: document.getElementById('closeKnownRelicsBtn'),
@@ -2717,6 +2742,7 @@ function hasVisibleIntroStyleModal() {
     'trackedRunsModal',
     'bountyModal',
     'knownRelicsModal',
+    'newsModal',
     'continueOfferModal',
     'guestConnectConfirmModal',
     'seerIntroModal',
@@ -5125,16 +5151,7 @@ function formatQuestResetCountdown(dateKey) {
     const leaderEl = document.getElementById('burnedGoldLeaderDisplay');
     if (leaderEl) leaderEl.style.display = 'none';
     const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
-    if (!raffleEl) return;
-    const winner00 = normalizeDailyRaffleWinnerEntry(getDailyRaffleWinnerBySlot(game.latestDailyRaffleWinners, '00'), '00');
-    const canShowWinner = isRaffleSlotWinnerDisplayable(winner00);
-    const nameMarkup = canShowWinner && winner00.winners && winner00.winners.length
-      ? winner00.winners.map((winner) => '<div class="raffle-winner-name">' + escapeHtml(winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') + '</div>').join('')
-      : '<div class="raffle-winner-name">Pending next draw</div>';
-    const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner00));
-    const dateMarkup = dateLabel && dateLabel !== '--' ? '<div class="raffle-winner-date">' + escapeHtml(dateLabel) + '</div>' : '';
-    const winnerMarkup = '<div class="raffle-winner-pill raffle-winner-' + winner00.drawSlot + '">' + dateMarkup + '<div class="raffle-winner-title">' + escapeHtml(winner00.label) + '</div>' + nameMarkup + '</div>';
-    raffleEl.innerHTML = '<div class="raffle-winners-heading">Daily raffle winners</div><div class="raffle-winners-pills">' + winnerMarkup + '</div>';
+    if (raffleEl) raffleEl.remove();
   }
 
   function getSupabaseFunctionConfig() {
@@ -5723,27 +5740,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
   async function fetchLatestDailyRaffleWinnerDirect() {
-    try {
-      const { functionBaseUrl, key } = getSupabaseFunctionConfig();
-      if (!functionBaseUrl || !key) return { morning: null, midday: null, latest: null };
-      const response = await fetch(`${functionBaseUrl}/daily-raffle`, {
-        method: 'GET',
-        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Cache-Control': 'no-cache' },
-      });
-      if (!response.ok) return { morning: null, midday: null, latest: null };
-      const responseText = await response.text().catch(() => '');
-      const raw = responseText ? JSON.parse(responseText) : {};
-      const payload = raw && typeof raw === 'object' ? ((raw.data && typeof raw.data === 'object') ? raw.data : raw) : {};
-      const latestWinners = payload && payload.latest_winners && typeof payload.latest_winners === 'object' ? payload.latest_winners : {};
-      const winner00 = getDailyRaffleWinnerBySlot(latestWinners, '00') || (payload && typeof payload.latest_winner === 'object' ? payload.latest_winner : null);
-      return {
-        morning: winner00,
-        midday: null,
-        latest: winner00,
-      };
-    } catch (_error) {
-      return { morning: null, midday: null, latest: null };
-    }
+    return { morning: null, midday: null, latest: null };
   }
 
   async function fetchGlobalBurnedGoldTotal(force = false) {
@@ -5796,31 +5793,15 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
       }
 
       game.globalDfkGoldBurnedTotal = Math.max(0, Number(total || 0));
-      const dailyRaffle = (payload && payload.meta && payload.meta.daily_raffle) ? payload.meta.daily_raffle : {};
-      const metaLatestWinners = dailyRaffle && dailyRaffle.latest_winners && typeof dailyRaffle.latest_winners === 'object' ? dailyRaffle.latest_winners : {};
-      let latestWinners = await fetchLatestDailyRaffleWinnerDirect();
-      if (!latestWinners.morning || !(latestWinners.morning.winners || latestWinners.morning.winner_name || latestWinners.morning.vanity_name || latestWinners.morning.winner_wallet || latestWinners.morning.wallet_address || latestWinners.morning.wallet)) {
-        latestWinners = {
-          morning: getDailyRaffleWinnerBySlot(metaLatestWinners, '00'),
-          midday: null,
-          latest: dailyRaffle && typeof dailyRaffle.latest_winner === 'object' ? dailyRaffle.latest_winner : null,
-        };
-      }
       game.globalDfkGoldBurnLeaderName = burnLeader && (burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '') ? String(burnLeader.display_name || burnLeader.player_name || burnLeader.vanity_name || '').trim() : '';
       game.globalDfkGoldBurnLeaderWallet = burnLeader && (burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '') ? String(burnLeader.wallet_address || burnLeader.wallet || burnLeader.address || '').trim().toLowerCase() : '';
       game.globalDfkGoldBurnLeaderTotal = Math.max(0, Number(burnLeader ? (burnLeader.dfk_gold_burned ?? burnLeader.gold_burned ?? burnLeader.burn_total ?? burnLeader.total ?? 0) : 0));
       game.globalTrackedRunsTotal = Math.max(0, Number(totalRuns || 0));
-      const fallbackLatestWinner = latestWinners && latestWinners.latest ? latestWinners.latest : null;
-      const morningWinner = (latestWinners && latestWinners.morning) || fallbackLatestWinner || null;
-      game.latestDailyRaffleWinners = {
-        '00': normalizeDailyRaffleWinnerEntry(morningWinner, '00'),
-        morning: normalizeDailyRaffleWinnerEntry(morningWinner, '00'),
-      };
-      const latestWinner = game.latestDailyRaffleWinners['00'] || game.latestDailyRaffleWinners.morning || fallbackLatestWinner;
-      game.latestDailyRaffleWinnerName = latestWinner && (latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name) ? String(latestWinner.winner_name || latestWinner.vanity_name || latestWinner.display_name || latestWinner.player_name || latestWinner.name).trim() : '';
-      game.latestDailyRaffleWinnerWallet = latestWinner && (latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet) ? String(latestWinner.winner_wallet || latestWinner.wallet_address || latestWinner.wallet).trim().toLowerCase() : String(latestWinner && latestWinner.wallet || '').trim().toLowerCase();
-      game.latestDailyRaffleWinnerDay = latestWinner && latestWinner.raffle_day ? String(latestWinner.raffle_day).trim() : String(latestWinner && latestWinner.raffleDay || '').trim();
-      game.latestDailyRaffleQualifierCount = Math.max(0, Number(latestWinner ? (latestWinner.qualifier_count ?? latestWinner.eligible_count ?? latestWinner.qualifierCount ?? 0) : 0));
+      game.latestDailyRaffleWinners = {};
+      game.latestDailyRaffleWinnerName = '';
+      game.latestDailyRaffleWinnerWallet = '';
+      game.latestDailyRaffleWinnerDay = '';
+      game.latestDailyRaffleQualifierCount = 0;
       game.globalDfkGoldLastSyncedAt = nowMs;
       updateBurnedGoldDisplay();
       return game.globalDfkGoldBurnedTotal;
@@ -8618,6 +8599,10 @@ function canSubmitRewardClaims() {
       els.trackedRunsModal.classList.add('hidden');
       els.trackedRunsModal.setAttribute('aria-hidden', 'true');
     }
+    if (els.newsModal) {
+      els.newsModal.classList.add('hidden');
+      els.newsModal.setAttribute('aria-hidden', 'true');
+    }
     syncQuestModalInteractivity(false);
     game.introOpen = false;
     document.body.classList.remove('intro-open');
@@ -9048,6 +9033,168 @@ function canSubmitRewardClaims() {
     els.knownRelicsModal.classList.add('hidden');
     els.knownRelicsModal.setAttribute('aria-hidden', 'true');
   }
+  const NEWS_ITEMS = [
+    {
+      id: 'moosifer',
+      title: 'The Summoner nears completion',
+      date: 'Just now',
+      image: 'assets/moosifer-walking.gif',
+      shareable: true,
+      body: 'The Summoner has almost completed his first incantation. The air around the portal has gone cold. The void is answering. For days the Dark Summoner and his underlings have circled the portal chanting only one phrase over and over: <span class="moosifer-chant">MAIFRIENDO.... MOOSIFER..... MAIFRIENDO.... MOOSIFER</span> Then suddenly the chanting stopped. The portal became completely silent. No wind. No fire. No screams from the void. Then the portal turned RED. A massive rack of flaming antlers pushed through the opening first. Moments later the muzzle of a gigantic moose burst through the portal with a roar that shook the battlefield before charging forward into our world.',
+      warning: 'If MOOSIFER breaks through the portal and reaches the void, its strength will be doubled for the trip back to the portal.'
+    },
+    {
+      id: 'news-live',
+      title: 'In-game News is live',
+      date: 'Now',
+      body: 'All updates and news will appear in-game going forward! Pop in here to see the brand newiest stuff on DFK Defender.'
+    }
+  ];
+
+  const NEWS_TIMELINE = [
+    { label: 'The Summoner begins', detail: 'The first signs of the ritual appear around the portal.' },
+    { label: 'The portal weakens', detail: 'The barrier thins. Something huge starts pushing from the other side.' },
+    { label: 'MOOSIFER is named', detail: 'Scouts report antlers of fire, a black hide, and a hunger pointed straight at the void.' },
+    { label: 'DFK Defender launches', detail: 'The portal opened and the first defenders started holding the line.' },
+    { label: 'Original heroes arrive', detail: 'Archer, Warrior, Priest, Wizard, Pirate, Seer, Berserker, and Monk joined the defense across the early builds.' },
+    { label: 'Champions arrive', detail: 'Sage, Dragoon, Dreadknight, and Spellbow became special late-run deployments for deeper strategy.' },
+    { label: 'Daily Quests that pay', detail: 'Connected players can complete daily quests for JEWEL / AVAX rewards while pushing runs higher.' },
+    { label: 'News moves in-game', detail: 'Updates now live here so players can catch up without leaving the game.' }
+  ];
+
+  function getNewsShareUrl(item) {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('news', item?.id || 'latest');
+      url.hash = '';
+      return url.toString();
+    } catch (error) {
+      return window.location.href.split('#')[0] + '?news=' + encodeURIComponent(item?.id || 'latest');
+    }
+  }
+
+  function copyNewsShareLink(itemId) {
+    const item = NEWS_ITEMS.find((entry) => entry.id === itemId) || NEWS_ITEMS[0];
+    const url = getNewsShareUrl(item);
+    const done = () => showBanner('News link copied', 1400);
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(done).catch(() => {
+          window.prompt('Copy this news link:', url);
+        });
+      } else {
+        window.prompt('Copy this news link:', url);
+      }
+    } catch (error) {
+      window.prompt('Copy this news link:', url);
+    }
+  }
+
+  function renderNewsCard(item, index) {
+    if (item.id === 'moosifer') {
+      return `
+        <article class="news-update-card moosifer-news-card ${index === 0 ? 'is-current' : ''}" data-news-id="${escapeHtml(item.id)}">
+          <div class="moosifer-news-topline">
+            <span class="news-card-meta">${escapeHtml(item.date)}</span>
+            <button class="news-share-btn" type="button" data-news-share="${escapeHtml(item.id)}">Copy share link</button>
+          </div>
+          <h3 class="moosifer-incantation">The Summoner has almost completed<br><span>his first incantation</span></h3>
+          <div class="moosifer-news-stage">
+            <div class="moosifer-warning">
+              <span aria-hidden="true">⚠</span>
+              <strong>${escapeHtml(item.warning)}</strong>
+              <span aria-hidden="true">⚠</span>
+            </div>
+            <div class="moosifer-creature-wrap" aria-label="MOOSIFER">
+              <img class="moosifer-news-gif" src="${escapeHtml(item.image)}" alt="MOOSIFER walking toward the portal">
+              <div class="moosifer-name">MOOSIFER</div>
+            </div>
+            <div class="moosifer-news-copy">
+              <p class="moosifer-veil">The veil between worlds is at its thinnest it has ever been.</p>
+              <p>${item.body}</p>
+              <p class="moosifer-boss-callout">A boss strength enemy is just days away from coming through the portal.</p>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+    return `
+      <article class="news-update-card ${index === 0 ? 'is-current' : ''}" data-news-id="${escapeHtml(item.id)}">
+        <div class="news-card-meta">${escapeHtml(item.date)}</div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.body)}</p>
+      </article>
+    `;
+  }
+
+  function renderNewsModal() {
+    if (!els.newsBody) return;
+    const newsCards = NEWS_ITEMS.map(renderNewsCard).join('');
+    const timeline = NEWS_TIMELINE.map((item) => `
+      <li class="news-timeline-item">
+        <span class="news-timeline-dot" aria-hidden="true"></span>
+        <div><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p></div>
+      </li>
+    `).join('');
+    els.newsBody.innerHTML = `
+      <section class="news-page news-page-current">
+        <div class="news-section-label">Latest</div>
+        ${newsCards}
+      </section>
+      <section class="news-page news-page-history">
+        <div class="news-section-label">Timeline</div>
+        <ol class="news-timeline">${timeline}</ol>
+      </section>
+    `;
+    els.newsBody.querySelectorAll('[data-news-share]').forEach((button) => {
+      button.addEventListener('click', () => copyNewsShareLink(button.getAttribute('data-news-share')));
+    });
+  }
+
+
+  function openNewsAfterStartChoice() {
+    try {
+      if (window.__dfkNewsOpenedAfterStartChoice) return;
+      window.__dfkNewsOpenedAfterStartChoice = true;
+      setTimeout(() => {
+        if (typeof openNewsModal === 'function') openNewsModal();
+      }, 450);
+    } catch (error) {}
+  }
+
+
+document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event) {
+  try {
+    const target = event.target && event.target.closest && event.target.closest('button, [role="button"], a');
+    if (!target || window.__dfkNewsOpenedAfterStartChoice) return;
+    const label = ((target.id || '') + ' ' + (target.textContent || '')).toLowerCase();
+    const isStartChoice = label.includes('guest mode') || label.includes('guest') || label.includes('connect');
+    const isIntroButton = label.includes('intro');
+    const isNewsButton = label.includes('news');
+    if (isStartChoice && !isIntroButton && !isNewsButton) {
+      openNewsAfterStartChoice();
+    }
+  } catch (error) {}
+}, true);
+
+
+  function openNewsModal() {
+    if (!els.newsModal) return;
+    renderNewsModal();
+    els.newsModal.classList.remove('hidden');
+    els.newsModal.setAttribute('aria-hidden', 'false');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+  }
+
+  function closeNewsModal() {
+    if (!els.newsModal) return;
+    els.newsModal.classList.add('hidden');
+    els.newsModal.setAttribute('aria-hidden', 'true');
+    syncIntroOpenClassFromVisibleModals();
+  }
+
 
   function openBountyModal() {
     if (game.statusOverlayTimeout) {
@@ -11367,6 +11514,18 @@ function canSubmitRewardClaims() {
   }
 
   function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
+    if (!window.__dfkAllowManualIntroOpen) {
+      try {
+        if (els?.introModal) {
+          els.introModal.classList.add('hidden');
+          els.introModal.setAttribute('aria-hidden', 'true');
+        }
+        document.body.classList.remove('intro-open');
+        game.introOpen = false;
+      } catch (error) {}
+      return;
+    }
+    window.__dfkAllowManualIntroOpen = false;
     closeGuestConnectConfirmModal({ preserveIntroState: true });
     closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
@@ -21669,27 +21828,42 @@ function canSubmitRewardClaims() {
   });
   els.introBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
-    openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
+    window.__dfkAllowManualIntroOpen = true; openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
   });
   els.loreBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
-    openIntroModal(0, 'lore');
+    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'lore');
   });
   els.guideIntroToggleBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
     game.introPageIndex = 0;
-    openIntroModal(0, 'intro');
+    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'intro');
   });
   els.guideLoreToggleBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
     game.introPageIndex = 0;
-    openIntroModal(0, 'lore');
+    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'lore');
   });
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
   });
   if (els.bountyBtn) els.bountyBtn.classList.add('hidden');
   if (els.mobileFuncBountyBtn) els.mobileFuncBountyBtn.classList.add('hidden');
+  els.newsBtn?.addEventListener('click', () => {
+    openNewsModal();
+  });
+  els.closeNewsBtn?.addEventListener('click', () => {
+    closeNewsModal();
+  });
+  els.newsModal?.addEventListener('click', (event) => {
+    if (event.target === els.newsModal) closeNewsModal();
+  });
+  try {
+    const newsParam = new URLSearchParams(window.location.search).get('news');
+    if (newsParam) {
+      setTimeout(() => openNewsModal(), 350);
+    }
+  } catch (error) {}
   els.questsBtn?.addEventListener('click', () => {
     openQuestsModal();
   });
@@ -21731,6 +21905,7 @@ function canSubmitRewardClaims() {
     showBanner('Challenge Mode coming soon', 1400);
   });
   els.mobileFuncPauseBtn?.addEventListener('click', () => els.pauseBtn?.click());
+  els.mobileFuncNewsBtn?.addEventListener('click', () => { closeMobileMenus(); els.newsBtn?.click(); });
   els.mobileFuncIntroBtn?.addEventListener('click', () => els.introBtn?.click());
   els.mobileFuncBountyBtn?.addEventListener('click', () => openBountyModal());
   els.mobileFuncQuestsBtn?.addEventListener('click', () => { game.questBoardView = 'quests'; openQuestsModal(); });
@@ -21805,7 +21980,7 @@ function canSubmitRewardClaims() {
     els.seerIntroLearnMoreBtn.onclick = (event) => {
       swallowModalEvent(event);
       closeSeerIntroModal();
-      openIntroModal(0, 'intro');
+      window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'intro');
     };
   }
   if (els.closeSeerIntroBtn) {
@@ -22373,9 +22548,10 @@ setTimeout(() => { try { if (!isReplayUrlView()) { maybeShowWalletTutorial(); } 
         }
       } catch (error) {}
       try {
-        if (typeof openIntroModal === 'function') {
-          openIntroModal();
-          return;
+        // Intro no longer auto-opens on startup.
+        // Players can open it manually from the Tools/Intro button.
+        if (typeof closeIntroModal === 'function') {
+          closeIntroModal();
         }
       } catch (error) {}
       try {

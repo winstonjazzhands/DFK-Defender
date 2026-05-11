@@ -100,44 +100,7 @@ function isMissingColumnError(error: unknown) {
   return message.includes('column') && (message.includes('does not exist') || message.includes('not found in schema cache'));
 }
 
-async function fetchDailyRaffleHistory(admin: ReturnType<typeof createAdmin>, limit = 40) {
-  const selectVariants = [
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at, reward_amount, reward_currency',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at, reward_amount, reward_currency',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name',
-    'raffle_day, winner_wallet, winner_name',
-    'raffle_day, winner_wallet',
-  ];
-
-  let lastError: unknown = null;
-  for (const columns of selectVariants) {
-    try {
-      let query = admin.from('daily_raffle_results').select(columns);
-      if (columns.includes('settled_at')) {
-        query = query.order('settled_at', { ascending: false, nullsFirst: false });
-      }
-      query = query.order('raffle_day', { ascending: false });
-      if (columns.includes('draw_slot')) {
-        query = query.order('draw_slot', { ascending: false });
-      }
-      const { data, error } = await query.limit(limit);
-      if (!error) return Array.isArray(data) ? data : [];
-      lastError = error;
-      if (isMissingRelationError(error, 'daily_raffle_results')) return [];
-      if (isMissingColumnError(error)) continue;
-      console.error('avax-treasury-summary daily raffle history query failed', error);
-      return [];
-    } catch (error) {
-      lastError = error;
-      if (isMissingColumnError(error)) continue;
-      console.error('avax-treasury-summary daily raffle history query threw', error);
-      return [];
-    }
-  }
-  if (lastError && !isMissingColumnError(lastError) && !isMissingRelationError(lastError, 'daily_raffle_results')) {
-    console.error('avax-treasury-summary daily raffle history fallback failed', lastError);
-  }
+async function fetchDailyRaffleHistory(_admin: ReturnType<typeof createAdmin>, _limit = 40) {
   return [];
 }
 
@@ -438,37 +401,25 @@ Deno.serve(async (req) => {
       tokenRows,
       tokenSessionRows,
       rewardClaimRows,
-      raffleRows,
       burnRows,
       { count: lifetimeTrackedRunsCount, error: runCountError },
-      { data: latestRaffleWinner, error: latestRaffleWinnerError },
-      { data: latestAvaxRaffleWinner, error: latestAvaxRaffleWinnerError },
-      { data: dailyRaffleHistory, error: dailyRaffleHistoryError },
     ] = await Promise.all([
       fetchPaginatedRows(admin, 'crypto_payment_sessions', '*', (query) => query.eq('status', 'confirmed')),
       fetchPaginatedRows(admin, 'avax_payment_verifications', '*'),
       fetchPaginatedRows(admin, 'dfk_token_payments', '*'),
       fetchPaginatedRows(admin, 'dfk_token_payment_sessions', '*'),
       fetchPaginatedRows(admin, 'reward_claim_requests', '*'),
-      fetchPaginatedRows(admin, 'daily_raffle_results', '*'),
       fetchPaginatedBurnRows(admin),
       admin.from('runs').select('id', { count: 'exact', head: true }),
-      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'dfk').order('settled_at', { ascending: false, nullsFirst: false }).order('raffle_day', { ascending: false }).order('draw_slot', { ascending: false }).limit(1).maybeSingle(),
-      admin.from('daily_raffle_results').select('*').eq('raffle_type', 'avax').order('settled_at', { ascending: false, nullsFirst: false }).order('raffle_day', { ascending: false }).order('draw_slot', { ascending: false }).limit(1).maybeSingle(),
-      fetchDailyRaffleHistory(admin, 40).then((data) => ({ data, error: null })),
     ]);
 
     logNonMissingError('avax-treasury-summary runs count query failed', runCountError, 'runs');
-    logNonMissingError('avax-treasury-summary latest raffle winner query failed', latestRaffleWinnerError, 'daily_raffle_results');
-    logNonMissingError('avax-treasury-summary latest AVAX raffle winner query failed', latestAvaxRaffleWinnerError, 'daily_raffle_results');
-    logNonMissingError('avax-treasury-summary daily raffle history query failed', dailyRaffleHistoryError, 'daily_raffle_results');
 
     const safeSessionRows = dedupeAvaxRows(sessionRows || [], legacyAvaxRows || []);
     const safeTokenRows = mergeTokenRows(tokenRows || [], tokenSessionRows || []);
     const currentSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
     const avaxInRows = safeSessionRows.length > 0 ? safeSessionRows : currentSessionRows;
     const safeRewardClaimRows = Array.isArray(rewardClaimRows) ? rewardClaimRows : [];
-    const safeRaffleRows = Array.isArray(raffleRows) ? raffleRows : [];
     const safeBurnRows = Array.isArray(burnRows) ? burnRows : [];
 
     const confirmed = []
@@ -493,39 +444,9 @@ Deno.serve(async (req) => {
 
     const completedRewardClaims = safeRewardClaimRows.filter((row) => isCompletedRewardLike(row));
     const completedClaimIds = new Set(completedRewardClaims.map((row) => String(row.id || '').trim()).filter(Boolean));
-    const completedRaffleRows = safeRaffleRows
-      .filter((row) => isCompletedRewardLike(row))
-      .filter((row) => {
-        const claimId = String(row.claim_id || '').trim();
-        return !claimId || !completedClaimIds.has(claimId);
-      })
-      .map((row) => ({
-        raffle_type: row.raffle_type,
-        reward_currency: row.reward_currency,
-        amount_value: row.reward_amount,
-        amount_text: row.reward_amount == null ? null : String(row.reward_amount),
-        payout_status: row.payout_status,
-        payout_tx_hash: row.payout_tx_hash,
-        settled_at: row.settled_at,
-      }));
-    const completedOutgoingRows = completedRewardClaims.concat(completedRaffleRows);
+    const completedOutgoingRows = completedRewardClaims;
 
     const todayBurnRows = safeBurnRows.filter((row) => String(row.confirmed_at || '').slice(0, 10) === today);
-    const claimById = new Map(safeRewardClaimRows
-      .map((claim) => [String(claim.id || '').trim(), claim] as const)
-      .filter(([id]) => !!id));
-    const resolvedDailyRaffleHistory = await Promise.all((Array.isArray(dailyRaffleHistory) ? dailyRaffleHistory : []).map(async (row) => {
-      const raffleRow = row as Record<string, unknown>;
-      const linkedClaim = claimById.get(String(raffleRow.claim_id || '').trim()) || null;
-      const resolvedWallet = normalizeAddress(raffleRow.winner_wallet) || normalizeAddress(linkedClaim?.wallet_address) || '';
-      const resolvedName = await resolvePlayerDisplayName(admin, resolvedWallet, firstText(raffleRow.winner_name, linkedClaim?.player_name_snapshot));
-      return {
-        ...raffleRow,
-        winner_wallet: resolvedWallet || raffleRow.winner_wallet || '',
-        winner_name: resolvedName,
-        payout_status: resolvedWallet ? getResolvedPayoutStatus(row as RowLike, safeRewardClaimRows) : 'no winner',
-      };
-    }));
     const lifetimeTrackedRuns = Math.max(0, Number((runCountError && !isMissingRelationError(runCountError, 'runs')) ? 0 : (lifetimeTrackedRunsCount || 0)));
     const lifetimeBurnedGold = safeBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
     const todayBurnedGold = todayBurnRows.reduce((total, row) => total + (Number(row.burn_amount ?? row.amount ?? 0) || 0), 0);
@@ -573,9 +494,9 @@ Deno.serve(async (req) => {
       todayBurnedGold,
       burnedGoldCount: safeBurnRows.length,
       todayBurnedGoldCount: todayBurnRows.length,
-      latestRaffleWinner: latestRaffleWinner && !isMissingRelationError(latestRaffleWinnerError, 'daily_raffle_results') ? { ...latestRaffleWinner, winner_name: await resolvePlayerDisplayName(admin, latestRaffleWinner.winner_wallet, latestRaffleWinner.winner_name) } : null,
-      latestAvaxRaffleWinner: latestAvaxRaffleWinner && !isMissingRelationError(latestAvaxRaffleWinnerError, 'daily_raffle_results') ? { ...latestAvaxRaffleWinner, winner_name: await resolvePlayerDisplayName(admin, latestAvaxRaffleWinner.winner_wallet, latestAvaxRaffleWinner.winner_name) } : null,
-      dailyRaffleHistory: !isMissingRelationError(dailyRaffleHistoryError, 'daily_raffle_results') ? resolvedDailyRaffleHistory : [],
+      latestRaffleWinner: null,
+      latestAvaxRaffleWinner: null,
+      dailyRaffleHistory: [],
       diagnostics: {
         currentAvaxRows: Array.isArray(sessionRows) ? sessionRows.length : 0,
         legacyAvaxRows: Array.isArray(legacyAvaxRows) ? legacyAvaxRows.length : 0,
@@ -589,7 +510,6 @@ Deno.serve(async (req) => {
         tokenSessionsCountedLike: (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => shouldCountTokenSessionLike(row)).length,
         tokenSessionsWithTxHash: (Array.isArray(tokenSessionRows) ? tokenSessionRows : []).filter((row) => !!String(row?.tx_hash || row?.metadata?.txHash || row?.metadata?.transactionHash || '').trim()).length,
         rewardClaimRows: safeRewardClaimRows.length,
-        raffleRows: safeRaffleRows.length,
         burnRows: safeBurnRows.length,
       },
     });

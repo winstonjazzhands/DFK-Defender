@@ -35,8 +35,6 @@ shadow_port = 54330
 [functions.public-run-replay]
 verify_jwt = false
 
-[functions.daily-raffle]
-verify_jwt = false
 
 [functions.request-reward-claim]
 verify_jwt = false

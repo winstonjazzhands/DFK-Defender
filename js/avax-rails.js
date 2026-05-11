@@ -491,31 +491,6 @@ function renderRewardClaimsAdmin() {
     }).join('')}</div>`
     : '<div class="reward-claims-admin-empty">No AVAX/JEWEL or DFK Gold spend data for this timeframe yet.</div>';
 
-  const raffleHistory = Array.isArray(state.treasurySummary && state.treasurySummary.dailyRaffleHistory) ? state.treasurySummary.dailyRaffleHistory : [];
-  const raffleMarkup = raffleHistory.length
-    ? `<div class="reward-raffle-history-list">${raffleHistory.map((item) => {
-      const day = String(item.raffle_day || '').trim() || '--';
-      const winnerName = String(item.winner_name || '').trim();
-      const winnerWallet = String(item.winner_wallet || '').trim();
-      const winnerLabel = winnerName || shortWallet(winnerWallet);
-      const typeLabel = String(item.raffle_type || '').trim().toUpperCase() || 'DFK';
-      const hasWinner = !!(winnerName || winnerWallet);
-      const hasPayoutTx = !!String(item.payout_tx_hash || item.tx_hash || '').trim();
-      const hasSettledAt = !!String(item.paid_at || item.settled_at || '').trim();
-      const rawPayoutStatus = String(item.payout_status || item.status || '').trim();
-      const payoutStatus = !hasWinner ? 'no winner' : ((hasPayoutTx || hasSettledAt || ['paid', 'approved', 'sent', 'complete', 'completed'].includes(rawPayoutStatus.toLowerCase())) ? 'paid' : (rawPayoutStatus || 'pending'));
-      return `<div class="reward-raffle-history-row">
-        <div class="reward-raffle-day">${escapeHtml(day)}</div>
-        <div class="reward-raffle-winner">
-          <div class="reward-raffle-winner-name">${escapeHtml(winnerLabel || 'No winner recorded')}</div>
-          <div class="reward-raffle-winner-wallet mono" title="${escapeHtml(winnerWallet)}">${escapeHtml(shortWallet(winnerWallet))}</div>
-        </div>
-        <div class="reward-raffle-pill">${escapeHtml(typeLabel)}</div>
-        <div class="reward-raffle-status">${escapeHtml(payoutStatus)}</div>
-      </div>`;
-    }).join('')}</div>`
-    : '<div class="reward-claims-admin-empty">No daily raffle winners found yet.</div>';
-
   bodyEl.innerHTML = `${totalsMarkup}
     <div class="reward-claims-admin-group">
       <div class="reward-claims-admin-subtitle">Withdrawals</div>
@@ -538,11 +513,7 @@ function renderRewardClaimsAdmin() {
       <div class="wallet-tracking-summary">Each player row shows completed JEWEL quest count and total. Click a player to see JEWEL claimed by day and how many quests made up that day.</div>
       ${renderQuestPlayerSummary(completedItems)}
     </div>
-    <div class="reward-claims-admin-group">
-      <div class="reward-claims-admin-subtitle">Daily raffle winners</div>
-      <div class="wallet-tracking-summary">Most recent winners by day from the daily raffle results table.</div>
-      ${raffleMarkup}
-    </div>`;
+`;
   attachDirectRewardClaimActionListeners(bodyEl);
 }
 
@@ -656,12 +627,7 @@ function updateTreasuryUi() {
   }
   if (statusEl) {
     const pendingCount = Number((state.rewardClaims && state.rewardClaims.pendingCount) || 0);
-    const latestRaffleWinner = state.treasurySummary && state.treasurySummary.latestRaffleWinner ? state.treasurySummary.latestRaffleWinner : null;
-    const winnerName = latestRaffleWinner && (latestRaffleWinner.winner_name || latestRaffleWinner.display_name) ? String(latestRaffleWinner.winner_name || latestRaffleWinner.display_name).trim() : '';
-    const winnerWallet = latestRaffleWinner && latestRaffleWinner.winner_wallet ? String(latestRaffleWinner.winner_wallet).trim() : '';
-    const winnerLabel = winnerName || shortWallet(winnerWallet);
-    const raffleCopy = winnerLabel ? ` · Raffle: ${winnerLabel}` : '';
-    statusEl.textContent = (pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private') + raffleCopy;
+    statusEl.textContent = pendingCount > 0 ? `Private · ${pendingCount} pending` : 'Private';
   }
   if (!state.treasurySummary) {
     if (totalEl) totalEl.innerHTML = `<span class="treasury-summary-title">Lifetime treasury in</span><span class="treasury-summary-values"><span class="treasury-summary-value">AVAX <strong>0 AVAX</strong></span><span class="treasury-summary-value">JEWEL <strong>0</strong></span><span class="treasury-summary-value">HONK <strong>0</strong></span></span>`;

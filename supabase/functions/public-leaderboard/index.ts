@@ -123,28 +123,12 @@ Deno.serve(async (req) => {
     const lifetimeRuns = await runOptionalStage(requestId, 'fetchRecentLifetimeRuns', runs as RunRow[], () => fetchAllRuns(admin), 3500);
     const burnRows = await runOptionalStage(requestId, 'fetchBurnRowsForRange', [] as BurnRow[], () => fetchBurnRowsForRange(admin, rangeSelection.selectedRange), OPTIONAL_STAGE_TIMEOUT_MS);
     const lifetimeBurnRows = await runOptionalStage(requestId, 'fetchAllBurnRows', [] as BurnRow[], () => fetchAllBurnRows(admin), OPTIONAL_STAGE_TIMEOUT_MS);
-    let latestDfkDailyRaffleWinner = await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk'));
-    let latestDfkMorningRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,morning)', null, () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'morning'));
-    let latestDfkMiddayRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(dfk,midday)', null, () => fetchCurrentDailyRaffleWinner(admin, 'dfk', 'midday'));
-    let latestAvaxDailyRaffleWinner = await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax'));
-    let latestAvaxMorningRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,morning)', null, () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'morning'));
-    let latestAvaxMiddayRaffleWinner = await runOptionalStage(requestId, 'fetchCurrentDailyRaffleWinner(avax,midday)', null, () => fetchCurrentDailyRaffleWinner(admin, 'avax', 'midday'));
-    latestDfkMorningRaffleWinner = latestDfkMorningRaffleWinner
-      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,morning:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'morning')), 'morning')
-      || withDrawSlot(filterCurrentDayRaffleWinner(latestDfkDailyRaffleWinner, 'morning'), 'morning');
-    latestDfkMiddayRaffleWinner = latestDfkMiddayRaffleWinner
-      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(dfk,midday:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'dfk', 'midday')), 'midday');
-    latestAvaxMorningRaffleWinner = latestAvaxMorningRaffleWinner
-      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax,morning:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax', 'morning')), 'morning')
-      || withDrawSlot(filterCurrentDayRaffleWinner(latestAvaxDailyRaffleWinner, 'morning'), 'morning');
-    latestAvaxMiddayRaffleWinner = latestAvaxMiddayRaffleWinner
-      || filterCurrentDayRaffleWinner(await runOptionalStage(requestId, 'fetchLatestDailyRaffleWinner(avax,midday:fallback)', null, () => fetchLatestDailyRaffleWinner(admin, 'avax', 'midday')), 'midday');
-    latestDfkDailyRaffleWinner = latestDfkMiddayRaffleWinner || latestDfkMorningRaffleWinner;
-    latestAvaxDailyRaffleWinner = latestAvaxMiddayRaffleWinner || latestAvaxMorningRaffleWinner;
+    // Daily raffle removed; quest rewards are the only automated reward path.
+
 
     const usedMap = buildUsedWalletHeroesMap(runs);
     const burnSummary = buildBurnSummary(burnRows, runs);
-    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange, rangeSelection.raffleType);
+    const rows = buildLeaderboardRows(players, runs, usedMap, burnSummary.byWallet, rangeSelection.selectedRange);
     const lifetimeBurnSummary = buildBurnSummary(lifetimeBurnRows, lifetimeRuns);
     const lifetimeUsedMap = buildUsedWalletHeroesMap(lifetimeRuns);
     const lifetimeRows = buildLeaderboardRows(players, lifetimeRuns, lifetimeUsedMap, lifetimeBurnSummary.byWallet, null);
@@ -212,18 +196,6 @@ Deno.serve(async (req) => {
         selected_range: rangeSelection.selectedRange,
         current_week: rangeSelection.currentWeek,
         last_week: rangeSelection.lastWeek,
-        daily_raffle: {
-          threshold_wave: 30,
-          raffle_type: rangeSelection.raffleType || 'dfk',
-          latest_winner: rangeSelection.raffleType === 'avax' ? latestAvaxDailyRaffleWinner : latestDfkDailyRaffleWinner,
-          latest_winners: rangeSelection.raffleType === 'avax'
-            ? { morning: latestAvaxMorningRaffleWinner, midday: latestAvaxMiddayRaffleWinner }
-            : { morning: latestDfkMorningRaffleWinner, midday: latestDfkMiddayRaffleWinner },
-          latest_winner_dfk: latestDfkDailyRaffleWinner,
-          latest_winners_dfk: { morning: latestDfkMorningRaffleWinner, midday: latestDfkMiddayRaffleWinner },
-          latest_winner_avax: latestAvaxDailyRaffleWinner,
-          latest_winners_avax: { morning: latestAvaxMorningRaffleWinner, midday: latestAvaxMiddayRaffleWinner },
-        },
       },
     }, 200);
   } catch (error) {
@@ -265,11 +237,6 @@ Deno.serve(async (req) => {
           source: fallback.source,
           request_id: requestId,
           original_error: normalized.message || 'Leaderboard load failed.',
-          daily_raffle: {
-            threshold_wave: 30,
-            latest_winner: null,
-            latest_winners: { morning: null, midday: null },
-          },
         },
       }, 200);
     } catch (fallbackError) {
@@ -565,125 +532,12 @@ function filterCurrentDayRaffleWinner(row: Record<string, unknown> | null, drawS
 }
 
 
-async function fetchCurrentDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot: RaffleDisplaySlot) {
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
-  const utcSlot = displaySlotToDrawSlot(drawSlot);
-  const legacySlot = drawSlot;
-  const selectVariants = [
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet',
-    'raffle_day, winner_wallet, winner_name',
-    'raffle_day, winner_wallet',
-  ];
-  let allowTypeFilter = true;
-  let lastError: unknown = null;
-  for (const columns of selectVariants) {
-    const includeSlot = columns.includes('draw_slot');
-    const slotAttempts = includeSlot ? [utcSlot, legacySlot] : [null];
-    for (const slotAttempt of slotAttempts) {
-      let query = admin.from('daily_raffle_results').select(columns).eq('raffle_day', today);
-      if (allowTypeFilter && columns.includes('raffle_type')) query = query.eq('raffle_type', raffleType);
-      if (slotAttempt && includeSlot) query = query.eq('draw_slot', slotAttempt);
-      if (columns.includes('settled_at')) query = query.order('settled_at', { ascending: false, nullsFirst: false });
-      query = query.limit(1);
-      const { data, error } = await query.maybeSingle();
-      if (!error) {
-        if (!data) continue;
-        return {
-          raffle_day: (data as Record<string, unknown>).raffle_day,
-          draw_slot: utcSlot,
-          display_slot: drawSlot,
-          winner_wallet: (data as Record<string, unknown>).winner_wallet,
-          winner_name: await resolvePlayerDisplayName(admin, (data as Record<string, unknown>).winner_wallet, (data as Record<string, unknown>).winner_name),
-          qualifier_count: sanitizeInt((data as Record<string, unknown>).qualifier_count),
-          payout_status: (data as Record<string, unknown>).payout_status || null,
-          payout_tx_hash: (data as Record<string, unknown>).payout_tx_hash || null,
-          claim_id: (data as Record<string, unknown>).claim_id || null,
-          settled_at: (data as Record<string, unknown>).settled_at || null,
-          raffle_type: (data as Record<string, unknown>).raffle_type || raffleType,
-        };
-      }
-      lastError = error;
-      if (isMissingRelationError(error)) return null;
-      if (isMissingColumnError(error)) {
-        const errorText = JSON.stringify(normalizeError(error)).toLowerCase();
-        if (errorText.includes('raffle_type')) allowTypeFilter = false;
-        break;
-      }
-      throw error;
-    }
-  }
-  if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return null;
-  console.warn(JSON.stringify({ event: 'public-leaderboard raffle current winner unavailable', raffleType, drawSlot, lastError: normalizeError(lastError) }));
+async function fetchCurrentDailyRaffleWinner(_admin: SupabaseClient, _raffleType: string, _drawSlot: RaffleDisplaySlot) {
   return null;
 }
 
-async function fetchLatestDailyRaffleWinner(admin: SupabaseClient, raffleType: string, drawSlot?: RaffleDisplaySlot | null) {
-  const selectVariants = [
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, payout_tx_hash, claim_id, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, qualifier_count, payout_status, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, payout_status, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, winner_name, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet, settled_at',
-    'raffle_day, raffle_type, draw_slot, winner_wallet',
-    'raffle_day, winner_wallet, winner_name',
-    'raffle_day, winner_wallet',
-  ];
-
-  let allowTypeFilter = true;
-  let lastError: unknown = null;
-
-  for (const columns of selectVariants) {
-    let query = admin.from('daily_raffle_results').select(columns);
-    if (allowTypeFilter && columns.includes('raffle_type')) {
-      query = query.eq('raffle_type', raffleType);
-    }
-    if (drawSlot && columns.includes('draw_slot')) {
-      const utcSlot = displaySlotToDrawSlot(drawSlot);
-      query = query.in('draw_slot', [utcSlot, drawSlot]);
-    }
-    if (columns.includes('settled_at')) {
-      query = query.order('settled_at', { ascending: false, nullsFirst: false });
-    }
-    query = query.order('raffle_day', { ascending: false });
-    if (columns.includes('draw_slot')) {
-      query = query.order('draw_slot', { ascending: false });
-    }
-    query = query.limit(1);
-    const { data, error } = await query.maybeSingle();
-    if (!error) {
-      if (!data) return null;
-      return {
-        raffle_day: data.raffle_day,
-        draw_slot: normalizeRaffleDrawSlot(data.draw_slot) || data.draw_slot || null,
-        display_slot: drawSlotToDisplaySlot(data.draw_slot) || drawSlot || null,
-        winner_wallet: data.winner_wallet,
-        winner_name: await resolvePlayerDisplayName(admin, data.winner_wallet, data.winner_name),
-        qualifier_count: sanitizeInt(data.qualifier_count),
-        payout_status: data.payout_status || null,
-        payout_tx_hash: data.payout_tx_hash || null,
-        claim_id: data.claim_id || null,
-        settled_at: data.settled_at || null,
-        raffle_type: data.raffle_type || raffleType,
-      };
-    }
-    lastError = error;
-    if (isMissingRelationError(error)) return null;
-    if (isMissingColumnError(error)) {
-      const errorText = JSON.stringify(normalizeError(error)).toLowerCase();
-      if (errorText.includes('raffle_type')) allowTypeFilter = false;
-      continue;
-    }
-    throw error;
-  }
-
-  if (isMissingRelationError(lastError) || isMissingColumnError(lastError)) return null;
-  throw lastError || new Error('Daily raffle results query failed.');
+async function fetchLatestDailyRaffleWinner(_admin: SupabaseClient, _raffleType: string, _drawSlot?: RaffleDisplaySlot | null) {
+  return null;
 }
 
 function buildBurnSummary(burnRows: BurnRow[], runs: RunRow[]) {
@@ -814,22 +668,7 @@ function resolveRequestedRange(url: URL) {
     preset = 'custom';
   }
 
-  if ((presetParam === 'current_day' || modeParam === 'current_day')) {
-    const now = new Date();
-    const end = new Date(now.getTime());
-    const start = new Date(end.getTime() - (24 * 60 * 60 * 1000));
-    selectedRange = {
-      label: 'Daily Raffle',
-      start: formatDateOnly(start),
-      end: formatDateOnly(end),
-      startTs: start.toISOString(),
-      endTs: end.toISOString(),
-    };
-    preset = 'current_day';
-    raffleType = String(url.searchParams.get('raffleType') || 'dfk').trim().toLowerCase() === 'avax' ? 'avax' : 'dfk';
-  }
-
-  return { preset, selectedRange, currentWeek, lastWeek, raffleType };
+  return { preset, selectedRange, currentWeek, lastWeek, raffleType: null };
 }
 
 function getUtcWeekRange(weekOffset: number): RangeWindow {

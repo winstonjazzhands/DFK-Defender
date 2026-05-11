@@ -293,6 +293,7 @@
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopClaimedToday">Claimed today: 0 Jewel</div>
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopResetTimer">Reset timer: --</div>
 </div>
+<button class="dfk-news-open-btn" id="newsBtn" type="button" aria-controls="newsModal">🗞️ News</button>
 <div class="wallet-panel panel-lite collapsed" id="buttonsPanel">
 <button aria-controls="buttonsPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="buttonsPanelToggle" type="button">
 <span class="wallet-panel-title-row">
@@ -456,7 +457,7 @@
 </section>
 <section class="right-panel panel" id="infoPanel">
 <div class="panel-toggle-row">
-<div class="burned-gold-block"><div class="burned-gold-display" id="totalRunsDisplay">Total tracked runs: 0</div><div class="burned-gold-display" id="burnedGoldDisplay">Burned: 0 DFK Gold</div><div class="burned-gold-display burned-gold-raffle-display" id="dailyRaffleWinnerDisplay">Daily raffle winner: --</div></div>
+<div class="burned-gold-block"><div class="burned-gold-display" id="totalRunsDisplay">Total tracked runs: 0</div><div class="burned-gold-display" id="burnedGoldDisplay">Burned: 0 DFK Gold</div></div>
 </div>
 <div class="hero-quick-select" id="heroQuickSelect"></div>
 <div class="selected-info" id="selectedInfo">Nothing selected.</div>
@@ -706,6 +707,18 @@
 <div class="modal-top-toggle compact" id="questModeToggle"><button class="modal-top-toggle-btn active" id="questDailyToggleBtn" type="button">Dailies</button><button class="modal-top-toggle-btn bounty-soon-toggle" id="questBountyToggleBtn" type="button" disabled aria-disabled="true" title="Bounties are temporarily offline while they are being hardened.">Bounties coming soon &lt;3</button></div><div class="intro-body quests-body" id="questsBody"></div>
 </div>
 </div>
+<div aria-hidden="true" class="intro-modal news-modal hidden" id="newsModal">
+<div aria-labelledby="newsTitle" aria-modal="true" class="intro-modal-card news-modal-card panel" role="dialog">
+<div class="intro-modal-header news-modal-header">
+<div>
+<div class="intro-kicker">DFK Defender Updates</div>
+<h2 id="newsTitle">News</h2>
+</div>
+<button aria-label="Close news" class="intro-close" id="closeNewsBtn" type="button">×</button>
+</div>
+<div class="intro-body news-body" id="newsBody"></div>
+</div>
+</div>
 <div aria-hidden="true" class="intro-modal tracked-runs-modal hidden" id="trackedRunsModal">
 <div aria-labelledby="trackedRunsTitle" aria-modal="true" class="intro-modal-card tracked-runs-modal-card panel" role="dialog">
 <div class="intro-modal-header tracked-runs-modal-header">
@@ -793,6 +806,7 @@
 <div class="mobile-menu-title">FUNC</div>
 <div class="mobile-menu-actions">
 
+<button class="mobile-news-menu-btn" id="mobileFuncNewsBtn" type="button">News</button>
 <button id="mobileFuncIntroBtn" type="button">Intro</button>
 <button class="hidden" id="mobileFuncBountyBtn" type="button">Bounties</button>
 <button id="mobileFuncQuestsBtn" type="button">Dailies / Bounties</button>
@@ -868,12 +882,10 @@
 <div class="leaderboard-period-actions">
 <button class="leaderboard-period-btn active" id="leaderboardCurrentWeekBtn" type="button">This Week</button>
 <button class="leaderboard-period-btn" id="leaderboardLastWeekBtn" type="button">Last Week</button>
-<button class="leaderboard-period-btn" id="leaderboardCurrentDayBtn" type="button">DFK Raffle</button>
-<button class="leaderboard-period-btn" id="leaderboardAvaxRaffleBtn" type="button">AVAX Raffle</button>
 <button class="leaderboard-refresh-btn" id="leaderboardRefreshBtn" type="button">Refresh</button>
 </div>
 <div class="leaderboard-range-controls">
-<div class="leaderboard-range-copy" id="leaderboardRangeCopy">Search a date range for the highest scores in that window. Daily raffle qualification is wave 30+ on a tracked run completed during the current UTC day only.</div>
+<div class="leaderboard-range-copy" id="leaderboardRangeCopy">Search a date range for the highest scores in that window.</div>
 <div class="leaderboard-range-row">
 <label class="leaderboard-range-field">
 <span>Start</span>
@@ -900,7 +912,7 @@
 <th aria-sort="none" class="leaderboard-sortable" data-sort="runs" role="button" tabindex="0">Runs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
 <th aria-sort="none" class="leaderboard-sortable" data-sort="dfk_gold_burned" role="button" tabindex="0">Gold Burned <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
 <th aria-sort="none" class="leaderboard-sortable" data-sort="used_wallet_heroes" role="button" tabindex="0">Own NFTs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
-<th class="hidden" id="leaderboardRaffleHeader">Daily Raffle</th>
+
 </tr>
 </thead>
 <tbody id="leaderboardTableBody">

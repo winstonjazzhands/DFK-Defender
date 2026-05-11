@@ -5,8 +5,6 @@
   var RANGE_MODES = {
     current_week: 'current_week',
     last_week: 'last_week',
-    current_day: 'current_day',
-    current_day_avax: 'current_day_avax',
     custom: 'custom'
   };
 
@@ -76,20 +74,7 @@
   }
 
   function isDailyRaffleMode() {
-    var mode = getCurrentRangeRequest().mode;
-    return mode === RANGE_MODES.current_day || mode === RANGE_MODES.current_day_avax;
-  }
-
-  function getCurrentRaffleType() {
-    return getCurrentRangeRequest().mode === RANGE_MODES.current_day_avax ? 'avax' : 'dfk';
-  }
-
-  function getCurrentRaffleLabel() {
-    return getCurrentRaffleType() === 'avax' ? 'AVAX Daily Raffle' : 'DFK Daily Raffle';
-  }
-
-  function getDailyRaffleQualifiedWaveCount() {
-    return 30;
+    return false;
   }
 
   function getCurrentUtcDayBounds() {
@@ -183,8 +168,8 @@
       used_wallet_heroes: !!(row.used_wallet_heroes || row.usedOwnNfts || row.used_own_nfts || row.used_nfts),
       dfk_gold_burned: Number(row.dfk_gold_burned != null ? row.dfk_gold_burned : (row.gold_burned != null ? row.gold_burned : 0)) || 0,
       last_run_at: row.last_run_at || row.updated_at || null,
-      raffle_qualified: !!(row.raffle_qualified || row.daily_raffle_qualified || Number(row.best_wave != null ? row.best_wave : (row.wave_reached != null ? row.wave_reached : 0)) >= getDailyRaffleQualifiedWaveCount()),
-      raffle_chain: String(row.raffle_chain || row.raffle_type || row.chain_label || '').toLowerCase() || null
+      raffle_qualified: false,
+      raffle_chain: null
     };
   }
 
@@ -278,12 +263,8 @@
     var range = getCurrentRangeRequest();
     var currentBtn = el('leaderboardCurrentWeekBtn');
     var lastBtn = el('leaderboardLastWeekBtn');
-    var dayBtn = el('leaderboardCurrentDayBtn');
-    var avaxDayBtn = el('leaderboardAvaxRaffleBtn');
     if (currentBtn) currentBtn.classList.toggle('active', range.mode === RANGE_MODES.current_week);
     if (lastBtn) lastBtn.classList.toggle('active', range.mode === RANGE_MODES.last_week);
-    if (dayBtn) dayBtn.classList.toggle('active', range.mode === RANGE_MODES.current_day);
-    if (avaxDayBtn) avaxDayBtn.classList.toggle('active', range.mode === RANGE_MODES.current_day_avax);
   }
 
   function updateDailyRaffleUi(meta) {
@@ -295,17 +276,9 @@
     var flyout = el('leaderboardFlyout');
     if (flyout) flyout.classList.toggle('leaderboard-flyout-daily', !!showRaffle);
     if (header) header.classList.toggle('hidden', !showRaffle);
-    if (title) title.textContent = showRaffle ? 'Daily Raffle Leaderboard' : 'Leaderboard';
-    if (resetCopy) {
-      resetCopy.textContent = showRaffle
-        ? 'Tracks the last 24 hours on a rolling basis. Players qualify for the daily raffle with a tracked run that reaches wave 30+ during the last 24 hours.'
-        : 'Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.';
-    }
-    if (rangeCopy) {
-      rangeCopy.textContent = showRaffle
-        ? 'Shows only players with qualifying tracked activity in the last 24 hours. Qualification is a tracked wave 30+ run completed during the last 24 hours.'
-        : 'Search a date range for the highest scores in that window. Daily raffle qualification is a tracked wave 30+ run completed during the last 24 hours.';
-    }
+    if (title) title.textContent = 'Leaderboard';
+    if (resetCopy) resetCopy.textContent = 'Resets every Monday at 00:00 UTC. Weekly scores run through Sunday at 23:59 UTC.';
+    if (rangeCopy) rangeCopy.textContent = 'Search a date range for the highest scores in that window.';
   }
 
   function updateRangeInputs() {
@@ -320,11 +293,6 @@
     var display = el('leaderboardRangeDisplay');
     if (!display) return;
     var selected = meta && meta.selected_range ? meta.selected_range : null;
-    if (isDailyRaffleMode()) {
-      var today = getCurrentUtcDateOnly();
-      display.textContent = getCurrentRaffleLabel() + ' window: last 24 hours';
-      return;
-    }
     if (!selected) {
       display.textContent = 'Week of —';
       return;
@@ -336,9 +304,6 @@
 
   function buildLeaderboardParams() {
     var range = getCurrentRangeRequest();
-    if (range.mode === RANGE_MODES.current_day || range.mode === RANGE_MODES.current_day_avax) {
-      return { preset: 'current_day', raffleType: getCurrentRaffleType() };
-    }
     if (range.mode === RANGE_MODES.custom) {
       return { start: range.start, end: range.end, mode: range.mode };
     }
@@ -370,12 +335,6 @@
     if (refreshBtn) refreshBtn.disabled = true;
     try {
       var payload = await loadLeaderboardRows();
-      if (isDailyRaffleMode()) {
-        var raffleType = getCurrentRaffleType();
-        payload.rows = (payload.rows || []).filter(function (row) {
-          return !!(row && row.raffle_qualified && (!row.raffle_chain || row.raffle_chain === raffleType));
-        });
-      }
       window.DFKLeaderboardRows = payload.rows;
       window.DFKLeaderboardMeta = payload.meta || null;
       if (payload.meta && payload.meta.selected_range) {
@@ -475,8 +434,6 @@
     var refreshBtn = el('leaderboardRefreshBtn');
     var currentWeekBtn = el('leaderboardCurrentWeekBtn');
     var lastWeekBtn = el('leaderboardLastWeekBtn');
-    var currentDayBtn = el('leaderboardCurrentDayBtn');
-    var avaxRaffleBtn = el('leaderboardAvaxRaffleBtn');
     var applyRangeBtn = el('leaderboardApplyRangeBtn');
 
     if (openBtn) openBtn.addEventListener('click', function () { setOpenState(true); });
@@ -493,16 +450,6 @@
     });
     if (lastWeekBtn) lastWeekBtn.addEventListener('click', function () {
       setRange(RANGE_MODES.last_week, '', '');
-      refreshLeaderboard();
-    });
-    if (currentDayBtn) currentDayBtn.addEventListener('click', function () {
-      var today = getCurrentUtcDateOnly();
-      setRange(RANGE_MODES.current_day, today, today);
-      refreshLeaderboard();
-    });
-    if (avaxRaffleBtn) avaxRaffleBtn.addEventListener('click', function () {
-      var today = getCurrentUtcDateOnly();
-      setRange(RANGE_MODES.current_day_avax, today, today);
       refreshLeaderboard();
     });
     if (applyRangeBtn) applyRangeBtn.addEventListener('click', applyCustomRange);
