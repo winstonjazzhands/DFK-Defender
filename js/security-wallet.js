@@ -667,11 +667,26 @@
       ui.walletStatus.className = 'wallet-status wallet-warn';
     }
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.disabled = !state.address;
+    if (ui.connectWalletBtn) {
+      ui.connectWalletBtn.textContent = state.address ? 'Submit Runs' : 'Connect Wallet';
+      ui.connectWalletBtn.title = state.address ? 'Submit queued and high-value runs' : 'Connect your wallet';
+    }
     if (ui.walletVanitySection) {
       const showVanity = !!state.address;
       ui.walletVanitySection.classList.toggle('hidden', !showVanity);
       ui.walletVanitySection.setAttribute('aria-hidden', showVanity ? 'false' : 'true');
     }
+  }
+
+  async function handleConnectWalletClick() {
+    if (state.address && window.DFKRunTracker && typeof window.DFKRunTracker.flushPendingRuns === 'function') {
+      setText(ui.walletStatus, 'Run Tracking: Submitting pending runs...');
+      if (ui.walletStatus) ui.walletStatus.className = 'wallet-status wallet-warn';
+      await window.DFKRunTracker.flushPendingRuns({ interactive: true, force: true });
+      render();
+      return;
+    }
+    await connectWallet();
   }
 
   function bindUi() {
@@ -688,7 +703,7 @@
       enableTrackingBtn: qs('enableTrackingBtn'),
       walletVanitySection: qs('walletVanitySection'),
     });
-    if (ui.connectWalletBtn) ui.connectWalletBtn.addEventListener('click', () => connectWallet().catch(renderError));
+    if (ui.connectWalletBtn) ui.connectWalletBtn.addEventListener('click', () => handleConnectWalletClick().catch(renderError));
     if (ui.disconnectWalletBtn) ui.disconnectWalletBtn.addEventListener('click', () => disconnectWallet().catch(renderError));
     // Run-tracker owns the enable/disable tracking button to avoid duplicate auth requests.
   }

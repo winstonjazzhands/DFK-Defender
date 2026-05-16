@@ -303,8 +303,6 @@
 <button class="intro-toggle secondary-guide" id="introBtn" type="button">📖 Lore / Learn more</button>
 <button class="intro-toggle secondary-guide tracked-runs-toggle" id="trackedRunsBtn" type="button">📜 Tracked Runs</button>
 <button class="intro-toggle secondary-guide transfer-heroes-toggle" id="transferHeroesBtn" type="button">📦 Transfer Heroes</button>
-<button class="intro-toggle secondary-guide" id="showSetupGuideBtn" type="button">Show First-Time Guide</button>
-<button aria-controls="winstonAdminModal" class="intro-toggle secondary-guide hidden" id="winstonAdminBtn" type="button">Winston Admin</button>
 <button aria-controls="avaxTreasuryPanel" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide hidden" id="treasuryFlyoutBtn" type="button">🏦 Treasury View</button>
 <button class="intro-toggle secondary-guide lore-toggle hidden" id="loreBtn" type="button">📜 Lore</button>
 <button class="intro-toggle secondary-guide bounty-toggle hidden" id="bountyBtn" type="button">🏆 Weekly Bounties</button>
@@ -363,7 +361,7 @@
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="championFastModeBtn" title="Authorized champion timing test toggle" type="button">Champion Fast Mode: Off</button>
 <div class="moosifer-summon-control hidden" id="moosiferSummonControl">
-<input aria-label="Moosifer difficulty" class="moosifer-diff-input" id="moosiferDiffInput" inputmode="numeric" min="1" max="35" placeholder="Diff" type="number" value="1"/>
+<input aria-label="Moosifer difficulty" class="moosifer-diff-input" id="moosiferDiffInput" inputmode="numeric" min="1" max="10" placeholder="Diff" type="number" value="1"/>
 <button class="wallet-btn secondary tracking-btn moosifer-summon-btn" id="summonMoosiferBtn" title="Authorized Moosifer boss test" type="button">Summon Moosifer</button>
 </div>
 
@@ -565,7 +563,7 @@
 </div>
 <div class="intro-body">
 <p>Guest mode is a fun and easy to play web2 version of DFK Defender. Players can learn the game and when they're ready connect a wallet and seek greater challenges.</p>
-<p>Connect your wallet to track runs, trade AVAX for in-game gold, and reach the top of the leaderboard. Down the road connected wallets will be able to complete daily quests and earn AVAX or Jewel, weekly quests to earn more, and a few lucky folks with win the monthly bounties worth 10 or even 100 times as much as a daily quest.</p>
+<p>Connect your wallet to track runs, reach the leaderboard, complete quests for Jewel, and compete for monthly bounties worth up to 100 times a daily quest.</p>
 <div aria-live="polite" class="choice-modal-note hidden" id="startModeNote"></div>
 </div>
 <div class="intro-modal-footer start-mode-modal-footer">
@@ -705,30 +703,6 @@
 <div class="modal-top-toggle compact" id="questModeToggle"><button class="modal-top-toggle-btn active" id="questDailyToggleBtn" type="button">Dailies</button><button class="modal-top-toggle-btn bounty-soon-toggle" id="questBountyToggleBtn" type="button" disabled aria-disabled="true" title="Bounties are temporarily offline while they are being hardened.">Bounties coming soon &lt;3</button></div><div class="intro-body quests-body" id="questsBody"></div>
 </div>
 </div>
-<div aria-hidden="true" class="intro-modal winston-admin-modal hidden" id="winstonAdminModal">
-<div aria-labelledby="winstonAdminTitle" aria-modal="true" class="intro-modal-card panel winston-admin-card" role="dialog">
-<div class="intro-modal-header">
-<div><div class="intro-kicker">Private Tools</div><h2 id="winstonAdminTitle">Winston Admin</h2></div>
-<button aria-label="Close Winston admin" class="intro-close" id="closeWinstonAdminBtn" type="button">&times;</button>
-</div>
-<div class="intro-body winston-admin-body">
-<div class="winston-admin-section"><h3>Test Controls</h3><div class="winston-admin-controls" id="winstonAdminControls"></div><div class="moosifer-admin-stats" id="moosiferAdminStats"></div></div>
-<div class="winston-admin-section"><h3>Start Wave & Hero Levels</h3><div class="winston-admin-grid">
-<label>Start wave<input id="adminStartWaveInput" min="1" max="999" type="number" value="1"/></label>
-<label>Start all heroes at<input id="adminAllHeroLevelInput" min="1" max="99" type="number" value="1"/></label>
-<label>Warrior level<input id="adminLevelWarrior" min="1" max="99" type="number" value="1"/></label>
-<label>Archer level<input id="adminLevelArcher" min="1" max="99" type="number" value="1"/></label>
-<label>Priest level<input id="adminLevelPriest" min="1" max="99" type="number" value="1"/></label>
-<label>Wizard level<input id="adminLevelWizard" min="1" max="99" type="number" value="1"/></label>
-<label>Pirate level<input id="adminLevelPirate" min="1" max="99" type="number" value="1"/></label>
-<label>Seer level<input id="adminLevelSeer" min="1" max="99" type="number" value="1"/></label>
-<label>Berserker level<input id="adminLevelBerserker" min="1" max="99" type="number" value="1"/></label>
-<label>Monk level<input id="adminLevelMonk" min="1" max="99" type="number" value="1"/></label>
-</div><button class="wallet-btn" id="applyAdminRunSetupBtn" type="button">Apply Admin Run Setup</button><p class="wallet-tracking-summary" id="adminRunSetupStatus">Using this prevents the run from being saved.</p></div>
-<div class="winston-admin-section"><h3>Unauthorized Attempts</h3><div class="winston-admin-attempts" id="winstonAdminAttempts">No attempts logged.</div></div>
-</div>
-</div>
-</div>
 <div aria-hidden="true" class="intro-modal news-modal hidden" id="newsModal">
 <div aria-labelledby="newsTitle" aria-modal="true" class="intro-modal-card news-modal-card panel" role="dialog">
 <div class="intro-modal-header news-modal-header">
@@ -736,7 +710,7 @@
 <div class="intro-kicker">DFK Defender Updates</div>
 <h2 id="newsTitle">News</h2>
 </div>
-<div class="news-header-actions"><button aria-label="Previous news" class="news-page-arrow" id="newsPrevBtn" type="button">&#8249;</button><span class="news-page-count" id="newsPageCount">1 / 2</span><button aria-label="Next news" class="news-page-arrow" id="newsNextBtn" type="button">&#8250;</button><button aria-label="Close news" class="intro-close" id="closeNewsBtn" type="button">&times;</button></div>
+<button aria-label="Close news" class="intro-close" id="closeNewsBtn" type="button">&times;</button>
 </div>
 <div class="intro-body news-body" id="newsBody"></div>
 </div>

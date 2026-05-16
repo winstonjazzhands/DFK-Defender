@@ -698,6 +698,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
   const WARRIOR_HP_GROWTH_PER_LEVEL = 1.0337875;
+  const WARRIOR_POST_LEVEL40_HP_GROWTH_PER_LEVEL = 1 + ((WARRIOR_HP_GROWTH_PER_LEVEL - 1) * 0.88);
   const WARRIOR_DAMAGE_GROWTH_PER_LEVEL = 1.045;
   const WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL = 1 + ((WARRIOR_DAMAGE_GROWTH_PER_LEVEL - 1) * 0.75);
   const DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL = 1.035251407835505;
@@ -724,8 +725,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
   const MOOSIFER_FROST_BONUS_DAMAGE_CURRENT_HP = 0.03;
-  const MOOSIFER_FROST_FREEZE_DURATION_SECONDS = 0.5;
-  const MOOSIFER_FROST_FREEZE_COOLDOWN_MS = 2000;
+  const MOOSIFER_FROST_FREEZE_DURATION_SECONDS = 1;
+  const MOOSIFER_FROST_FREEZE_COOLDOWN_MS = 4000;
   const BERSERKER_WANDER_MIN_WAVES = 14;
   const BERSERKER_WANDER_MAX_WAVES = 20;
   const BERSERKER_WANDER_DURATION_WAVES = 7;
@@ -833,7 +834,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       name: 'Monk',
       letter: 'MNK',
       hp: 344,
-      damage: 29,
+      damage: 28,
       attackInterval: 0.95,
       range: 1,
       autoAttack: true,
@@ -872,7 +873,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       ],
     },
     champion_sage: {
-      name: 'Sage', letter: 'SAG', hp: 1850, damage: 60.8, attackInterval: 1.1, range: 3, autoAttack: true,
+      name: 'Sage', letter: 'SAG', hp: 1850, damage: 55.8, attackInterval: 1.1, range: 3, autoAttack: true,
       abilities: [
         { key: 'champion_kiss_from_a_rose', name: 'Kiss From a Rose', cooldown: 5 },
         { key: 'champion_storm', name: 'Petal Storm', cooldown: 30 },
@@ -1022,7 +1023,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'not_blind_never_was', name: 'Not Blind, Never Was', desc: 'Mythic. The Seer removes its blindfold to reveal cursed eyes. Seer damage is 3x, speed is 2x, but all Seer healing is removed.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.seerDamageMultiplier *= 3; game.modifiers.seerHealingDisabled = true; game.modifiers.notBlindNeverWas = true; buffTowerType(game, 'seer', { speedMult: 2 }); } },
     { id: 'sacred_aura', name: 'Sacred Aura', desc: 'Spend 100 Gold to bless the battle line so towers near the Priest gain 4% attack speed.', cost: 120, rarity: 'common', apply: game => game.modifiers.sacredAura = true },
     { id: 'smugglers_ledger', name: "Smuggler's Ledger", desc: "Spend 100 Gold to fatten the Pirate's take and raise steal bonus to 11%.", cost: 120, rarity: 'common', apply: game => game.modifiers.pirateSteal = 0.11 },
-    { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold to stock more black powder and fire 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
+    { id: 'powder_reserves', name: 'Powder Reserves', desc: 'Spend 200 Gold so the Pirate stocks more black powder and fires 1 extra Starboard Cannons shot.', cost: 200, rarity: 'rare', apply: game => game.modifiers.extraCannons += 1 },
     { id: 'shield_wall', name: 'Shield Wall', desc: 'Spend 100 Gold to tighten formation and make the Warrior take 5% less damage beside a Priest.', cost: 120, rarity: 'common', apply: game => game.modifiers.shieldWall = true },
     { id: 'ranger_line', name: 'Ranger Line', desc: 'Spend 100 Gold to set the backline and make Archers behind the Warrior deal 5% more damage.', cost: 120, rarity: 'common', apply: game => game.modifiers.rangerLine = true },
     { id: 'sense_weakness', name: 'Sense Weakness', desc: "Spend 100 Gold to train the Archer's eye so auto-attacks prioritize slowed or debuffed enemies.", cost: 120, rarity: 'common', apply: game => game.modifiers.senseWeakness = true },
@@ -1051,7 +1052,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'kraken_trainer', name: 'Kraken Trainer', desc: "Spend 200 Gold to teach the Pirate to master the Kraken and reduce Kraken cooldown by 2 seconds.", cost: 200, rarity: 'rare', apply: game => game.modifiers.krakenCooldownAdjust += 2 },
     { id: 'recurve_bow', name: 'Recurve Bow', desc: 'Spend 200 Gold to increase Archer damage by 10% and reduce attack speed by 5%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10, speedMult: 0.95 }) },
     { id: 'hardened_fist', name: 'Hardened Fist', desc: 'Spend 100 Gold. Monk does 5% more damage.', cost: 120, rarity: 'common', apply: game => { game.modifiers.monkDamageMultiplier *= 1.05; buffTowerType(game, 'monk', { damageMult: 1.05 }); } },
-    { id: 'too_fast', name: 'Too Fast', desc: 'Spend 200 Gold. Reduce Fast Fists cooldown by 25%.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.fastFistsCooldownMultiplier *= 0.75; } },
+    { id: 'too_fast', name: 'Too Fast', desc: "Spend 200 Gold to reduce the Monk's Fast Fists cooldown by 25%.", cost: 200, rarity: 'rare', apply: game => { game.modifiers.fastFistsCooldownMultiplier *= 0.75; } },
     { id: 'dark_siphon', name: 'Dark Siphon', desc: 'Spend 200 Gold. 10% of Monk damage steals life from the target and gives it to the Warrior.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.monkDarkSiphon = true; } },
     { id: 'sacrifice_everything', name: 'Sacrifice Everything', desc: "Mythic. The Monk splits its Ki in two and combines it with the other Monk's Ki to create a third Monk tile named SACRIFICE. All 3 Monks deal 75% damage. If only 1 Monk is present, this takes effect when a 2nd Monk takes the field.", cost: 0, rarity: 'mythic', apply: game => { game.modifiers.sacrificeEverything = true; applySacrificeEverythingIfReady(); } },
     { id: 'berserker_enraged', name: 'Enraged', desc: 'Spend 100 Gold. The Berserker screams at the enemy and gains 7% damage.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'berserker', { damageMult: 1.07 }) },
@@ -1451,11 +1452,18 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     runWalletConnected: false,
     difficultyProfile: createDifficultyProfileForRun({ connected: false }),
     runEntryCost: 3,
-    selectedStartWave: 1,
-    startWaveChoice: 1,
+    selectedStartWave: 20,
+    startWaveChoice: 20,
     startWaveHeroLevel: 1,
     startWaveJumpPaid: false,
+    startWaveFreeRerollsLeft: 0,
     startWaveSubmitting: false,
+    startWavePaymentPendingWave: 0,
+    startWavePaymentPendingPromise: null,
+    startWavePaymentCompletedWave: 0,
+    startWaveExtraHeroGranted: false,
+    bypassGuestConnectConfirmOnce: false,
+    bypassGuestConnectRestartOnce: false,
     milestoneJewelsGranted: {},
     portalHp: 2500,
     portalMaxHp: 2500,
@@ -1485,6 +1493,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     foundRelics: [],
     persistentKnownRelics: [],
     startModePromptShown: !!(typeof window !== 'undefined' && window.__dfkStartModePromptShown),
+    startModeWaveOnly: false,
     pendingGuestConnectRestart: false,
     suppressBoardClicksUntil: 0,
     boardInputLocked: false,
@@ -1557,6 +1566,15 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     introPageIndex: 0,
     introSet: 'intro',
     introOpen: false,
+    highValueRunPromptActive: false,
+    highValueRunPromptResolve: null,
+    highValueRunPromptPayload: null,
+    highValueRunPromptSubmitOnConfirm: false,
+    highValueRunPromptSubmitSucceeded: false,
+    infoPanelFloating: false,
+    infoPanelFloatX: 24,
+    infoPanelFloatY: 120,
+    infoPanelDrag: null,
     introAutoShown: false,
     continueOfferUsed: false,
     paidContinueOfferUsed: false,
@@ -3596,20 +3614,79 @@ function formatQuestResetCountdown(dateKey) {
 
   function getPlayerStartHeroLevel(waveNumber) {
     const wave = normalizePlayerStartWave(waveNumber);
+    if (wave === 40) return 30;
+    if (wave === 30) return 20;
     return Math.max(1, wave - 5);
   }
 
   function getPlayerStartGold(waveNumber) {
-    return Math.max(100, normalizePlayerStartWave(waveNumber) * 100);
+    const wave = normalizePlayerStartWave(waveNumber);
+    if (wave === 40) return 3000;
+    if (wave === 30) return 2000;
+    if (wave === 20) return 1000;
+    if (wave === 10) return 500;
+    return Math.max(100, wave * 100);
+  }
+
+  function shouldGrantStartWaveExtraHero(clearedWave) {
+    const wave = normalizePlayerStartWave(game.startWaveChoice || 1);
+    const cleared = Math.max(0, Math.floor(Number(clearedWave || 0)));
+    return !game.startWaveExtraHeroGranted
+      && (wave === 30 || wave === 40)
+      && cleared === wave
+      && !!game.startWaveJumpPaid;
+  }
+
+  function getPlacedCoreHeroCount() {
+    return (game.towers || []).filter((tower) => tower
+      && tower.hp > 0
+      && !tower.isSatellite
+      && !tower.isChampion
+      && ['warrior', 'archer', 'wizard', 'priest', 'seer', 'pirate', 'monk', 'berserker'].includes(String(tower.type || ''))).length;
+  }
+
+  function requiresAdvancedStartHeroMinimum() {
+    return normalizePlayerStartWave(game.startWaveChoice || 1) > 1
+      && Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === normalizePlayerStartWave(game.startWaveChoice || 1)
+      && !game.runningWave;
   }
 
   function getSelectedPlayerStartWave() {
     return normalizePlayerStartWave(game.selectedStartWave || game.startWaveChoice || 1);
   }
 
+  function getSkippedStartWaveTrackingRequirement() {
+    const startWave = normalizePlayerStartWave(game.startWaveChoice || 1);
+    if (startWave <= 1) return null;
+    return startWave;
+  }
+
+  function hasClearedSkippedStartWaveRequirement() {
+    const requiredWave = getSkippedStartWaveTrackingRequirement();
+    if (!requiredWave) return true;
+    return Number(game.activeWaveBase || 0) >= requiredWave;
+  }
+
+  function getSkippedStartWaveNotTrackedMessage() {
+    const requiredWave = getSkippedStartWaveTrackingRequirement();
+    if (!requiredWave) return '';
+    return `Runs that skip to wave ${requiredWave} only count as tracked runs after clearing wave ${requiredWave}. This run was not tracked.`;
+  }
+
+  function clearPlayerStartWavePaymentCache() {
+    game.startWavePaymentCompletedWave = 0;
+    if (!game.startWavePaymentPendingPromise) {
+      game.startWavePaymentPendingWave = 0;
+    }
+  }
+
   function setSelectedPlayerStartWave(waveNumber) {
     if (game.startWaveSubmitting) return;
-    game.selectedStartWave = normalizePlayerStartWave(waveNumber);
+    const nextWave = normalizePlayerStartWave(waveNumber);
+    if (nextWave !== normalizePlayerStartWave(game.selectedStartWave || game.startWaveChoice || 1)) {
+      clearPlayerStartWavePaymentCache();
+    }
+    game.selectedStartWave = nextWave;
     renderStartWaveChoicePanel();
   }
 
@@ -3623,6 +3700,22 @@ function formatQuestResetCountdown(dateKey) {
     });
   }
 
+  function updateStartModeModalMode() {
+    if (!els.startModeModal) return;
+    const waveOnly = !!game.startModeWaveOnly;
+    els.startModeModal.classList.toggle('start-wave-only-mode', waveOnly);
+    if (els.startModeTitle) els.startModeTitle.textContent = waveOnly ? 'Choose Starting Wave' : 'Guest Mode or Connect Wallet';
+    if (els.guestModeChoiceBtn) {
+      els.guestModeChoiceBtn.classList.toggle('hidden', waveOnly);
+    }
+    if (els.connectModeChoiceBtn) {
+      els.connectModeChoiceBtn.textContent = waveOnly ? 'Start Game' : 'Connect';
+    }
+    if (els.closeStartModeBtn) {
+      els.closeStartModeBtn.setAttribute('aria-label', waveOnly ? 'Close starting wave choice' : 'Close mode choice');
+    }
+  }
+
   function ensureStartWaveChoicePanel() {
     if (!els.startModeModal) return null;
     let panel = document.getElementById('playerStartWaveChoicePanel');
@@ -3631,8 +3724,8 @@ function formatQuestResetCountdown(dateKey) {
     panel = document.createElement('section');
     panel.id = 'playerStartWaveChoicePanel';
     panel.className = 'start-wave-choice-panel';
-    const note = els.startModeNote || card.querySelector('#startModeNote');
-    if (note && note.parentElement === card) card.insertBefore(panel, note);
+    const footer = card.querySelector('.start-mode-modal-footer');
+    if (footer && footer.parentElement === card) card.insertBefore(panel, footer);
     else card.appendChild(panel);
     panel.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target.closest('[data-player-start-wave]') : null;
@@ -3647,10 +3740,26 @@ function formatQuestResetCountdown(dateKey) {
   function renderStartWaveChoicePanel() {
     const panel = ensureStartWaveChoicePanel();
     if (!panel) return;
+    if (!game.startModeWaveOnly) {
+      panel.classList.add('hidden');
+      const card = els.startModeModal?.querySelector('.intro-modal-card') || els.startModeModal;
+      const footer = card?.querySelector('.start-mode-modal-footer');
+      if (els.startModeNote && card && els.startModeNote.parentElement === panel) {
+        if (footer && footer.parentElement === card) card.insertBefore(els.startModeNote, footer);
+        else card.appendChild(els.startModeNote);
+      }
+      return;
+    }
+    panel.classList.remove('hidden');
     const selected = getSelectedPlayerStartWave();
     const submitting = !!game.startWaveSubmitting;
     panel.innerHTML = `
       <div class="start-wave-choice-title">${submitting ? 'Submitting starting wave' : 'Choose starting wave'}</div>
+      <p class="start-wave-choice-copy">Strong heroes allow you to skip ahead of those boring first waves. It makes the game more exciting, trust me.</p>
+      <p class="start-wave-choice-copy"><strong>Wave 1 and Wave 10 are always free; jumping to Wave 20 or higher costs ${START_WAVE_JEWEL_COST} JEWEL.</strong></p>
+      <p class="start-wave-choice-reroll">Paid skips include 3 free <strong>New Run</strong> clicks before the first wave starts to reroll the preplaced game barriers at no extra cost.</p>
+      <p class="start-wave-choice-copy">Clear the wave you skip to and you'll unlock the same paid extra-hero hire you would normally earn after beating Wave 20.</p>
+      <p class="start-wave-choice-copy">If you're not sure which to choose pick Wave 1 or Wave 10 for a new player experience!</p>
       <div class="start-wave-choice-grid">
         ${PLAYER_START_WAVE_OPTIONS.map((wave) => {
           const paid = isPaidPlayerStartWave(wave);
@@ -3663,11 +3772,16 @@ function formatQuestResetCountdown(dateKey) {
           </button>`;
         }).join('')}
       </div>`;
+    if (els.startModeNote && els.startModeNote.parentElement !== panel) panel.appendChild(els.startModeNote);
   }
 
   async function payForPlayerStartWaveIfNeeded(waveNumber) {
     const wave = normalizePlayerStartWave(waveNumber);
     if (!isPaidPlayerStartWave(wave)) return true;
+    if (Number(game.startWavePaymentCompletedWave || 0) === wave) return true;
+    if (Number(game.startWavePaymentPendingWave || 0) === wave && game.startWavePaymentPendingPromise) {
+      return game.startWavePaymentPendingPromise;
+    }
     if (!getConnectedWalletAddress()) {
       setStartModeNote(`Connect your wallet to start at wave ${wave}. Wave ${wave} costs ${START_WAVE_JEWEL_COST} JEWEL.`);
       return false;
@@ -3675,7 +3789,7 @@ function formatQuestResetCountdown(dateKey) {
     const paymentAsset = 'native_jewel';
     const priceWei = getDfkPaymentWeiForJewelAmount(START_WAVE_JEWEL_COST, paymentAsset);
     const priceLabel = getDfkPaymentLabelForJewelAmount(START_WAVE_JEWEL_COST, paymentAsset);
-    try {
+    const paymentPromise = (async () => {
       setStartModeNote(`Confirm ${priceLabel} to start at wave ${wave}.`);
       await performDfkJewelTrade('wave_jump_start', priceWei, `${priceLabel} wave ${wave} start`, {
         paymentAsset,
@@ -3684,10 +3798,21 @@ function formatQuestResetCountdown(dateKey) {
         heroStartLevel: getPlayerStartHeroLevel(wave),
         startingGold: getPlayerStartGold(wave),
       });
+      game.startWavePaymentCompletedWave = wave;
       return true;
+    })();
+    game.startWavePaymentPendingWave = wave;
+    game.startWavePaymentPendingPromise = paymentPromise;
+    try {
+      return await paymentPromise;
     } catch (error) {
       setStartModeNote(error && error.message ? error.message : `Wave ${wave} start payment failed.`);
       return false;
+    } finally {
+      if (game.startWavePaymentPendingPromise === paymentPromise) {
+        game.startWavePaymentPendingWave = 0;
+        game.startWavePaymentPendingPromise = null;
+      }
     }
   }
 
@@ -3697,6 +3822,7 @@ function formatQuestResetCountdown(dateKey) {
     game.startWaveChoice = wave;
     game.startWaveHeroLevel = heroLevel;
     game.startWaveJumpPaid = isPaidPlayerStartWave(wave);
+    game.startWaveExtraHeroGranted = false;
     game.jewel = getPlayerStartGold(wave);
     game.waveNumber = wave - 1;
     game.activeWaveBase = wave - 1;
@@ -3704,12 +3830,13 @@ function formatQuestResetCountdown(dateKey) {
     game.autoStartEnabled = false;
     game.autoStartReadyAt = 0;
     game.autoStartToken = (game.autoStartToken || 0) + 1;
+    game.championWaitAnchorWave = wave > 1 ? wave - 1 : 0;
   }
 
   function applyPlayerStartLevelToTower(tower) {
     if (!tower || tower.isChampion || tower.isSatellite || tower.isSacrificeMonk) return;
     const targetLevel = Math.max(1, Math.floor(Number(game.startWaveHeroLevel || 1)));
-    if (targetLevel > 1) levelTowerTo(tower, targetLevel);
+    if (targetLevel > 1 && Number(tower.level || 1) < targetLevel) levelTowerTo(tower, targetLevel);
   }
 
   function isAwaitingManualStartAfterWaveJump() {
@@ -4754,24 +4881,24 @@ function formatQuestResetCountdown(dateKey) {
 
   async function connectForHighValueRunSessionPrompt(connectBtn, statusEl) {
     if (connectBtn) connectBtn.disabled = true;
-    if (statusEl) statusEl.textContent = 'Checking your wallet session...';
+    if (statusEl) statusEl.textContent = 'Preparing high-value run submission...';
     try {
       if (!getConnectedWalletAddress() && window.DFKDefenseWallet && typeof window.DFKDefenseWallet.connectWallet === 'function') {
         if (statusEl) statusEl.textContent = 'Opening wallet connection...';
         await window.DFKDefenseWallet.connectWallet();
       }
       if (window.DFKRunTracker) {
-        if (statusEl) statusEl.textContent = 'Refreshing run-tracking session...';
+        if (statusEl) statusEl.textContent = 'Preparing signature request...';
         const token = await refreshRunTrackerSessionToken(true);
         if (token) {
-          if (statusEl) statusEl.textContent = 'Session refreshed. This run is ready to submit.';
-          showBanner('Run-tracking session refreshed.', 2200);
+          if (statusEl) statusEl.textContent = 'Signature ready. Submitting this high-value run.';
+          showBanner('High-value run ready to submit.', 2200);
           return true;
         }
       }
       if (statusEl) statusEl.textContent = getConnectedWalletAddress()
-        ? 'Wallet is connected. Continue when you are ready.'
-        : 'Wallet connection was not completed. You can retry or continue.';
+        ? 'Wallet is connected. Complete the signature to submit.'
+        : 'Wallet connection was not completed. Try submitting again.';
       return !!getConnectedWalletAddress();
     } catch (error) {
       if (statusEl) statusEl.textContent = error && error.message ? error.message : 'Could not refresh the session.';
@@ -4781,26 +4908,101 @@ function formatQuestResetCountdown(dateKey) {
     }
   }
 
-  function openHighValueRunSessionPrompt(payload) {
+  async function waitForRunTrackerSubmitReady(statusEl, timeoutMs = 3500) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      if (window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRun === 'function') return true;
+      if (statusEl) statusEl.textContent = 'Run tracker is loading. One moment...';
+      await new Promise(resolve => window.setTimeout(resolve, 150));
+    }
+    return !!(window.DFKRunTracker && typeof window.DFKRunTracker.submitCompletedRun === 'function');
+  }
+
+  async function submitHighValueRunFromPrompt(payload, submitBtn, statusEl) {
+    const originalSubmitText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) submitBtn.textContent = 'Submitting';
+    const runPayload = payload || (game.runTracking && game.runTracking.clientRunId ? buildCompletedRunPayload('loss') : null);
+    const trackerReady = await waitForRunTrackerSubmitReady(statusEl);
+    if (!runPayload || !trackerReady) {
+      if (statusEl) statusEl.textContent = 'Run submission is not ready. Please try again.';
+      if (submitBtn) submitBtn.textContent = originalSubmitText || 'Submit Run';
+      return false;
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Opening secure submit request...';
+    try {
+      const ready = await connectForHighValueRunSessionPrompt(submitBtn, statusEl);
+      if (!ready) return false;
+      if (submitBtn) submitBtn.disabled = true;
+      if (statusEl) statusEl.textContent = 'Opening secure signature...';
+      if (window.DFKRunTracker && typeof window.DFKRunTracker.reauthenticate === 'function') {
+        await window.DFKRunTracker.reauthenticate();
+      }
+      if (statusEl) statusEl.textContent = 'Submitting high-value run...';
+      const response = await runTrackerCallSafely(
+        () => window.DFKRunTracker.submitCompletedRun(runPayload, { interactive: true }),
+        { ok: false, queued: false, error: 'Run tracker call failed.' }
+      );
+      if (response && response.ok) {
+        markRecentTrackedRunSubmission();
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
+        game.highValueRunPromptSubmitSucceeded = true;
+        if (statusEl) statusEl.textContent = 'run submitted, good job!';
+        showBanner('High-value run submitted.', 3200);
+        return true;
+      }
+      if (response && response.queued && !response.secureSignatureRequired) {
+        markRecentTrackedRunSubmission();
+        if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
+        game.highValueRunPromptSubmitSucceeded = true;
+        if (statusEl) statusEl.textContent = 'run submitted, good job!';
+        showBanner('High-value run queued for upload.', 3200);
+        return true;
+      }
+      if (statusEl) statusEl.textContent = response && response.error ? response.error : 'Signature still required. Click Submit Run and complete the wallet prompt.';
+      return false;
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error && error.message ? error.message : 'High-value run submit failed.';
+      return false;
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = game.highValueRunPromptSubmitSucceeded ? 'Submitted' : (originalSubmitText || 'Submit Run');
+      }
+    }
+  }
+
+  function openHighValueRunSessionPrompt(payload, options = {}) {
     return new Promise((resolve) => {
       const waveReached = Number(payload && (payload.waveReached || payload.wavesCleared) || game.waveNumber || 0);
       game.highValueRunPromptActive = true;
       game.highValueRunPromptResolve = resolve;
+      game.highValueRunPromptPayload = payload || null;
+      game.highValueRunPromptSubmitOnConfirm = !!options.submitOnConfirm;
+      game.highValueRunPromptSubmitSucceeded = false;
       openAnnouncementModal({
         kicker: 'High-Value Run',
-        title: 'Double-check your session',
+        title: 'Submit High-value Run',
         bodyHtml: `
-          <p>This is a high-value run at wave ${escapeHtml(formatCompactNumber(waveReached))}. Before the result submits, double-check that your wallet and run-tracking session are solid.</p>
-          <p id="highValueRunSessionStatus" class="muted" style="margin-top:10px;">Click Connect here to refresh your session and submit this high-value run.</p>
+          <p>This is a high-value run, congrats boss! Click Submit Run to save it.</p>
+          <p id="highValueRunSessionStatus" class="muted" style="margin-top:10px;">Click 'Submit Run' and complete the signature to submit this high-value run. Congrats!</p>
         `,
-        okText: 'Connect here',
+        okText: 'Submit Run',
         onClose: () => {
+          els.guideIntroToggleBtn?.classList.remove('hidden');
+          els.guideLoreToggleBtn?.classList.remove('hidden');
+          const submitSucceeded = !!game.highValueRunPromptSubmitSucceeded;
           game.highValueRunPromptActive = false;
           game.highValueRunPromptResolve = null;
-          resolve(true);
+          game.highValueRunPromptPayload = null;
+          game.highValueRunPromptSubmitOnConfirm = false;
+          game.highValueRunPromptSubmitSucceeded = false;
+          resolve(options.submitOnConfirm ? submitSucceeded : true);
         },
       });
       if (els.closeIntroBtn) els.closeIntroBtn.classList.add('hidden');
+      els.guideIntroToggleBtn?.classList.add('hidden');
+      els.guideLoreToggleBtn?.classList.add('hidden');
     });
   }
 
@@ -4808,10 +5010,9 @@ function formatQuestResetCountdown(dateKey) {
     if (!options.force && !isHighValueRunPayload(payload)) return false;
     if (!game.runTracking) return false;
     const promptKey = getHighValueRunSessionPromptKey(payload);
-    if (promptKey && game.runTracking.highValueSessionPromptShownFor === promptKey) return false;
+    if (!options.force && promptKey && game.runTracking.highValueSessionPromptShownFor === promptKey) return false;
     game.runTracking.highValueSessionPromptShownFor = promptKey || true;
-    await openHighValueRunSessionPrompt(payload);
-    return true;
+    return await openHighValueRunSessionPrompt(payload, { submitOnConfirm: !!options.submitOnConfirm });
   }
 
 
@@ -7387,7 +7588,8 @@ function renderDamageReport() {
   }
 
   function isWinstonAdminWallet(address = getConnectedWalletAddress()) {
-    return normalizeAddress(address || '') === WINSTON_ADMIN_WALLET;
+    const normalized = normalizeAddress(address || '');
+    return normalized === WINSTON_ADMIN_WALLET || PRIVATE_ADMIN_WALLETS.includes(normalized);
   }
 
   function readWinstonAdminAttempts() {
@@ -7518,8 +7720,52 @@ function renderDamageReport() {
     return isWinstonAdminWallet() || rejectNonWinstonAdmin(action);
   }
 
+  function findToolsPanelHost() {
+    const direct = els.buttonsPanel || document.getElementById('buttonsPanel') || document.getElementById('toolsPanelBody') || document.getElementById('toolsPanel') || document.querySelector('[data-panel="tools"], [data-section="tools"], .tools-panel, .tools-section');
+    if (direct) return direct.querySelector('.panel-body, .section-body, .accordion-body') || direct;
+    const candidates = Array.from(document.querySelectorAll('section, aside, .panel, .accordion-panel, .left-panel > div, .left-panel > section'));
+    for (const candidate of candidates) {
+      const heading = candidate.querySelector('h2, h3, summary, .panel-title, .section-title, button');
+      const text = String(heading?.textContent || candidate.firstElementChild?.textContent || '').trim().toLowerCase();
+      if (text === 'tools' || text.startsWith('tools ')) return candidate.querySelector('.panel-body, .section-body, .accordion-body') || candidate;
+    }
+    const leftPanel = document.querySelector('.left-panel');
+    return leftPanel || document.body;
+  }
+
+  function ensureWinstonAdminButtonInTools() {
+    let btn = els.winstonAdminBtn || document.getElementById('winstonAdminBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'winstonAdminBtn';
+      btn.type = 'button';
+      btn.className = 'wallet-btn secondary winston-admin-tool-btn';
+      btn.textContent = 'Admin';
+      btn.addEventListener('click', openWinstonAdminModal);
+      els.winstonAdminBtn = btn;
+    }
+    if (!btn.dataset.winstonAdminBound) {
+      btn.dataset.winstonAdminBound = '1';
+      btn.addEventListener('click', openWinstonAdminModal);
+    }
+    btn.textContent = 'Admin';
+    btn.classList.add('winston-admin-tool-btn');
+    const host = findToolsPanelHost();
+    if (host && btn.parentElement !== host) host.appendChild(btn);
+    return btn;
+  }
+
   function syncWinstonAdminControls() {
     ensureWinstonAdminAllHeroLevelField();
+    ensureWinstonAdminButtonInTools();
+    if (!els.winstonAdminControls && els.winstonAdminModal) {
+      const card = els.winstonAdminModal.querySelector('.intro-modal-card') || els.winstonAdminModal;
+      const controls = document.createElement('div');
+      controls.id = 'winstonAdminControls';
+      controls.className = 'winston-admin-controls';
+      card.appendChild(controls);
+      els.winstonAdminControls = controls;
+    }
     if (els.winstonAdminBtn) {
       const visible = isWinstonAdminWallet();
       els.winstonAdminBtn.classList.toggle('hidden', !visible);
@@ -7688,7 +7934,7 @@ function renderDamageReport() {
   const MOOSIFER_BOSS_WAVE = 50;
   const MOOSIFER_BOUNTY_FUNCTION = window.DFK_SUPABASE_MOOSIFER_BOUNTY_FUNCTION || 'moosifer-bounty';
   const MOOSIFER_MAX_DIFFICULTY = 35;
-  const MOOSIFER_BOSS_DIFFICULTY = 9;
+  const MOOSIFER_BOSS_DIFFICULTY = 10;
   const MOOSIFER_ATTACK_INTERVAL_SECONDS = 0.82 * 1.1 * 1.5;
   const MOOSIFER_BASE_DAMAGE = 1000 * 0.75 * 0.70;
   const MOOSIFER_DAMAGE_GROWTH_PER_DIFFICULTY = Math.pow((2000 * MOOSIFER_ATTACK_INTERVAL_SECONDS) / MOOSIFER_BASE_DAMAGE, 1 / 8);
@@ -8050,6 +8296,25 @@ function renderDamageReport() {
     }
   }
 
+  function handleSkippedStartWaveUntrackedRun() {
+    const message = getSkippedStartWaveNotTrackedMessage();
+    if (!message) return false;
+    if (game.runTracking) {
+      game.runTracking.submitted = true;
+      game.runTracking.skippedStartWaveNotTracked = true;
+      game.runTracking.skippedStartWaveNotTrackedReason = message;
+    }
+    setInstruction(message);
+    log(message);
+    openAnnouncementModal({
+      kicker: 'Run Not Tracked',
+      title: 'Skipped Wave Not Cleared',
+      bodyHtml: `<p>${escapeHtml(message)}</p>`,
+      okText: 'OK',
+    });
+    return true;
+  }
+
   function captureTrackedRunNow(result = 'abandoned') {
     if (game.adminPanelUsed) {
       game.runTracking.submitted = true;
@@ -8064,6 +8329,7 @@ function renderDamageReport() {
       reportMoosiferAttempt(action, null, normalizedResult);
     }
     if (!hasTrackableRunInProgress() || !canQueueTrackedRunSubmission()) return false;
+    if (!hasClearedSkippedStartWaveRequirement()) return handleSkippedStartWaveUntrackedRun();
     const payload = buildCompletedRunPayload(result);
     if (payload.continueAvailable) {
       log('Tracked run submission deferred until last chance is resolved.');
@@ -8101,6 +8367,10 @@ function renderDamageReport() {
       return;
     }
     if (game.runTracking.submitted) return;
+    if (!hasClearedSkippedStartWaveRequirement()) {
+      handleSkippedStartWaveUntrackedRun();
+      return;
+    }
     if (!window.DFKRunTracker || typeof window.DFKRunTracker.submitCompletedRun !== 'function') return;
     if (game.continueOfferPending || ((!!game.continueSnapshot) && (!game.continueOfferUsed || !game.paidContinueOfferUsed))) {
       log('Tracked run submission deferred until retry offers are declined or used.');
@@ -8165,9 +8435,13 @@ function renderDamageReport() {
       } else if (response && response.queued) {
         markRecentTrackedRunSubmission();
         if (response && response.secureSignatureRequired) {
-          await maybeShowHighValueRunSessionPrompt(payload, { force: true });
-          showBanner('High-value run pending secure submission. Sign and submit before closing if possible.', 6200);
-          log(`High-value run saved locally at wave ${game.waveNumber}. Secure signature still required before backend save.`);
+          const highValueSubmitted = await maybeShowHighValueRunSessionPrompt(payload, { force: true, submitOnConfirm: true });
+          if (highValueSubmitted) {
+            log(`High-value run submitted at wave ${game.waveNumber}.`);
+          } else {
+            showBanner('High-value run pending secure submission. Sign and submit before closing if possible.', 6200);
+            log(`High-value run saved locally at wave ${game.waveNumber}. Secure signature still required before backend save.`);
+          }
         } else {
           log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
         }
@@ -8366,6 +8640,8 @@ function renderDamageReport() {
     game.startWaveChoice = selectedStartWave;
     game.startWaveHeroLevel = getPlayerStartHeroLevel(selectedStartWave);
     game.startWaveJumpPaid = isPaidPlayerStartWave(selectedStartWave);
+    game.startWaveFreeRerollsLeft = game.startWaveJumpPaid ? 3 : 0;
+    game.startWaveExtraHeroGranted = false;
     game.moosiferIntroShownForRun = false;
     game.moosiferBossActive = false;
     game.moosiferFreeRetriesUsed = 0;
@@ -8538,6 +8814,9 @@ function renderDamageReport() {
     setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${getTargetPlayerObstacleCount()} choke-point obstacles, then place your Warrior. Before wave ${selectedStartWave} starts, you can click one of your barriers to move it.${startWaveText}`);
     log(`New run started at wave ${selectedStartWave}. Random obstacles are already on the field.${selectedStartWave > 1 ? ' Auto Start disabled until the player manually starts the wave.' : ''}`);
     game.startWaveSubmitting = false;
+    if (selectedStartWave > 1 && getConnectedWalletAddress() && !game.walletHeroLoadPending) {
+      loadWalletHeroes(true).catch((error) => console.error(error));
+    }
     updateTopbar();
       updateMobileBoardFit();
     showStatusOverlay();
@@ -8558,7 +8837,7 @@ function renderDamageReport() {
         const x = randInt(0, WIDTH - 1);
         const y = randInt(0, HEIGHT - 1);
         const tile = tileAt(x, y);
-        if (!tile || tile.obstacle || tile.portal || tile.type === 'spawn') continue;
+        if (!tile || tile.obstacle || tile.portal || tile.towerId || tile.type === 'spawn') continue;
         if (placed.some(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1)) continue;
         tile.obstacle = 'random';
         placed.push({ x, y });
@@ -8569,8 +8848,33 @@ function renderDamageReport() {
     clearRandomObstacles();
     for (const pos of bestPlaced) {
       const tile = tileAt(pos.x, pos.y);
-      if (tile && !tile.portal && tile.type !== 'spawn') tile.obstacle = 'random';
+      if (tile && !tile.portal && !tile.towerId && tile.type !== 'spawn') tile.obstacle = 'random';
     }
+  }
+
+  function rerollPaidStartRandomBarriers() {
+    if (!game.startWaveJumpPaid || !isAwaitingManualStartAfterWaveJump() || Number(game.startWaveFreeRerollsLeft || 0) <= 0) return false;
+    const existingRandom = (game.grid || []).filter((tile) => tile && tile.obstacle === 'random').map((tile) => ({ x: tile.x, y: tile.y }));
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      clearRandomObstacles();
+      placeRandomObstacles();
+      if (!game.portal || existsPathFromBreachToPortal(false)) {
+        game.startWaveFreeRerollsLeft = Math.max(0, Number(game.startWaveFreeRerollsLeft || 0) - 1);
+        showBanner(`Game barriers rerolled. ${game.startWaveFreeRerollsLeft} free reroll${game.startWaveFreeRerollsLeft === 1 ? '' : 's'} left before this wave starts.`, 2600);
+        setInstruction(`Preplaced barriers rerolled. Finish setup and click Start Next Wave when ready.`);
+        render();
+        persistSavedGame('paid_start_barrier_reroll');
+        return true;
+      }
+    }
+    clearRandomObstacles();
+    for (const pos of existingRandom) {
+      const tile = tileAt(pos.x, pos.y);
+      if (tile && !tile.portal && !tile.towerId && tile.type !== 'spawn') tile.obstacle = 'random';
+    }
+    showBanner('Could not find a safe barrier reroll. Try moving a barrier or portal first.', 2600);
+    render();
+    return true;
   }
 
   function clearRandomObstacles() {
@@ -9947,10 +10251,12 @@ function canSubmitRewardClaims() {
   }
 
 
-  function openNewsAfterStartChoice() {
+  function openNewsAfterStartChoice(options = {}) {
     try {
       if (window.__dfkNewsOpenedAfterStartChoice) return;
       window.__dfkNewsOpenedAfterStartChoice = true;
+      game.newsBeginsSetupAfterClose = !!options.beginSetupAfterClose;
+      if (game.newsBeginsSetupAfterClose) setBoardInputLocked(true);
       setTimeout(() => {
         if (typeof openNewsModal === 'function') openNewsModal();
       }, 450);
@@ -9960,6 +10266,7 @@ function canSubmitRewardClaims() {
 
 document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event) {
   try {
+    return;
     const target = event.target && event.target.closest && event.target.closest('button, [role="button"], a');
     if (!target || window.__dfkNewsOpenedAfterStartChoice) return;
     const label = ((target.id || '') + ' ' + (target.textContent || '')).toLowerCase();
@@ -9987,6 +10294,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     if (!els.newsModal) return;
     els.newsModal.classList.add('hidden');
     els.newsModal.setAttribute('aria-hidden', 'true');
+    try { window.__dfkNewsOpenedAfterStartChoice = false; } catch (error) {}
+    if (game.newsBeginsSetupAfterClose) {
+      game.newsBeginsSetupAfterClose = false;
+      beginModeIntroStory();
+    }
     syncIntroOpenClassFromVisibleModals();
   }
 
@@ -11269,7 +11581,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function isStartingWalletHeroPlacementWindow() {
-    return Number(game.waveNumber || 0) === 0 && !game.runningWave && Number(game.activeWaveBase || 0) === 0 && game.phase !== SETUP_PHASES.GAME_OVER;
+    if (game.phase === SETUP_PHASES.GAME_OVER || game.runningWave) return false;
+    if (Number(game.waveNumber || 0) === 0 && Number(game.activeWaveBase || 0) === 0) return true;
+    return isAwaitingManualStartAfterWaveJump();
   }
 
   function getSelectedWalletHeroForHire(type, usesBonus = false) {
@@ -11524,12 +11838,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function maybeOpenChampionModalAfterFifthHero(placedTower) {
     if (!placedTower || placedTower.isSatellite || placedTower.isChampion) return false;
     if (!Array.isArray(game.championRoster) || !game.championRoster.length) return false;
-    if (game.selectedChampionConfirmed || game.runningWave || Number(game.waveNumber || 0) !== 0) return false;
+    if (game.selectedChampionConfirmed || game.runningWave || !(Number(game.waveNumber || 0) === 0 || isAwaitingManualStartAfterWaveJump())) return false;
+    if (!game.portal || game.playerObstacleCount < getTargetPlayerObstacleCount()) return false;
+    if (!(game.phase === SETUP_PHASES.BATTLE || isAwaitingManualStartAfterWaveJump())) return false;
     const normalHeroCount = (game.towers || []).filter((tower) => tower && !tower.isSatellite && !tower.isChampion && Number(tower.hp || 0) > 0).length;
     if (normalHeroCount !== 5) return false;
     game.championModalForceChoice = true;
     window.setTimeout(() => {
-      try { showChampionModal(true); } catch (_error) {}
+      try { showChampionInfoModal(); } catch (_error) {}
     }, 0);
     return true;
   }
@@ -11728,8 +12044,34 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const card = document.createElement(options.informational ? 'div' : 'button');
       if (!options.informational) card.type = 'button';
       card.className = `champion-card${isSelected ? ' selected' : ''}${options.informational ? ' champion-info-card' : ''}`;
-      card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div>${getChampionRarityRowMarkup(hero)}</div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>`;
-      if (!options.informational) {
+      const canSelectFromInfo = options.informational && !game.selectedChampionConfirmed && canChooseChampionNow();
+      card.innerHTML = `<div class="champion-card-header"><img class="champion-card-portrait" src="${getChampionPortraitImage(hero, definition.key)}" alt="${definition.label}"><div class="champion-card-headtext"><h3>${definition.label}</h3><div class="champion-card-meta"><span class="champion-chip">${hero.chainName}</span><span class="champion-chip">Lvl ${hero.level}</span><span class="champion-chip">Hero ${hero.id}</span></div>${getChampionRarityRowMarkup(hero)}</div></div><p>${definition.summary}</p><ul>${definition.skills.map((skill) => `<li>${formatChampionSkillMarkup(skill)}</li>`).join('')}</ul>${canSelectFromInfo ? `<button type="button" class="wallet-btn champion-info-select-btn" data-champion-info-select="${escapeHtml(heroId)}">${isSelected ? 'Selected - Lock In' : `Select ${escapeHtml(definition.label)}`}</button>` : ''}`;
+      const selectEntry = (event = null) => {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        if (game.selectedChampionConfirmed) {
+          const locked = getSelectedChampionRecord();
+          showBanner(locked ? `${locked.definition.label} is locked in for this run.` : 'Champion is locked in for this run.', 1800);
+          return;
+        }
+        if (!canChooseChampionNow()) {
+          showBanner('Champion selection must happen before the first wave starts.', 2000);
+          return;
+        }
+        game.selectedChampionKey = entry.key;
+        game.selectedChampionHeroId = heroId;
+        game.selectedChampionSnapshot = { key: entry.key, hero: { ...hero }, definition };
+        renderChampionPanel();
+        if (options.informational && els.championInfoModalBody) renderChampionCards(els.championInfoModalBody, { informational: true });
+        if (options.informational) showChampionLockModal();
+      };
+      if (options.informational) {
+        const selectBtn = card.querySelector('[data-champion-info-select]');
+        if (selectBtn) selectBtn.addEventListener('click', selectEntry);
+        card.addEventListener('click', selectEntry);
+      } else {
         card.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -11752,7 +12094,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function canChooseChampionNow() {
-    return Number(game.waveNumber || 0) === 0 && !game.runningWave;
+    return !game.runningWave && (Number(game.waveNumber || 0) === 0 || isAwaitingManualStartAfterWaveJump());
   }
 
   function hasStartedRunForChampionLock() {
@@ -11760,7 +12102,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function shouldLockWalletHeroRefreshDuringRun() {
-    return hasStartedRunForChampionLock() || !!game.continueOfferPending || !!game.continueSnapshot;
+    return (hasStartedRunForChampionLock() && !isStartingWalletHeroPlacementWindow()) || !!game.continueOfferPending || !!game.continueSnapshot;
   }
 
   function syncWalletHeroRefreshButtonState() {
@@ -11842,7 +12184,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       showBanner('Choose your champion before the first wave starts.', 2000);
       return false;
     }
-    if (game.runningWave || Number(game.waveNumber || 0) !== 0) {
+    if (game.runningWave || !(Number(game.waveNumber || 0) === 0 || isAwaitingManualStartAfterWaveJump())) {
       return false;
     }
     ensureChampionSelectionReady({ autoConfirm: false });
@@ -11923,6 +12265,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.championModalForceChoice = false;
     hideChampionLockModal();
     hideChampionModal();
+    hideChampionInfoModal();
     renderChampionPanel();
     showBanner(`${selected.definition.label} locked in for this run.`, 1800);
     return true;
@@ -12007,7 +12350,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function requireChampionSelectionBeforeStart() {
-    return !!((game.championRoster || []).length && !game.selectedChampionConfirmed && Number(game.waveNumber || 0) === 0);
+    return !!((game.championRoster || []).length && !game.selectedChampionConfirmed && (Number(game.waveNumber || 0) === 0 || isAwaitingManualStartAfterWaveJump()));
   }
 
   function beginChampionPlacement() {
@@ -12150,9 +12493,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       };
     }
     const multiplier = Math.pow(1.15, safeLevel - 1);
-    const hpGrowth = type === 'warrior' ? WARRIOR_HP_GROWTH_PER_LEVEL : NON_WARRIOR_HP_GROWTH_PER_LEVEL;
+    const warriorHpGrowthSteps = Math.max(0, safeLevel - 1);
+    const warriorNormalHpGrowthSteps = Math.min(warriorHpGrowthSteps, 38);
+    const warriorPost40HpGrowthSteps = Math.max(0, warriorHpGrowthSteps - warriorNormalHpGrowthSteps);
+    const warriorHpMultiplier = Math.pow(WARRIOR_HP_GROWTH_PER_LEVEL, warriorNormalHpGrowthSteps) * Math.pow(WARRIOR_POST_LEVEL40_HP_GROWTH_PER_LEVEL, warriorPost40HpGrowthSteps);
+    const hpMultiplier = type === 'warrior'
+      ? warriorHpMultiplier
+      : Math.pow(NON_WARRIOR_HP_GROWTH_PER_LEVEL, safeLevel - 1);
     return {
-      hp: template.hp * (type === 'warrior' ? 1 : NON_WARRIOR_BASE_HP_MULTIPLIER) * Math.pow(hpGrowth, safeLevel - 1),
+      hp: template.hp * (type === 'warrior' ? 1 : NON_WARRIOR_BASE_HP_MULTIPLIER) * hpMultiplier,
       damage: template.damage * multiplier,
       range: template.range,
     };
@@ -12350,6 +12699,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.modalDismiss = null;
     game.highValueRunPromptActive = false;
     game.highValueRunPromptResolve = null;
+    game.highValueRunPromptPayload = null;
+    game.highValueRunPromptSubmitOnConfirm = false;
+    game.highValueRunPromptSubmitSucceeded = false;
     if (els.closeIntroBtn) els.closeIntroBtn.classList.remove('hidden');
     if (els.introModal) {
       els.introModal.classList.add('hidden');
@@ -12397,6 +12749,309 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     updateBurnedGoldDisplay();
     if (typeof updatePremiumJewelInfo === 'function') updatePremiumJewelInfo();
     if (typeof updateAutoStartButton === 'function') updateAutoStartButton();
+  }
+
+  function pulseGoldPill() {
+    const targets = [
+      els.jewelCount ? els.jewelCount.closest('.hud-pill') : null,
+      els.mobileGoldCount ? els.mobileGoldCount.closest('.hud-pill') : null,
+    ].filter(Boolean);
+    for (const target of targets) {
+      target.classList.remove('gold-earned-pulse');
+      void target.offsetWidth;
+      target.classList.add('gold-earned-pulse');
+    }
+  }
+
+  function getInfoPanelElement() {
+    return document.getElementById('infoPanel');
+  }
+
+  function rememberInfoPanelDockAnchor(panel = getInfoPanelElement()) {
+    if (!panel || game.infoPanelDockParent) return;
+    game.infoPanelDockParent = panel.parentElement || null;
+    game.infoPanelDockNextSibling = panel.nextSibling || null;
+  }
+
+  function dockInfoPanelElement(panel = getInfoPanelElement()) {
+    if (!panel) return;
+    const host = game.infoPanelDockParent;
+    const nextSibling = game.infoPanelDockNextSibling;
+    if (!host || host === panel || panel.contains(host)) return;
+    if (panel.parentElement !== host) {
+      const ref = nextSibling && nextSibling.parentElement === host ? nextSibling : null;
+      host.insertBefore(panel, ref);
+    }
+  }
+
+  function clampInfoPanelFloatPosition(x, y) {
+    const panel = getInfoPanelElement();
+    const width = Math.max(190, Number(game.infoPanelFloatWidth || panel?.offsetWidth || 260));
+    const height = Math.max(160, Number(game.infoPanelFloatHeight || panel?.offsetHeight || 420));
+    const maxX = Math.max(8, window.innerWidth - width - 8);
+    const maxY = Math.max(8, window.innerHeight - Math.min(height, 96) - 8);
+    return {
+      x: Math.max(8, Math.min(maxX, Number(x) || 8)),
+      y: Math.max(8, Math.min(maxY, Number(y) || 8)),
+    };
+  }
+
+  function clampInfoPanelFloatSize(width, height) {
+    const maxWidth = Math.max(240, window.innerWidth - 16);
+    const maxHeight = Math.max(260, window.innerHeight - 16);
+    return {
+      width: Math.max(240, Math.min(maxWidth, Number(width) || 300)),
+      height: Math.max(280, Math.min(maxHeight, Number(height) || 460)),
+    };
+  }
+
+  function syncHeroInfoPanelContentOrder(panel = getInfoPanelElement()) {
+    if (!panel || !els.selectedInfo || !els.abilitiesPanel) return;
+    const actionGroup = document.querySelector('#infoPanel .action-group, .mobile-hero-host .action-group, .right-panel .action-group');
+    const abilityRef = els.abilitiesPanel.parentElement === panel ? els.abilitiesPanel : null;
+    if (actionGroup && actionGroup.parentElement !== panel) {
+      panel.insertBefore(actionGroup, abilityRef);
+    } else if (actionGroup && actionGroup.parentElement === panel && actionGroup.nextElementSibling !== els.abilitiesPanel) {
+      panel.insertBefore(actionGroup, abilityRef);
+    }
+    if (els.abilitiesPanel.parentElement !== panel) {
+      panel.appendChild(els.abilitiesPanel);
+    }
+    if (els.selectedInfo.parentElement !== panel) {
+      els.abilitiesPanel.insertAdjacentElement('afterend', els.selectedInfo);
+    } else if (els.selectedInfo.previousElementSibling !== els.abilitiesPanel) {
+      els.abilitiesPanel.insertAdjacentElement('afterend', els.selectedInfo);
+    }
+  }
+
+  function applyInfoPanelFloatState() {
+    const panel = getInfoPanelElement();
+    if (!panel) return;
+    panel.classList.toggle('info-panel-floating', !!game.infoPanelFloating);
+    if (game.infoPanelFloating) {
+      rememberInfoPanelDockAnchor(panel);
+      if (panel.parentElement !== document.body) document.body.appendChild(panel);
+      syncHeroInfoPanelContentOrder(panel);
+      const rect = panel.getBoundingClientRect();
+      const size = clampInfoPanelFloatSize(game.infoPanelFloatWidth || rect.width || 300, game.infoPanelFloatHeight || rect.height || 460);
+      game.infoPanelFloatWidth = size.width;
+      game.infoPanelFloatHeight = size.height;
+      const pos = clampInfoPanelFloatPosition(game.infoPanelFloatX, game.infoPanelFloatY);
+      game.infoPanelFloatX = pos.x;
+      game.infoPanelFloatY = pos.y;
+      panel.style.setProperty('position', 'fixed', 'important');
+      panel.style.setProperty('left', '0px', 'important');
+      panel.style.setProperty('top', '0px', 'important');
+      panel.style.setProperty('right', 'auto', 'important');
+      panel.style.setProperty('bottom', 'auto', 'important');
+      panel.style.setProperty('transform', `translate3d(${pos.x}px, ${pos.y}px, 0)`, 'important');
+      panel.style.setProperty('width', `${size.width}px`, 'important');
+      panel.style.setProperty('max-width', 'calc(100vw - 16px)', 'important');
+      panel.style.setProperty('height', `${size.height}px`, 'important');
+      panel.style.setProperty('max-height', 'calc(100dvh - 16px)', 'important');
+    } else {
+      panel.style.removeProperty('left');
+      panel.style.removeProperty('top');
+      panel.style.removeProperty('right');
+      panel.style.removeProperty('bottom');
+      panel.style.removeProperty('position');
+      panel.style.removeProperty('transform');
+      panel.style.removeProperty('width');
+      panel.style.removeProperty('max-width');
+      panel.style.removeProperty('height');
+      panel.style.removeProperty('max-height');
+      dockInfoPanelElement(panel);
+      syncHeroInfoPanelContentOrder(panel);
+      game.infoPanelDrag = null;
+      game.infoPanelResize = null;
+    }
+    const btn = document.getElementById('infoPanelFloatToggleBtn');
+    if (btn) {
+      btn.textContent = game.infoPanelFloating ? '↘' : '↖';
+      btn.title = game.infoPanelFloating ? 'Dock hero info panel' : 'Pop out hero info panel';
+      btn.setAttribute('aria-label', btn.title);
+      btn.setAttribute('aria-pressed', game.infoPanelFloating ? 'true' : 'false');
+    }
+  }
+
+  function toggleInfoPanelFloating() {
+    const panel = getInfoPanelElement();
+    if (!panel) return;
+    if (!game.infoPanelFloating) {
+      const rect = panel.getBoundingClientRect();
+      const pos = clampInfoPanelFloatPosition(rect.left || 24, rect.top || 120);
+      game.infoPanelFloatX = pos.x;
+      game.infoPanelFloatY = pos.y;
+      const size = clampInfoPanelFloatSize(rect.width || 300, rect.height || 460);
+      game.infoPanelFloatWidth = size.width;
+      game.infoPanelFloatHeight = size.height;
+    }
+    game.infoPanelFloating = !game.infoPanelFloating;
+    applyInfoPanelFloatState();
+    if (!game.infoPanelFloating) syncMobileHosts();
+  }
+
+  function createInfoPanelFloatToggle() {
+    const btn = document.createElement('button');
+    btn.id = 'infoPanelFloatToggleBtn';
+    btn.type = 'button';
+    btn.className = 'info-panel-float-toggle';
+    btn.setAttribute('aria-pressed', game.infoPanelFloating ? 'true' : 'false');
+    btn.textContent = game.infoPanelFloating ? '↘' : '↖';
+    btn.title = game.infoPanelFloating ? 'Dock hero info panel' : 'Pop out hero info panel';
+    btn.setAttribute('aria-label', btn.title);
+    btn.addEventListener('pointerdown', (event) => {
+      if (!game.infoPanelFloating) return;
+      event.preventDefault();
+      game.infoPanelDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        baseX: Number(game.infoPanelFloatX || 0),
+        baseY: Number(game.infoPanelFloatY || 0),
+        moved: false,
+      };
+      btn.setPointerCapture?.(event.pointerId);
+    });
+    btn.addEventListener('pointermove', (event) => {
+      const drag = game.infoPanelDrag;
+      if (!drag || drag.pointerId !== event.pointerId || !game.infoPanelFloating) return;
+      event.preventDefault();
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      const pos = clampInfoPanelFloatPosition(drag.baseX + dx, drag.baseY + dy);
+      game.infoPanelFloatX = pos.x;
+      game.infoPanelFloatY = pos.y;
+      applyInfoPanelFloatState();
+    });
+    btn.addEventListener('pointerup', (event) => {
+      const drag = game.infoPanelDrag;
+      if (drag && drag.pointerId === event.pointerId) {
+        btn.releasePointerCapture?.(event.pointerId);
+        btn.dataset.dragged = drag.moved ? '1' : '';
+        window.setTimeout(() => { game.infoPanelDrag = null; }, 0);
+      }
+    });
+    btn.addEventListener('click', (event) => {
+      const dragged = !!game.infoPanelDrag?.moved || btn.dataset.dragged === '1';
+      btn.dataset.dragged = '';
+      if (dragged) {
+        event.preventDefault();
+        return;
+      }
+      toggleInfoPanelFloating();
+    });
+    return btn;
+  }
+
+  function createInfoPanelResizeHandle(corner) {
+    const handle = document.createElement('span');
+    handle.className = `info-panel-resize-handle info-panel-resize-${corner}`;
+    handle.dataset.infoResizeCorner = corner;
+    handle.setAttribute('aria-hidden', 'true');
+    handle.addEventListener('pointerdown', (event) => {
+      if (!game.infoPanelFloating) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const panel = getInfoPanelElement();
+      const rect = panel?.getBoundingClientRect();
+      if (!rect) return;
+      game.infoPanelResize = {
+        pointerId: event.pointerId,
+        corner,
+        startX: event.clientX,
+        startY: event.clientY,
+        baseX: Number(game.infoPanelFloatX || rect.left || 8),
+        baseY: Number(game.infoPanelFloatY || rect.top || 8),
+        baseWidth: Number(game.infoPanelFloatWidth || rect.width || 300),
+        baseHeight: Number(game.infoPanelFloatHeight || rect.height || 460),
+      };
+      handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener('pointermove', (event) => {
+      const resize = game.infoPanelResize;
+      if (!resize || resize.pointerId !== event.pointerId || !game.infoPanelFloating) return;
+      event.preventDefault();
+      const dx = event.clientX - resize.startX;
+      const dy = event.clientY - resize.startY;
+      const pullsLeft = resize.corner.includes('left');
+      const pullsTop = resize.corner.includes('top');
+      const rawWidth = resize.baseWidth + (pullsLeft ? -dx : dx);
+      const rawHeight = resize.baseHeight + (pullsTop ? -dy : dy);
+      const size = clampInfoPanelFloatSize(rawWidth, rawHeight);
+      let nextX = resize.baseX;
+      let nextY = resize.baseY;
+      if (pullsLeft) nextX = resize.baseX + (resize.baseWidth - size.width);
+      if (pullsTop) nextY = resize.baseY + (resize.baseHeight - size.height);
+      const pos = clampInfoPanelFloatPosition(nextX, nextY);
+      game.infoPanelFloatWidth = size.width;
+      game.infoPanelFloatHeight = size.height;
+      game.infoPanelFloatX = pos.x;
+      game.infoPanelFloatY = pos.y;
+      applyInfoPanelFloatState();
+    });
+    handle.addEventListener('pointerup', (event) => {
+      const resize = game.infoPanelResize;
+      if (resize && resize.pointerId === event.pointerId) {
+        handle.releasePointerCapture?.(event.pointerId);
+        game.infoPanelResize = null;
+      }
+    });
+    handle.addEventListener('pointercancel', () => { game.infoPanelResize = null; });
+    return handle;
+  }
+
+  function createInfoPanelDragHandle() {
+    const handle = document.createElement('span');
+    handle.className = 'info-panel-drag-handle';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.addEventListener('pointerdown', (event) => {
+      if (!game.infoPanelFloating) return;
+      event.preventDefault();
+      event.stopPropagation();
+      game.infoPanelDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        baseX: Number(game.infoPanelFloatX || 0),
+        baseY: Number(game.infoPanelFloatY || 0),
+        moved: false,
+      };
+      handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener('pointermove', (event) => {
+      const drag = game.infoPanelDrag;
+      if (!drag || drag.pointerId !== event.pointerId || !game.infoPanelFloating) return;
+      event.preventDefault();
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      const pos = clampInfoPanelFloatPosition(drag.baseX + dx, drag.baseY + dy);
+      game.infoPanelFloatX = pos.x;
+      game.infoPanelFloatY = pos.y;
+      applyInfoPanelFloatState();
+    });
+    handle.addEventListener('pointerup', (event) => {
+      const drag = game.infoPanelDrag;
+      if (drag && drag.pointerId === event.pointerId) {
+        handle.releasePointerCapture?.(event.pointerId);
+        game.infoPanelDrag = null;
+      }
+    });
+    handle.addEventListener('pointercancel', () => { game.infoPanelDrag = null; });
+    return handle;
+  }
+
+  function ensureInfoPanelFloatToggle() {
+    const panel = getInfoPanelElement();
+    if (!panel || document.getElementById('infoPanelFloatToggleBtn')) return;
+    panel.insertBefore(createInfoPanelFloatToggle(), panel.firstChild);
+    panel.insertBefore(createInfoPanelDragHandle(), panel.children[1] || null);
+    ['top-left', 'top-right', 'bottom-left', 'bottom-right'].forEach((corner) => {
+      if (!panel.querySelector(`.info-panel-resize-${corner}`)) panel.appendChild(createInfoPanelResizeHandle(corner));
+    });
+    applyInfoPanelFloatState();
   }
 
   function prettyPattern(pattern) {
@@ -12566,7 +13221,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     } else if (tower.type === 'warrior') {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= WARRIOR_HP_GROWTH_PER_LEVEL;
+      tower.maxHp *= Number(nextLevel || 1) >= 40 ? WARRIOR_POST_LEVEL40_HP_GROWTH_PER_LEVEL : WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= (Number(game.waveNumber || 0) > 30 ? WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL : WARRIOR_DAMAGE_GROWTH_PER_LEVEL);
       tower.basicCooldown /= 1.05;
@@ -12732,6 +13387,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     renderWalletHeroBonusPanel();
     renderHirePanel();
     renderTransferHeroesModal();
+    if (requireChampionSelectionBeforeStart()) {
+      game.championModalForceChoice = true;
+      const lastPlacedHero = (game.towers || []).slice().reverse().find((tower) => tower && !tower.isSatellite && !tower.isChampion && Number(tower.hp || 0) > 0);
+      if (lastPlacedHero) window.setTimeout(() => maybeOpenChampionModalAfterFifthHero(lastPlacedHero), 0);
+    }
   }
 
   async function loadWalletHeroes(force = false) {
@@ -13958,8 +14618,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       els.mobileQuickRail?.setAttribute('aria-hidden', 'false');
       els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
       els.mobileRightRail?.setAttribute('aria-hidden', 'true');
-      if (els.selectedInfo.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(els.selectedInfo);
-      if (actionGroup && actionGroup.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(actionGroup);
+      if (!game.infoPanelFloating && els.selectedInfo.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(els.selectedInfo);
+      if (!game.infoPanelFloating && actionGroup && actionGroup.parentElement !== els.mobileHeroHost) els.mobileHeroHost.appendChild(actionGroup);
       if (els.hirePanel.parentElement !== els.mobileHireHost) els.mobileHireHost.appendChild(els.hirePanel);
       if (els.bankPanel && els.mobileBankHost /* disabled */ && els.bankPanel.parentElement !== els.mobileBankHost /* disabled */) els.mobileBankHost /* disabled */.appendChild(els.bankPanel);
       if (els.walletPanel && els.mobileProfileHost && els.walletPanel.parentElement !== els.mobileProfileHost) els.mobileProfileHost.appendChild(els.walletPanel);
@@ -13970,6 +14630,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       updateMobileBarToggle();
       updateMobileLeftRail();
       updateMobileRightRail();
+      syncHeroInfoPanelContentOrder(els.mobileHeroHost);
     } else {
       game.mobileBarCollapsed = false;
       els.mobileHud?.classList.add('hidden');
@@ -13979,12 +14640,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       els.mobileLeftRail?.setAttribute('aria-hidden', 'true');
       els.mobileRightRail?.setAttribute('aria-hidden', 'true');
       game.mobileRightRailCollapsed = true;
-      if (rightPanel && els.selectedInfo.parentElement !== rightPanel) {
-        rightPanel.insertBefore(els.selectedInfo, rightPanel.firstChild);
+      if (!game.infoPanelFloating && rightPanel && actionGroup && actionGroup.parentElement !== rightPanel) {
+        rightPanel.insertBefore(actionGroup, els.abilitiesPanel?.parentElement === rightPanel ? els.abilitiesPanel : null);
       }
-      if (rightPanel && actionGroup && actionGroup.parentElement !== rightPanel) {
-        rightPanel.insertBefore(actionGroup, els.abilitiesPanel);
+      if (!game.infoPanelFloating && rightPanel && els.selectedInfo.parentElement !== rightPanel) {
+        els.abilitiesPanel.insertAdjacentElement('afterend', els.selectedInfo);
       }
+      if (!game.infoPanelFloating && rightPanel) syncHeroInfoPanelContentOrder(rightPanel);
       if (hireSection && els.hirePanel.parentElement !== hireSection) {
         hireSection.appendChild(els.hirePanel);
       }
@@ -14251,7 +14913,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function renderSelection() {
-    const tower = getSelectedTower();
+    const pendingHeroPlacementPreview = !!(game.placingHeroType && !game.placingSatelliteSourceId);
+    const tower = pendingHeroPlacementPreview ? null : getSelectedTower();
     renderHeroQuickSelect();
     game.renderedSelectionTowerId = tower ? tower.id : null;
     if (!tower) {
@@ -14874,7 +15537,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function canRepositionPortal() {
-    return !!game.portal && !game.runningWave && game.waveNumber === 0 && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
+    return !!game.portal
+      && !game.runningWave
+      && (game.waveNumber === 0 || isAwaitingManualStartAfterWaveJump())
+      && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
   }
 
   function pickupPortal() {
@@ -14975,7 +15641,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function canEditBarriersPreStart() {
-    return !game.runningWave && game.waveNumber === 0 && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
+    return !game.runningWave
+      && (game.waveNumber === 0 || isAwaitingManualStartAfterWaveJump())
+      && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR || game.phase === SETUP_PHASES.BATTLE);
   }
 
   function removePlayerObstacle(x, y) {
@@ -15050,6 +15718,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const warrior = createTower('warrior', x, y);
     const selectedWarriorHero = getSelectedWalletHero('warrior');
     if (selectedWarriorHero) applyWalletHeroToTower(warrior, selectedWarriorHero);
+    applyPlayerStartLevelToTower(warrior);
     game.towers.push(warrior);
     tileAt(x, y).towerId = warrior.id;
     game.phase = SETUP_PHASES.BATTLE;
@@ -16194,6 +16863,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
       if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
     }
+    applyPlayerStartLevelToTower(tower);
     if (!isSatellitePlacement && typeToPlace === 'monk') inheritMonkWalletBonusFromPartner(tower);
     if (!isSatellitePlacement && tower.isChampion) {
       const selectedChampion = getSelectedChampionRecord();
@@ -16490,9 +17160,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function shouldShowEnemyPathPreview() {
+    const firstWaveSetup = Number(game.waveNumber || 0) === 0;
+    const skippedWaveSetup = typeof isAwaitingManualStartAfterWaveJump === 'function' && isAwaitingManualStartAfterWaveJump();
     return !!game.portal
       && !game.runningWave
-      && Number(game.waveNumber || 0) === 0
+      && (firstWaveSetup || skippedWaveSetup)
       && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR);
   }
 
@@ -16788,10 +17460,33 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function commitEnemyVisualStep(enemy, fromX, fromY, toX, toY, current, durationMs) {
     if (!enemy) return;
     const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, Number(durationMs) || getEnemyMoveCadenceMs(enemy));
+    const fromPos = getTilePixelPosition(fromX, fromY);
+    const toPos = getTilePixelPosition(toX, toY);
+    const fromCenter = { x: fromPos.left + fromPos.width / 2, y: fromPos.top + fromPos.height / 2 };
+    const toCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
+    const lastPx = Number(enemy.renderPx);
+    const lastPy = Number(enemy.renderPy);
+    const tileSpan = Math.max(1, Math.hypot(toCenter.x - fromCenter.x, toCenter.y - fromCenter.y));
+    const stepDx = toCenter.x - fromCenter.x;
+    const stepDy = toCenter.y - fromCenter.y;
+    const sameStepAxis = Math.abs(stepDx) >= Math.abs(stepDy)
+      ? Math.abs(lastPy - fromCenter.y) <= 2
+      : Math.abs(lastPx - fromCenter.x) <= 2;
+    const nearStepStart = Math.hypot(lastPx - fromCenter.x, lastPy - fromCenter.y) <= tileSpan * 0.25;
+    const hasUsableLastDrawnPosition = Number.isFinite(lastPx)
+      && Number.isFinite(lastPy)
+      && sameStepAxis
+      && nearStepStart;
     enemy.motionFromX = fromX;
     enemy.motionFromY = fromY;
     enemy.motionToX = toX;
     enemy.motionToY = toY;
+    enemy.motionFromPx = hasUsableLastDrawnPosition ? lastPx : fromCenter.x;
+    enemy.motionFromPy = hasUsableLastDrawnPosition ? lastPy : fromCenter.y;
+    enemy.motionToPx = toCenter.x;
+    enemy.motionToPy = toCenter.y;
+    enemy.motionFromPixelKey = `${fromX},${fromY}`;
+    enemy.motionToPixelKey = `${toX},${toY}`;
     enemy.moveStartedAt = current;
     enemy.moveEndAt = current + duration;
     enemy.nextMoveAt = enemy.moveEndAt;
@@ -17297,6 +17992,26 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
   }
 
+  function addWave40To50ExplodingBlubs(enemies, waveNumber) {
+    if (!Array.isArray(enemies) || waveNumber < 40 || waveNumber > 50) return enemies;
+    const blubCount = Math.max(1, Math.round(enemies.length * 0.15));
+    const lastScheduledDelay = enemies.length ? Math.max(...enemies.map(enemy => Number(enemy.delayMs || 0))) : 0;
+    const startDelay = Math.max(650, Math.round(lastScheduledDelay * 0.18));
+    const endDelay = Math.max(startDelay + 1, Math.round(lastScheduledDelay * 0.92));
+    const spacing = Math.max(80, Math.round((endDelay - startDelay) / Math.max(1, blubCount)));
+    for (let i = 0; i < blubCount; i += 1) {
+      const jitter = Math.round((Math.random() - 0.5) * Math.min(180, spacing * 0.55));
+      enemies.push({
+        type: 'skitter',
+        lane: pickRandom(LANE_NAMES),
+        delayMs: Math.max(0, startDelay + (i * spacing) + jitter),
+        scriptedExplodingBlub: true,
+        sourceWave: waveNumber,
+      });
+    }
+    return enemies;
+  }
+
   function addExtraBosses(enemies, waveNumber, extraBossCount, startDelay) {
     if (extraBossCount <= 0) return;
     const boss = BOSSES[(Math.floor(waveNumber / 5) - 1 + BOSSES.length) % BOSSES.length];
@@ -17308,14 +18023,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function applyWaveEnemyOverrides(waveNumber, enemies) {
     const elite = getEliteWaveConfig(waveNumber);
-    if (!elite) return enemies;
-    if (elite.skitters) {
-      addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * (waveNumber > 20 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
+    if (elite) {
+      if (elite.skitters) {
+        addMidWaveSkitters(enemies, waveNumber, Math.max(1, Math.round(elite.skitters * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * (waveNumber > 20 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), { extraDelay: 250, spacing: waveNumber === 100 ? 70 : 90, bursts: elite.skitterBursts || 1 });
+      }
+      if (elite.extraBosses) {
+        addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), 700);
+      }
     }
-    if (elite.extraBosses) {
-      addExtraBosses(enemies, waveNumber, Math.max(1, Math.round(elite.extraBosses * 0.8 * 0.75 * (waveNumber >= 15 ? 0.95 : 1) * getPostWave100EnemyCountMultiplier(waveNumber))), 700);
-    }
-    return enemies;
+    return addWave40To50ExplodingBlubs(enemies, waveNumber);
   }
   function buildStandardWave(waveNumber, pattern, sizeMultiplier) {
     const baseCount = Math.max(1, Math.round(getStandardWaveEnemyCount(waveNumber, sizeMultiplier) * (isEliteWave(waveNumber) ? 1 : 0.95) * 0.8 * (waveNumber > 20 ? 0.95 : 1) * GLOBAL_NON_BOSS_ENEMY_COUNT_MULTIPLIER));
@@ -17488,6 +18204,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       autoStartReadyAt: 0,
       autoStartToken: game.autoStartToken,
       bonusHeroHireCharges: game.bonusHeroHireCharges,
+      startWaveChoice: game.startWaveChoice,
+      startWaveHeroLevel: game.startWaveHeroLevel,
+      startWaveJumpPaid: !!game.startWaveJumpPaid,
+      startWaveFreeRerollsLeft: Number(game.startWaveFreeRerollsLeft || 0),
+      startWaveExtraHeroGranted: !!game.startWaveExtraHeroGranted,
       placingHeroUsesBonus: false,
       rebuildingBarriers: false,
       barrierRefitCount: game.barrierRefitCount,
@@ -17570,6 +18291,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       autoStartReadyAt: 0,
       autoStartToken: (game.autoStartToken || 0) + 1,
       bonusHeroHireCharges: game.bonusHeroHireCharges,
+      startWaveChoice: game.startWaveChoice,
+      startWaveHeroLevel: game.startWaveHeroLevel,
+      startWaveJumpPaid: !!game.startWaveJumpPaid,
+      startWaveExtraHeroGranted: !!game.startWaveExtraHeroGranted,
       placingHeroUsesBonus: false,
       rebuildingBarriers: false,
       barrierRefitCount: game.barrierRefitCount,
@@ -17890,7 +18615,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       connectBtn.textContent = 'Connecting...';
       if (statusEl) statusEl.textContent = 'Opening your wallet...';
       try {
+        game.bypassGuestConnectConfirmOnce = true;
+        game.bypassGuestConnectRestartOnce = true;
         const address = await window.DFKDefenseWallet.connectWallet();
+        game.bypassGuestConnectConfirmOnce = false;
+        game.bypassGuestConnectRestartOnce = false;
         if (address) {
           if (typeof refreshWalletEconomyDetails === 'function') refreshWalletEconomyDetails();
           refreshWalletState();
@@ -17899,8 +18628,12 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           statusEl.textContent = 'Wallet connection was canceled. Connect before resuming.';
         }
       } catch (error) {
+        game.bypassGuestConnectConfirmOnce = false;
+        game.bypassGuestConnectRestartOnce = false;
         if (statusEl) statusEl.textContent = error?.message || 'Wallet connection failed. Try again.';
       } finally {
+        game.bypassGuestConnectConfirmOnce = false;
+        game.bypassGuestConnectRestartOnce = false;
         connectBtn.disabled = false;
         refreshWalletState();
       }
@@ -17931,6 +18664,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       clearSavedGame();
       close();
       log('Saved game cleared. Starting fresh.');
+      if (getConnectedWalletAddress()) {
+        openStartWaveOnlyModal();
+      } else {
+        openStartModeModal();
+      }
     });
     refreshWalletState();
   }
@@ -18061,11 +18799,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function closeStartModeModal(options = {}) {
+    if (game.startModeWaveOnly
+      && (game.startWaveSubmitting || game.startWavePaymentPendingPromise)
+      && !options.allowStartWaveTransactionClose) {
+      setStartModeNote('Submitting your starting wave. Please finish the wallet transaction before closing this menu.');
+      return;
+    }
     if (els.startModeModal) {
       els.startModeModal.classList.add('hidden');
       els.startModeModal.setAttribute('aria-hidden', 'true');
       els.startModeModal.classList.remove('modal-primed-under-intro');
+      els.startModeModal.classList.remove('start-wave-only-mode');
     }
+    game.startModeWaveOnly = false;
     if (els.startModeNote) {
       els.startModeNote.textContent = '';
       els.startModeNote.classList.add('hidden');
@@ -18083,6 +18829,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function activateStartModeModalInteractive() {
     if (!els.startModeModal) return;
+    updateStartModeModalMode();
     renderStartWaveChoicePanel();
     els.startModeModal.classList.remove('modal-primed-under-intro');
     els.startModeModal.classList.add('start-mode-interactive');
@@ -18103,6 +18850,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     if (!els.startModeModal) return;
     if (!els.startModeNote) return;
     renderStartWaveChoicePanel();
+    updateStartModeModalMode();
     setBoardInputLocked(true);
     els.startModeNote.textContent = '';
     els.startModeNote.classList.add('hidden');
@@ -18214,6 +18962,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function openStartModeModal() {
     if (isReplayUrlView()) return;
+    if (!game.startWaveSubmitting && !game.startWavePaymentPendingPromise) {
+      clearPlayerStartWavePaymentCache();
+    }
+    game.startModeWaveOnly = false;
     closeIntroModal();
     closeBountyModal();
     closeQuestsModal();
@@ -18232,6 +18984,38 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     if (els.startModeModal) {
       els.startModeModal.classList.remove('hidden');
+      updateStartModeModalMode();
+      renderStartWaveChoicePanel();
+      activateStartModeModalInteractive();
+    }
+  }
+
+  function openStartWaveOnlyModal() {
+    if (isReplayUrlView()) return;
+    if (!game.startWaveSubmitting && !game.startWavePaymentPendingPromise) {
+      clearPlayerStartWavePaymentCache();
+    }
+    game.selectedStartWave = 20;
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    closeContinueOfferModal();
+    closeGuestConnectConfirmModal({ preserveIntroState: true });
+    game.startModeWaveOnly = true;
+    game.modalDismiss = null;
+    game.introOpen = true;
+    setBoardInputLocked(true);
+    document.body.classList.add('intro-open');
+    syncStatusOverlayVisibility(true);
+    if (els.startModeNote) {
+      els.startModeNote.textContent = '';
+      els.startModeNote.classList.add('hidden');
+    }
+    if (els.startModeModal) {
+      els.startModeModal.classList.remove('hidden');
+      updateStartModeModalMode();
       renderStartWaveChoicePanel();
       activateStartModeModalInteractive();
     }
@@ -18325,21 +19109,25 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function chooseGuestModeFromPrompt(event = null) {
     swallowModalEvent(event);
     if (game.startWaveSubmitting) return;
-    suppressBoardClicks(1200);
-    const startWave = getSelectedPlayerStartWave();
-    if (isPaidPlayerStartWave(startWave)) {
-      setStartModeNote(`Wave ${startWave} starts cost ${START_WAVE_JEWEL_COST} JEWEL. Connect your wallet to use that start.`);
-      renderStartWaveChoicePanel();
+    if (game.startModeWaveOnly) {
+      closeStartModeModal();
       return;
     }
+    suppressBoardClicks(1200);
+    const startWave = 1;
+    game.selectedStartWave = 1;
     setStartWaveSubmitting(true);
     game.setupGuideReady = false;
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
     closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
     resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave }).then((started) => {
-      if (!started) return;
+      if (!started) {
+        setStartWaveSubmitting(false);
+        return;
+      }
+      setStartWaveSubmitting(false);
       showBanner(startWave > 1 ? `Guest mode starts at wave ${startWave}. Click Start Next Wave when ready.` : 'Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
-      beginModeIntroStory();
+      openNewsAfterStartChoice({ beginSetupAfterClose: true });
     }).catch((error) => {
       setStartWaveSubmitting(false);
       openStartModeModal();
@@ -18347,8 +19135,61 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     });
   }
 
+  async function startNewRunFromWaveOnlyPrompt(event = null) {
+    swallowModalEvent(event);
+    if (game.startWaveSubmitting) return;
+    const startWave = getSelectedPlayerStartWave();
+    suppressBoardClicks(1600);
+    setStartWaveSubmitting(true);
+    try {
+      const paid = await payForPlayerStartWaveIfNeeded(startWave);
+      if (!paid) {
+        const note = els.startModeNote ? els.startModeNote.textContent : '';
+        setStartWaveSubmitting(false);
+        if (note) setStartModeNote(note);
+        return;
+      }
+      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true, allowStartWaveTransactionClose: true });
+      const started = await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave });
+      if (!started) {
+        setStartWaveSubmitting(false);
+        setBoardInputLocked(false);
+        return;
+      }
+      setStartWaveSubmitting(false);
+      showBanner(startWave > 1 ? `Starting at wave ${startWave}; click Start Next Wave when ready.` : 'New run ready. Click Start Next Wave when ready.', 3200);
+      openNewsAfterStartChoice({ beginSetupAfterClose: true });
+    } catch (error) {
+      setStartWaveSubmitting(false);
+      setBoardInputLocked(false);
+      setStartModeNote(error?.message || 'Could not start the new run.');
+    }
+  }
+
+  function isGuestModeRunActive() {
+    return !!(game.difficultyProfile?.guestMode && !game.runWalletConnected);
+  }
+
+  function handleNewRunClick(event = null) {
+    if (event) swallowModalEvent(event);
+    if (game.startWaveSubmitting) return;
+    if (rerollPaidStartRandomBarriers()) return;
+    if (isGuestModeRunActive()) {
+      game.selectedStartWave = 1;
+      resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave: 1 }).then((started) => {
+        if (started) showBanner('Guest mode restarted at wave 1.', 2600);
+      }).catch((error) => showBanner(error?.message || 'Could not start a new guest run.', 2600));
+      return;
+    }
+    openStartWaveOnlyModal();
+  }
+
   async function chooseConnectModeFromPrompt(event = null) {
     swallowModalEvent(event);
+    if (game.startModeWaveOnly) {
+      await startNewRunFromWaveOnlyPrompt(event);
+      return;
+    }
     if (game.startWaveSubmitting) return;
     suppressBoardClicks(2000);
     setStartWaveSubmitting(true);
@@ -18364,18 +19205,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     try {
       const address = await window.DFKDefenseWallet.connectWallet();
       if (address) {
-        const startWave = getSelectedPlayerStartWave();
-        const paid = await payForPlayerStartWaveIfNeeded(startWave);
-        if (!paid) {
-          const note = els.startModeNote ? els.startModeNote.textContent : '';
-          setStartWaveSubmitting(false);
-          openStartModeModal();
-          if (note) setStartModeNote(note);
-          return;
-        }
-        await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave });
-        showBanner(startWave > 1 ? `Wallet connected. Starting at wave ${startWave}; click Start Next Wave when ready.` : 'Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
-        beginModeIntroStory();
+        setStartWaveSubmitting(false);
+        showBanner('Wallet connected. Choose your starting wave.', 2200);
+        openStartWaveOnlyModal();
       } else {
         setStartWaveSubmitting(false);
         openStartModeModal();
@@ -18653,6 +19485,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.autoStartReadyAt = 0;
     game.autoStartToken = snap.autoStartToken;
     game.bonusHeroHireCharges = 0;
+    game.startWaveChoice = normalizePlayerStartWave(snap.startWaveChoice || game.startWaveChoice || 1);
+    game.startWaveHeroLevel = Math.max(1, Number(snap.startWaveHeroLevel || getPlayerStartHeroLevel(game.startWaveChoice)));
+    game.startWaveJumpPaid = !!snap.startWaveJumpPaid;
+    game.startWaveFreeRerollsLeft = Math.max(0, Number(snap.startWaveFreeRerollsLeft || 0));
+    game.startWaveExtraHeroGranted = !!snap.startWaveExtraHeroGranted;
     game.placingHeroUsesBonus = false;
     game.rebuildingBarriers = false;
     game.barrierRefitCount = snap.barrierRefitCount;
@@ -18756,7 +19593,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     recordReplayEvent('wave_start', { nextWave: Number(game.waveNumber || 0) + 1, liveWaveCount: getLiveWaveCount() });
     if (requireChampionSelectionBeforeStart()) {
       game.championModalForceChoice = true;
-      showChampionModal(true);
+      showChampionInfoModal();
       showBanner('Choose a champion before the run begins.', 2200);
       return;
     }
@@ -19118,8 +19955,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     enemy.navCommitUntil = current + 600;
     enemy.lastStallRecoveryAt = current;
     moveEnemyToStep(enemy, bestStep, current);
-    enemy.moveEndAt = current + Math.min(220, getEnemyMoveMs(enemy));
-    enemy.nextMoveAt = enemy.moveEndAt;
     markProgress(`${enemy.name} recovered forward movement.`);
     return true;
   }
@@ -19400,12 +20235,20 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     if (finalWaveNumber >= 10) if (!game.weeklyBountyRunReached10) { updateWeeklyBountyMetric('runsReach10', 1); game.weeklyBountyRunReached10 = true; }
     if (finalWaveNumber >= 20) if (!game.weeklyBountyRunReached20) { updateWeeklyBountyMetric('runsReach20', 1); game.weeklyBountyRunReached20 = true; }
-    const milestoneHeroOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneHeroOffer(plan.waveNumber) ? getMilestoneHeroOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
+    let milestoneHeroOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneHeroOffer(plan.waveNumber) ? getMilestoneHeroOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
+    if (!milestoneHeroOfferConfig) {
+      const startSkipPlan = [...clearedPlans].reverse().find(plan => shouldGrantStartWaveExtraHero(plan.waveNumber));
+      if (startSkipPlan) {
+        const wave = Number(startSkipPlan.waveNumber || 0);
+        milestoneHeroOfferConfig = { wave, burnCost: Number(MILESTONE_HERO_OFFER_COSTS[wave] || 100000), heroLevel: getPlayerStartHeroLevel(wave), startWaveSkipBonus: true };
+        game.startWaveExtraHeroGranted = true;
+      }
+    }
     const milestoneBarrierOfferConfig = [...clearedPlans].reverse().map(plan => canOpenMilestoneBarrierOffer(plan.waveNumber) ? getMilestoneBarrierOfferConfig(plan.waveNumber) : null).find(Boolean) || null;
     if (milestoneHeroOfferConfig) {
       openMilestoneHeroOffer(milestoneHeroOfferConfig);
-      showBanner(`Help has arrived at wave ${milestoneHeroOfferConfig.wave}.`, 2600);
-      log(`Milestone hero offer unlocked after wave ${milestoneHeroOfferConfig.wave}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (`${DFK_EXTRA_HERO_JEWEL_COST} JEWEL or ${getDfkPaymentLabelForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk')}`)}.`);
+      showBanner(milestoneHeroOfferConfig.startWaveSkipBonus ? `Wave ${milestoneHeroOfferConfig.wave} skip bonus: paid extra hero offer unlocked.` : `Help has arrived at wave ${milestoneHeroOfferConfig.wave}.`, 2600);
+      log(`${milestoneHeroOfferConfig.startWaveSkipBonus ? 'Start-wave skip' : 'Milestone'} hero offer unlocked after wave ${milestoneHeroOfferConfig.wave}: hire one level ${milestoneHeroOfferConfig.heroLevel} hero of your choice for ${canUseAvaxRailsPurchases() ? formatAvaxValue(AVAX_MILESTONE_HERO_WEI) : (`${DFK_EXTRA_HERO_JEWEL_COST} JEWEL or ${getDfkPaymentLabelForJewelAmount(DFK_EXTRA_HERO_JEWEL_COST, 'honk')}`)}.`);
     }
     if (milestoneBarrierOfferConfig) {
       openMilestoneBarrierOffer(milestoneBarrierOfferConfig);
@@ -20287,6 +21130,24 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function getMoosiferReturnBlockerPlan(enemy) {
     if (!enemy || enemy.moosiferPhase !== 'returning') return null;
+    const lockedId = enemy.moosiferReturnBlockerTargetId || enemy.aggroTargetId || '';
+    if (lockedId) {
+      const lockedTower = (game.towers || []).find(tower => tower && tower.id === lockedId && tower.hp > 0 && (isStatueTower(tower) || tower.type === 'warrior'));
+      if (lockedTower) {
+        if (dist(enemy, lockedTower) <= 1) return { tower: lockedTower, attackNow: true, path: null, locked: true };
+        const approachTiles = getTowerApproachTiles(lockedTower);
+        if (approachTiles.length) {
+          const path = pathfind({ x: enemy.x, y: enemy.y }, approachTiles, {
+            enemy,
+            avoidBacktrack: false,
+            softCrowd: false,
+          });
+          if (path && path.length > 1) return { tower: lockedTower, attackNow: false, path, locked: true };
+        }
+      }
+      enemy.moosiferReturnBlockerTargetId = '';
+      if (enemy.aggroTargetId === lockedId) enemy.aggroTargetId = null;
+    }
     const blockers = (game.towers || [])
       .filter(tower => tower && tower.hp > 0 && (isStatueTower(tower) || tower.type === 'warrior'))
       .sort((a, b) => {
@@ -20438,19 +21299,25 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const adjacentBlocker = getAdjacentMoosiferReturnBlockerTarget(enemy);
       if (adjacentBlocker) {
         attackTarget = adjacentBlocker;
+        enemy.moosiferReturnBlockerTargetId = adjacentBlocker.id;
+        enemy.aggroTargetId = adjacentBlocker.id;
+        enemy.targetPath = [];
       }
     }
 
     if (!attackTarget && enemy.moosiferPhase === 'returning') {
-      const statuePlan = getPreferredStatueTarget(enemy);
+      const lockedBlockerPlan = getMoosiferReturnBlockerPlan(enemy);
+      const statuePlan = lockedBlockerPlan?.tower ? null : getPreferredStatueTarget(enemy);
       const portalPath = pathfind({ x: enemy.x, y: enemy.y }, getPortalTargets(), { enemy, avoidBacktrack: false, softCrowd: false });
       const needsBlockerPlan = forceBlocker || !portalPath || portalPath.length <= 1;
-      const blockerPlan = needsBlockerPlan ? getMoosiferReturnBlockerPlan(enemy) : null;
-      const chosenPlan = statuePlan?.tower ? statuePlan : blockerPlan;
+      const blockerPlan = lockedBlockerPlan?.tower ? lockedBlockerPlan : (needsBlockerPlan ? getMoosiferReturnBlockerPlan(enemy) : null);
+      const chosenPlan = blockerPlan?.tower ? blockerPlan : statuePlan;
       if (chosenPlan?.tower) {
         enemy.aggroTargetId = chosenPlan.tower.id;
+        enemy.moosiferReturnBlockerTargetId = chosenPlan.tower.id;
         if (chosenPlan.attackNow || dist(enemy, chosenPlan.tower) <= 1) {
           attackTarget = chosenPlan.tower;
+          enemy.targetPath = [];
         } else if (chosenPlan.path && chosenPlan.path.length > 1) {
           targets = chosenPlan.path.slice(-1);
           enemy.targetPath = chosenPlan.path;
@@ -20505,6 +21372,12 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           damageTower(game, attackTarget, enemy.damage, `Moosifer gored ${attackTarget.name}`, enemy);
           createExplosionEffect(attackTarget.x, attackTarget.y, 'enemy', 0.35, 900, RED_FIRE_GIF_PATH, 'moosifer-attack-fire');
           markProgress(`Moosifer gored ${attackTarget.name}.`);
+          if (Number(attackTarget.hp || 0) <= 0 && enemy.moosiferReturnBlockerTargetId === attackTarget.id) {
+            enemy.moosiferReturnBlockerTargetId = '';
+            if (enemy.aggroTargetId === attackTarget.id) enemy.aggroTargetId = null;
+            enemy.targetPath = [];
+            clearEnemyRouteCache(enemy);
+          }
         }
         enemy.nextAttackAt = current + (enemy.attackInterval * (1 + getBlindingLightAttackSlowPercent(enemy))) * 1000;
       }
@@ -21268,8 +22141,16 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const toTileY = Number.isFinite(Number(enemy.motionToY)) ? Number(enemy.motionToY) : Number(enemy.y);
     const fromPos = getTilePixelPosition(fromTileX, fromTileY);
     const toPos = getTilePixelPosition(toTileX, toTileY);
-    const fromCenter = { x: fromPos.left + fromPos.width / 2, y: fromPos.top + fromPos.height / 2 };
-    const toCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
+    const fallbackFromCenter = { x: fromPos.left + fromPos.width / 2, y: fromPos.top + fromPos.height / 2 };
+    const fallbackToCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
+    const fromPixelKey = `${fromTileX},${fromTileY}`;
+    const toPixelKey = `${toTileX},${toTileY}`;
+    const fromCenter = enemy.motionFromPixelKey === fromPixelKey && Number.isFinite(Number(enemy.motionFromPx)) && Number.isFinite(Number(enemy.motionFromPy))
+      ? { x: Number(enemy.motionFromPx), y: Number(enemy.motionFromPy) }
+      : fallbackFromCenter;
+    const toCenter = enemy.motionToPixelKey === toPixelKey && Number.isFinite(Number(enemy.motionToPx)) && Number.isFinite(Number(enemy.motionToPy))
+      ? { x: Number(enemy.motionToPx), y: Number(enemy.motionToPy) }
+      : fallbackToCenter;
     const startedAt = Number(enemy.moveStartedAt || 0);
     const endAt = Number(enemy.moveEndAt || 0);
     const rawProgress = startedAt > 0 && endAt > startedAt
@@ -21935,7 +22816,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         const moosiferFrostFrozen = enemy.isMoosifer && !!enemy.debuffs?.stunned && enemy.debuffs.stunned.sourceAbility === 'moosifer_frost_freeze';
         dot.style.filter = enemy.isMoosifer
           ? (moosiferFrostFlash || moosiferFrostFrozen
-            ? `hue-rotate(235deg) saturate(2.35) brightness(1.18) drop-shadow(0 0 18px rgba(180,105,255,0.9))`
+            ? `hue-rotate(185deg) saturate(1.65) brightness(1.45) contrast(1.08) drop-shadow(0 0 22px rgba(150,220,255,0.95)) drop-shadow(0 0 10px rgba(230,248,255,0.85))`
             : `drop-shadow(0 0 ${Number(enemy.moosiferInvulnerableUntil || 0) > current ? 18 : 10}px rgba(255,88,20,0.75)) saturate(1.15)`)
           : getBossVisualFilter(enemy);
         dot.style.transformOrigin = 'center center';
@@ -22114,6 +22995,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const liveWaveGoldBonusMultiplier = getLiveWaveGoldBonusMultiplier();
     if (liveWaveGoldBonusMultiplier > 1) jewel *= liveWaveGoldBonusMultiplier;
     game.jewel += jewel;
+    if (jewel > 0) pulseGoldPill();
     updateQuestMetric('killsTotal', 1);
     updateWeeklyBountyMetric('killsTotal', 1);
     if (enemy.isBoss) {
@@ -22196,7 +23078,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       : `<button id="moosiferDefeatedCloseBtn" type="button" class="secondary">${claimed ? 'Already claimed by another player' : 'Close'}</button>`;
     modal.innerHTML = `
       <div class="intro-modal-card panel moosifer-boss-modal" role="dialog" aria-modal="true" aria-labelledby="moosiferDefeatedTitle">
-        <div class="intro-modal-header"><div><div class="intro-kicker">Moosifer</div><h2 id="moosiferDefeatedTitle">Moosifer Deafeated! You are a true hero!</h2></div></div>
+        <div class="intro-modal-header"><div><div class="intro-kicker">Moosifer</div><h2 id="moosiferDefeatedTitle">Moosifer Defeated! You are a true hero!</h2></div></div>
         <div class="intro-body moosifer-boss-body">
           <img class="moosifer-boss-img" src="assets/moosifer-attack.gif" alt="Moosifer defeated">
           <p id="moosiferClaimStatus">${claimAvailable ? 'You are eligible for the first-kill 500 Jewel reward.' : (claimed ? 'Already claimed by another player.' : 'The 500 Jewel reward is currently disabled for testing.')}</p>
@@ -23020,6 +23902,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     else if (Array.isArray(game.relicChoices) && game.relicChoices.length) pushUnique('Choose a relic');
     if (game.continueOfferPending) pushUnique('Resolve your reward choice');
     if (hasActiveMilestoneOffer()) pushUnique('Resolve the milestone offer');
+    if (requiresAdvancedStartHeroMinimum() && game.walletHeroLoadPending) pushUnique('Wait for NFT search to finish');
+    if (requireChampionSelectionBeforeStart()) pushUnique('Choose your champion');
+    if (requiresAdvancedStartHeroMinimum() && getPlacedCoreHeroCount() < 5) pushUnique(`Place at least 5 heroes before starting this skipped wave (${getPlacedCoreHeroCount()}/5)`);
     if (!game.moosiferDefeatedThisRun && Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) >= MOOSIFER_BOSS_WAVE - 1 && getLiveWaveCount() > 0) pushUnique('Finish the live wave before the Moosifer gate');
     if (Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE && game.moosiferIntroShownForRun && !game.moosiferFightReady) pushUnique('Use the Moosifer intro to ready the fight');
     if (getLiveWaveCount() >= MAX_LIVE_WAVES) pushUnique('Wait for a live wave slot to open');
@@ -23029,20 +23914,21 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function syncStartWaveButtonState() {
     if (!els.startWaveBtn) return false;
-    const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending;
+    const blockers = getStartWaveBlockers();
+    const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending && !blockers.length;
     els.startWaveBtn.disabled = !canStart;
     const liveCount = getLiveWaveCount();
     const moosiferReady = Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE && !!game.moosiferFightReady;
     els.startWaveBtn.textContent = moosiferReady ? 'FIGHT MOOSIFER' : (liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave'));
     els.startWaveBtn.classList.toggle('moosifer-fight-ready', moosiferReady);
     const hintEl = ensureStartWaveHintEl();
-    const blockers = canStart ? [] : getStartWaveBlockers();
-    const hintText = blockers.length ? blockers.join('\n') : 'Finish setup to begin the wave';
+    const visibleBlockers = canStart ? [] : blockers;
+    const hintText = visibleBlockers.length ? visibleBlockers.join('\n') : 'Finish setup to begin the wave';
     els.startWaveBtn.title = els.startWaveBtn.disabled ? hintText : '';
     els.startWaveBtn.setAttribute('aria-label', els.startWaveBtn.disabled ? `Start Next Wave unavailable. ${hintText.replace(/\n/g, '. ')}` : 'Start Next Wave');
     if (hintEl) {
       if (els.startWaveBtn.disabled) {
-        hintEl.innerHTML = blockers.length ? blockers.map(message => `• ${message}`).join('<br>') : '• Finish setup to begin the wave';
+        hintEl.innerHTML = visibleBlockers.length ? visibleBlockers.map(message => `&bull; ${message}`).join('<br>') : '&bull; Finish setup to begin the wave';
         hintEl.hidden = false;
       } else {
         hintEl.innerHTML = '';
@@ -23142,12 +24028,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   const damageReportStyle = document.createElement('style');
   damageReportStyle.textContent = `
-    .start-wave-choice-panel { display: grid; gap: 10px; margin: 12px 0; padding: 10px; border: 1px solid rgba(245, 224, 120, 0.26); border-radius: 8px; background: rgba(7, 10, 22, 0.36); }
-    .start-wave-choice-title { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5df6d; }
-    .start-wave-choice-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
-    .start-wave-choice-btn { min-height: 58px; padding: 8px 6px; border: 1px solid rgba(245, 224, 120, 0.28); border-radius: 8px; background: rgba(18, 22, 42, 0.92); color: #f7f0d3; text-align: center; cursor: pointer; }
-    .start-wave-choice-btn span { display: block; font-weight: 800; font-size: 13px; }
-    .start-wave-choice-btn small { display: block; margin-top: 4px; font-size: 9px; line-height: 1.2; color: rgba(239, 232, 200, 0.72); }
+    #startModeModal.start-wave-only-mode .intro-modal-card { width: min(920px, calc(100vw - 32px)); max-width: min(920px, calc(100vw - 32px)); }
+    #startModeModal.start-wave-only-mode .intro-modal-header { min-height: 0; padding-top: 8px; padding-bottom: 8px; }
+    #startModeModal.start-wave-only-mode .intro-modal-header h2 { margin: 0; line-height: 1.1; }
+    .start-wave-choice-panel { display: grid; gap: 12px; margin: 12px 0; padding: 12px; border: 1px solid rgba(245, 224, 120, 0.26); border-radius: 8px; background: rgba(7, 10, 22, 0.36); }
+    .start-wave-choice-title { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5df6d; }
+    .start-wave-choice-copy { margin: -3px 0 0; font-size: 15px; line-height: 1.42; color: rgba(247, 240, 211, 0.92); }
+    .start-wave-choice-reroll { margin: -2px 0 0; padding: 8px 10px; border: 1px solid rgba(255, 241, 107, 0.34); border-radius: 8px; background: rgba(132, 101, 14, 0.24); color: #fff2a8; font-size: 15px; line-height: 1.35; font-weight: 700; }
+    .start-wave-choice-grid { display: grid; grid-template-columns: repeat(5, minmax(132px, 1fr)); gap: 10px; }
+    .start-wave-choice-btn { min-height: 76px; padding: 10px 8px; border: 1px solid rgba(245, 224, 120, 0.28); border-radius: 8px; background: rgba(18, 22, 42, 0.92); color: #f7f0d3; text-align: center; cursor: pointer; }
+    .start-wave-choice-btn span { display: block; font-weight: 800; font-size: 17px; }
+    .start-wave-choice-btn small { display: block; margin-top: 6px; font-size: 11px; line-height: 1.25; color: rgba(239, 232, 200, 0.78); }
     .start-wave-choice-btn.is-active { border-color: #fff16b; background: rgba(132, 101, 14, 0.94); box-shadow: 0 0 0 1px rgba(255, 241, 107, 0.28), 0 0 18px rgba(255, 211, 62, 0.25); }
     .start-wave-choice-btn.is-submitting,
     .start-wave-choice-btn:disabled { cursor: wait; opacity: 0.72; filter: saturate(0.75); }
@@ -23197,11 +24088,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   bindMenuAutoClose(els.mobileHireHost);
   bindMenuAutoClose(els.mobileFuncMenu);
   setViewportUnits();
+  ensureInfoPanelFloatToggle();
   syncMobileHosts();
   renderMobileAbilityDock();
   updateMobileBoardFit();
   window.addEventListener('resize', () => {
     syncMobileHosts();
+    if (game.infoPanelFloating) applyInfoPanelFloatState();
     renderMobileAbilityDock();
     updateMobileBoardFit();
   });
@@ -23209,7 +24102,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   els.startWaveBtn.addEventListener('click', () => {
     if (requireChampionSelectionBeforeStart()) {
       game.championModalForceChoice = true;
-      showChampionModal(true);
+      showChampionInfoModal();
       showBanner('CHAMPIONS DETECTED — choose one before the run begins.', 2200);
       return;
     }
@@ -23249,7 +24142,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
   });
 
-  els.restartBtn.addEventListener('click', resetGame);
+  els.restartBtn.addEventListener('click', handleNewRunClick);
   els.addGoldBtn?.addEventListener('click', grantTestGold);
   els.summonMoosiferBtn?.addEventListener('click', summonMoosiferForTest);
   els.moosiferDiffInput?.addEventListener('input', () => { getMoosiferDifficultyOverride(); updateMoosiferButtonState(); });
@@ -23848,14 +24741,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   els.introNextBtn?.addEventListener('click', () => {
     if (game.highValueRunPromptActive) {
       const statusEl = document.getElementById('highValueRunSessionStatus');
-      connectForHighValueRunSessionPrompt(els.introNextBtn, statusEl).then((ok) => {
+      const action = game.highValueRunPromptSubmitOnConfirm
+        ? submitHighValueRunFromPrompt(game.highValueRunPromptPayload, els.introNextBtn, statusEl)
+        : connectForHighValueRunSessionPrompt(els.introNextBtn, statusEl);
+      action.then((ok) => {
         if (!ok) return;
         const dismiss = game.modalDismiss;
-        game.highValueRunPromptActive = false;
-        game.highValueRunPromptResolve = null;
         game.modalDismiss = null;
-        closeIntroModal();
         if (typeof dismiss === 'function') dismiss();
+        closeIntroModal();
       });
       return;
     }
@@ -24069,8 +24963,18 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   });
 
   window.DFKDefenseBeforeConnect = async () => {
+    if (game.bypassGuestConnectConfirmOnce) {
+      game.bypassGuestConnectConfirmOnce = false;
+      game.pendingGuestConnectRestart = false;
+      return true;
+    }
     const guestSessionActive = !!(game.difficultyProfile?.guestMode && !game.runWalletConnected);
     if (!guestSessionActive) return true;
+    if (!game.portal) {
+      game.pendingGuestConnectRestart = true;
+      game.pendingGuestConnectNeedsWaveChoice = true;
+      return true;
+    }
     const guestRunInProgress = hasMeaningfulRunInProgress();
     if (!guestRunInProgress) {
       game.pendingGuestConnectRestart = true;
@@ -24082,19 +24986,37 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   };
 
   window.DFKDefenseAfterConnect = async () => {
+    const syncAdminAfterConnect = () => { try { syncWinstonAdminControls(); } catch (_error) {} };
+    if (game.bypassGuestConnectRestartOnce) {
+      game.bypassGuestConnectRestartOnce = false;
+      game.pendingGuestConnectRestart = false;
+      syncAdminAfterConnect();
+      return;
+    }
     const shouldRestartFromGuest = !!(game.pendingGuestConnectRestart || (game.difficultyProfile?.guestMode && !game.runWalletConnected));
-    if (!shouldRestartFromGuest) return;
+    if (!shouldRestartFromGuest) {
+      syncAdminAfterConnect();
+      return;
+    }
     game.pendingGuestConnectRestart = false;
+    if (game.pendingGuestConnectNeedsWaveChoice) {
+      game.pendingGuestConnectNeedsWaveChoice = false;
+      openStartWaveOnlyModal();
+      syncAdminAfterConnect();
+      return;
+    }
     const startWave = getSelectedPlayerStartWave();
     const paid = await payForPlayerStartWaveIfNeeded(startWave);
     if (!paid) {
       const note = els.startModeNote ? els.startModeNote.textContent : '';
       openStartModeModal();
       if (note) setStartModeNote(note);
+      syncAdminAfterConnect();
       return;
     }
     showBanner('Guest game canceled. Starting a tracked run.', 2600);
     await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave });
+    syncAdminAfterConnect();
   };
 
   window.DFKDefenseGameControl = {
@@ -24536,6 +25458,114 @@ style.innerHTML = `
 /* make the dailies / bounties lightwindow taller */
 .lightwindow, .modal, .overlay-container {
   min-height: 140% !important;
+}
+
+#infoPanel.info-panel-floating {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 1200 !important;
+  overflow: auto !important;
+  resize: none !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+#infoPanel.info-panel-floating #selectedInfo,
+.right-panel #selectedInfo,
+.mobile-hero-host #selectedInfo {
+  order: 30 !important;
+}
+#infoPanel.info-panel-floating #abilitiesPanel,
+.right-panel #abilitiesPanel,
+.mobile-hero-host #abilitiesPanel {
+  order: 20 !important;
+}
+#infoPanel.info-panel-floating .action-group,
+.right-panel .action-group,
+.mobile-hero-host .action-group {
+  order: 10 !important;
+}
+.info-panel-resize-handle {
+  display: none;
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  z-index: 2;
+  opacity: 0.75;
+}
+#infoPanel.info-panel-floating .info-panel-drag-handle {
+  display: block;
+}
+.info-panel-drag-handle {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 14px;
+  margin: -0.2rem 22px 0.2rem;
+  border-radius: 999px;
+  cursor: grab;
+  background: linear-gradient(90deg, rgba(255,241,122,0.15), rgba(255,241,122,0.65), rgba(255,241,122,0.15));
+  box-shadow: 0 0 10px rgba(255,241,122,0.25);
+}
+.info-panel-drag-handle:active {
+  cursor: grabbing;
+}
+.moosifer-fire-aura {
+  opacity: 1 !important;
+  mix-blend-mode: screen !important;
+  filter: saturate(1.6) brightness(1.15) drop-shadow(0 0 12px rgba(255, 32, 18, 0.65)) !important;
+}
+.moosifer-fire-aura-blob {
+  opacity: 0.25 !important;
+  background: radial-gradient(ellipse at 50% 72%, rgba(255, 230, 64, 0.72) 0%, rgba(255, 64, 20, 0.68) 34%, rgba(190, 0, 0, 0.5) 62%, rgba(120, 0, 0, 0) 100%) !important;
+  box-shadow: 0 0 18px rgba(255, 38, 18, 0.55), 0 -12px 24px rgba(255, 88, 18, 0.35) !important;
+}
+#infoPanel.info-panel-floating .info-panel-resize-handle {
+  display: block;
+}
+.info-panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-color: rgba(255, 241, 122, 0.85);
+  border-style: solid;
+}
+.info-panel-resize-top-left {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.info-panel-resize-top-left::after {
+  border-width: 2px 0 0 2px;
+}
+.info-panel-resize-top-right {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+.info-panel-resize-top-right::after {
+  border-width: 2px 2px 0 0;
+}
+.info-panel-resize-bottom-left {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+.info-panel-resize-bottom-left::after {
+  border-width: 0 0 2px 2px;
+}
+.info-panel-resize-bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.info-panel-resize-bottom-right::after {
+  border-width: 0 2px 2px 0;
 }
 `;
 document.head.appendChild(style);
