@@ -225,7 +225,7 @@
     });
     syncFlyoutSizing(items);
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="leaderboard-empty">No leaderboard data found for this range.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="leaderboard-empty">No leaderboard data found for this range.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (row, index) {

@@ -1,24 +1,4 @@
 
-function dfkForceIntroClosedUnlessManual() {
-  try {
-    if (window.__dfkAllowManualIntroOpen) return;
-    const modal = document.getElementById('introModal');
-    if (modal) {
-      modal.classList.add('hidden');
-      modal.setAttribute('aria-hidden', 'true');
-    }
-    document.body.classList.remove('intro-open');
-  } catch (error) {}
-}
-document.addEventListener('DOMContentLoaded', () => {
-  dfkForceIntroClosedUnlessManual();
-  setTimeout(dfkForceIntroClosedUnlessManual, 50);
-  setTimeout(dfkForceIntroClosedUnlessManual, 250);
-  setTimeout(dfkForceIntroClosedUnlessManual, 1000);
-});
-
-window.__dfkAllowManualIntroOpen = false;
-
 function getRarityClass(hero){
   if(hero.generation === 0) return "";
   const r = (hero.rarity || "").toLowerCase();
@@ -29,7 +9,7 @@ function getRarityClass(hero){
   return "";
 }
 
-// build: v46.9.1.297
+// build: v46.9.1.266
 
 let lastTouchEnd = 0;
 
@@ -97,7 +77,7 @@ const STORY_SCREENS = [
   { text: 'Even that almost was not enough. A fresh mass of cultists surged forward, and the Druid braced for collapse. Then fear hit the battlefield before the next champion did. The Dreadknight thundered from the woods, smashing the lead brute apart with a gauntleted fist. He headbutted one attacker dead, lifted another by the throat, tossed him skyward, and carved him into pieces with a blur of cuts. When numbers swarmed him, one colossal greave smashed into the ground and sent cultists flying as if the earth itself had rejected them. He cut through the horde with such brutal ease that the Druid realized this kind of slaughter was routine to him. But after the line broke, the Dreadknight removed his helmet and, for one fatal moment, dropped his guard. The Dark Summoner struck from behind. The giant stiffened and fell.', duration: 20000 },
   { text: 'Then the battlefield went calm. The Druid felt the haze lift and ran toward the fallen champion, only to stop as a small, glowing hand rested on his shoulder. The Sage had appeared beside him without a sound. She seemed far too slight for a battlefield like that — barefoot, radiant, a pristine rose in one hand — and yet when cultists rushed her, she raised the flower and the sky answered. Crimson petals descended in a cutting storm, shredding the attackers and holding the rest at bay until the horde broke and fled. Only then did she kneel beside the Dreadknight. His massive form dwarfed her, armor still hot and still humming with the strange magic that made it move like feather-light steel, yet she seemed untouched by the violence around her. Her small hand rested on his chest as she leaned close and whispered into the ear of a man nearly three times her size.', duration: 20000 },
   { text: 'For a breath, nothing happened. Then the Dreadknight’s eyes snapped open. He rose like a man dragged back from the abyss and looked down at her. “You’ll never let me go, will you?” he asked. The Sage only smiled. “No, my old friend. Probably not.” The Druid let out the breath he had been holding. The four champions stood together at last — Druid, Spellbow, Dragoon, and Dreadknight — and for the first time that night, the darkness retreated.', duration: 20000 },
-  { text: 'DFK DEFENDER', subtitle: 'CHAMPIONS', duration: 999999, noAnim: true, fieryFinal: true }
+  { text: 'DFK DEFENDER', subtitle: "MOOSIFER'S REVENGE", duration: 999999, noAnim: true, fieryFinal: true }
 ];
 
 
@@ -594,8 +574,14 @@ function getRandomTree(){
   const LIVE_DAMAGE_REPORT_WALLETS = Object.freeze((Array.isArray(window.DFK_LIVE_DAMAGE_REPORT_WALLETS) && window.DFK_LIVE_DAMAGE_REPORT_WALLETS.length
     ? window.DFK_LIVE_DAMAGE_REPORT_WALLETS
     : PRIVATE_ADMIN_WALLETS).map(address => String(address || '').trim().toLowerCase()).filter(Boolean));
+  const PLAYER_START_WAVE_OPTIONS = Object.freeze([1, 10, 20, 30, 40]);
+  const PAID_START_WAVE_MIN = 20;
+  const START_WAVE_JEWEL_COST = 1;
+  const MOOSIFER_FREE_RETRY_LIMIT = 2;
   const TEST_GOLD_GRANT_AMOUNT = 10000;
   const DAILY_QUEST_TEST_RESET_WALLET = '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
+  const WINSTON_ADMIN_WALLET = DAILY_QUEST_TEST_RESET_WALLET;
+  const WINSTON_ADMIN_ATTEMPTS_KEY = 'dfkWinstonAdminUnauthorizedAttempts:v1';
   const BOUNTY_PROGRESS_TEST_RESET_WALLET = DAILY_QUEST_TEST_RESET_WALLET;
   const CHAMPION_FAST_MODE_STORAGE_KEY = 'dfk_defender_champion_fast_mode_v1';
   const HIRE_COSTS = [25, 50, 88, 138];
@@ -603,6 +589,8 @@ function getRandomTree(){
   const UPGRADE_COST_MULTIPLIER = 3.3062;
   const ARCHER_BASE_ATTACK_INTERVAL = 1.29657803625;
   const ARCHER_HP_LEVEL_MULTIPLIER = 1.065;
+  const NON_WARRIOR_HP_GROWTH_PER_LEVEL = 1.0595;
+  const NON_WARRIOR_BASE_HP_MULTIPLIER = 0.85;
   const ARCHER_BASE_HP_MULTIPLIER = 0.9;
   const ARCHER_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.027075;
   const PIRATE_ATTACK_SPEED_GROWTH_PER_LEVEL = 0.045;
@@ -617,7 +605,7 @@ const FIREBOLT_BURN_TOTAL_HEALTH_PERCENT = 0.10;
 const FIREBOLT_BURN_DURATION_SECONDS = 10;
 const FIREBOLT_BURN_ICE_AURA_SLOW_BONUS = 0.05;
 const APP_VERSION = 'v10.3.5';
-const CURRENT_RUN_BUILD = 'V46.9.1.260';
+const CURRENT_RUN_BUILD = 'mo_testbed_v4';
 const REPLAY_STORAGE_VERSION = 1;
 const SOUL_SPLIT_EXPLOSION_MULTIPLIER = 4.5;
 const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
@@ -629,7 +617,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const ABILITY_DAMAGE_PER_LEVEL = 3;
   const PRAYER_OF_HEALING_HEAL_PERCENT = 0.03;
   const SEER_PASSIVE_HEAL_PERCENT_BASE = 0.005;
-  const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.01;
+  const SEER_PASSIVE_HEAL_PERCENT_LEVEL20 = 0.015;
   const SEER_PASSIVE_HEAL_INTERVAL_MS = 2000;
   const SAGE_GLOW_HEAL_INTERVAL_MS = 5000;
   const SAGE_GLOW_HEAL_PERCENT = 0.02;
@@ -640,8 +628,8 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const CHRONO_PURGE_DURATION_SECONDS = 6;
   const SEER_EVASION_CHANCE = 0.10;
   const KRAKEN_BASE_DAMAGE = 10.115;
-  const KRAKEN_SLOW_PERCENT = 0.40;
-  const KRAKEN_DURATION_SECONDS = 15;
+  const KRAKEN_SLOW_PERCENT = 0.75;
+  const KRAKEN_DURATION_SECONDS = 10;
   const KRAKEN_RANGE_BONUS = 3;
   const BLINDING_LIGHT_TOTEM_RANGE = 2;
   const BLINDING_LIGHT_TOTEM_SLOW_PERCENT = 0.25;
@@ -653,6 +641,7 @@ const SOUL_SPLIT_CHARGE_WAVE_INTERVAL = 15;
   const GLOBAL_NON_BOSS_ENEMY_COUNT_MULTIPLIER = 0.46059375;
   const GLOBAL_NON_BOSS_ENEMY_HP_MULTIPLIER = 1.452;
   const GLOBAL_NON_BOSS_ENEMY_SPEED_MULTIPLIER = 0.90;
+  const GLOBAL_ENEMY_DAMAGE_MULTIPLIER = 0.85;
   const GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER = 1.1025;
   const GLOBAL_BIG_ENEMY_COUNT_MULTIPLIER = 0.85;
   const GLOBAL_BIG_ENEMY_HP_MULTIPLIER = 1.15;
@@ -708,7 +697,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const GUEST_ARCHER_SHADOW_FADE_STAGE_TWO_WAVES = 11;
   let suppressNextUpgradeClick = false;
   const ENEMY_JEWEL_MULTIPLIER = 0.95;
-  const WARRIOR_HP_GROWTH_PER_LEVEL = 1.03975;
+  const WARRIOR_HP_GROWTH_PER_LEVEL = 1.0337875;
   const WARRIOR_DAMAGE_GROWTH_PER_LEVEL = 1.045;
   const WARRIOR_POST_WAVE30_DAMAGE_GROWTH_PER_LEVEL = 1 + ((WARRIOR_DAMAGE_GROWTH_PER_LEVEL - 1) * 0.75);
   const DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL = 1.035251407835505;
@@ -729,11 +718,14 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const GLOBAL_ENEMY_MOVE_INTERVAL_MULTIPLIER = 1.25;
   const ENEMY_MOVE_STEP_BUFFER_MS = 120;
   const MIN_ENEMY_VISUAL_MOVE_MS = 650;
-  const ENEMY_ROUTE_CACHE_TILES = 1;
-  const ENEMY_ROUTE_CACHE_TILES_LARGE = 1;
+  const ENEMY_ROUTE_CACHE_TILES = 3;
+  const ENEMY_ROUTE_CACHE_TILES_LARGE = 2;
   const MONK_PARTNER_DAMAGE_MULTIPLIER = 1.25;
   const MONK_PARTNER_SPEED_MULTIPLIER = 1.25;
   const MONK_PARTNER_RANGE_BONUS = 1;
+  const MOOSIFER_FROST_BONUS_DAMAGE_CURRENT_HP = 0.03;
+  const MOOSIFER_FROST_FREEZE_DURATION_SECONDS = 0.5;
+  const MOOSIFER_FROST_FREEZE_COOLDOWN_MS = 2000;
   const BERSERKER_WANDER_MIN_WAVES = 14;
   const BERSERKER_WANDER_MAX_WAVES = 20;
   const BERSERKER_WANDER_DURATION_WAVES = 7;
@@ -833,9 +825,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       abilities: [
         { key: 'warning_shot', name: 'Warning Shot', cooldown: 5.5 },
         { key: 'starboard_cannons', name: 'Starboard Cannons', cooldown: 9 },
-        { key: 'kraken', name: 'Kraken', cooldown: 10 },
+        { key: 'kraken', name: 'Kraken', cooldown: 0 },
       ],
-      passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 10th basic attack makes the target bleed for 10s, dealing 3% max HP per second and adding a 5% slow. Pirate basic attacks avoid bleeding enemies whenever possible.',
+      passive: 'Steal: +15% Gold from Pirate kills. Bloody Bastard: every 15th basic attack makes the target bleed for 10s, dealing 3% current HP per second and adding a 5% slow. Bleed is half as effective against bosses. Pirate basic attacks avoid bleeding enemies whenever possible.',
     },
     monk: {
       name: 'Monk',
@@ -848,6 +840,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       abilities: [
         { key: 'fast_fists', name: 'Fast Fists', cooldown: 4 },
         { key: 'windmill_kick', name: 'Windmill Kick', cooldown: 8 },
+        { key: 'frozen_fist', name: 'Frozen Fist', cooldown: 8 },
         { key: 'levitation', name: 'Levitation', cooldown: 0, passive: true },
         { key: 'training_partner', name: 'Training Partner', cooldown: 0, passive: true },
       ],
@@ -879,7 +872,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       ],
     },
     champion_sage: {
-      name: 'Sage', letter: 'SAG', hp: 1850, damage: 76, attackInterval: 1.1, range: 3, autoAttack: true,
+      name: 'Sage', letter: 'SAG', hp: 1850, damage: 60.8, attackInterval: 1.1, range: 3, autoAttack: true,
       abilities: [
         { key: 'champion_kiss_from_a_rose', name: 'Kiss From a Rose', cooldown: 5 },
         { key: 'champion_storm', name: 'Petal Storm', cooldown: 30 },
@@ -888,16 +881,16 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       ],
     },
     champion_dragoon: {
-      name: 'Dragoon', letter: 'DRG', hp: 2100, damage: 105, attackInterval: 1.0, range: 2, autoAttack: true,
+      name: 'Dragoon', letter: 'DRG', hp: 2100, damage: 63, attackInterval: 1.0, range: 2, autoAttack: true,
       abilities: [
         { key: 'champion_overpower', name: 'Overpower', cooldown: 5 },
         { key: 'champion_leadership', name: 'Leadership', cooldown: 0, passive: true },
-        { key: 'champion_point', name: 'Point', cooldown: 5 },
+        { key: 'champion_point', name: 'Point', cooldown: 12 },
         { key: 'champion_battle_hardened', name: 'Battle Hardened', cooldown: 0, passive: true },
       ],
     },
     champion_spellbow: {
-      name: 'Spellbow', letter: 'SPB', hp: 1550, damage: 78, attackInterval: 0.75, range: 99, autoAttack: true,
+      name: 'Spellbow', letter: 'SPB', hp: 1550, damage: 62.4, attackInterval: 0.75, range: 99, autoAttack: true,
       abilities: [
         { key: 'champion_not_an_archer', name: 'Lightning Shaft', cooldown: 18 },
         { key: 'champion_ok_maybe_archer', name: 'A Lot Of Arrows', cooldown: 25 },
@@ -1040,7 +1033,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'full_breakfast', name: 'Full Breakfast', desc: 'Spend 200 Gold to give the Warrior a big breakfast and increase her health by 15%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { hpMult: 1.15, healToMatchPercent: true }) },
     { id: 'potty_break', name: 'Potty Break', desc: 'Spend 200 Gold so the Warrior can relieve herself and gain 10% attack speed.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'warrior', { speedMult: 1.10 }) },
     { id: 'seasoned_seaman', name: 'Seasoned Seaman', desc: 'Spend 200 Gold to give the Pirate knowledge of the sea and increase his speed by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'pirate', { speedMult: 1.10 }) },
-    { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.pirateRangeAdd = Math.max(0, Number(game.modifiers.pirateRangeAdd || 0)) + 1; buffTowerType(game, 'pirate', { rangeAdd: 1 }); } },
+    { id: 'climb_the_mast', name: 'Climb the Mast', desc: 'Spend 300 Gold to send the Pirate up the mast and increase their range by 1 tile.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.pirateRangeBonus = Math.max(Number(game.modifiers.pirateRangeBonus || 0), 1); buffTowerType(game, 'pirate', { rangeAdd: 1 }); } },
     { id: 'mana_tornado', name: 'Mana Tornado', desc: 'Spend 300 Gold to teach the Wizard to channel mana faster and improve attack speed by 15%.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.wizardCooldown *= 0.85 },
     { id: 'master_assassin', name: 'Master Assassin', desc: 'Mythic. Archer Shadows never dissipate. Archer Shadow level ups cost 25% less, and Archer level ups cost 15% less.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.masterAssassin = true; game.modifiers.masterAssassinArcherShadowUpgradeDiscount = 0.25; game.modifiers.masterAssassinArcherUpgradeDiscount = 0.15; } },
     { id: 'mace_training', name: 'Mace Training', desc: 'Spend 300 Gold to arm the Priest with a crushing mace and grant a range 2 melee attack for 4.7 damage per level.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.maceTraining = true },
@@ -1051,6 +1044,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'paladin', name: 'Paladin', desc: 'Mythic. The Warrior loses 10% damage but heals for 4.5% of max health every second.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.paladin = true; buffTowerType(game, 'warrior', { damageMult: 0.90 }); } },
     { id: 'jack_sparrow', name: 'Jack Sparrow', desc: 'Mythic. Pirate gains 37.5% damage, but every attack or skill has a 10% chance to miss completely.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.jackSparrow = true; buffTowerType(game, 'pirate', { damageMult: 1.375 }); } },
     { id: 'ring_of_fire', name: 'Ring of Fire', desc: 'Spend 300 Gold and the Wizard gains a ring of fire that burns nearby enemies for 10% of Wizard damage each second while they pass through it.', cost: 300, rarity: 'legendary', apply: game => game.modifiers.ringOfFire = true },
+    { id: 'moosifers_bane', name: "Moosifer's Bane", desc: "Spend 300 Gold. All heroes deal 10% more damage to Moosifer. Moosifer relics stack with each other.", cost: 300, rarity: 'legendary', apply: game => { game.modifiers.moosiferDamageTakenMult = Math.max(0.01, Number(game.modifiers.moosiferDamageTakenMult || 1)) * 1.10; } },
+    { id: 'moosifers_chain', name: "Moosifer's Chain", desc: "Spend 300 Gold. Moosifer is slowed by 5%. Moosifer relics stack with each other.", cost: 300, rarity: 'legendary', apply: game => { game.modifiers.moosiferMoveIntervalMult = Math.max(0.01, Number(game.modifiers.moosiferMoveIntervalMult || 1)) * 1.05; } },
+    { id: 'snow_storm', name: 'Snow Storm', desc: "Spend 300 Gold. The Wizard conjures a snow storm that reduces Moosifer's damage by 10%. The Wizard does not need to be on the board. Moosifer relics stack with each other.", cost: 300, rarity: 'legendary', apply: game => { game.modifiers.moosiferDamageMult = Math.max(0.01, Number(game.modifiers.moosiferDamageMult || 1)) * 0.90; } },
     { id: 'wind_at_your_back', name: 'Wind at Your Back', desc: 'Spend 200 Gold and the wind favors your Archer, increasing damage by 10%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10 }) },
     { id: 'kraken_trainer', name: 'Kraken Trainer', desc: "Spend 200 Gold to teach the Pirate to master the Kraken and reduce Kraken cooldown by 2 seconds.", cost: 200, rarity: 'rare', apply: game => game.modifiers.krakenCooldownAdjust += 2 },
     { id: 'recurve_bow', name: 'Recurve Bow', desc: 'Spend 200 Gold to increase Archer damage by 10% and reduce attack speed by 5%.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'archer', { damageMult: 1.10, speedMult: 0.95 }) },
@@ -1061,10 +1057,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     { id: 'berserker_enraged', name: 'Enraged', desc: 'Spend 100 Gold. The Berserker screams at the enemy and gains 7% damage.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'berserker', { damageMult: 1.07 }) },
     { id: 'berserker_discard_useless_armor', name: 'Discard Useless Armor', desc: 'Spend 100 Gold. The Berserker removes a piece of useless armor and attacks 7% faster.', cost: 120, rarity: 'common', apply: game => buffTowerType(game, 'berserker', { speedMult: 1.07 }) },
     { id: 'berserker_stronger_shrooms', name: 'Stronger Shrooms', desc: 'Spend 200 Gold. The Berserker got an extra strong batch today, extending KITE by 2 waves.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.berserkerKiteExtraWaves += 2; } },
-    { id: 'berserker_adjusted_grip', name: 'Adjusted Grip', desc: 'Spend 200 Gold. The Berserker uses an unconventional two-handed grip that extends range by 1 tile.', cost: 200, rarity: 'rare', apply: game => buffTowerType(game, 'berserker', { rangeAdd: 1 }) },
+    { id: 'berserker_adjusted_grip', name: 'Adjusted Grip', desc: 'Spend 200 Gold. The Berserker uses an unconventional two-handed grip that extends range by 1 tile.', cost: 200, rarity: 'rare', apply: game => { game.modifiers.berserkerRangeBonus = Math.max(Number(game.modifiers.berserkerRangeBonus || 0), 1); buffTowerType(game, 'berserker', { rangeAdd: 1 }); } },
     { id: 'berserker_blood_debt', name: 'Blood Debt', desc: 'Spend 300 Gold. The Berserker gains 25% damage for the rest of the game but loses half of current HP at the start of every wave.', cost: 300, rarity: 'legendary', apply: game => { game.modifiers.berserkerBloodDebt = true; buffTowerType(game, 'berserker', { damageMult: 1.25 }); } },
     { id: 'berserker_frenzy_loop', name: 'Frenzy Loop', desc: "Spend 300 Gold. The Berserker's anger feeds her damage, gaining +5% damage per Berserker kill each wave. Resets each wave and caps at +150%.", cost: 300, rarity: 'legendary', apply: game => { game.modifiers.berserkerFrenzyLoop = true; } },
     { id: 'berserker_ghost_trail', name: 'Ghost Trail', desc: "Mythic. During KITE, the Berserker's ghost basic attacks for 50% of the Berserker's current damage.", cost: 0, rarity: 'mythic', apply: game => { game.modifiers.berserkerGhostTrail = true; } },
+    { id: 'moose_abuse', name: 'Moose Abuse', desc: 'Mythic. Moosifer is slowed by 5%, deals 5% less damage, and starts with 15% less health. Moosifer relics stack with each other.', cost: 0, rarity: 'mythic', apply: game => { game.modifiers.moosiferMoveIntervalMult = Math.max(0.01, Number(game.modifiers.moosiferMoveIntervalMult || 1)) * 1.05; game.modifiers.moosiferDamageMult = Math.max(0.01, Number(game.modifiers.moosiferDamageMult || 1)) * 0.95; game.modifiers.moosiferStartingHealthMult = Math.max(0.01, Number(game.modifiers.moosiferStartingHealthMult || 1)) * 0.85; } },
   ];
 
   const MUTATIONS = [
@@ -1094,6 +1091,16 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     pauseBtn: document.getElementById('pauseBtn'),
     introBtn: document.getElementById('introBtn'),
     newsBtn: document.getElementById('newsBtn'),
+    showSetupGuideBtn: document.getElementById('showSetupGuideBtn'),
+    winstonAdminBtn: document.getElementById('winstonAdminBtn'),
+    winstonAdminModal: document.getElementById('winstonAdminModal'),
+    closeWinstonAdminBtn: document.getElementById('closeWinstonAdminBtn'),
+    winstonAdminControls: document.getElementById('winstonAdminControls'),
+    adminStartWaveInput: document.getElementById('adminStartWaveInput'),
+    adminAllHeroLevelInput: document.getElementById('adminAllHeroLevelInput'),
+    applyAdminRunSetupBtn: document.getElementById('applyAdminRunSetupBtn'),
+    adminRunSetupStatus: document.getElementById('adminRunSetupStatus'),
+    winstonAdminAttempts: document.getElementById('winstonAdminAttempts'),
     loreBtn: document.getElementById('loreBtn'),
     bountyBtn: document.getElementById('bountyBtn'),
     questsBtn: document.getElementById('questsBtn'),
@@ -1118,6 +1125,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     newsModal: document.getElementById('newsModal'),
     newsBody: document.getElementById('newsBody'),
     closeNewsBtn: document.getElementById('closeNewsBtn'),
+    newsPrevBtn: document.getElementById('newsPrevBtn'),
+    newsNextBtn: document.getElementById('newsNextBtn'),
+    newsPageCount: document.getElementById('newsPageCount'),
     mobileFuncNewsBtn: document.getElementById('mobileFuncNewsBtn'),
     knownRelicsModal: document.getElementById('knownRelicsModal'),
     knownRelicsBody: document.getElementById('knownRelicsBody'),
@@ -1186,10 +1196,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     addGoldBtn: document.getElementById('addGoldBtn'),
     championFastModeBtn: document.getElementById('championFastModeBtn'),
     metisInfluenceDebugBtn: document.getElementById('metisInfluenceDebugBtn'),
-    postThirdPartyOutageBtn: document.getElementById('postThirdPartyOutageBtn'),
-    thirdPartyOutageBanner: document.getElementById('thirdPartyOutageBanner'),
-    thirdPartyOutageBannerMessage: document.getElementById('thirdPartyOutageBannerMessage'),
-    thirdPartyOutageBannerClose: document.getElementById('thirdPartyOutageBannerClose'),
+    summonMoosiferBtn: document.getElementById('summonMoosiferBtn'),
+    moosiferSummonControl: document.getElementById('moosiferSummonControl'),
+    moosiferDiffInput: document.getElementById('moosiferDiffInput'),
+    moosiferAdminStats: document.getElementById('moosiferAdminStats'),
     relicViewDfkgoldSwapBtn: document.getElementById('relicViewDfkgoldSwapBtn'),
     relicViewJewelGoldSwapBtn: document.getElementById('relicViewJewelGoldSwapBtn'),
     relicViewHonkGoldSwapBtn: document.getElementById('relicViewHonkGoldSwapBtn'),
@@ -1349,7 +1359,7 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   const SAVED_GAME_STORAGE_KEY = 'dfkDefenderSavedGame:v1';
   const SAVED_GAME_RESUME_LEDGER_KEY = 'dfkDefenderSavedGameResumeLedger:v1';
   const SAVED_GAME_MAX_RESUMES_PER_RUN = 3;
-
+  const SETUP_GUIDE_HIDE_STORAGE_KEY = 'dfkDefenderHideSetupGuide:v1';
 
   const game = {
     phase: SETUP_PHASES.PORTAL,
@@ -1441,6 +1451,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     runWalletConnected: false,
     difficultyProfile: createDifficultyProfileForRun({ connected: false }),
     runEntryCost: 3,
+    selectedStartWave: 1,
+    startWaveChoice: 1,
+    startWaveHeroLevel: 1,
+    startWaveJumpPaid: false,
+    startWaveSubmitting: false,
     milestoneJewelsGranted: {},
     portalHp: 2500,
     portalMaxHp: 2500,
@@ -1463,6 +1478,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     milestoneHeroOffersSeen: {},
     lastHeroPlacementReminderWave: 0,
     pendingMilestoneHeroPlacement: null,
+    setupGuideReady: false,
+    setupGuideDismissed: false,
+    setupGuideLastKey: '',
     ownedRelics: [],
     foundRelics: [],
     persistentKnownRelics: [],
@@ -1482,7 +1500,8 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       priestHealing: 1,
       sacredAura: false,
       pirateSteal: 0.15,
-      pirateRangeAdd: 0,
+      pirateRangeBonus: 0,
+      berserkerRangeBonus: 0,
       extraCannons: 0,
       shieldWall: false,
       rangerLine: false,
@@ -1516,6 +1535,10 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       berserkerBloodDebt: false,
       berserkerFrenzyLoop: false,
       berserkerGhostTrail: false,
+      moosiferDamageTakenMult: 1,
+      moosiferMoveIntervalMult: 1,
+      moosiferDamageMult: 1,
+      moosiferStartingHealthMult: 1,
     },
     logLimit: 120,
     bannerTimeout: null,
@@ -1541,7 +1564,9 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
     continueRetryCountdownPending: false,
     continueOfferPending: false,
     continueSnapshot: null,
-    resumedFromLocalSave: false,
+    moosiferFreeRetriesUsed: 0,
+    moosiferRetryOfferPending: false,
+    moosiferRetrySnapshot: null,
     eliteWarningAcknowledgedWave: 0,
     eliteFinalSpawnReleasedWave: 0,
     eliteFinalSpawnKilledWave: 0,
@@ -1550,6 +1575,12 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
       startedAt: null,
       submitted: false,
       weeklyMetricsStart: createEmptyWeeklyBountyMetrics(),
+    },
+    moosiferAttemptAdmin: {
+      loading: false,
+      error: '',
+      attempts: [],
+      loadedAt: null,
     },
     replayCapture: null,
     replayView: {
@@ -1877,11 +1908,11 @@ const BIG_ASS_SWORD_IMAGE_PATH = 'assets/big_ass_sword.png';
   }
 
   function canUseDailyQuestTestReset(walletAddress = getConnectedWalletAddress()) {
-    return normalizeAddress(walletAddress) === DAILY_QUEST_TEST_RESET_WALLET;
+    return normalizeAddress(walletAddress) === WINSTON_ADMIN_WALLET;
   }
 
   function canUseBountyProgressTestReset(walletAddress = getConnectedWalletAddress()) {
-    return normalizeAddress(walletAddress) === BOUNTY_PROGRESS_TEST_RESET_WALLET;
+    return normalizeAddress(walletAddress) === WINSTON_ADMIN_WALLET;
   }
 
   function getDailyQuestTestCycleStorageKey(playerKey, dateKey) {
@@ -2742,7 +2773,6 @@ function hasVisibleIntroStyleModal() {
     'trackedRunsModal',
     'bountyModal',
     'knownRelicsModal',
-    'newsModal',
     'continueOfferModal',
     'guestConnectConfirmModal',
     'seerIntroModal',
@@ -2966,16 +2996,7 @@ function formatQuestResetCountdown(dateKey) {
     closeKnownRelicsModal();
     game.modalDismiss = null;
     game.questBoardView = 'quests';
-    if (els.postThirdPartyOutageBtn && els.postThirdPartyOutageBtn.dataset.wired !== '1') {
-    els.postThirdPartyOutageBtn.dataset.wired = '1';
-    els.postThirdPartyOutageBtn.addEventListener('click', postThirdPartyOutageNotice);
-  }
-  if (els.thirdPartyOutageBannerClose && els.thirdPartyOutageBannerClose.dataset.wired !== '1') {
-    els.thirdPartyOutageBannerClose.dataset.wired = '1';
-    els.thirdPartyOutageBannerClose.addEventListener('click', dismissThirdPartyOutageBanner);
-  }
-
-  ensureDailyQuestBoard(true);
+    ensureDailyQuestBoard(true);
     renderDailyQuestsBoard();
     updateQuestBoardToggle();
     game.introOpen = true;
@@ -3562,6 +3583,142 @@ function formatQuestResetCountdown(dateKey) {
     } catch (error) {
       showBanner(error && error.message ? error.message : 'JEWEL trade failed.', 1800);
     }
+  }
+
+  function normalizePlayerStartWave(value) {
+    const requested = Math.floor(Number(value || 1));
+    return PLAYER_START_WAVE_OPTIONS.includes(requested) ? requested : 1;
+  }
+
+  function isPaidPlayerStartWave(waveNumber) {
+    return normalizePlayerStartWave(waveNumber) >= PAID_START_WAVE_MIN;
+  }
+
+  function getPlayerStartHeroLevel(waveNumber) {
+    const wave = normalizePlayerStartWave(waveNumber);
+    return Math.max(1, wave - 5);
+  }
+
+  function getPlayerStartGold(waveNumber) {
+    return Math.max(100, normalizePlayerStartWave(waveNumber) * 100);
+  }
+
+  function getSelectedPlayerStartWave() {
+    return normalizePlayerStartWave(game.selectedStartWave || game.startWaveChoice || 1);
+  }
+
+  function setSelectedPlayerStartWave(waveNumber) {
+    if (game.startWaveSubmitting) return;
+    game.selectedStartWave = normalizePlayerStartWave(waveNumber);
+    renderStartWaveChoicePanel();
+  }
+
+  function setStartWaveSubmitting(submitting) {
+    game.startWaveSubmitting = !!submitting;
+    renderStartWaveChoicePanel();
+    [els.guestModeChoiceBtn, els.connectModeChoiceBtn, els.closeStartModeBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = !!submitting;
+      btn.classList.toggle('is-busy', !!submitting);
+    });
+  }
+
+  function ensureStartWaveChoicePanel() {
+    if (!els.startModeModal) return null;
+    let panel = document.getElementById('playerStartWaveChoicePanel');
+    if (panel) return panel;
+    const card = els.startModeModal.querySelector('.intro-modal-card') || els.startModeModal;
+    panel = document.createElement('section');
+    panel.id = 'playerStartWaveChoicePanel';
+    panel.className = 'start-wave-choice-panel';
+    const note = els.startModeNote || card.querySelector('#startModeNote');
+    if (note && note.parentElement === card) card.insertBefore(panel, note);
+    else card.appendChild(panel);
+    panel.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target.closest('[data-player-start-wave]') : null;
+      if (!target) return;
+      swallowModalEvent(event);
+      if (game.startWaveSubmitting) return;
+      setSelectedPlayerStartWave(target.getAttribute('data-player-start-wave'));
+    });
+    return panel;
+  }
+
+  function renderStartWaveChoicePanel() {
+    const panel = ensureStartWaveChoicePanel();
+    if (!panel) return;
+    const selected = getSelectedPlayerStartWave();
+    const submitting = !!game.startWaveSubmitting;
+    panel.innerHTML = `
+      <div class="start-wave-choice-title">${submitting ? 'Submitting starting wave' : 'Choose starting wave'}</div>
+      <div class="start-wave-choice-grid">
+        ${PLAYER_START_WAVE_OPTIONS.map((wave) => {
+          const paid = isPaidPlayerStartWave(wave);
+          const active = wave === selected;
+          const heroLevel = getPlayerStartHeroLevel(wave);
+          const gold = getPlayerStartGold(wave);
+          return `<button type="button" class="start-wave-choice-btn ${active ? 'is-active' : ''} ${submitting ? 'is-submitting' : ''}" data-player-start-wave="${wave}" aria-pressed="${active ? 'true' : 'false'}" ${submitting ? 'disabled aria-disabled="true"' : ''}>
+            <span>${submitting ? 'Submitting...' : `Wave ${wave}`}</span>
+            <small>${submitting ? 'Please wait' : `${gold.toLocaleString()} gold &middot; heroes Lv ${heroLevel}${paid ? ` &middot; ${START_WAVE_JEWEL_COST} JEWEL` : ' &middot; free'}`}</small>
+          </button>`;
+        }).join('')}
+      </div>`;
+  }
+
+  async function payForPlayerStartWaveIfNeeded(waveNumber) {
+    const wave = normalizePlayerStartWave(waveNumber);
+    if (!isPaidPlayerStartWave(wave)) return true;
+    if (!getConnectedWalletAddress()) {
+      setStartModeNote(`Connect your wallet to start at wave ${wave}. Wave ${wave} costs ${START_WAVE_JEWEL_COST} JEWEL.`);
+      return false;
+    }
+    const paymentAsset = 'native_jewel';
+    const priceWei = getDfkPaymentWeiForJewelAmount(START_WAVE_JEWEL_COST, paymentAsset);
+    const priceLabel = getDfkPaymentLabelForJewelAmount(START_WAVE_JEWEL_COST, paymentAsset);
+    try {
+      setStartModeNote(`Confirm ${priceLabel} to start at wave ${wave}.`);
+      await performDfkJewelTrade('wave_jump_start', priceWei, `${priceLabel} wave ${wave} start`, {
+        paymentAsset,
+        treasuryAddress: DFK_JEWEL_TREASURY_ADDRESS,
+        startWave: wave,
+        heroStartLevel: getPlayerStartHeroLevel(wave),
+        startingGold: getPlayerStartGold(wave),
+      });
+      return true;
+    } catch (error) {
+      setStartModeNote(error && error.message ? error.message : `Wave ${wave} start payment failed.`);
+      return false;
+    }
+  }
+
+  function applyPlayerStartWaveToRun(waveNumber) {
+    const wave = normalizePlayerStartWave(waveNumber);
+    const heroLevel = getPlayerStartHeroLevel(wave);
+    game.startWaveChoice = wave;
+    game.startWaveHeroLevel = heroLevel;
+    game.startWaveJumpPaid = isPaidPlayerStartWave(wave);
+    game.jewel = getPlayerStartGold(wave);
+    game.waveNumber = wave - 1;
+    game.activeWaveBase = wave - 1;
+    game.nextWavePlan = sanitizeWavePlan(buildWavePlan(wave));
+    game.autoStartEnabled = false;
+    game.autoStartReadyAt = 0;
+    game.autoStartToken = (game.autoStartToken || 0) + 1;
+  }
+
+  function applyPlayerStartLevelToTower(tower) {
+    if (!tower || tower.isChampion || tower.isSatellite || tower.isSacrificeMonk) return;
+    const targetLevel = Math.max(1, Math.floor(Number(game.startWaveHeroLevel || 1)));
+    if (targetLevel > 1) levelTowerTo(tower, targetLevel);
+  }
+
+  function isAwaitingManualStartAfterWaveJump() {
+    const startWave = normalizePlayerStartWave(game.startWaveChoice || 1);
+    return startWave > 1
+      && Number(game.waveNumber || 0) === startWave - 1
+      && Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === startWave
+      && !game.runningWave
+      && getLiveWaveCount() <= 0;
   }
 
   function getActiveCryptoRailState() {
@@ -4555,8 +4712,6 @@ function formatQuestResetCountdown(dateKey) {
       goldOnHand: Math.max(0, Math.round(Number(game.jewel || 0))),
       premiumJewels: Math.max(0, Math.round(Number(game.premiumJewels || 0))),
       continueAvailable: hasAvailableLastChanceForRunTracking(),
-      resumedFromLocalSave: !!game.resumedFromLocalSave,
-      resumed_from_local_save: !!game.resumedFromLocalSave,
       paymentSummary,
       heroes: buildRunTrackingHeroes(),
       replayData: buildReplayPayload(result),
@@ -4571,13 +4726,92 @@ function formatQuestResetCountdown(dateKey) {
         crashed: Boolean(game.crashed),
         usedWalletHeroes: game.towers.some(t => !!t.walletHeroId),
         usedWalletHeroCount: game.towers.filter(t => !!t.walletHeroId).length,
-        resumedFromLocalSave: !!game.resumedFromLocalSave,
-        resumed_from_local_save: !!game.resumedFromLocalSave,
         dfkGoldBurnedTotal: Number(game.dfkGoldBurnedTotal || 0),
         foundRelicIds: Array.from(new Set((Array.isArray(game.foundRelics) ? game.foundRelics : []).map((id) => String(id || '').trim()).filter(Boolean))),
       },
     };
     return payload;
+  }
+
+  const HIGH_VALUE_RUN_SESSION_PROMPT_DEFAULT_WAVE = 30;
+
+  function getHighValueRunSessionPromptWave() {
+    const configured = Number(window.DFK_HIGH_VALUE_RUN_WAVE_THRESHOLD || window.DFK_HIGH_VALUE_RUN_SESSION_PROMPT_WAVE || 0);
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : HIGH_VALUE_RUN_SESSION_PROMPT_DEFAULT_WAVE;
+  }
+
+  function isHighValueRunPayload(payload) {
+    const threshold = getHighValueRunSessionPromptWave();
+    const waveReached = Number(payload && (payload.waveReached || payload.wavesCleared) || game.waveNumber || 0);
+    return Number.isFinite(waveReached) && waveReached >= threshold;
+  }
+
+  function getHighValueRunSessionPromptKey(payload) {
+    return String((payload && payload.clientRunId) || (game.runTracking && game.runTracking.clientRunId) || '');
+  }
+
+  async function connectForHighValueRunSessionPrompt(connectBtn, statusEl) {
+    if (connectBtn) connectBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Checking your wallet session...';
+    try {
+      if (!getConnectedWalletAddress() && window.DFKDefenseWallet && typeof window.DFKDefenseWallet.connectWallet === 'function') {
+        if (statusEl) statusEl.textContent = 'Opening wallet connection...';
+        await window.DFKDefenseWallet.connectWallet();
+      }
+      if (window.DFKRunTracker) {
+        if (statusEl) statusEl.textContent = 'Refreshing run-tracking session...';
+        const token = await refreshRunTrackerSessionToken(true);
+        if (token) {
+          if (statusEl) statusEl.textContent = 'Session refreshed. This run is ready to submit.';
+          showBanner('Run-tracking session refreshed.', 2200);
+          return true;
+        }
+      }
+      if (statusEl) statusEl.textContent = getConnectedWalletAddress()
+        ? 'Wallet is connected. Continue when you are ready.'
+        : 'Wallet connection was not completed. You can retry or continue.';
+      return !!getConnectedWalletAddress();
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error && error.message ? error.message : 'Could not refresh the session.';
+      return false;
+    } finally {
+      if (connectBtn) connectBtn.disabled = false;
+    }
+  }
+
+  function openHighValueRunSessionPrompt(payload) {
+    return new Promise((resolve) => {
+      const waveReached = Number(payload && (payload.waveReached || payload.wavesCleared) || game.waveNumber || 0);
+      game.highValueRunPromptActive = true;
+      game.highValueRunPromptResolve = resolve;
+      openAnnouncementModal({
+        kicker: 'High-Value Run',
+        title: 'Double-check your session',
+        bodyHtml: `
+          <p>This is a high-value run at wave ${escapeHtml(formatCompactNumber(waveReached))}. Before the result submits, double-check that your wallet and run-tracking session are solid.</p>
+          <p id="highValueRunSessionStatus" class="muted" style="margin-top:10px;">Click Connect here to refresh your session and submit this high-value run.</p>
+        `,
+        okText: 'Connect here',
+        onClose: () => {
+          game.highValueRunPromptActive = false;
+          game.highValueRunPromptResolve = null;
+          resolve(true);
+        },
+      });
+      if (els.closeIntroBtn) els.closeIntroBtn.classList.add('hidden');
+    });
+  }
+
+  async function maybeShowHighValueRunSessionPrompt(payload, options = {}) {
+    if (!options.force && !isHighValueRunPayload(payload)) return false;
+    if (!game.runTracking) return false;
+    const promptKey = getHighValueRunSessionPromptKey(payload);
+    if (promptKey && game.runTracking.highValueSessionPromptShownFor === promptKey) return false;
+    game.runTracking.highValueSessionPromptShownFor = promptKey || true;
+    await openHighValueRunSessionPrompt(payload);
+    return true;
   }
 
 
@@ -4767,227 +5001,6 @@ function formatQuestResetCountdown(dateKey) {
     return normalizeAddress(walletState.address || '');
   }
 
-  function isWalletConnectedForUi() {
-    return !!getConnectedWalletAddress();
-  }
-
-  function getRunTrackingSessionStateForUi() {
-    try {
-      if (!window.DFKRunTracker || typeof window.DFKRunTracker.getState !== 'function') {
-        return { hasTracker: false, hasSession: false, status: '' };
-      }
-      const trackerState = window.DFKRunTracker.getState() || {};
-      const session = trackerState.session || null;
-      const status = String(trackerState.status || '').trim();
-      const expiresAt = session && session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
-      const expired = !!(expiresAt && Date.now() >= expiresAt);
-      return {
-        hasTracker: true,
-        hasSession: !!session && !expired,
-        status,
-        expired,
-      };
-    } catch (_error) {
-      return { hasTracker: false, hasSession: false, status: '' };
-    }
-  }
-
-  function applyWalletControlVisual(control, disabled, message = 'Connect wallet to use this.') {
-    if (!control) return;
-    const shouldDisable = !!disabled;
-    control.disabled = shouldDisable;
-    control.classList.toggle('wallet-dependent-disabled', shouldDisable);
-    control.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
-    if (shouldDisable) {
-      if (!control.dataset.enabledTitle) control.dataset.enabledTitle = control.getAttribute('title') || '';
-      control.setAttribute('title', message);
-      control.style.setProperty('opacity', '0.36', 'important');
-      control.style.setProperty('filter', 'grayscale(0.9) saturate(0.4)', 'important');
-      control.style.setProperty('cursor', 'not-allowed', 'important');
-      control.style.setProperty('pointer-events', 'none', 'important');
-    } else {
-      const priorTitle = control.dataset.enabledTitle || '';
-      if (priorTitle) control.setAttribute('title', priorTitle);
-      else control.removeAttribute('title');
-      control.style.removeProperty('opacity');
-      control.style.removeProperty('filter');
-      control.style.removeProperty('cursor');
-      control.style.removeProperty('pointer-events');
-    }
-  }
-
-  function setWalletAttention(control, active, label = 'Connect wallet to continue.') {
-    if (!control) return;
-    control.classList.toggle('wallet-connect-attention', !!active);
-    if (active) {
-      control.setAttribute('title', label);
-      control.setAttribute('aria-live', 'polite');
-    }
-  }
-
-  function getWalletDependentProfileControls() {
-    return [
-      document.getElementById('saveVanityBtn'),
-      document.getElementById('enableTrackingBtn'),
-      document.getElementById('disableTrackingBtn'),
-      document.getElementById('clearStuckWavesBtn'),
-      document.getElementById('addGoldBtn'),
-      document.getElementById('championFastModeBtn'),
-      document.getElementById('metisInfluenceDebugBtn'),
-      document.getElementById('postThirdPartyOutageBtn'),
-      document.getElementById('relicViewDfkgoldSwapBtn'),
-      document.getElementById('relicViewJewelGoldSwapBtn'),
-      document.getElementById('relicViewHonkGoldSwapBtn'),
-    ].filter(Boolean);
-  }
-
-  function updateWalletDependentControls() {
-    const connected = isWalletConnectedForUi();
-    const trackerState = getRunTrackingSessionStateForUi();
-    const needsRunTrackingSession = connected && trackerState.hasTracker && !trackerState.hasSession;
-    const connectBtn = document.getElementById('connectWalletBtn');
-    const enableTrackingBtn = document.getElementById('enableTrackingBtn');
-    const disconnectBtn = document.getElementById('disconnectWalletBtn');
-    const vanityInput = document.getElementById('walletVanityInput') || document.getElementById('vanityNameInput');
-
-    if (connectBtn) {
-      connectBtn.disabled = false;
-      connectBtn.classList.remove('wallet-dependent-disabled');
-      connectBtn.style.removeProperty('opacity');
-      connectBtn.style.removeProperty('filter');
-      connectBtn.style.removeProperty('cursor');
-      connectBtn.style.removeProperty('pointer-events');
-      setWalletAttention(connectBtn, !connected, 'Connect wallet to unlock wallet actions.');
-    }
-
-    if (disconnectBtn) {
-      applyWalletControlVisual(disconnectBtn, !connected, 'Connect wallet first.');
-      disconnectBtn.classList.toggle('hidden', !connected);
-      disconnectBtn.setAttribute('aria-hidden', connected ? 'false' : 'true');
-    }
-
-    getWalletDependentProfileControls().forEach((control) => {
-      const hidden = control.classList.contains('hidden');
-      const shouldDisable = !connected || hidden;
-      applyWalletControlVisual(control, shouldDisable, connected ? 'Unavailable right now.' : 'Connect wallet to use this.');
-    });
-
-    if (enableTrackingBtn) {
-      setWalletAttention(enableTrackingBtn, needsRunTrackingSession && !enableTrackingBtn.classList.contains('hidden'), 'Enable run tracking and sign once to submit tracked runs.');
-    }
-
-    if (vanityInput) {
-      vanityInput.disabled = !connected;
-      vanityInput.classList.toggle('wallet-dependent-disabled', !connected);
-      if (!connected) {
-        vanityInput.setAttribute('title', 'Connect wallet to set a vanity name.');
-        vanityInput.style.setProperty('opacity', '0.42', 'important');
-        vanityInput.style.setProperty('filter', 'grayscale(0.75)', 'important');
-        vanityInput.style.setProperty('cursor', 'not-allowed', 'important');
-      } else {
-        vanityInput.removeAttribute('title');
-        vanityInput.style.removeProperty('opacity');
-        vanityInput.style.removeProperty('filter');
-        vanityInput.style.removeProperty('cursor');
-      }
-    }
-  }
-
-  const THIRD_PARTY_OUTAGE_BANNER_MESSAGE = "we're experiencing a third party outage, games should automatically be consumed when the third party comes back up";
-  const THIRD_PARTY_OUTAGE_ACTIVE_KEY = 'dfkThirdPartyOutageBannerActive:v1';
-  const THIRD_PARTY_OUTAGE_DISMISSED_KEY = 'dfkThirdPartyOutageBannerDismissed:v1';
-
-  function isThirdPartyOutageActive() {
-    try {
-      return localStorage.getItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY) === '1';
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  function setThirdPartyOutageActive(active) {
-    try {
-      if (active) localStorage.setItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY, '1');
-      else localStorage.removeItem(THIRD_PARTY_OUTAGE_ACTIVE_KEY);
-    } catch (_error) {}
-  }
-
-  function hasDismissedThirdPartyOutageBanner() {
-    try {
-      return localStorage.getItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY) === '1';
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  function setDismissedThirdPartyOutageBanner(dismissed) {
-    try {
-      if (dismissed) localStorage.setItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY, '1');
-      else localStorage.removeItem(THIRD_PARTY_OUTAGE_DISMISSED_KEY);
-    } catch (_error) {}
-  }
-
-  function renderThirdPartyOutageBanner(options = {}) {
-    const force = !!(options && options.force);
-    const active = force || isThirdPartyOutageActive();
-    const dismissed = hasDismissedThirdPartyOutageBanner();
-    const banner = els.thirdPartyOutageBanner || document.getElementById('thirdPartyOutageBanner');
-    const messageEl = els.thirdPartyOutageBannerMessage || document.getElementById('thirdPartyOutageBannerMessage');
-    if (!banner) return;
-    if (messageEl) messageEl.textContent = THIRD_PARTY_OUTAGE_BANNER_MESSAGE;
-    const shouldShow = active && (!dismissed || force);
-    banner.classList.toggle('hidden', !shouldShow);
-    banner.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-    document.body.classList.toggle('third-party-outage-banner-visible', shouldShow);
-  }
-
-  function postThirdPartyOutageNotice() {
-    setThirdPartyOutageActive(true);
-    setDismissedThirdPartyOutageBanner(false);
-    renderThirdPartyOutageBanner({ force: true });
-    showBanner('Third-party outage notice posted.', 2200);
-  }
-
-  function dismissThirdPartyOutageBanner() {
-    setDismissedThirdPartyOutageBanner(true);
-    renderThirdPartyOutageBanner();
-  }
-
-  function isThirdPartyOutageLikeError(error) {
-    const message = String(error && (error.message || error.details || error.error || error.code) || error || '').toLowerCase();
-    return message.includes('connection terminated due to connection timeout')
-      || message.includes('connection timeout')
-      || message.includes('third party')
-      || message.includes('521')
-      || message.includes('522')
-      || message.includes('failed to fetch')
-      || message.includes('edge_function_error')
-      || message.includes('internal server error')
-      || message.includes('supabase');
-  }
-
-  function maybeAutoPostThirdPartyOutageNotice(error) {
-    if (!isThirdPartyOutageLikeError(error)) return false;
-    setThirdPartyOutageActive(true);
-    renderThirdPartyOutageBanner();
-    return true;
-  }
-
-  function updateThirdPartyOutageButtonState() {
-    const btn = els.postThirdPartyOutageBtn || document.getElementById('postThirdPartyOutageBtn');
-    if (!btn) return;
-    const connected = isWalletConnectedForUi();
-    const allowed = connected && canUseChampionFastModeToggle();
-    btn.classList.toggle('hidden', connected && !allowed);
-    btn.disabled = !allowed;
-    btn.classList.toggle('wallet-dependent-disabled', !connected);
-    btn.textContent = isThirdPartyOutageActive() ? 'Repost Outage Notice' : 'Post Outage Notice';
-    btn.title = connected
-      ? (allowed ? 'Shows the yellow third-party outage notice to players on this browser/build.' : 'Connect the authorized test wallet to post outage notices.')
-      : 'Connect wallet to use this.';
-  }
-
-
   function createDifficultyProfileForRun(options = {}) {
     const connected = !!options.connected;
     return connected
@@ -5151,7 +5164,16 @@ function formatQuestResetCountdown(dateKey) {
     const leaderEl = document.getElementById('burnedGoldLeaderDisplay');
     if (leaderEl) leaderEl.style.display = 'none';
     const raffleEl = document.getElementById('dailyRaffleWinnerDisplay');
-    if (raffleEl) raffleEl.remove();
+    if (!raffleEl) return;
+    const winner00 = normalizeDailyRaffleWinnerEntry(getDailyRaffleWinnerBySlot(game.latestDailyRaffleWinners, '00'), '00');
+    const canShowWinner = isRaffleSlotWinnerDisplayable(winner00);
+    const nameMarkup = canShowWinner && winner00.winners && winner00.winners.length
+      ? winner00.winners.map((winner) => '<div class="raffle-winner-name">' + escapeHtml(winner.name || truncateWalletAddress(winner.wallet) || 'Pending next draw') + '</div>').join('')
+      : '<div class="raffle-winner-name">Pending next draw</div>';
+    const dateLabel = formatRaffleWinnerDateShort(getRaffleSlotDisplayDay(winner00));
+    const dateMarkup = dateLabel && dateLabel !== '--' ? '<div class="raffle-winner-date">' + escapeHtml(dateLabel) + '</div>' : '';
+    const winnerMarkup = '<div class="raffle-winner-pill raffle-winner-' + winner00.drawSlot + '">' + dateMarkup + '<div class="raffle-winner-title">' + escapeHtml(winner00.label) + '</div>' + nameMarkup + '</div>';
+    raffleEl.innerHTML = '<div class="raffle-winners-heading">Daily raffle winners</div><div class="raffle-winners-pills">' + winnerMarkup + '</div>';
   }
 
   function getSupabaseFunctionConfig() {
@@ -5545,57 +5567,18 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     return { baseUrl, key };
   }
 
-  const SUPABASE_REST_CIRCUIT_BREAKER_KEY = 'dfkSupabaseRestCircuitBreakerUntil';
-  const SUPABASE_REST_CIRCUIT_BREAKER_MS = 10 * 60 * 1000;
-
-  function isSupabaseRestCircuitBreakerOpen() {
-    try {
-      const until = Number(localStorage.getItem(SUPABASE_REST_CIRCUIT_BREAKER_KEY) || 0);
-      return Number.isFinite(until) && Date.now() < until;
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  function tripSupabaseRestCircuitBreaker(reason = '') {
-    try {
-      localStorage.setItem(SUPABASE_REST_CIRCUIT_BREAKER_KEY, String(Date.now() + SUPABASE_REST_CIRCUIT_BREAKER_MS));
-    } catch (_error) {}
-    if (reason) console.warn('[supabase-rest] disabled temporarily', reason);
-    try { maybeAutoPostThirdPartyOutageNotice(reason); } catch (_error) {}
-  }
-
-  function isSupabaseRestTransportError(error) {
-    const message = String(error && error.message ? error.message : error || '').toLowerCase();
-    return message.includes('failed to fetch')
-      || message.includes('net::err_failed')
-      || message.includes('cors')
-      || message.includes('521')
-      || message.includes('522')
-      || message.includes('rest query failed')
-      || message.includes('rest count failed');
-  }
-
   async function fetchSupabaseRestCount(table, selectColumn = 'wallet_address') {
-    if (isSupabaseRestCircuitBreakerOpen()) throw new Error('Supabase REST temporarily disabled.');
     const { baseUrl, key } = getSupabaseRestConfig();
     const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(selectColumn)}`;
-    let response;
-    try {
-      response = await fetch(endpoint, {
-        method: 'HEAD',
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-          Prefer: 'count=exact',
-        },
-      });
-    } catch (error) {
-      tripSupabaseRestCircuitBreaker(error && error.message ? error.message : 'REST count fetch failed');
-      throw error;
-    }
+    const response = await fetch(endpoint, {
+      method: 'HEAD',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: 'count=exact',
+      },
+    });
     if (!response.ok) {
-      if (response.status >= 500) tripSupabaseRestCircuitBreaker(`REST count failed for ${table}: ${response.status}`);
       throw new Error(`REST count failed for ${table}: ${response.status}`);
     }
     const range = String(response.headers.get('content-range') || '');
@@ -5604,27 +5587,19 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
   async function fetchSupabaseRestPaginated(table, columns, pageSize = 1000) {
-    if (isSupabaseRestCircuitBreakerOpen()) throw new Error('Supabase REST temporarily disabled.');
     const { baseUrl, key } = getSupabaseRestConfig();
     const rows = [];
     let from = 0;
-    const safePageSize = Math.min(250, Math.max(50, Number(pageSize || 250)));
     while (true) {
       const endpoint = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(columns)}`;
-      let response;
-      try {
-        response = await fetch(endpoint, {
-          method: 'GET',
-          headers: {
-            apikey: key,
-            Authorization: `Bearer ${key}`,
-            Range: `${from}-${from + safePageSize - 1}`,
-          },
-        });
-      } catch (error) {
-        tripSupabaseRestCircuitBreaker(error && error.message ? error.message : 'REST query fetch failed');
-        throw error;
-      }
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Range: `${from}-${from + pageSize - 1}`,
+        },
+      });
       const responseText = await response.text().catch(() => '');
       let payload = [];
       if (responseText) {
@@ -5635,14 +5610,13 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
         }
       }
       if (!response.ok) {
-        if (response.status >= 500) tripSupabaseRestCircuitBreaker(`REST query failed for ${table}: ${response.status}`);
         const message = Array.isArray(payload) ? '' : (payload && (payload.message || payload.error || ''));
         throw new Error(message || `REST query failed for ${table}: ${response.status}`);
       }
       const batch = Array.isArray(payload) ? payload : [];
       rows.push(...batch);
-      if (batch.length < safePageSize || rows.length >= 1000) break;
-      from += safePageSize;
+      if (batch.length < pageSize) break;
+      from += pageSize;
     }
     return rows;
   }
@@ -5688,7 +5662,36 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
   }
 
   async function fetchGlobalBurnedGoldTotalsViaRest() {
-    throw new Error('Direct Supabase REST disabled; use public-leaderboard or Edge Functions.');
+    let totalRuns = 0;
+    try {
+      totalRuns = await fetchSupabaseRestCount('runs', 'wallet_address');
+    } catch (_error) {
+      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
+      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
+      return {
+        total: summaryFromRuns.total,
+        totalRuns: summaryFromRuns.totalRuns,
+        topBurner: summaryFromRuns.topBurner,
+      };
+    }
+
+    try {
+      const burnRows = await fetchSupabaseRestPaginated('dfk_gold_burns', 'wallet_address,burn_amount,amount');
+      const burnSummary = summarizeBurnTotalsFromRows(burnRows);
+      return {
+        total: burnSummary.total,
+        totalRuns,
+        topBurner: burnSummary.topBurner,
+      };
+    } catch (_error) {
+      const runRows = await fetchSupabaseRestPaginated('runs', 'wallet_address,stats_json');
+      const summaryFromRuns = summarizeBurnTotalsFromRunRows(runRows);
+      return {
+        total: summaryFromRuns.total,
+        totalRuns: totalRuns || summaryFromRuns.totalRuns,
+        topBurner: summaryFromRuns.topBurner,
+      };
+    }
   }
 
   function findFirstNumericFieldDeep(value, fieldNames, depth = 0) {
@@ -5815,9 +5818,9 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function startGlobalBurnedGoldRefreshLoop() {
     if (game.globalDfkGoldRefreshTimer) return;
-    if (!isSupabaseRestCircuitBreakerOpen()) fetchGlobalBurnedGoldTotal(true).catch(() => {});
+    fetchGlobalBurnedGoldTotal(true).catch(() => {});
     game.globalDfkGoldRefreshTimer = window.setInterval(() => {
-      if (!isSupabaseRestCircuitBreakerOpen()) fetchGlobalBurnedGoldTotal(true).catch(() => {});
+      fetchGlobalBurnedGoldTotal(true).catch(() => {});
     }, 5 * 60 * 1000);
   }
 
@@ -6606,12 +6609,12 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function canUseTestGoldGrant() {
     const address = getConnectedWalletAddress();
-    return Boolean(address && TEST_GOLD_ADMIN_WALLETS.includes(address) && isRunTrackingEnabled());
+    return Boolean(address && normalizeAddress(address) === WINSTON_ADMIN_WALLET && isRunTrackingEnabled());
   }
 
   function canUseChampionFastModeToggle() {
     const address = getConnectedWalletAddress();
-    return Boolean(address && address === DAILY_QUEST_TEST_RESET_WALLET);
+    return Boolean(address && normalizeAddress(address) === WINSTON_ADMIN_WALLET);
   }
 
   function getChampionFastModeStorageKey() {
@@ -6630,25 +6633,22 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function updateChampionFastModeButtonState() {
     if (!els.championFastModeBtn) return;
-    const connected = isWalletConnectedForUi();
-    const allowed = connected && canUseChampionFastModeToggle();
+    const allowed = canUseChampionFastModeToggle();
     const enabled = isChampionFastModeEnabled();
-    els.championFastModeBtn.classList.toggle('hidden', connected && !allowed);
+    els.championFastModeBtn.classList.toggle('hidden', !allowed);
     els.championFastModeBtn.disabled = !allowed;
-    els.championFastModeBtn.classList.toggle('wallet-dependent-disabled', !connected);
     els.championFastModeBtn.textContent = `Champion Fast Mode: ${enabled ? 'On' : 'Off'}`;
-    els.championFastModeBtn.title = connected
-      ? (allowed ? (enabled ? 'Uses instant champion deploy timing for testing.' : 'Uses normal champion timing: 20 waves rest, 12 waves active, 24 if held to 40.') : 'Connect 0x971b... to toggle champion fast mode.')
-      : 'Connect wallet to use this.';
+    els.championFastModeBtn.title = allowed
+      ? (enabled ? 'Uses instant champion deploy timing for testing.' : 'Uses normal champion timing: 20 waves rest, 12 waves active, 24 if held to 40.')
+      : 'Connect 0x971b... to toggle champion fast mode.';
   }
 
   function toggleChampionFastMode() {
+    if (!requireWinstonAdmin('champion_fast_mode')) return;
     if (!canUseChampionFastModeToggle()) {
-      showBanner('Champion fast mode is only available on the authorized wallet.', 2200);
+      showBanner("You're not Winston...", 2200);
       updateChampionFastModeButtonState();
     updateMetisInfluenceDebugButtonState();
-  updateThirdPartyOutageButtonState();
-  renderThirdPartyOutageBanner();
       return;
     }
     const nextEnabled = !isChampionFastModeEnabled();
@@ -6668,15 +6668,13 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function updateMetisInfluenceDebugButtonState() {
     if (!els.metisInfluenceDebugBtn) return;
-    const connected = isWalletConnectedForUi();
-    const allowed = connected && canUseMetisInfluenceDebug();
-    els.metisInfluenceDebugBtn.classList.toggle('hidden', connected && !allowed);
+    const allowed = canUseMetisInfluenceDebug();
+    els.metisInfluenceDebugBtn.classList.toggle('hidden', !allowed);
     els.metisInfluenceDebugBtn.disabled = !allowed || game.metisInfluenceDebugPending === true;
-    els.metisInfluenceDebugBtn.classList.toggle('wallet-dependent-disabled', !connected);
     els.metisInfluenceDebugBtn.textContent = game.metisInfluenceDebugPending ? 'Checking Metis Influence…' : 'Debug Metis Influence';
-    els.metisInfluenceDebugBtn.title = connected
-      ? (allowed ? 'Checks Metis hero influence data for confirmed examples and your pledged wallet heroes, then logs a table.' : 'Connect the authorized test wallet to run this diagnostic.')
-      : 'Connect wallet to use this.';
+    els.metisInfluenceDebugBtn.title = allowed
+      ? 'Checks Metis hero influence data for confirmed examples and your pledged wallet heroes, then logs a table.'
+      : 'Connect the authorized test wallet to run this diagnostic.';
   }
 
   async function loadMetisPledgedHeroIdsForAddress(address, contract) {
@@ -6913,7 +6911,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
 
   function canViewLiveDamageReport() {
     const address = getConnectedWalletAddress();
-    return Boolean(address && LIVE_DAMAGE_REPORT_WALLETS.includes(address));
+    return Boolean(address && normalizeAddress(address) === WINSTON_ADMIN_WALLET);
   }
 
   function ensureTowerDamageMethods(tower) {
@@ -6931,7 +6929,7 @@ const DFK_GOLD_BURN_QUEUE_STORAGE_KEY = 'dfk_defender_pending_burn_saves_v1';
     if (!methods[safeKey]) methods[safeKey] = { label: String(methodLabel || 'Basic Attack'), damage: 0, gen0Regular: 0, gen0Bonus: 0, gen0Actual: 0 };
     methods[safeKey].label = String(methodLabel || methods[safeKey].label || 'Basic Attack');
     methods[safeKey].damage = Math.max(0, Number(methods[safeKey].damage || 0)) + amount;
-    if (isGen0BonusTower(tower)) {
+    if (!isStatueTower(tower) && isGen0BonusTower(tower)) {
       const regularAmount = amount / GEN0_WALLET_HERO_DAMAGE_MULTIPLIER;
       methods[safeKey].gen0Regular = Math.max(0, Number(methods[safeKey].gen0Regular || 0)) + regularAmount;
       methods[safeKey].gen0Bonus = Math.max(0, Number(methods[safeKey].gen0Bonus || 0)) + Math.max(0, amount - regularAmount);
@@ -7360,11 +7358,14 @@ function renderDamageReport() {
     els.addGoldBtn.classList.toggle('hidden', !allowed);
     els.addGoldBtn.disabled = !allowed;
     els.addGoldBtn.title = allowed ? `Add ${TEST_GOLD_GRANT_AMOUNT.toLocaleString()} gold to the current game` : 'Connect the authorized wallet and enable run tracking to use this test button.';
+    updateMoosiferButtonState();
+    syncWinstonAdminControls();
   }
 
   function grantTestGold() {
+    if (!requireWinstonAdmin('add_test_gold')) return;
     if (!canUseTestGoldGrant()) {
-      showBanner('Test gold requires the authorized wallet with run tracking enabled.', 2200);
+      showBanner("You're not Winston...", 2200);
       updateTestGoldButtonState();
       return;
     }
@@ -7379,6 +7380,665 @@ function renderDamageReport() {
     showBanner(`+${TEST_GOLD_GRANT_AMOUNT.toLocaleString()} gold added for testing`, 2000);
   }
 
+
+  function canShowMoosiferTestSummon() {
+    const address = String(getConnectedWalletAddress() || '').trim().toLowerCase();
+    return Boolean(address && address === WINSTON_ADMIN_WALLET);
+  }
+
+  function isWinstonAdminWallet(address = getConnectedWalletAddress()) {
+    return normalizeAddress(address || '') === WINSTON_ADMIN_WALLET;
+  }
+
+  function readWinstonAdminAttempts() {
+    try {
+      const raw = localStorage.getItem(WINSTON_ADMIN_ATTEMPTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.slice(-20) : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function writeWinstonAdminAttempts(items) {
+    try {
+      localStorage.setItem(WINSTON_ADMIN_ATTEMPTS_KEY, JSON.stringify((Array.isArray(items) ? items : []).slice(-20)));
+    } catch (_error) {}
+  }
+
+  function renderWinstonAdminAttempts() {
+    if (!els.winstonAdminAttempts) return;
+    const attempts = readWinstonAdminAttempts();
+    els.winstonAdminAttempts.innerHTML = attempts.length
+      ? attempts.slice().reverse().map((entry) => `<div class="winston-admin-attempt"><span class="mono">${escapeHtml(entry.wallet || 'unknown')}</span><span>${escapeHtml(entry.action || 'admin')}</span><span>${escapeHtml(entry.at || '')}</span></div>`).join('')
+      : 'No attempts logged.';
+  }
+
+  function getMoosiferAttemptAdminState() {
+    if (!game.moosiferAttemptAdmin || typeof game.moosiferAttemptAdmin !== 'object') {
+      game.moosiferAttemptAdmin = { loading: false, error: '', attempts: [], loadedAt: null };
+    }
+    return game.moosiferAttemptAdmin;
+  }
+
+  function ensureMoosiferAttemptAdminPanel() {
+    let panel = document.getElementById('moosiferAttemptAdminPanel');
+    if (panel) return panel;
+    const anchor = els.moosiferAdminStats || document.getElementById('moosiferAdminStats') || els.winstonAdminControls;
+    const parent = anchor && anchor.parentElement ? anchor.parentElement : (els.winstonAdminModal?.querySelector('.intro-modal-card') || els.winstonAdminModal);
+    if (!parent) return null;
+    panel = document.createElement('section');
+    panel.id = 'moosiferAttemptAdminPanel';
+    panel.className = 'moosifer-admin-attempt-panel';
+    panel.innerHTML = `
+      <div class="moosifer-admin-stats-title">Moosifer Attempts</div>
+      <button type="button" class="mini-btn" id="refreshMoosiferAttemptsBtn">Refresh Attempts</button>
+      <div id="moosiferAttemptAdminBody" class="moosifer-admin-attempt-body">No attempts loaded.</div>`;
+    if (anchor && anchor.nextSibling) parent.insertBefore(panel, anchor.nextSibling);
+    else parent.appendChild(panel);
+    const refreshBtn = panel.querySelector('#refreshMoosiferAttemptsBtn');
+    refreshBtn?.addEventListener('click', () => refreshMoosiferAttemptAdminList().catch(() => {}));
+    return panel;
+  }
+
+  function renderMoosiferAttemptAdminList() {
+    const panel = ensureMoosiferAttemptAdminPanel();
+    const body = panel ? panel.querySelector('#moosiferAttemptAdminBody') : null;
+    if (!body) return;
+    const state = getMoosiferAttemptAdminState();
+    if (state.loading) {
+      body.innerHTML = 'Loading Moosifer attempts...';
+      return;
+    }
+    if (state.error) {
+      body.innerHTML = `<span class="danger-text">${escapeHtml(state.error)}</span>`;
+      return;
+    }
+    const attempts = Array.isArray(state.attempts) ? state.attempts : [];
+    if (!attempts.length) {
+      body.innerHTML = 'No Moosifer attempts recorded yet.';
+      return;
+    }
+    body.innerHTML = `
+      <div class="moosifer-attempt-table-wrap">
+        <table>
+          <thead><tr><th>Wallet</th><th>Result</th><th>Wave</th><th>Diff</th><th>Mo HP</th><th>Portal</th><th>Time</th></tr></thead>
+          <tbody>${attempts.map((attempt) => {
+            const wallet = String(attempt.wallet_address || 'guest');
+            const outcome = String(attempt.outcome || 'started');
+            const wave = Math.max(0, Math.floor(Number(attempt.wave_reached || 0) || 0));
+            const diff = Math.max(0, Math.floor(Number(attempt.moosifer_difficulty || 0) || 0));
+            const moHp = `${Math.round(Number(attempt.moosifer_hp_remaining || 0)).toLocaleString()} / ${Math.round(Number(attempt.moosifer_max_hp || 0)).toLocaleString()}`;
+            const portal = `${Math.round(Number(attempt.portal_hp_remaining || 0)).toLocaleString()} / ${Math.round(Number(attempt.portal_max_hp || 0)).toLocaleString()}`;
+            const time = formatTrackedRunTimestamp(attempt.completed_at || attempt.started_at || attempt.updated_at || '');
+            return `<tr><td class="mono">${escapeHtml(wallet)}</td><td>${escapeHtml(outcome)}</td><td>${wave || '-'}</td><td>${diff || '-'}</td><td>${escapeHtml(moHp)}</td><td>${escapeHtml(portal)}</td><td>${escapeHtml(time)}</td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  async function refreshMoosiferAttemptAdminList() {
+    if (!requireWinstonAdmin('view_moosifer_attempts')) return;
+    const state = getMoosiferAttemptAdminState();
+    state.loading = true;
+    state.error = '';
+    renderMoosiferAttemptAdminList();
+    const headers = {};
+    const token = getRunTrackerSessionToken();
+    if (token) headers['x-session-token'] = token;
+    try {
+      const response = await fetchSupabaseFunctionJson(MOOSIFER_BOUNTY_FUNCTION, {
+        action: 'admin_attempts',
+        walletAddress: getConnectedWalletAddress(),
+        limit: 50,
+      }, 'POST', { headers });
+      const data = response && response.data && typeof response.data === 'object' ? response.data : response;
+      state.attempts = Array.isArray(data && data.attempts) ? data.attempts : [];
+      state.loadedAt = Date.now();
+    } catch (error) {
+      state.error = error && error.message ? error.message : 'Unable to load Moosifer attempts.';
+    } finally {
+      state.loading = false;
+      renderMoosiferAttemptAdminList();
+    }
+  }
+
+  function rejectNonWinstonAdmin(action = 'admin') {
+    const wallet = normalizeAddress(getConnectedWalletAddress() || 'no wallet connected');
+    const attempts = readWinstonAdminAttempts();
+    attempts.push({ wallet, action, at: new Date().toISOString() });
+    writeWinstonAdminAttempts(attempts);
+    renderWinstonAdminAttempts();
+    showBanner("You're not Winston...", 2600);
+    log(`Unauthorized Winston admin attempt: ${wallet} tried ${action}.`);
+    return false;
+  }
+
+  function requireWinstonAdmin(action = 'admin') {
+    return isWinstonAdminWallet() || rejectNonWinstonAdmin(action);
+  }
+
+  function syncWinstonAdminControls() {
+    ensureWinstonAdminAllHeroLevelField();
+    if (els.winstonAdminBtn) {
+      const visible = isWinstonAdminWallet();
+      els.winstonAdminBtn.classList.toggle('hidden', !visible);
+      els.winstonAdminBtn.disabled = !visible;
+    }
+    if (els.winstonAdminControls) {
+      [els.addGoldBtn, els.championFastModeBtn, els.moosiferDiffInput, els.summonMoosiferBtn, els.treasuryFlyoutBtn].forEach((node) => {
+        if (node && node.parentElement !== els.winstonAdminControls) els.winstonAdminControls.appendChild(node);
+      });
+    }
+    renderWinstonAdminAttempts();
+    ensureMoosiferAttemptAdminPanel();
+    renderMoosiferAttemptAdminList();
+    renderMoosiferAdminStats();
+  }
+
+  function ensureWinstonAdminAllHeroLevelField() {
+    if (els.adminAllHeroLevelInput && document.body.contains(els.adminAllHeroLevelInput)) return;
+    const grid = document.querySelector('.winston-admin-grid');
+    if (!grid) return;
+    const label = document.createElement('label');
+    label.className = 'winston-admin-all-level-field';
+    label.textContent = 'Start all heroes at';
+    const input = document.createElement('input');
+    input.id = 'adminAllHeroLevelInput';
+    input.type = 'number';
+    input.min = '1';
+    input.max = '99';
+    input.value = '1';
+    label.appendChild(input);
+    grid.insertBefore(label, grid.children[1] || null);
+    els.adminAllHeroLevelInput = input;
+  }
+
+  function openWinstonAdminModal() {
+    if (!requireWinstonAdmin('open_admin_panel')) return;
+    syncWinstonAdminControls();
+    if (!els.winstonAdminModal) return;
+    els.winstonAdminModal.classList.remove('hidden');
+    els.winstonAdminModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    const attemptState = getMoosiferAttemptAdminState();
+    if (!attemptState.loading && !attemptState.loadedAt) refreshMoosiferAttemptAdminList().catch(() => {});
+  }
+
+  function closeWinstonAdminModal() {
+    if (!els.winstonAdminModal) return;
+    els.winstonAdminModal.classList.add('hidden');
+    els.winstonAdminModal.setAttribute('aria-hidden', 'true');
+    syncIntroOpenClassFromVisibleModals();
+  }
+
+  const ADMIN_LEVEL_INPUTS = Object.freeze({
+    warrior: 'adminLevelWarrior',
+    archer: 'adminLevelArcher',
+    priest: 'adminLevelPriest',
+    wizard: 'adminLevelWizard',
+    pirate: 'adminLevelPirate',
+    seer: 'adminLevelSeer',
+    berserker: 'adminLevelBerserker',
+    monk: 'adminLevelMonk',
+  });
+
+  function getAdminHeroLevelOverridesFromUi() {
+    const overrides = {};
+    const allLevelInput = els.adminAllHeroLevelInput;
+    const allLevel = Math.max(1, Math.min(99, Math.floor(Number(allLevelInput && allLevelInput.value) || 1)));
+    if (allLevelInput) allLevelInput.value = String(allLevel);
+    Object.entries(ADMIN_LEVEL_INPUTS).forEach(([type, id]) => {
+      const input = document.getElementById(id);
+      const raw = String(input && input.value || '').trim();
+      const level = raw ? Math.max(1, Math.min(99, Math.floor(Number(raw) || allLevel))) : allLevel;
+      overrides[type] = level;
+      if (input) input.value = String(level);
+    });
+    return overrides;
+  }
+
+  function levelTowerTo(tower, targetLevel) {
+    if (!tower || isStatueTower(tower) || tower.isSatellite) return;
+    const target = Math.max(1, Math.min(99, Math.floor(Number(targetLevel || 1))));
+    while (Number(tower.level || 1) < target) {
+      applyTowerLevelStep(tower, Number(tower.level || 1) + 1);
+    }
+  }
+
+  function applyAdminLevelOverrideToTower(tower) {
+    if (!tower || !game.adminHeroLevelOverrides) return;
+    const level = Number(game.adminHeroLevelOverrides[tower.type] || 0);
+    if (level > 0) levelTowerTo(tower, level);
+  }
+
+  function applyAdminRunSetup() {
+    if (!requireWinstonAdmin('apply_admin_run_setup')) return;
+    const startWave = Math.max(1, Math.min(999, Math.floor(Number(els.adminStartWaveInput && els.adminStartWaveInput.value) || 1)));
+    if (els.adminStartWaveInput) els.adminStartWaveInput.value = String(startWave);
+    game.adminPanelUsed = true;
+    game.adminRunSetupUsed = true;
+    game.adminHeroLevelOverrides = getAdminHeroLevelOverridesFromUi();
+    for (const tower of game.towers || []) applyAdminLevelOverrideToTower(tower);
+    if ((game.towers || []).some((tower) => tower && tower.type === 'warrior' && !tower.isSatellite && tower.hp > 0) && game.phase === SETUP_PHASES.WARRIOR) {
+      game.phase = SETUP_PHASES.BATTLE;
+      game.placingHeroType = null;
+    }
+    game.waveNumber = startWave - 1;
+    game.activeWaveBase = startWave - 1;
+    game.nextWavePlan = sanitizeWavePlan(buildWavePlan(startWave));
+    stageUpcomingWavePlan(true);
+    if (els.adminRunSetupStatus) els.adminRunSetupStatus.textContent = `Admin setup applied. Next wave: ${startWave}. Run NOT saved, admin panel used.`;
+    log(`Admin setup applied: next wave ${startWave}; hero levels overridden. Run NOT saved, admin panel used.`);
+    showBanner('Admin setup applied. Run NOT saved, admin panel used.', 3200);
+    render();
+  }
+
+  function hasPlacedPortalForMoosiferSummon() {
+    if (game.portal) return true;
+    return (game.board || []).some((row) => Array.isArray(row) && row.some((tile) => tile && tile.portal));
+  }
+
+  function canUseMoosiferTestSummon() {
+    return Boolean(canShowMoosiferTestSummon() && hasPlacedPortalForMoosiferSummon() && game.phase !== SETUP_PHASES.GAME_OVER);
+  }
+
+  function getMoosiferDifficultyOverride() {
+    const raw = String(els.moosiferDiffInput?.value || '').trim();
+    const parsed = Math.floor(Number(raw));
+    const safe = Number.isFinite(parsed) ? Math.max(1, Math.min(MOOSIFER_MAX_DIFFICULTY, parsed)) : 1;
+    window.MO_DIFFICULTY = safe;
+    return safe;
+  }
+
+  function getMoosiferDifficultyMultiplier(level, growthBoost = 1) {
+    const safeLevel = Math.max(1, Math.min(MOOSIFER_MAX_DIFFICULTY, Math.floor(Number(level || 1))));
+    let multiplier = 1;
+    const growth = Math.max(0, Number(growthBoost || 1));
+    for (let i = 1; i < safeLevel; i += 1) multiplier += (multiplier / 3) * growth;
+    return multiplier;
+  }
+
+  function getMoosiferStatsForDifficulty(level) {
+    const difficulty = Math.max(1, Math.min(MOOSIFER_MAX_DIFFICULTY, Math.floor(Number(level || 1))));
+    const multiplier = Math.pow(MOOSIFER_DAMAGE_GROWTH_PER_DIFFICULTY, difficulty - 1);
+    const hpMultiplier = getMoosiferDifficultyMultiplier(difficulty, 1.1);
+    return {
+      difficulty,
+      multiplier: hpMultiplier,
+      damageMultiplier: multiplier,
+      maxHp: Math.floor(300000 * hpMultiplier),
+      damage: Math.floor(MOOSIFER_BASE_DAMAGE * multiplier),
+    };
+  }
+
+  function applyMoosiferRelicAdjustmentsToStats(stats) {
+    const base = stats && typeof stats === 'object' ? stats : getMoosiferStatsForDifficulty(1);
+    const healthMult = Math.max(0.01, Number(game.modifiers?.moosiferStartingHealthMult || 1));
+    const damageMult = Math.max(0.01, Number(game.modifiers?.moosiferDamageMult || 1));
+    return {
+      ...base,
+      maxHp: Math.max(1, Math.floor(Number(base.maxHp || 1) * healthMult)),
+      damage: Math.max(1, Math.floor(Number(base.damage || 1) * damageMult)),
+    };
+  }
+
+  const MOOSIFER_BOSS_WAVE = 50;
+  const MOOSIFER_BOUNTY_FUNCTION = window.DFK_SUPABASE_MOOSIFER_BOUNTY_FUNCTION || 'moosifer-bounty';
+  const MOOSIFER_MAX_DIFFICULTY = 35;
+  const MOOSIFER_BOSS_DIFFICULTY = 9;
+  const MOOSIFER_ATTACK_INTERVAL_SECONDS = 0.82 * 1.1 * 1.5;
+  const MOOSIFER_BASE_DAMAGE = 1000 * 0.75 * 0.70;
+  const MOOSIFER_DAMAGE_GROWTH_PER_DIFFICULTY = Math.pow((2000 * MOOSIFER_ATTACK_INTERVAL_SECONDS) / MOOSIFER_BASE_DAMAGE, 1 / 8);
+  const MOOSIFER_AURA_DAMAGE_PERCENT = 0.022;
+  const MOOSIFER_AURA_TICK_MS = 800;
+  const MOOSIFER_PORTAL_DAMAGE_MULTIPLIER = 0.5;
+
+  function getMoosiferBossStats() {
+    return applyMoosiferRelicAdjustmentsToStats(getMoosiferStatsForDifficulty(MOOSIFER_BOSS_DIFFICULTY));
+  }
+
+  function getMoosiferAuraDamagePercentPerSecond() {
+    return MOOSIFER_AURA_DAMAGE_PERCENT * (1000 / MOOSIFER_AURA_TICK_MS);
+  }
+
+  function renderMoosiferAdminStats() {
+    const host = els.moosiferAdminStats || document.getElementById('moosiferAdminStats');
+    if (!host) return;
+    els.moosiferAdminStats = host;
+    const rows = [];
+    for (let diff = 1; diff <= MOOSIFER_MAX_DIFFICULTY; diff += 1) {
+      const stats = applyMoosiferRelicAdjustmentsToStats(getMoosiferStatsForDifficulty(diff));
+      const attackInterval = MOOSIFER_ATTACK_INTERVAL_SECONDS;
+      const portalHit = stats.damage * MOOSIFER_PORTAL_DAMAGE_MULTIPLIER;
+      rows.push(`<tr><td>D${diff}</td><td>${Math.round(stats.maxHp).toLocaleString()}</td><td>${Math.round(stats.damage).toLocaleString()}</td><td>${Math.round(stats.damage / attackInterval).toLocaleString()}/s</td><td>${Math.round(stats.damage / (attackInterval * 0.95)).toLocaleString()}/s</td><td>${Math.round(portalHit / (attackInterval * 0.95)).toLocaleString()}/s</td><td>${(getMoosiferAuraDamagePercentPerSecond() * 100).toFixed(2)}% target HP/s</td></tr>`);
+    }
+    host.innerHTML = `
+      <div class="moosifer-admin-stats-title">Moosifer Diff Stats</div>
+      <div class="moosifer-admin-stats-scroll">
+        <table>
+          <thead><tr><th>Diff</th><th>HP</th><th>Hit</th><th>Base DPS</th><th>Void DPS</th><th>Portal DPS</th><th>Aura</th></tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  async function fetchMoosiferBountyStatus() {
+    try {
+      const response = await fetchSupabaseFunctionJson(MOOSIFER_BOUNTY_FUNCTION, null, 'GET');
+      const payload = response && response.data && typeof response.data === 'object' ? response.data : response;
+      game.moosiferBountyStatus = payload && typeof payload === 'object' ? payload : {};
+      return game.moosiferBountyStatus;
+    } catch (_error) {
+      game.moosiferBountyStatus = game.moosiferBountyStatus || {};
+      return game.moosiferBountyStatus;
+    }
+  }
+
+  function buildMoosiferAttemptPayload(action, enemy = null, result = '') {
+    const mo = enemy || (game.enemies || []).find((entry) => entry && entry.isMoosifer) || null;
+    return {
+      action,
+      walletAddress: getConnectedWalletAddress(),
+      runId: game.runTracking && game.runTracking.clientRunId ? game.runTracking.clientRunId : '',
+      waveReached: Number(game.waveNumber || MOOSIFER_BOSS_WAVE),
+      moosiferDifficulty: Number(mo?.moosiferDifficulty || MOOSIFER_BOSS_DIFFICULTY),
+      moosiferHpRemaining: Math.max(0, Number(mo?.hp || 0)),
+      moosiferMaxHp: Math.max(0, Number(mo?.maxHp || 0)),
+      portalHpRemaining: Math.max(0, Number(game.portalHp || 0)),
+      portalMaxHp: Math.max(0, Number(game.portalMaxHp || 0)),
+      moosiferPhase: String(mo?.moosiferPhase || ''),
+      moosiferReachedVoid: !!mo?.moosiferReachedVoid,
+      liveWaveCount: getLiveWaveCount(),
+      heroesAlive: (game.towers || []).filter((tower) => tower && tower.hp > 0 && !isStatueTower(tower)).length,
+      result: result || action,
+    };
+  }
+
+  async function reportMoosiferAttempt(action, enemy = null, result = '') {
+    if (game.adminPanelUsed) return null;
+    const headers = {};
+    const token = getRunTrackerSessionToken();
+    if (token) headers['x-session-token'] = token;
+    try {
+      return await fetchSupabaseFunctionJson(MOOSIFER_BOUNTY_FUNCTION, buildMoosiferAttemptPayload(action, enemy, result), 'POST', { headers });
+    } catch (error) {
+      console.warn('Moosifer attempt tracking failed.', error);
+      return null;
+    }
+  }
+
+  function updateMoosiferButtonState() {
+    if (!els.summonMoosiferBtn) return;
+    const visible = canShowMoosiferTestSummon();
+    const usable = canUseMoosiferTestSummon();
+    if (els.moosiferSummonControl) els.moosiferSummonControl.classList.toggle('hidden', !visible);
+    els.summonMoosiferBtn.disabled = !usable;
+    const diffLabel = getMoosiferDifficultyOverride();
+    const stats = applyMoosiferRelicAdjustmentsToStats(getMoosiferStatsForDifficulty(diffLabel));
+    els.summonMoosiferBtn.textContent = usable ? `Summon Moosifer D${diffLabel}` : 'Summon Moosifer (Place Portal)';
+    els.summonMoosiferBtn.title = usable
+      ? `Summon Moosifer at difficulty ${diffLabel}: ${stats.maxHp.toLocaleString()} HP / ${stats.damage.toLocaleString()} damage.`
+      : 'Authorized test wallet only. Place the Portal before summoning Moosifer.';
+    renderMoosiferAdminStats();
+  }
+
+  function getMoosiferVoidTargets() {
+    return getSpawnTiles().filter((tile) => {
+      const boardTile = tileAt(tile.x, tile.y);
+      return !!boardTile && !boardTile.portal && !boardTile.obstacle;
+    });
+  }
+
+  function getMoosiferRoutePlanFromSpawn(spawn) {
+    if (!spawn) return null;
+    const voidTargets = getMoosiferVoidTargets();
+    if (!voidTargets.length) return null;
+    const tempEnemy = {
+      id: 'moosifer-route-probe',
+      type: 'moosifer',
+      isMoosifer: true,
+      moosiferPhase: 'to_void',
+      x: spawn.x,
+      y: spawn.y,
+      prevX: spawn.x,
+      prevY: spawn.y,
+    };
+    const reachable = [];
+    for (const target of voidTargets) {
+      const path = pathfind({ x: spawn.x, y: spawn.y }, [target], {
+        enemy: tempEnemy,
+        avoidBacktrack: false,
+        softCrowd: true,
+      });
+      if (path && path.length > 1) reachable.push({ target, path });
+    }
+    if (!reachable.length) return null;
+    reachable.sort((a, b) => a.path.length - b.path.length || heuristic(spawn, [a.target]) - heuristic(spawn, [b.target]));
+    return reachable[0];
+  }
+
+  function getMoosiferStartPlan() {
+    const candidates = getPortalTargets().filter((tile) => canEnemyEnter(tile.x, tile.y, null));
+    if (!candidates.length) return null;
+    const planned = candidates
+      .map(spawn => ({ spawn, plan: getMoosiferRoutePlanFromSpawn(spawn) }))
+      .filter(entry => entry.plan && entry.plan.target);
+    if (planned.length) {
+      planned.sort((a, b) => a.plan.path.length - b.plan.path.length || heuristic(a.spawn, [a.plan.target]) - heuristic(b.spawn, [b.plan.target]));
+      return planned[0];
+    }
+    const voidTargets = getMoosiferVoidTargets();
+    if (!voidTargets.length) return { spawn: candidates[0], plan: null };
+    const spawn = candidates.slice().sort((a, b) => heuristic(a, voidTargets) - heuristic(b, voidTargets))[0];
+    return { spawn, plan: null };
+  }
+
+  function getMoosiferStartTile() {
+    return getMoosiferStartPlan()?.spawn || null;
+  }
+
+  function createMoosiferEnemy(diffOverride = null) {
+    const startPlan = getMoosiferStartPlan();
+    const spawn = startPlan?.spawn || null;
+    if (!spawn) return null;
+    const moDifficulty = Math.max(1, Math.min(MOOSIFER_MAX_DIFFICULTY, Math.floor(Number(diffOverride || MOOSIFER_BOSS_DIFFICULTY))));
+    const moStats = getMoosiferStatsForDifficulty(moDifficulty);
+    const maxHp = Math.max(1, Math.floor(moStats.maxHp * Math.max(0.01, Number(game.modifiers?.moosiferStartingHealthMult || 1))));
+    const damageMult = Math.max(0.01, Number(game.modifiers?.moosiferDamageMult || 1));
+    const moveIntervalMult = Math.max(0.01, Number(game.modifiers?.moosiferMoveIntervalMult || 1));
+    return {
+      id: `e${game.nextEnemyId++}`,
+      type: 'moosifer',
+      name: 'Moosifer',
+      moosiferDifficulty: moDifficulty,
+      x: spawn.x,
+      y: spawn.y,
+      hp: maxHp,
+      maxHp,
+      spawnMaxHp: maxHp,
+      damage: moStats.damage * damageMult,
+      moveInterval: 0.55 * 1.15 * 1.05 * 1.10 * moveIntervalMult,
+      attackInterval: MOOSIFER_ATTACK_INTERVAL_SECONDS,
+      jewel: 500,
+      cssClass: 'boss moosifer',
+      targetPath: [],
+      nextMoveAt: now() + 200,
+      moveStartedAt: now(),
+      moveEndAt: now() + 200,
+      prevX: spawn.x,
+      prevY: spawn.y,
+      facingX: 1,
+      nextAttackAt: 0,
+      attacking: false,
+      tauntedTo: null,
+      tauntUntil: 0,
+      debuffs: {},
+      buffs: {},
+      threat: {},
+      aggroTargetId: null,
+      lastAggroAt: 0,
+      lastPortalFlowKey: null,
+      isBoss: true,
+      isMoosifer: true,
+      moosiferPhase: 'to_void',
+      moosiferVoidTarget: startPlan?.plan?.target ? { x: startPlan.plan.target.x, y: startPlan.plan.target.y } : null,
+      moosiferReachedVoid: false,
+      moosiferFlipSprite: false,
+      moosiferVoidPauseUntil: 0,
+      moosiferInvulnerableUntil: 0,
+      moosiferAuraNextAt: now() + MOOSIFER_AURA_TICK_MS,
+      slowResistance: 0.35,
+    };
+  }
+
+  function summonMoosiferForTest() {
+    if (!requireWinstonAdmin('summon_moosifer')) return;
+    if (!canUseMoosiferTestSummon()) {
+      showBanner("You're not Winston...", 2400);
+      updateMoosiferButtonState();
+      return;
+    }
+    const summonDiff = getMoosiferDifficultyOverride();
+    const stats = applyMoosiferRelicAdjustmentsToStats(getMoosiferStatsForDifficulty(summonDiff));
+    const enemy = createMoosiferEnemy(summonDiff);
+    if (!enemy) {
+      showBanner('Could not find a valid Portal-adjacent tile for Moosifer.', 2400);
+      return;
+    }
+    game.enemies.push(enemy);
+    if (!game.runningWave) game.runningWave = true;
+    setBoardDim(true);
+    markProgress(`Moosifer was summoned at difficulty ${summonDiff}.`);
+    log(`Moosifer test boss summoned at difficulty ${summonDiff}: ${stats.maxHp.toLocaleString()} HP / ${stats.damage.toLocaleString()} damage.`);
+    showBanner(`Moosifer has entered at difficulty ${summonDiff}!`, 3000);
+    render();
+  }
+
+  function startMoosiferBossFight() {
+    const stats = getMoosiferBossStats();
+    saveMoosiferRetrySnapshot();
+    const enemy = createMoosiferEnemy(MOOSIFER_BOSS_DIFFICULTY);
+    if (!enemy) {
+      showBanner('Could not find a valid Portal-adjacent tile for Moosifer.', 2400);
+      return false;
+    }
+    const startedAt = now();
+    enemy.nextMoveAt = startedAt + 2000;
+    enemy.moosiferRoarUntil = startedAt + 2000;
+    enemy.moosiferInvulnerableUntil = startedAt + 2000;
+    game.autoStartEnabled = false;
+    game.autoStartReadyAt = 0;
+    game.runningWave = true;
+    game.waveNumber = MOOSIFER_BOSS_WAVE;
+    game.activeWaveBase = MOOSIFER_BOSS_WAVE - 1;
+    game.pendingSpawns = [];
+    game.activeWavePlans = [{ waveNumber: MOOSIFER_BOSS_WAVE, pattern: 'moosifer', elite: true, moosifer: true }];
+    game.currentPattern = 'moosifer';
+    game.nextWavePlan = null;
+    game.waveStartAt = now();
+    game.moosiferBossActive = true;
+    game.moosiferIntroShownForRun = true;
+    game.moosiferFightReady = false;
+    game.moosiferAttemptOutcomeReported = false;
+    game.enemies.push(enemy);
+    reportMoosiferAttempt('attempt_started', enemy, 'started');
+    showMoosiferRoarVignette(enemy, 2000);
+    createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.75, 1900, RED_FIRE_GIF_PATH, 'moosifer-roar-fire');
+    stageUpcomingWavePlan(true);
+    syncStartWaveButtonState();
+    setInstruction('Moosifer has entered the board. Stop him before he returns to destroy the portal.');
+    log(`Moosifer boss fight started: ${stats.maxHp.toLocaleString()} HP / ${stats.damage.toLocaleString()} damage.`);
+    showBanner('Moosifer has entered!', 3200);
+    render();
+    return true;
+  }
+
+  function showMoosiferRoarVignette(enemy, durationMs = 2000) {
+    try {
+      const existing = document.getElementById('moosiferRoarVignette');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'moosiferRoarVignette';
+      overlay.className = 'moosifer-roar-vignette';
+      overlay.innerHTML = '<div class="moosifer-roar-text">MOOSIFER ROARS</div>';
+      document.body.appendChild(overlay);
+      window.setTimeout(() => overlay.remove(), Math.max(500, Number(durationMs || 2000)));
+    } catch (_error) {}
+  }
+
+  async function openMoosiferIntroModal() {
+    const stats = getMoosiferBossStats();
+    const status = await fetchMoosiferBountyStatus();
+    const defeatedCount = Math.max(0, Number(status.defeatedCount || 0));
+    const heroDps = Math.round(Number(stats.damage || 0) / MOOSIFER_ATTACK_INTERVAL_SECONDS);
+    const voidHeroDps = Math.round(Number(stats.damage || 0) / (MOOSIFER_ATTACK_INTERVAL_SECONDS * 0.95));
+    const portalDps = Math.round((Number(stats.damage || 0) * MOOSIFER_PORTAL_DAMAGE_MULTIPLIER) / (MOOSIFER_ATTACK_INTERVAL_SECONDS * 0.95));
+    const auraPercent = (getMoosiferAuraDamagePercentPerSecond() * 100).toFixed(2);
+    const modal = document.createElement('div');
+    modal.id = 'moosiferIntroModal';
+    modal.className = 'intro-modal';
+    modal.setAttribute('aria-hidden', 'false');
+    modal.innerHTML = `
+      <div class="intro-modal-card panel moosifer-boss-modal" role="dialog" aria-modal="true" aria-labelledby="moosiferIntroTitle">
+        <div class="intro-modal-header">
+          <div>
+            <div class="intro-kicker">Wave ${MOOSIFER_BOSS_WAVE} • D${stats.difficulty}</div>
+            <h2 id="moosiferIntroTitle">The Summoner brought Moosifer through</h2>
+          </div>
+        </div>
+        <div class="intro-body moosifer-boss-body">
+          <img class="moosifer-boss-img" src="assets/moosifer-walking.gif" alt="Moosifer">
+          <p>Moosifer leaves the portal wrapped in fire. Before he reaches the void, his fire aura is his only attack and Warriors or Statues cannot hold him in place; he crashes straight through them. If he reaches the void, his maximum health rises by 50%, his current health jumps to 75% of that new max, then he turns back and attacks 5% faster on the way to the portal.</p>
+          <p>Moosifer was created by Maifriendo, and I am very grateful for his work bringing this beast to life.</p>
+          <p>Known immunities: Wizard Burn cannot damage or slow him, and he cannot be held in place by Warriors or Statues before he reaches the void. Defenders whisper that Moosifer may have other weaknesses no one has fully discovered yet.</p>
+          <div class="moosifer-boss-stats">
+            <span>D${stats.difficulty}</span>
+            <span>${stats.maxHp.toLocaleString()} HP</span>
+            <span>${stats.damage.toLocaleString()} hit</span>
+            <span>${heroDps.toLocaleString()} hero DPS</span>
+            <span>${voidHeroDps.toLocaleString()} void DPS</span>
+            <span>${portalDps.toLocaleString()} portal DPS</span>
+            <span>${auraPercent}% aura HP/s</span>
+            <span>${defeatedCount.toLocaleString()} defeated by players</span>
+          </div>
+          <p class="moosifer-bounty-copy">The first player to defeat Moosifer will claim 500J.</p>
+        </div>
+        <div class="intro-modal-footer">
+          <button id="moosiferIntroStartBtn" type="button">Fight Moosifer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    setBoardInputLocked(true);
+    syncStatusOverlayVisibility(true);
+    modal.querySelector('#moosiferIntroStartBtn')?.addEventListener('click', () => {
+      modal.remove();
+      document.body.classList.remove('intro-open');
+      game.introOpen = false;
+      setBoardInputLocked(false);
+      syncStatusOverlayVisibility(false);
+      game.moosiferFightReady = true;
+      game.nextWavePlan = sanitizeWavePlan(buildWavePlan(MOOSIFER_BOSS_WAVE));
+      setInstruction('Moosifer is ready. Press FIGHT MOOSIFER when you are prepared.');
+      syncStartWaveButtonState();
+      render();
+    });
+  }
+
+  async function maybeOpenMoosiferIntroForWave(plan) {
+    if (!plan || Number(plan.waveNumber || 0) !== MOOSIFER_BOSS_WAVE || game.moosiferIntroShownForRun) return false;
+    game.autoStartEnabled = false;
+    game.autoStartReadyAt = 0;
+    game.moosiferIntroShownForRun = true;
+    updateAutoStartButton();
+    await openMoosiferIntroModal();
+    return true;
+  }
+
   function runTrackerCallSafely(fn, fallback = null) {
     try {
       return fn();
@@ -7390,27 +8050,19 @@ function renderDamageReport() {
     }
   }
 
-  function withRunSaveTimeout(promise, timeoutMs = 12000) {
-    let timer = null;
-    return Promise.race([
-      Promise.resolve(promise),
-      new Promise((resolve) => {
-        timer = window.setTimeout(() => {
-          resolve({
-            ok: false,
-            queued: true,
-            localOnly: true,
-            timedOut: true,
-            error: 'Run save UI timed out; local queue should retry upload.',
-          });
-        }, Math.max(1000, Number(timeoutMs || 0)));
-      }),
-    ]).finally(() => {
-      if (timer) window.clearTimeout(timer);
-    });
-  }
-
   function captureTrackedRunNow(result = 'abandoned') {
+    if (game.adminPanelUsed) {
+      game.runTracking.submitted = true;
+      log('Saving run skipped: run NOT saved, admin panel used.');
+      showBanner('run NOT saved, admin panel used', 3200);
+      return false;
+    }
+    if (game.moosiferBossActive && !game.moosiferDefeatedThisRun && !game.moosiferAttemptOutcomeReported) {
+      const normalizedResult = String(result || 'abandoned');
+      const action = normalizedResult === 'disconnected' ? 'attempt_disconnected' : 'attempt_abandoned';
+      game.moosiferAttemptOutcomeReported = true;
+      reportMoosiferAttempt(action, null, normalizedResult);
+    }
     if (!hasTrackableRunInProgress() || !canQueueTrackedRunSubmission()) return false;
     const payload = buildCompletedRunPayload(result);
     if (payload.continueAvailable) {
@@ -7442,6 +8094,12 @@ function renderDamageReport() {
   }
 
   async function submitCompletedRunOnce(result = 'loss') {
+    if (game.adminPanelUsed) {
+      game.runTracking.submitted = true;
+      log('Saving run skipped: run NOT saved, admin panel used.');
+      showBanner('run NOT saved, admin panel used', 3600);
+      return;
+    }
     if (game.runTracking.submitted) return;
     if (!window.DFKRunTracker || typeof window.DFKRunTracker.submitCompletedRun !== 'function') return;
     if (game.continueOfferPending || ((!!game.continueSnapshot) && (!game.continueOfferUsed || !game.paidContinueOfferUsed))) {
@@ -7453,15 +8111,14 @@ function renderDamageReport() {
       log('Tracked run submission deferred until last chance is resolved.');
       return;
     }
-    const highValueRunSave = !!(window.DFKRunTracker && typeof window.DFKRunTracker.requiresSecureSubmission === 'function' && window.DFKRunTracker.requiresSecureSubmission(payload));
-    if (!highValueRunSave) showRunSaveStatusLightwindow('Saving run…');
+    await maybeShowHighValueRunSessionPrompt(payload);
     game.runTracking.submitted = true;
     updateQuestMetric('runsCompleted', 1);
     try {
-      const response = await withRunSaveTimeout(runTrackerCallSafely(
-        () => window.DFKRunTracker.submitCompletedRun(payload, { interactive: highValueRunSave }),
+      const response = await runTrackerCallSafely(
+        () => window.DFKRunTracker.submitCompletedRun(payload),
         { ok: false, queued: true, error: 'Run tracker call failed.' }
-      ), highValueRunSave ? 120000 : 12000);
+      );
       if (response && response.ok) {
         markRecentTrackedRunSubmission();
         const trackedRunId = String(response && response.result && response.result.runId ? response.result.runId : '').trim();
@@ -7504,87 +8161,25 @@ function renderDamageReport() {
           }, 4);
         }, 220);
         showBanner('Tracked run saved.', 3200);
-        finishRunSaveStatusLightwindow('saved successful!');
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else if (response && response.queued) {
         markRecentTrackedRunSubmission();
-        if (response && response.timedOut) {
-          showBanner('Run saved locally. Upload is still pending and will retry.', 5200);
-          log(`Run save UI timed out at wave ${game.waveNumber}; local queue will retry upload.`);
-        } else if (response && response.secureSignatureRequired) {
+        if (response && response.secureSignatureRequired) {
+          await maybeShowHighValueRunSessionPrompt(payload, { force: true });
           showBanner('High-value run pending secure submission. Sign and submit before closing if possible.', 6200);
           log(`High-value run saved locally at wave ${game.waveNumber}. Secure signature still required before backend save.`);
         } else {
           log(`Run saved locally at wave ${game.waveNumber}; upload pending.`);
         }
-        if (highValueRunSave && response && response.secureSignatureRequired) {
-          // Do not show a success state until the high-value run has actually been signed and accepted by the backend.
-        } else {
-          finishRunSaveStatusLightwindow('saved successful!');
-        }
         if (window.DFKCryptoRails && typeof window.DFKCryptoRails.clearActiveRunPayment === 'function') window.DFKCryptoRails.clearActiveRunPayment(game.runTracking.clientRunId);
       } else {
         game.runTracking.submitted = false;
-        finishRunSaveStatusLightwindow('oh shit son save failed, tell winston', true);
         log(`Run tracking failed: ${response && response.error ? response.error : 'Unknown error'}.`);
       }
     } catch (error) {
       game.runTracking.submitted = false;
-      finishRunSaveStatusLightwindow('oh shit son save failed, tell winston', true);
       log(`Run tracking failed: ${error && error.message ? error.message : 'Unknown error'}.`);
     }
-  }
-
-  function ensureRunSaveStatusLightwindow() {
-    let overlay = document.getElementById('runSaveStatusLightwindow');
-    if (overlay) return overlay;
-    overlay = document.createElement('div');
-    overlay.id = 'runSaveStatusLightwindow';
-    overlay.className = 'run-save-status-lightwindow hidden';
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = `
-      <div class="run-save-status-card" role="status" aria-live="polite">
-        <div class="run-save-status-kicker">Run Save</div>
-        <div class="run-save-status-message" id="runSaveStatusMessage">Saving run…</div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
-  function showRunSaveStatusLightwindow(message = 'Saving run…', final = false) {
-    const overlay = ensureRunSaveStatusLightwindow();
-    const messageEl = overlay.querySelector('#runSaveStatusMessage');
-    if (messageEl) messageEl.textContent = message;
-    overlay.classList.remove('hidden');
-    overlay.classList.toggle('is-final', !!final);
-    overlay.setAttribute('aria-hidden', 'false');
-    if (game.runSaveStatusTimer) {
-      clearTimeout(game.runSaveStatusTimer);
-      game.runSaveStatusTimer = null;
-    }
-    if (!final) {
-      game.runSaveStatusTimer = setTimeout(() => {
-        finishRunSaveStatusLightwindow('saved locally — upload pending');
-      }, 15000);
-    }
-  }
-
-  function finishRunSaveStatusLightwindow(message, failed = false) {
-    const overlay = ensureRunSaveStatusLightwindow();
-    const messageEl = overlay.querySelector('#runSaveStatusMessage');
-    if (messageEl) messageEl.textContent = message;
-    overlay.classList.add('is-final');
-    overlay.classList.toggle('is-failed', !!failed);
-    overlay.classList.remove('hidden');
-    overlay.setAttribute('aria-hidden', 'false');
-    if (game.runSaveStatusTimer) clearTimeout(game.runSaveStatusTimer);
-    game.runSaveStatusTimer = setTimeout(() => {
-      overlay.classList.add('hidden');
-      overlay.classList.remove('is-final', 'is-failed');
-      overlay.setAttribute('aria-hidden', 'true');
-      game.runSaveStatusTimer = null;
-    }, failed ? 5200 : 1800);
   }
 
   function syncPremiumJewelsFromSettledBank(detail) {
@@ -7715,12 +8310,16 @@ function renderDamageReport() {
 
   async function resetGame(options = {}) {
     const skipTrackedResetConfirm = !!(options && options.skipTrackedResetConfirm);
+    const selectedStartWave = normalizePlayerStartWave((options && options.startWave) || getSelectedPlayerStartWave());
     if (!(options && options.preserveSavedGame)) clearSavedGame();
     if (!skipTrackedResetConfirm) {
       const canReset = await maybeConfirmAndCaptureTrackedReset();
       if (!canReset) return false;
     }
     const pendingRunId = (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    game.setupGuideReady = false;
+    game.setupGuideDismissed = isSetupGuideHiddenByPlayer();
+    updateSetupGuide();
     loadPremiumJewels();
     if (game.premiumJewels < game.runEntryCost) {
       showBanner(`Not enough Jewel to start a run (${game.premiumJewels}/${game.runEntryCost})`, 2400);
@@ -7755,13 +8354,23 @@ function renderDamageReport() {
     savePremiumJewels();
     game.phase = SETUP_PHASES.PORTAL;
     game.resumedFromLocalSave = false;
-    game.runTrackingProceedWithoutTracking = false;
     game.runTracking = {
       clientRunId: pendingRunId,
       startedAt: new Date().toISOString(),
       submitted: false,
       weeklyMetricsStart: captureWeeklyBountyMetricsSnapshot(),
     };
+    game.adminPanelUsed = false;
+    game.adminRunSetupUsed = false;
+    game.adminHeroLevelOverrides = {};
+    game.startWaveChoice = selectedStartWave;
+    game.startWaveHeroLevel = getPlayerStartHeroLevel(selectedStartWave);
+    game.startWaveJumpPaid = isPaidPlayerStartWave(selectedStartWave);
+    game.moosiferIntroShownForRun = false;
+    game.moosiferBossActive = false;
+    game.moosiferFreeRetriesUsed = 0;
+    game.moosiferRetryOfferPending = false;
+    game.moosiferRetrySnapshot = null;
     beginReplayCapture();
     captureReplayWaveSnapshot('start');
     game.runWalletConnected = !!getConnectedWalletAddress();
@@ -7810,7 +8419,7 @@ function renderDamageReport() {
     game.milestoneBarrierOffer = null;
     game.milestoneBarrierOffersSeen = {};
     game.startingRelicClaimed = false;
-    game.jewel = Math.max(0, Number(game.difficultyProfile?.startingGold || 0));
+    game.jewel = getPlayerStartGold(selectedStartWave);
     game.portalHp = 2500;
     game.portalDamagePulseUntil = 0;
     game.milestoneJewelsGranted = {};
@@ -7864,7 +8473,8 @@ function renderDamageReport() {
       priestHealing: 1,
       sacredAura: false,
       pirateSteal: 0.15,
-      pirateRangeAdd: 0,
+      pirateRangeBonus: 0,
+      berserkerRangeBonus: 0,
       extraCannons: 0,
       shieldWall: false,
       rangerLine: false,
@@ -7898,6 +8508,10 @@ function renderDamageReport() {
       berserkerBloodDebt: false,
       berserkerFrenzyLoop: false,
       berserkerGhostTrail: false,
+      moosiferDamageTakenMult: 1,
+      moosiferMoveIntervalMult: 1,
+      moosiferDamageMult: 1,
+      moosiferStartingHealthMult: 1,
     };
     els.log.innerHTML = '';
     updatePremiumJewelInfo();
@@ -7908,6 +8522,7 @@ function renderDamageReport() {
     initGrid();
     assignRandomBreachTiles();
     placeRandomObstacles();
+    applyPlayerStartWaveToRun(selectedStartWave);
     game.paused = false;
     game.timeScale = 2;
     game.mobileMode = true;
@@ -7917,8 +8532,12 @@ function renderDamageReport() {
       showBanner('You are playing guest mode, have fun! Connect your wallet for tracked runs and greater challenges', 3600);
       log('Guest mode active for this run. Connect your wallet before starting a new run for tracked runs and greater challenges.');
     }
-    setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${getTargetPlayerObstacleCount()} choke-point obstacles, then place your Warrior. Before wave 1 starts, you can click one of your barriers to move it.`);
-    log('New run started. Random obstacles are already on the field.');
+    const startWaveText = selectedStartWave > 1
+      ? ` You are starting at wave ${selectedStartWave} with ${getPlayerStartGold(selectedStartWave).toLocaleString()} gold and level ${getPlayerStartHeroLevel(selectedStartWave)} heroes. Auto Start is off; click Start Next Wave when ready.`
+      : '';
+    setInstruction(`Place the 2x2 portal anywhere at least 3 tiles away from the breach. Then place ${getTargetPlayerObstacleCount()} choke-point obstacles, then place your Warrior. Before wave ${selectedStartWave} starts, you can click one of your barriers to move it.${startWaveText}`);
+    log(`New run started at wave ${selectedStartWave}. Random obstacles are already on the field.${selectedStartWave > 1 ? ' Auto Start disabled until the player manually starts the wave.' : ''}`);
+    game.startWaveSubmitting = false;
     updateTopbar();
       updateMobileBoardFit();
     showStatusOverlay();
@@ -7985,6 +8604,170 @@ function renderDamageReport() {
     };
     if (els.phaseLabel) els.phaseLabel.textContent = phaseMap[game.phase] || 'Ready';
     showStatusOverlay();
+  }
+
+  function getSetupGuideHeroName(type) {
+    const key = String(type || '').trim();
+    return (TOWER_TEMPLATES[key] && TOWER_TEMPLATES[key].name) || key.replace(/^champion_/, '').replace(/_/g, ' ') || 'hero';
+  }
+
+  function isSetupGuideHiddenByPlayer() {
+    try { return localStorage.getItem(SETUP_GUIDE_HIDE_STORAGE_KEY) === '1'; } catch (_error) { return false; }
+  }
+
+  function setSetupGuideHiddenByPlayer(hidden) {
+    game.setupGuideDismissed = !!hidden;
+    try {
+      if (hidden) localStorage.setItem(SETUP_GUIDE_HIDE_STORAGE_KEY, '1');
+      else localStorage.removeItem(SETUP_GUIDE_HIDE_STORAGE_KEY);
+    } catch (_error) {}
+  }
+
+  function showSetupGuideAgain() {
+    setSetupGuideHiddenByPlayer(false);
+    game.setupGuideReady = true;
+    game.setupGuideDismissed = false;
+    updateSetupGuide();
+    showBanner('First-time guide is back on.', 1800);
+  }
+
+  function getSetupGuideState() {
+    const modalOpen = !!(
+      (els.startModeModal && !els.startModeModal.classList.contains('hidden')) ||
+      (els.introModal && !els.introModal.classList.contains('hidden')) ||
+      (els.seerIntroModal && !els.seerIntroModal.classList.contains('hidden')) ||
+      (els.guestConnectConfirmModal && !els.guestConnectConfirmModal.classList.contains('hidden'))
+    );
+    if (!game.setupGuideReady || modalOpen || game.setupGuideDismissed || isSetupGuideHiddenByPlayer() || game.phase === SETUP_PHASES.GAME_OVER || Number(game.waveNumber || 0) > 0 || game.runningWave) return null;
+    if (game.placingHeroType) {
+      const heroName = getSetupGuideHeroName(game.placingHeroType);
+      return {
+        key: `place-${game.placingHeroType}`,
+        step: 'Place hero',
+        text: `Click anywhere on the board to place ${heroName}. Put them where they can cover the path and stay useful behind your Warrior.`,
+        target: 'board',
+      };
+    }
+    if (game.phase === SETUP_PHASES.PORTAL) {
+      return {
+        key: 'portal',
+        step: 'Step 1 of 6',
+        text: 'Place portal in any of the green tiles on the gameboard. The portal takes up four tiles, and the one being placed is the top-left tile of the square.',
+        target: 'portal',
+      };
+    }
+    if (game.phase === SETUP_PHASES.OBSTACLES) {
+      return {
+        key: `barriers-${game.playerObstacleCount}`,
+        step: 'Step 2 of 6',
+        text: `Place 9 player barriers around the randomly placed 9 game barriers to create a path for the enemies to follow. The dots on screen show the current enemy path, and placed barriers will update it. ${game.playerObstacleCount}/${getTargetPlayerObstacleCount()} placed.`,
+        target: 'barriers',
+      };
+    }
+    if (game.phase === SETUP_PHASES.WARRIOR) {
+      return {
+        key: 'warrior',
+        step: 'Step 3 of 6',
+        text: 'Place your Warrior on an open tile to create the frontline choke point enemies cannot pass through.',
+        target: 'board',
+      };
+    }
+    if (game.startingRelicPending || (Array.isArray(game.relicChoices) && game.relicChoices.length && Number(game.waveNumber || 0) === 0)) {
+      return {
+        key: 'relic',
+        step: 'Step 4 of 6',
+        text: 'Select a relic. Pick the free relic that best supports the run you want to build.',
+        target: 'relic',
+      };
+    }
+    if (game.phase === SETUP_PHASES.BATTLE && game.towers.some(t => t && t.type === 'warrior') && game.towers.filter(t => t && !t.isSatellite && !t.isChampion).length <= 1) {
+      return {
+        key: 'hire',
+        step: 'Step 5 of 6',
+        text: 'Click the hire buttons to select and place your heroes.',
+        target: 'hire',
+      };
+    }
+    if (game.phase === SETUP_PHASES.BATTLE && game.towers.filter(t => t && !t.isSatellite && !t.isChampion).length > 1 && !game.selectedChampionConfirmed) {
+      return {
+        key: 'champions',
+        step: 'Step 6 of 6',
+        text: 'Check for Champion NFTs. If champions are found on DFK Chain or Metis, choose one for this run.',
+        target: 'champion',
+      };
+    }
+    if (game.phase === SETUP_PHASES.BATTLE && !game.startingRelicPending) {
+      return {
+        key: 'start-wave',
+        step: 'Ready',
+        text: 'Your opening defense is ready. Start the first wave when you are happy with the path.',
+        target: 'start',
+      };
+    }
+    return null;
+  }
+
+  function ensureSetupGuideEl() {
+    if (els.setupGuideEl && document.body.contains(els.setupGuideEl)) return els.setupGuideEl;
+    const guide = document.createElement('div');
+    guide.id = 'setupGuide';
+    guide.className = 'setup-guide hidden';
+    guide.setAttribute('role', 'status');
+    guide.setAttribute('aria-live', 'polite');
+    guide.innerHTML = `
+      <div class="setup-guide-step" id="setupGuideStep"></div>
+      <div class="setup-guide-text" id="setupGuideText"></div>
+      <label class="setup-guide-hide-label"><input id="setupGuideHideCheckbox" type="checkbox"> Hide the guide</label>
+    `;
+    document.body.appendChild(guide);
+    els.setupGuideEl = guide;
+    els.setupGuideStep = guide.querySelector('#setupGuideStep');
+    els.setupGuideText = guide.querySelector('#setupGuideText');
+    els.setupGuideDismiss = guide.querySelector('#setupGuideHideCheckbox');
+    els.setupGuideDismiss?.addEventListener('change', () => {
+      setSetupGuideHiddenByPlayer(!!els.setupGuideDismiss.checked);
+      updateSetupGuide();
+    });
+    return guide;
+  }
+
+  function clearSetupGuideHighlights() {
+    document.body.classList.remove('setup-guide-active', 'setup-guide-target-portal', 'setup-guide-target-barriers', 'setup-guide-target-board', 'setup-guide-target-hire', 'setup-guide-target-relic', 'setup-guide-target-champion', 'setup-guide-target-start');
+    els.grid?.classList.remove('setup-guide-highlight');
+    els.hirePanel?.classList.remove('setup-guide-highlight');
+    els.relicPanel?.classList.remove('setup-guide-highlight');
+    els.relicModal?.classList.remove('setup-guide-highlight');
+    els.championPanel?.classList.remove('setup-guide-highlight');
+    els.startWaveBtn?.classList.remove('setup-guide-highlight');
+  }
+
+  function applySetupGuideHighlight(target) {
+    clearSetupGuideHighlights();
+    if (!target) return;
+    document.body.classList.add('setup-guide-active', `setup-guide-target-${target}`);
+    if (target === 'portal' || target === 'barriers' || target === 'board') els.grid?.classList.add('setup-guide-highlight');
+    if (target === 'hire') els.hirePanel?.classList.add('setup-guide-highlight');
+    if (target === 'relic') {
+      els.relicPanel?.classList.add('setup-guide-highlight');
+      els.relicModal?.classList.add('setup-guide-highlight');
+    }
+    if (target === 'champion') els.championPanel?.classList.add('setup-guide-highlight');
+    if (target === 'start') els.startWaveBtn?.classList.add('setup-guide-highlight');
+  }
+
+  function updateSetupGuide() {
+    const guide = ensureSetupGuideEl();
+    const state = getSetupGuideState();
+    if (!state) {
+      guide.classList.add('hidden');
+      clearSetupGuideHighlights();
+      return;
+    }
+    if (els.setupGuideStep) els.setupGuideStep.textContent = state.step;
+    if (els.setupGuideText) els.setupGuideText.textContent = state.text;
+    guide.classList.remove('hidden');
+    applySetupGuideHighlight(state.target);
+    game.setupGuideLastKey = state.key;
   }
 
   function log(message) {
@@ -9033,6 +9816,7 @@ function canSubmitRewardClaims() {
     els.knownRelicsModal.classList.add('hidden');
     els.knownRelicsModal.setAttribute('aria-hidden', 'true');
   }
+
   const NEWS_ITEMS = [
     {
       id: 'moosifer',
@@ -9040,8 +9824,8 @@ function canSubmitRewardClaims() {
       date: 'Just now',
       image: 'assets/moosifer-walking.gif',
       shareable: true,
-      body: 'The Summoner has almost completed his first incantation. The air around the portal has gone cold. The void is answering. For days the Dark Summoner and his underlings have circled the portal chanting only one phrase over and over: <span class="moosifer-chant">MAIFRIENDO.... MOOSIFER..... MAIFRIENDO.... MOOSIFER</span> Then suddenly the chanting stopped. The portal became completely silent. No wind. No fire. No screams from the void. Then the portal turned RED. A massive rack of flaming antlers pushed through the opening first. Moments later the muzzle of a gigantic moose burst through the portal with a roar that shook the battlefield before charging forward into our world.',
-      warning: 'If MOOSIFER breaks through the portal and reaches the void, its strength will be doubled for the trip back to the portal.'
+      body: '<p>The Druid senses it before anyone else, not as a sound or a shadow, but as a stillness laid too perfectly across the battlefield. The grass does not move. The air does not breathe. Even the portal seems to hold itself rigid, as if the world has realized something enormous is pressing its face against the other side.</p><p>The Sage reaches up slowly as one ear begins to itch, then burn with a heat that is not flame. The Dreadknight lowers his blade and turns toward the dark horizon, where no torch has been lit and no campfire should remain. &quot;That is not smoke from our world,&quot; he says, and for the first time his voice carries something close to fear.</p><p>Then a howl tears open the distance. It rolls over the board like thunder dragged through broken glass, and beneath it comes the garbled chant of the summoners, rising and folding over itself until the words become almost clear: <span class="moosifer-chant">MAIFRIENDO... MAIFRIENDO... MAIFRIENDO... MAIFRIENDO</span> The chant grows closer with every breath, and the fires around the heroes and champions flare brighter and hotter, not like they are being fed, but like they are trying to escape. Sparks crawl across shields, banners, and stones, hungry to set everything nearby ablaze.</p><p>Then every flame goes out at once. The battlefield falls into a silence so complete that even the horde of summoners seems swallowed by it. The Dark Summoner steps forward alone, raises both arms toward the portal, and releases a scream no throat should be able to hold. It is a word, but not a word from this plane. It bends the air, scrapes against the bones of every defender, and finally resolves into one terrible name: <span class="moosifer-chant">MOOOOOSIFER</span></p><p>At first, nothing happens. Then every summoner underling screams back in answer: <span class="moosifer-chant">MOOOOOSIFER</span> The portal turns red.</p><p>A giant rack of flaming antlers parts the opening first, pushing through like a crown made for the end of things. A massive muzzle follows with a roar that shakes dust from the stones, and thick maple syrup drips from its jowls as if the void itself has sweetened the monster for ruin. Another roar splits the battlefield, the portal buckles, and the beast forces its full weight into the world. Moosifer is here.</p>',
+      warning: 'BOSS INCOMING AT WAVE 50'
     },
     {
       id: 'news-live',
@@ -9098,9 +9882,9 @@ function canSubmitRewardClaims() {
             <span class="news-card-meta">${escapeHtml(item.date)}</span>
             <button class="news-share-btn" type="button" data-news-share="${escapeHtml(item.id)}">Copy share link</button>
           </div>
-          <h3 class="moosifer-incantation">The Summoner has almost completed<br><span>his first incantation</span></h3>
+          <h3 class="moosifer-incantation">The Summoner has completed<br><span>his first incantation</span></h3>
           <div class="moosifer-news-stage">
-            <div class="moosifer-warning">
+            <div class="moosifer-warning" style="font-size:calc(1em + 10pt); line-height:1.05;">
               <span aria-hidden="true">⚠</span>
               <strong>${escapeHtml(item.warning)}</strong>
               <span aria-hidden="true">⚠</span>
@@ -9108,11 +9892,11 @@ function canSubmitRewardClaims() {
             <div class="moosifer-creature-wrap" aria-label="MOOSIFER">
               <img class="moosifer-news-gif" src="${escapeHtml(item.image)}" alt="MOOSIFER walking toward the portal">
               <div class="moosifer-name">MOOSIFER</div>
+              <div class="moosifer-creator-inline" style="color:#ffb7a8; font-size:125%; line-height:1.1; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; text-shadow:0 0 8px rgba(255,45,31,0.55);">Created by Maifriendo</div>
             </div>
             <div class="moosifer-news-copy">
-              <p class="moosifer-veil">The veil between worlds is at its thinnest it has ever been.</p>
-              <p>${item.body}</p>
-              <p class="moosifer-boss-callout">A boss strength enemy is just days away from coming through the portal.</p>
+              <div class="moosifer-story-body">${item.body}</div>
+              <p class="moosifer-credit" style="margin-top:1.2rem; color:#ff2d1f; font-size:1.35em; line-height:1.15; font-weight:900; text-shadow:0 0 12px rgba(255,45,31,0.58);">Moosifer was created by Maifriendo, and I am very grateful for his work bringing this beast to life.</p>
             </div>
           </div>
         </article>
@@ -9129,23 +9913,34 @@ function canSubmitRewardClaims() {
 
   function renderNewsModal() {
     if (!els.newsBody) return;
-    const newsCards = NEWS_ITEMS.map(renderNewsCard).join('');
+    const pages = [
+      { type: 'moosifer', label: 'Moosifer', html: renderNewsCard(NEWS_ITEMS.find(item => item.id === 'moosifer') || NEWS_ITEMS[0], 0) },
+      { type: 'releases', label: 'Release Items' },
+    ];
+    const pageIndex = Math.max(0, Math.min(pages.length - 1, Number(game.newsPageIndex || 0)));
+    game.newsPageIndex = pageIndex;
     const timeline = NEWS_TIMELINE.map((item) => `
       <li class="news-timeline-item">
         <span class="news-timeline-dot" aria-hidden="true"></span>
         <div><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p></div>
       </li>
     `).join('');
-    els.newsBody.innerHTML = `
+    const releaseCards = NEWS_ITEMS.filter(item => item.id !== 'moosifer').map((item, index) => renderNewsCard(item, index + 1)).join('');
+    els.newsBody.innerHTML = pageIndex === 0 ? `
+      <section class="news-page news-page-current">${pages[0].html}</section>
+    ` : `
       <section class="news-page news-page-current">
-        <div class="news-section-label">Latest</div>
-        ${newsCards}
+        <div class="news-section-label">Release Items</div>
+        ${releaseCards}
       </section>
       <section class="news-page news-page-history">
         <div class="news-section-label">Timeline</div>
         <ol class="news-timeline">${timeline}</ol>
       </section>
     `;
+    if (els.newsPageCount) els.newsPageCount.textContent = `${pageIndex + 1} / ${pages.length}`;
+    if (els.newsPrevBtn) els.newsPrevBtn.disabled = pageIndex <= 0;
+    if (els.newsNextBtn) els.newsNextBtn.disabled = pageIndex >= pages.length - 1;
     els.newsBody.querySelectorAll('[data-news-share]').forEach((button) => {
       button.addEventListener('click', () => copyNewsShareLink(button.getAttribute('data-news-share')));
     });
@@ -9324,7 +10119,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           <ul class="intro-compact-list">
             <li>Burst damage that applies damage amplification, bleed, and gold scaling.</li>
             <li><span class="intro-highlight">Steal</span>: +15% gold from Pirate kills.</li>
-            <li><span class="intro-highlight">Bloody Bastard</span>: Every 10th basic attack applies bleed for 10 seconds, dealing 3% of target max HP per second and applying a 5% slow. Basic attacks prioritize non-bleeding enemies when possible.</li>
+            <li><span class="intro-highlight">Bloody Bastard</span>: Every 15th basic attack applies bleed for 10 seconds, dealing 3% of target current HP per second and applying a 5% slow. Bleed is half as effective against bosses. Basic attacks prioritize non-bleeding enemies when possible.</li>
             <li><span class="intro-highlight">Warning Shot</span>: Hits enemies in a 2-tile area for 37 damage and causes them to take 30% more damage for 20 seconds. Cooldown: 7.0s.</li>
             <li><span class="intro-highlight">Starboard Cannons</span>: Fires 4 cannonballs, each dealing 57 damage in a small splash area. Damage increases by +1 per level. Cooldown: 8.0s.</li>
             <li><span class="intro-highlight">Kraken</span>: Applies a 10 second area effect dealing 20 damage per second and slowing enemies by 90%. This is an unlock ability and is 100% stronger with a 50% longer cooldown. Cooldown: 9.0s.</li>
@@ -9345,7 +10140,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           <p class="intro-page-subheading">Seer</p>
           <ul class="intro-compact-list">
             <li>Hybrid damage and support that provides healing, debuffs, and defensive effects.</li>
-            <li><span class="intro-highlight">Temporal Restoration</span>: Heals all friendly heroes and Statues for 0.5% max HP every 2 seconds, improving to 1.0% every 2 seconds at level 20.</li>
+            <li><span class="intro-highlight">Temporal Restoration</span>: Heals all friendly heroes and Statues for 0.5% max HP every 2 seconds, improving to 1.5% every 2 seconds at level 20.</li>
             <li><span class="intro-highlight">Evasion</span> (Level 20): 10% of attacks against the Warrior and Statues miss completely. Missed attacks display “MISS”.</li>
             <li><span class="intro-highlight">Warstone</span>: Drops star-metal rocks on 3 tiles, hitting up to 3 enemies per tile for 50 damage, increasing by +1 damage per level. Cooldown: 9.0s.</li>
             <li><span class="intro-highlight">Chrono Purge</span>: Hits enemies across 2 tiles, up to 3 enemies per tile, for 33 damage each and causes them to take 10% more damage for 6 seconds. Starts at 32 damage and gains scaling after level 10. Cooldown: 9.5s.</li>
@@ -9455,6 +10250,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     wizard: 'assets/hero_tile_wizard.png',
     seer: 'assets/hero_tile_seer.png',
     archer: 'assets/hero_tile_archer.png',
+    archer_alt: 'assets/hero_tile_archer2.png',
     priest: 'assets/hero_tile_priest.png',
     pirate: 'assets/hero_tile_pirate.png',
     dreadknight: 'assets/hero_tile_dreadknight.png',
@@ -9462,17 +10258,12 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     dragoon: 'assets/hero_tile_dragoon.png',
     spellbow: 'assets/hero_tile_spellbow.png',
     monk: 'assets/hero_tile_monk.png',
+    monk_alt: 'assets/hero_tile_monk2.png',
     berserker: 'assets/hero_tile_berserker.png',
     champion_dreadknight: 'assets/hero_tile_dreadknight.png',
     champion_sage: 'assets/hero_tile_sage.png',
     champion_dragoon: 'assets/hero_tile_dragoon.png',
     champion_spellbow: 'assets/hero_tile_spellbow.png',
-  };
-  const HERO_TILE_ALTERNATE_IMAGES = {
-    archer: ['assets/hero_tile_archer.png', 'assets/hero_tile_archer2.png'],
-    monk: ['assets/hero_tile_monk.png', 'assets/hero_tile_monk2.png'],
-    pirate: ['assets/hero_tile_pirate.png', 'assets/hero_tile_pirate2.png'],
-    priest: ['assets/hero_tile_priest.png', 'assets/hero_tile_priest2.png'],
   };
 
   const HERO_TILE_LABELS = {
@@ -9540,7 +10331,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     dragoon: {
       key: 'dragoon', heroClass: 'Dragoon', label: 'Dragoon', towerType: 'champion_dragoon',
       summary: 'Frontline commander with knockback, buffs, and brutal single-target execution. He fights at the front and calls the line forward.',
-      skills: ['Overpower — every 5s blasts enemies within 2 tiles, knocks them 5 tiles toward the portal, and inspires nearby heroes for 4s and heals them for 3% health.', 'Leadership — passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.', 'Point — every 5s targets medium to large enemies before small ones and hurls a spear that kills them instantly. Bosses may be targeted, but instead take 15% of their starting health in damage.', 'Battle Hardened — enemies that pass through his tile deal 25% less damage.'],
+      skills: ['Overpower — every 5s blasts enemies within 1 tile, knocks them 5 tiles toward the portal, and inspires nearby heroes for 4s and heals them for 3% health.', 'Leadership — passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.', 'Point — every 12s targets medium to large enemies within 4 tiles before small ones and hurls a spear that kills them instantly. Bosses may be targeted, but instead take 10% of their starting health in damage.', 'Battle Hardened — enemies that pass through his tile deal 25% less damage.'],
     },
     spellbow: {
       key: 'spellbow', heroClass: 'Spellbow', label: 'Spellbow', towerType: 'champion_spellbow',
@@ -9977,6 +10768,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const customPortraitUrl = heroLike && heroLike.customPortraitUrl ? String(heroLike.customPortraitUrl).trim() : '';
     return [
       customPortraitUrl,
+      getTowerDefaultHeroImage(heroLike),
       getDefaultHeroImageForType(heroType),
     ].filter(Boolean);
   }
@@ -10102,24 +10894,31 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return HERO_TILE_IMAGES[type] || '';
   }
 
-  function getDefaultHeroImageForTower(tower) {
-    if (!tower || !tower.type) return '';
-    const type = String(tower.type || '').trim();
-    const variants = HERO_TILE_ALTERNATE_IMAGES[type];
-    if (!Array.isArray(variants) || variants.length <= 1 || tower.isSatellite || isStatueTower(tower)) {
-      return getDefaultHeroImageForType(type);
-    }
-    const sameClass = (game.towers || [])
-      .filter((candidate) => candidate && candidate.type === type && !candidate.isSatellite && !isStatueTower(candidate))
-      .slice()
-      .sort((a, b) => {
-        const aPlaced = Number(a.placedAt || a.createdAt || 0);
-        const bPlaced = Number(b.placedAt || b.createdAt || 0);
-        if (aPlaced !== bPlaced) return aPlaced - bPlaced;
-        return String(a.id || '').localeCompare(String(b.id || ''));
-      });
-    const index = Math.max(0, sameClass.findIndex((candidate) => candidate === tower || String(candidate.id || '') === String(tower.id || '')));
-    return variants[index % variants.length] || getDefaultHeroImageForType(type);
+  function getSecondHeroImageForType(type) {
+    const key = String(type || '').trim().toLowerCase();
+    if (!key) return '';
+    if (HERO_TILE_IMAGES[`${key}_alt`]) return HERO_TILE_IMAGES[`${key}_alt`];
+    const base = HERO_TILE_IMAGES[key] || '';
+    if (!base) return '';
+    return base.replace(/(\.[a-z0-9]+)$/i, '2$1');
+  }
+
+  function isSecondHeroVisual(tower) {
+    return !!(tower && Number(tower.heroVisualVariant || 1) === 2 && !tower.isSatellite && !tower.isSacrificeMonk);
+  }
+
+  function isSecondMonkVisual(tower) {
+    return !!(tower && tower.type === 'monk' && Number(tower.heroVisualVariant || tower.monkVisualVariant || 1) === 2 && !tower.isSacrificeMonk);
+  }
+
+  function getTowerDefaultHeroImage(tower) {
+    const type = tower && tower.type ? String(tower.type).trim().toLowerCase() : '';
+    if (isSecondHeroVisual(tower)) return getSecondHeroImageForType(type) || getDefaultHeroImageForType(type);
+    return getDefaultHeroImageForType(type);
+  }
+
+  function getMonk2HeroImage() {
+    return getSecondHeroImageForType('monk') || HERO_TILE_IMAGES.monk || '';
   }
 
   function getWalletHeroImage(hero) {
@@ -10394,9 +11193,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function handleWalletHeroImageError(imgEl, heroLike) {
     if (!imgEl) return;
-    const fallback = heroLike && heroLike.id && Array.isArray(game.towers) && game.towers.some((tower) => tower === heroLike || String(tower.id || '') === String(heroLike.id || ''))
-      ? getDefaultHeroImageForTower(heroLike)
-      : getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
+    const fallback = getDefaultHeroImageForType(heroLike && heroLike.type ? heroLike.type : '');
     if (fallback && imgEl.getAttribute('src') !== fallback) {
       imgEl.src = fallback;
       return;
@@ -10624,7 +11421,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function getChampionPointTarget(sourceTower = null) {
     const enemies = getPortalPriorityEnemies(Math.max(1, game.enemies.length || 1));
     const inRange = sourceTower
-      ? enemies.filter((enemy) => enemy && enemy.hp > 0 && dist(sourceTower, enemy) <= 5)
+      ? enemies.filter((enemy) => enemy && enemy.hp > 0 && dist(sourceTower, enemy) <= 4)
       : enemies;
     const preferred = inRange.filter((enemy) => enemy && enemy.hp > 0 && (enemy.isBoss || enemy.typeClass !== 'runner'));
     return preferred[0] || inRange[0] || null;
@@ -10721,6 +11518,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const message = `${selected.definition.label} is ready to deploy. Champions are worth checking every 10 waited waves starting at 30. Deploy now for ${placement.duration} waves.`;
     log(message);
     showBanner(message, 3200);
+    return true;
+  }
+
+  function maybeOpenChampionModalAfterFifthHero(placedTower) {
+    if (!placedTower || placedTower.isSatellite || placedTower.isChampion) return false;
+    if (!Array.isArray(game.championRoster) || !game.championRoster.length) return false;
+    if (game.selectedChampionConfirmed || game.runningWave || Number(game.waveNumber || 0) !== 0) return false;
+    const normalHeroCount = (game.towers || []).filter((tower) => tower && !tower.isSatellite && !tower.isChampion && Number(tower.hp || 0) > 0).length;
+    if (normalHeroCount !== 5) return false;
+    game.championModalForceChoice = true;
+    window.setTimeout(() => {
+      try { showChampionModal(true); } catch (_error) {}
+    }, 0);
     return true;
   }
 
@@ -11334,14 +12144,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const safeLevel = Math.max(1, Number(level || 1));
     if (type === 'archer') {
       return {
-        hp: template.hp * Math.pow(ARCHER_HP_LEVEL_MULTIPLIER, safeLevel - 1),
+        hp: template.hp * NON_WARRIOR_BASE_HP_MULTIPLIER * Math.pow(NON_WARRIOR_HP_GROWTH_PER_LEVEL, safeLevel - 1),
         damage: template.damage * Math.pow(ARCHER_DAMAGE_GROWTH_PER_LEVEL, safeLevel - 1),
         range: template.range,
       };
     }
     const multiplier = Math.pow(1.15, safeLevel - 1);
+    const hpGrowth = type === 'warrior' ? WARRIOR_HP_GROWTH_PER_LEVEL : NON_WARRIOR_HP_GROWTH_PER_LEVEL;
     return {
-      hp: template.hp * multiplier,
+      hp: template.hp * (type === 'warrior' ? 1 : NON_WARRIOR_BASE_HP_MULTIPLIER) * Math.pow(hpGrowth, safeLevel - 1),
       damage: template.damage * multiplier,
       range: template.range,
     };
@@ -11514,18 +12325,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function openIntroModal(pageIndex = game.introPageIndex || 0, setName = game.introSet || 'intro') {
-    if (!window.__dfkAllowManualIntroOpen) {
-      try {
-        if (els?.introModal) {
-          els.introModal.classList.add('hidden');
-          els.introModal.setAttribute('aria-hidden', 'true');
-        }
-        document.body.classList.remove('intro-open');
-        game.introOpen = false;
-      } catch (error) {}
-      return;
-    }
-    window.__dfkAllowManualIntroOpen = false;
     closeGuestConnectConfirmModal({ preserveIntroState: true });
     closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
@@ -11536,6 +12335,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.introOpen = true;
     document.body.classList.add('intro-open');
     syncStatusOverlayVisibility(true);
+    if (els.closeIntroBtn) els.closeIntroBtn.classList.remove('hidden');
     if (els.introPrevBtn) els.introPrevBtn.classList.remove('hidden');
     if (els.introPageLabel) els.introPageLabel.classList.remove('hidden');
     if (els.introModal) {
@@ -11548,6 +12348,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function closeIntroModal() {
     game.introOpen = false;
     game.modalDismiss = null;
+    game.highValueRunPromptActive = false;
+    game.highValueRunPromptResolve = null;
+    if (els.closeIntroBtn) els.closeIntroBtn.classList.remove('hidden');
     if (els.introModal) {
       els.introModal.classList.add('hidden');
       els.introModal.setAttribute('aria-hidden', 'true');
@@ -11621,9 +12424,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function render() {
-    window.setTimeout(() => { updateWalletDependentControls(); updateThirdPartyOutageButtonState(); renderThirdPartyOutageBanner(); }, 0);
     for (const tower of game.towers || []) { normalizeArcherStats(tower); if (tower?.isSoulSplit) refreshPureEnergyState(tower); }
     syncStartWaveButtonState();
+    updateSetupGuide();
     renderGrid();
     renderEnemyLayer();
     renderSelection();
@@ -11634,6 +12437,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     renderGen0ActiveBanner();
     renderWalletHeroScanStatus();
     renderDamageReport();
+    updateMoosiferButtonState();
+    syncWinstonAdminControls();
+    updateSetupGuide();
     if (typeof updateMobileBarToggle === 'function') updateMobileBarToggle();
     if (typeof updateMobileInstallPrompt === 'function') updateMobileInstallPrompt();
     if (typeof renderMobileAbilityDock === 'function') renderMobileAbilityDock();
@@ -11742,19 +12548,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       normalizeArcherStats(tower, true);
     } else if (tower.type === 'pirate') {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
+      tower.maxHp *= NON_WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     } else if ((tower.type === 'wizard' || tower.type === 'wizard_satellite')) {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
+      tower.maxHp *= NON_WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.wizard.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
     } else if (tower.type === 'seer') {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
+      tower.maxHp *= NON_WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage *= PIRATE_WIZARD_DAMAGE_GROWTH_PER_LEVEL;
       tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
@@ -11766,13 +12572,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       tower.basicCooldown /= 1.05;
     } else if (tower.type === 'champion_dreadknight') {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
+      tower.maxHp *= NON_WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       tower.damage = getChampionDamageForLevel(tower, tower.level, DREADKNIGHT_DAMAGE_GROWTH_PER_LEVEL);
       tower.basicCooldown /= 1.05;
     } else {
       const hpRatio = tower.hp / tower.maxHp;
-      tower.maxHp *= 1.065;
+      tower.maxHp *= NON_WARRIOR_HP_GROWTH_PER_LEVEL;
       tower.hp = tower.maxHp * hpRatio;
       if (tower.isChampion || String(tower.type || '').startsWith('champion_')) {
         tower.damage = getChampionDamageForLevel(tower, tower.level, 1.05);
@@ -11813,6 +12619,42 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return true;
   }
 
+  function getExistingMonkWalletSource(excludeTowerId = null) {
+    return (game.towers || []).find((entry) => entry
+      && entry.type === 'monk'
+      && entry.id !== excludeTowerId
+      && entry.hp > 0
+      && !entry.isSatellite
+      && !entry.isSacrificeMonk
+      && (entry.walletHeroId || entry.walletHeroRarity != null || entry.walletHeroIsGen0 === true));
+  }
+
+  function inheritMonkWalletBonusFromPartner(tower) {
+    if (!tower || tower.type !== 'monk' || tower.walletHeroId || tower.isSatellite || tower.isSacrificeMonk) return false;
+    const source = getExistingMonkWalletSource(tower.id);
+    if (!source) return false;
+
+    tower.walletHeroId = source.walletHeroId ? String(source.walletHeroId) : null;
+    tower.walletHeroLevel = Math.max(1, Number(source.walletHeroLevel || 1));
+    tower.walletHeroIsGen0 = !!source.walletHeroIsGen0;
+    tower.walletHeroRarity = Number.isFinite(Number(source.walletHeroRarity)) ? Number(source.walletHeroRarity) : null;
+    tower.walletHeroRarityName = String(source.walletHeroRarityName || getDfKRarityName(tower.walletHeroRarity)).trim();
+    tower.walletHeroRarityBonus = Number(source.walletHeroRarityBonus || 0);
+    tower.customPortraitUrl = isSecondHeroVisual(tower) ? getTowerDefaultHeroImage(tower) : (tower.customPortraitUrl || '');
+    if (tower.walletHeroId) tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Hero ${tower.walletHeroId}`;
+
+    if (tower.walletHeroRarity != null && !tower.walletHeroIsGen0) {
+      applyRarityCombatBonusToTower(tower, {
+        id: tower.walletHeroId || source.walletHeroId || 'monk-partner',
+        type: 'monk',
+        rarity: tower.walletHeroRarity,
+        rarityName: tower.walletHeroRarityName,
+        generation: 1,
+      });
+    }
+    return true;
+  }
+
   function applyWalletHeroToTower(tower, heroData) {
     if (!tower || !heroData) return;
     tower.walletHeroId = String(heroData.id);
@@ -11821,7 +12663,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     tower.walletHeroRarity = Number.isFinite(Number(heroData.rarity)) ? Number(heroData.rarity) : null;
     tower.walletHeroRarityName = String(heroData.rarityName || getDfKRarityName(tower.walletHeroRarity)).trim();
     tower.walletHeroRarityBonus = getWalletHeroRarityCombatBonus(heroData);
-    tower.customPortraitUrl = '';
+    tower.customPortraitUrl = isSecondHeroVisual(tower) ? getTowerDefaultHeroImage(tower) : '';
     tower.reportLabel = `${tower.name} #${tower.id.replace(/^t/, '')} • Hero ${tower.walletHeroId}`;
     const targetLevel = Math.max(1, Number(heroData.level || 1));
     for (let nextLevel = 2; nextLevel <= targetLevel; nextLevel += 1) {
@@ -12278,12 +13120,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const selectedTower = getSelectedTower();
     const moveTargets = selectedTower && game.movingTowerId === selectedTower.id ? getMoveTargetsForTower(selectedTower) : [];
     const rangeTiles = selectedTower ? getSelectedRangeTiles(selectedTower) : [];
+    const enemyPathPreviewTiles = getEnemyPathPreviewTiles();
 
     for (const tile of game.grid) {
       tile.el.className = 'tile';
       tile.el.innerHTML = '';
       if (tile.type === 'spawn') {
         tile.el.classList.add('spawn');
+        if (document.body.classList.contains('setup-guide-target-portal')) tile.el.classList.add('setup-guide-void-tile');
       }
       if (tile.portal) tile.el.classList.add('portal');
       if (tile.obstacle === 'random') tile.el.classList.add('random-obstacle');
@@ -12296,8 +13140,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       }
       if (tile.pathPreview === 'valid') tile.el.classList.add('preview-valid');
       if (tile.pathPreview === 'invalid') tile.el.classList.add('preview-invalid');
+      if (enemyPathPreviewTiles.has(key(tile.x, tile.y))) tile.el.classList.add('enemy-path-preview');
       if (tile.hitFlash && tile.hitFlash.until <= now()) tile.hitFlash = null;
       if (tile.hitFlash) tile.el.classList.add(`hit-${tile.hitFlash.colorKey}`);
+      if (document.body.classList.contains('setup-guide-target-portal') && canPlacePortal(tile.x, tile.y)) {
+        tile.el.classList.add('setup-guide-valid-tile');
+      }
+      if (document.body.classList.contains('setup-guide-target-barriers')) {
+        if (tile.obstacle === 'player') tile.el.classList.add('setup-guide-complete-tile');
+        else if (canPlacePlayerObstacle(tile.x, tile.y)) tile.el.classList.add('setup-guide-valid-tile');
+      }
+      if (document.body.classList.contains('setup-guide-target-board') && isOpenForTower(tile.x, tile.y)) {
+        tile.el.classList.add('setup-guide-valid-tile');
+      }
       if (selectedTower && selectedTower.x === tile.x && selectedTower.y === tile.y) tile.el.classList.add('selected');
       if (rangeTiles.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('range-tile', `range-${selectedTower.type}`);
       if (moveTargets.some(p => p.x === tile.x && p.y === tile.y)) tile.el.classList.add('move-target');
@@ -12310,6 +13165,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const ghostBerserker = (!tower) ? (game.towers || []).find((entry) => entry && entry.type === 'berserker' && entry.hp > 0 && entry.berserkerGhostTile && entry.berserkerGhostTile.x === tile.x && entry.berserkerGhostTile.y === tile.y) : null;
       if (tower) {
         tile.el.classList.add(`tile-hero-${tower.type}`);
+        if (isStatueTower(tower)) tile.el.classList.add('tile-statue-tower');
         if (tower.isSacrificeMonk) tile.el.classList.add('tile-sacrifice-monk', 'tile-pure-energy');
       }
       if (activeSlowTotem) tile.el.classList.add('tile-has-slow-totem');
@@ -12330,7 +13186,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         small.textContent = `${tower.level}`;
         tile.el.appendChild(small);
 
-        const walletHeroRarity = getTowerWalletHeroRarity(tower);
+        const walletHeroRarity = isStatueTower(tower) ? null : getTowerWalletHeroRarity(tower);
         if (walletHeroRarity) {
           tile.el.classList.add('tile-wallet-hero-rarity', `tile-wallet-hero-rarity-${walletHeroRarity.className}`);
           const rarityBadge = document.createElement('div');
@@ -12379,10 +13235,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           tile.el.appendChild(wavesLeftBadge);
         }
 
-        const defaultPortraitSrc = getDefaultHeroImageForTower(tower);
+        const defaultPortraitSrc = getTowerDefaultHeroImage(tower);
         if (defaultPortraitSrc) {
           const portraitUnderlay = document.createElement('img');
-          portraitUnderlay.className = 'tile-hero-portrait tile-hero-portrait-underlay';
+          portraitUnderlay.className = `tile-hero-portrait tile-hero-portrait-underlay${isStatueTower(tower) ? ' tile-statue-hero tile-statue-hero-underlay' : ''}`;
           portraitUnderlay.alt = '';
           portraitUnderlay.draggable = false;
           portraitUnderlay.src = defaultPortraitSrc;
@@ -12395,8 +13251,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         portrait.draggable = false;
         portrait.decoding = 'async';
         portrait.loading = 'eager';
-        const towerPortraitSources = [tower.customPortraitUrl ? String(tower.customPortraitUrl).trim() : '', defaultPortraitSrc].filter(Boolean);
-        portrait.src = towerPortraitSources[0] || '';
+        portrait.src = getWalletHeroFallbackSources(tower)[0] || defaultPortraitSrc || '';
         portrait.addEventListener('error', () => handleWalletHeroImageError(portrait, tower), { once: false });
         const satelliteOpacity = getSatelliteVisualOpacity(tower);
         portrait.style.opacity = `${satelliteOpacity}`;
@@ -12427,6 +13282,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         }
         if (isStatueTower(tower)) {
           portrait.classList.add('tile-statue-hero');
+          portrait.style.filter = 'grayscale(1) saturate(0.05) brightness(0.72) contrast(1.55) sepia(0.08) drop-shadow(0 0 2px rgba(0,0,0,0.85))';
+          portrait.style.opacity = '0.94';
         } else if (tower.isSatellite && !isStatueTower(tower)) {
           portrait.classList.add('tile-ethereal-hero');
           portrait.style.setProperty('--ethereal-glow', (tower.type === 'wizard' || tower.type === 'wizard_satellite') ? 'rgba(161, 120, 255, 1)' : 'rgba(70, 255, 110, 1)');
@@ -12543,7 +13400,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
             tile.el.appendChild(moonBadge);
           }
         }
-        if (hasSageChampionBuff(tower) || hasSageChampionMeleeBuff(tower)) {
+        if (!isStatueTower(tower) && (hasSageChampionBuff(tower) || hasSageChampionMeleeBuff(tower))) {
           const glowTitle = 'Battle Meditation active: casters gain +20% damage and +20% speed, melee heroes gain +10% damage. Archer, Pirate, Monk, and Berserker count as melee for Sage protection.';
           if (usesVerticalBuffStack) {
             appendStackedBuffBadge('GLOW', glowTitle);
@@ -12589,7 +13446,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           gen0Note.textContent = 'Gen0 bonus • +20% damage • +10% speed • +10% life • +30% healing';
           hover.appendChild(gen0Note);
         } else {
-          const walletHeroRarity = getTowerWalletHeroRarity(tower);
+          const walletHeroRarity = isStatueTower(tower) ? null : getTowerWalletHeroRarity(tower);
           if (walletHeroRarity) {
             const rarityNote = document.createElement('div');
             rarityNote.className = 'tile-hover-meta';
@@ -13401,6 +14258,72 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       game.infoPopupPinned = false;
       game.openAbilityDetailsByTowerId = {};
       hideAbilityInfo(true);
+      if (game.placingHeroType) {
+        const type = game.placingHeroType;
+        const template = TOWER_TEMPLATES[type] || {};
+        const previewLevel = Math.max(1, Number((game.adminHeroLevelOverrides && game.adminHeroLevelOverrides[type]) || 1));
+        const previewStats = getBaseTowerStatsForLevel(type, previewLevel);
+        const name = template.name || getSetupGuideHeroName(type);
+        const previewTower = {
+          id: `preview-${type}`,
+          type,
+          name,
+          template,
+          level: previewLevel,
+          hp: previewStats.hp || template.hp || 0,
+          maxHp: previewStats.hp || template.hp || 0,
+          damage: previewStats.damage || template.damage || 0,
+          baseDamage: template.damage || 0,
+          range: previewStats.range || template.range || 0,
+          abilities: Array.isArray(template.abilities) ? template.abilities : [],
+          buffs: {},
+          debuffs: {},
+          abilityReadyAt: {},
+          getAttackInterval() {
+            return Number(template.attackInterval || 1);
+          },
+        };
+        els.selectedInfo.innerHTML = `
+          <div class="hire-preview-card">
+            <div class="hire-preview-title">Placing ${escapeHtml(name)}</div>
+            <div class="hire-preview-stats">
+              <span>Level ${previewLevel}</span>
+              <span>${Math.round(previewTower.maxHp).toLocaleString()} HP</span>
+              <span>${Math.round(previewTower.damage).toLocaleString()} damage</span>
+              <span>Range ${previewTower.range}</span>
+            </div>
+            <div class="hire-preview-note">Click an open board tile to place this hero, or use Cancel below to pick someone else.</div>
+          </div>
+        `;
+        els.abilitiesPanel.innerHTML = previewTower.abilities.length
+          ? previewTower.abilities.map((ability) => {
+            const unlockLevel = getAbilityUnlockLevel(previewTower, ability.key);
+            const unlocked = previewLevel >= unlockLevel;
+            const description = decoratePureEnergyText(getAbilityDescription(previewTower, ability.key), previewTower);
+            return `<div class="ability-row open hire-preview-ability">
+              <div class="hire-preview-ability-head">
+                <strong>${escapeHtml(ability.name || ability.key || 'Ability')}</strong>
+                <span>${ability.passive ? 'Passive' : `Cooldown ${Number(ability.cooldown || 0)}s`}${unlocked ? '' : ` - Unlocks L${unlockLevel}`}</span>
+              </div>
+              <div class="ability-row-details">${description}</div>
+            </div>`;
+          }).join('')
+          : '<div class="muted">No active abilities listed for this hero.</div>';
+        els.upgradeBtn.disabled = true;
+        if (els.maxLevelBtn) els.maxLevelBtn.disabled = true;
+        els.moveBtn.disabled = true;
+        if (els.cancelActionBtn) {
+          const pendingLabel = getPendingActionLabel();
+          els.cancelActionBtn.disabled = false;
+          els.cancelActionBtn.textContent = `Cancel ${pendingLabel}`;
+          els.cancelActionBtn.title = `Cancel ${pendingLabel}`;
+        }
+        els.rebuildBarriersBtn.disabled = !canStartBarrierRebuild();
+        els.rebuildBarriersBtn.textContent = `Rebuild Barriers (${formatJewel(BARRIER_REBUILD_COST)} Gold)`;
+        updateHeroActionDisabledState();
+        renderMobileAbilityDock();
+        return;
+      }
       els.selectedInfo.textContent = 'Nothing selected.';
       els.abilitiesPanel.innerHTML = '<div class="muted">Select a tower to level up, move, or cast abilities.</div>';
       els.upgradeBtn.disabled = true;
@@ -13602,6 +14525,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function shouldHideWarriorHireDuringStartingPlacement() {
+    if (game.adminPanelUsed) return false;
     if (Number(game.waveNumber || 0) !== 0) return false;
     const hasStartingWarriorPlaced = (game.towers || []).some((tower) => tower && !tower.isSatellite && tower.type === 'warrior');
     return !hasStartingWarriorPlaced;
@@ -13764,8 +14688,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     for (const type of bonusAvailable) appendHireButton(type, true);
   }
 
+  function ensureRelicModalOverlayRoot() {
+    if (!els.relicModal || els.relicModal.parentElement === document.body) return;
+    document.body.appendChild(els.relicModal);
+  }
 
   function renderRelics() {
+    ensureRelicModalOverlayRoot();
     if (els.relicPanel) {
       els.relicPanel.innerHTML = '';
       const owned = getOwnedRelicObjects();
@@ -13908,107 +14837,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     els.relicModal.classList.remove('hidden');
   }
 
-
-  function shouldPromptBeforeUntrackedPortalStart() {
-    return Boolean(
-      game.phase === SETUP_PHASES.PORTAL
-      && !game.portal
-      && !game.runTrackingProceedWithoutTracking
-      && getConnectedWalletAddress()
-      && !isRunTrackingEnabled()
-    );
-  }
-
-  function openRunTrackingNotEnabledModal() {
-    return new Promise((resolve) => {
-      let modal = document.getElementById('runTrackingNotEnabledModal');
-      if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'runTrackingNotEnabledModal';
-        modal.className = 'intro-modal hidden run-tracking-warning-modal';
-        modal.setAttribute('aria-hidden', 'true');
-        modal.innerHTML = `
-          <div class="intro-modal-card run-tracking-warning-card panel" role="dialog" aria-modal="true" aria-labelledby="runTrackingNotEnabledTitle">
-            <div class="intro-kicker">Run Tracking</div>
-            <h2 id="runTrackingNotEnabledTitle">Run tracking not enabled, proceed without run tracking?</h2>
-            <div class="intro-body">
-              <p>This run will not count for tracked runs, leaderboard credit, daily quests, bounties, or payout review unless run tracking is enabled before the game starts.</p>
-            </div>
-            <div class="intro-actions run-tracking-warning-actions">
-              <button id="runTrackingProceedUntrackedBtn" class="secondary" type="button">Yes</button>
-              <button id="runTrackingEnableAndRestartBtn" type="button">No, please enable run tracking</button>
-            </div>
-          </div>`;
-        document.body.appendChild(modal);
-      }
-      const proceedBtn = modal.querySelector('#runTrackingProceedUntrackedBtn');
-      const enableBtn = modal.querySelector('#runTrackingEnableAndRestartBtn');
-      const finish = (answer) => {
-        modal.classList.add('hidden');
-        modal.setAttribute('aria-hidden', 'true');
-        game.introOpen = false;
-        document.body.classList.remove('intro-open');
-        syncStatusOverlayVisibility(false);
-        setBoardInputLocked(false);
-        resolve(answer);
-      };
-      if (proceedBtn) proceedBtn.onclick = () => finish('proceed');
-      if (enableBtn) enableBtn.onclick = () => finish('enable');
-      modal.onclick = (event) => {
-        if (event.target === modal) finish('cancel');
-      };
-      closeIntroModal();
-      closeBountyModal();
-      closeQuestsModal();
-      closeTrackedRunsModal();
-      closeKnownRelicsModal();
-      closeContinueOfferModal();
-      closeGuestConnectConfirmModal({ preserveIntroState: true });
-      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
-      game.modalDismiss = null;
-      game.introOpen = true;
-      document.body.classList.add('intro-open');
-      syncStatusOverlayVisibility(true);
-      setBoardInputLocked(true);
-      modal.classList.remove('hidden');
-      modal.setAttribute('aria-hidden', 'false');
-      try { (enableBtn || proceedBtn)?.focus(); } catch (_error) {}
-    });
-  }
-
-  async function enableRunTrackingAndRestartFromPortalWarning() {
-    if (!window.DFKRunTracker || typeof window.DFKRunTracker.authenticate !== 'function') {
-      showBanner('Run tracking is not ready. Refresh the page and try again.', 3200);
-      return false;
-    }
-    showBanner('Opening run tracking signature…', 1800);
-    try {
-      await window.DFKRunTracker.authenticate({ manual: true, forceRefresh: true });
-      showBanner('Run tracking enabled. Starting a fresh tracked game.', 2600);
-      return await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
-    } catch (error) {
-      const message = error && error.message ? error.message : 'Run tracking was not enabled.';
-      showBanner(message, 4200);
-      setInstruction(message);
-      return false;
-    }
-  }
-
-  async function guardPortalPlacementTrackingChoice() {
-    if (!shouldPromptBeforeUntrackedPortalStart()) return true;
-    const answer = await openRunTrackingNotEnabledModal();
-    if (answer === 'proceed') {
-      game.runTrackingProceedWithoutTracking = true;
-      showBanner('Proceeding without run tracking. This run will not be tracked.', 2600);
-      return true;
-    }
-    if (answer === 'enable') {
-      await enableRunTrackingAndRestartFromPortalWarning();
-      return false;
-    }
-    return false;
-  }
-
   function canPlacePortal(x, y) {
     const minPortalX = Math.max(4, Math.floor(WIDTH * 0.42));
     if (x < minPortalX || y > HEIGHT - 2 || x > WIDTH - 2) return false;
@@ -14030,7 +14858,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function canRepositionWarriorPreStart() {
-    return !game.runningWave && game.waveNumber === 0 && game.phase !== SETUP_PHASES.GAME_OVER;
+    return false;
   }
 
   function pickupWarriorForReposition(tower) {
@@ -14054,7 +14882,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     clearPortalTiles();
     game.portal = null;
     game.phase = SETUP_PHASES.PORTAL;
-    game.resumedFromLocalSave = false;
     game.runTracking = {
       clientRunId: (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       startedAt: new Date().toISOString(),
@@ -14100,6 +14927,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     game.portalPickedUpForMove = false;
     log(`Portal placed at (${x + 1}, ${y + 1}) covering 2x2 tiles.`);
+    updateMoosiferButtonState();
     recordReplayEvent('portal_place', { x, y });
     captureReplayWaveSnapshot('portal_placed');
     persistSavedGame('portal_placed');
@@ -14269,8 +15097,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       x,
       y,
       level: 1,
-      maxHp: template.hp,
-      hp: template.hp,
+      maxHp: template.hp * (type === 'warrior' ? 1 : NON_WARRIOR_BASE_HP_MULTIPLIER),
+      hp: template.hp * (type === 'warrior' ? 1 : NON_WARRIOR_BASE_HP_MULTIPLIER),
       damage: template.damage,
       range: template.range,
       basicCooldown: baseAttackInterval * 1000,
@@ -14300,6 +15128,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         return Math.max(0.20, this.basicCooldown / 1000 / mult);
       },
     };
+    {
+      const existingSameClass = (game.towers || []).filter((entry) => entry
+        && entry.type === type
+        && entry.hp > 0
+        && !entry.isSatellite
+        && !entry.isSacrificeMonk
+        && !entry.isChampion).length;
+      tower.heroVisualVariant = existingSameClass >= 1 ? 2 : 1;
+      if (type === 'monk') tower.monkVisualVariant = tower.heroVisualVariant;
+      if (tower.heroVisualVariant === 2) tower.customPortraitUrl = getTowerDefaultHeroImage(tower);
+    }
+    if (type === 'pirate' && game.modifiers.pirateRangeBonus) tower.range = Math.max(0, Number(tower.range || 0) + Number(game.modifiers.pirateRangeBonus || 0));
+    if (type === 'berserker' && game.modifiers.berserkerRangeBonus) tower.range = Math.max(0, Number(tower.range || 0) + Number(game.modifiers.berserkerRangeBonus || 0));
     if (String(type).startsWith('champion_')) {
       tower.isChampion = true;
       tower.championKey = String(type).replace(/^champion_/, '');
@@ -14311,11 +15152,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     for (const ability of template.abilities) tower.abilityReadyAt[ability.key] = 0;
     tower.abilityGlobalReadyAt = 0;
     if (tower.isChampion) ensureChampionAutoAbilityState(tower);
-    if (type === 'pirate') {
-      tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
-      tower.range = Math.max(0, Number(tower.range || 0) + Math.max(0, Number(game.modifiers.pirateRangeAdd || 0)));
-    }
+    if (type === 'pirate') tower.basicCooldown = (TOWER_TEMPLATES.pirate.attackInterval * 1000) / getPirateCooldownMultiplierForLevel(tower.level || 1);
     if (type === 'seer') tower.basicCooldown = (TOWER_TEMPLATES.seer.attackInterval * 1000) / getWizardCooldownMultiplierForLevel(tower.level || 1);
+    applyPlayerStartLevelToTower(tower);
+    applyAdminLevelOverrideToTower(tower);
     if (type === 'monk') {
       tower.damage *= Math.max(0, Number(game.modifiers.monkDamageMultiplier || 1));
       if (game.modifiers.sacrificeEverything) tower.damage *= 0.75;
@@ -14530,13 +15370,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       chrono_purge: 10,
       evasion: 20,
       starboard_cannons: 10,
-      kraken: 15,
+      kraken: 16.5,
       healing_aura: 1,
       eagle_nest: 1,
       soul_split: 1,
       slow_totem: 1,
       fast_fists: 1,
       windmill_kick: 1,
+      frozen_fist: 1,
       levitation: 1,
       training_partner: 1,
       two_handed_swing: 1,
@@ -14559,6 +15400,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function getAbilityPowerMultiplier(tower, abilityKey) {
     if (abilityKey === 'healing_aura' || abilityKey === 'shield_bash') return 1;
+    if (abilityKey === 'frozen_fist') return 1;
     if (['temporal_restoration', 'warstone', 'chrono_purge', 'evasion'].includes(abilityKey)) return 1;
     return getAbilityIndex(tower, abilityKey) >= 2 ? 2 : 1;
   }
@@ -14582,14 +15424,16 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     if (tower?.type === 'wizard') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'seer') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.wizardCooldownFlatReduction || 0));
     if (tower?.type === 'warrior' && abilityKey === 'whirlwind') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.whirlwindCooldownAdjust || 0));
-    if (tower?.type === 'pirate' && abilityKey === 'kraken') return Math.max(0.5, 10 - (game.modifiers.krakenCooldownAdjust || 0) - leadershipReduction);
+    if (tower?.type === 'pirate' && abilityKey === 'kraken') scaledBase = Math.max(0.5, scaledBase - (game.modifiers.krakenCooldownAdjust || 0));
     if (abilityKey === 'shield_bash') return scaledBase;
     const seerBaseCooldown = ['temporal_restoration', 'warstone', 'chrono_purge', 'evasion'].includes(abilityKey);
     let finalCooldown = (getAbilityIndex(tower, abilityKey) >= 2 && !seerBaseCooldown) ? scaledBase * 1.5 : scaledBase;
     if (abilityKey === 'fireball') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'warning_shot') finalCooldown += 1.5;
+    if (abilityKey === 'kraken') finalCooldown += 1.5;
     if (abilityKey === 'starboard_cannons') finalCooldown = Math.max(0.5, finalCooldown - 1);
     if (abilityKey === 'multi_shot') finalCooldown = Math.max(0.5, finalCooldown - 1.5);
+    if (abilityKey === 'frozen_fist') finalCooldown = scaledBase;
     if (tower?.type === 'monk' && abilityKey === 'fast_fists') finalCooldown *= Math.max(0.1, Number(game.modifiers.fastFistsCooldownMultiplier || 1));
     return Math.max(0.5, finalCooldown - leadershipReduction);
   }
@@ -14601,6 +15445,18 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function getAbilityLevelBonus(tower, perLevel = ABILITY_DAMAGE_PER_LEVEL) {
     const level = Math.max(1, tower?.level || 1);
     return Math.max(0, level - 1) * perLevel;
+  }
+
+  function getPiercingShotPercentDamage(tower) {
+    return Number(tower?.level || 1) >= 25 ? 0.01 : 0.005;
+  }
+
+  function getPiercingShotTargetMultipliers() {
+    return [1, 0.8, 0.6, 0.45, 0.35, 0.28, 0.22, 0.18, 0.14, 0.10];
+  }
+
+  function getMultiShotCritDamage(enemy) {
+    return Math.max(0, Number(enemy?.maxHp || enemy?.hp || 0) * 0.05);
   }
 
   function canUpgradeTower(tower) {
@@ -14774,21 +15630,22 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       shield_bash: `Smashes the tile in front of the Warrior for ${Math.round(tower.damage * 1.5)} damage, then knocks enemies on that tile back up to 5 tiles. Range: 1 tile.${common}${scale}`,
       rapid_onslaught: `Boosts attack speed by ${Math.round((1 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
 
-      multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Gains +1 total damage per level split across the 3 arrows. Cooldown: ${getAbilityCooldownSeconds(tower, 'multi_shot').toFixed(1)}s.${common}${scale}`,
+      multi_shot: `Fires 3 arrows for ${Math.round((d * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + ((getAbilityLevelBonus(tower, 1) / 3)))} damage each. Each arrow has a 5% chance to CRIT for +5% of the target's max HP, and multiple crits can happen at once. Gains +1 total damage per level split across the 3 arrows. Cooldown: ${getAbilityCooldownSeconds(tower, 'multi_shot').toFixed(1)}s.${common}${scale}`,
       rapid_shot: `Boosts attack speed by ${Math.round((0.8 * powerMult) * 100)}% for 4s.${stronger}${common}${scale}`,
-      piercing_shot: `Hits up to 5 enemies for ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 1 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.8 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.6 * powerMult)}, ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.45 * powerMult)}, and ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * 0.35 * powerMult)} damage. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
+      piercing_shot: `Hits up to ${getPiercingShotTargetMultipliers().length} enemies, starting at ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * getPiercingShotTargetMultipliers()[0] * powerMult)} damage and falling to ${Math.round((d + 2 + getAbilityLevelBonus(tower)) * getPiercingShotTargetMultipliers()[getPiercingShotTargetMultipliers().length - 1] * powerMult)} on the last target. Each hit also deals ${(getPiercingShotPercentDamage(tower) * 100).toFixed(Number(tower?.level || 1) >= 25 ? 0 : 1)}% of the target's max HP, improving from 0.5% to 1% at level 25. Gains +${ABILITY_DAMAGE_PER_LEVEL} damage per level.${stronger}${common}${scale}`,
       eagle_nest: `Passive. Every 12 cleared waves, Assassin's Training grants 1 Archer Shadow charge. Use that charge during prep to place an Archer Shadow. Level 100 Archers make newly created Archer Shadows last ${PURE_ENERGY_ARCHER_SHADOW_EXTRA_WAVES} extra waves. Archer Shadow on any valid open tile. Archer Shadows start at half the level of the Archer who spawned them, rounded down, with a minimum of level 1. The Archer Shadow has half of a normal Archer's max HP at the same level, deals 75% of the parent hero's damage, and costs 50% more to level up.${game.modifiers.masterAssassin ? ' Master Assassin active: Archer Shadows never dissipate, Archer Shadow level ups cost 25% less, and Archer level ups cost 15% less.' : ' Archer Shadows are ethereal: after 5 cleared waves they fade to 25% translucency, after 10 cleared waves they fade to 50% translucency, and after 13 cleared waves they dissipate completely. The tile shows how many waves remain, and once the Archer Shadow is gone you must clear 12 more waves before summoning the next one.'}`,
-      firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack. Burning enemies already slowed by chill or Ice Aura are slowed by an additional ${(FIREBOLT_BURN_ICE_AURA_SLOW_BONUS * 100).toFixed(0)}%.${common}${scale}`,
-      frost_bolt: `Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
+      firebolt: `Deals ${Math.round((42 + getAbilityLevelBonus(tower, 1)) * game.modifiers.wizardSpellDamage)} spell damage to up to 2 enemies on the same tile and applies Burning for ${((FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS) * 100).toFixed(1)}% max HP per second for ${FIREBOLT_BURN_DURATION_SECONDS}s. Burning does not stack. Burning enemies already slowed by chill or Ice Aura are slowed by an additional ${(FIREBOLT_BURN_ICE_AURA_SLOW_BONUS * 100).toFixed(0)}%. Moosifer ignores Burning damage and the Burning slow bonus.${common}${scale}`,
+      frost_bolt: `Frost Damage. Passive. Every 1 second, Ice Aura slows up to 10 enemies. Slow strength increases by ${(ICE_AURA_SLOW_PER_LEVEL * 100).toFixed(1)}% per Wizard level, starting at ${(ICE_AURA_BASE_SLOW * 100).toFixed(0)}%. Range is ${ICE_AURA_BASE_RANGE}, and at level 15 it expands to ${ICE_AURA_BASE_RANGE + ICE_AURA_BONUS_RANGE_AT_LEVEL_15} tiles. ${tower.level >= 15 ? 'Enhanced Aura Active: +1 range.' : 'Enhanced Aura inactive until level 15.'}`,
       soul_split: `Passive. Every ${SOUL_SPLIT_CHARGE_WAVE_INTERVAL} cleared waves, the Wizard gains 1 Torn Soul charge. Use that charge during prep to place a shadow of the Wizard on any valid open tile. Torn Soul attacks with 50% of the Wizard's damage, and when it reaches level 40 it becomes an Archon, gaining 50% more attack damage and double explosion power. At level ${PURE_ENERGY_LEVEL}, the Archon becomes PURE ENERGY: +50% damage, +10% speed, no more leveling, ${Math.round((PURE_ENERGY_BURN_DURATION_MULTIPLIER - 1) * 100)}% longer burn duration, and wider detonation fire. When one enemy passes through its tile it detonates for ${Math.round(tower.damage * getTornSoulExplosionMultiplier(tower))} damage, then leaves purple fire burning for ${getTornSoulBurnDurationSeconds(tower).toFixed(1)}s in a ${getTornSoulBurnRadius(tower)}-tile radius.${common}${scale}`,
       fireball: `Explodes in a 2-tile area for ${Math.round((70 + getAbilityLevelBonus(tower, 1)) * powerMult * game.modifiers.wizardSpellDamage)} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'fireball').toFixed(1)}s.${stronger}${common}${scale}`,
-      frost_lance: `Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
+      frost_lance: `Frost Damage. Deals ${Math.round(99 * powerMult * game.modifiers.wizardSpellDamage)} damage, or double to slowed enemies.${stronger}${common}${scale}`,
       temporal_restoration: `Passive. Heals all friendly heroes${game.modifiers.seerPassiveHealsStatues ? ' and Statues' : ' except Statues'} for ${(getSeerPassiveHealPercent(tower) * 100).toFixed(1)}% of each target's max HP every 2 seconds. At level 20 this improves to ${(SEER_PASSIVE_HEAL_PERCENT_LEVEL20 * Math.max(0, Number(game.modifiers?.seerHealMultiplier ?? 1)) * (game.modifiers?.seerHealingDisabled ? 0 : 1) * 100).toFixed(1)}% every 2 seconds.${common}${scale}`,
       warstone: `Drops star-metal rocks on 3 tiles. Each tile hits up to 3 enemies for ${Math.round(WARSTONE_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'warstone').toFixed(1)}s.${common}${scale}`,
       chrono_purge: `Hits enemies across 2 tiles, up to 3 enemies per tile, for ${Math.round(getChronoPurgeDamage(tower))} damage each and makes them take ${(CHRONO_PURGE_BONUS_DAMAGE_TAKEN * 100).toFixed(0)}% more damage for ${CHRONO_PURGE_DURATION_SECONDS}s. It starts at ${CHRONO_PURGE_BASE_DAMAGE} damage when unlocked and gains +1% per Seer level after level 10.${common}${scale}`,
       evasion: `Passive. Unlocks at level 20. ${Math.round(SEER_EVASION_CHANCE * 100)}% of attacks against the Warrior and every Statue simply miss and deal no damage. Any attack that misses will show "MISS" on the Warrior or Statue.${common}${scale}`,
       fast_fists: `Punches every enemy within 1 tile for ${Math.round(d * 2)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'fast_fists').toFixed(1)}s.${game.modifiers.fastFistsCooldownMultiplier < 1 ? '<br><strong>Too Fast active:</strong> cooldown reduced by 25%.' : ''}${game.modifiers.monkDarkSiphon ? '<br><strong>Dark Siphon active:</strong> Monk damage heals the Warrior for 10% of damage dealt.' : ''}${common}${scale}`,
       windmill_kick: `Spins through all enemies within 2 tiles for ${Math.round(d * 1.5)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'windmill_kick').toFixed(1)}s.${common}${scale}`,
+      frozen_fist: `Frost Damage. Strikes all enemies within 2 tiles for ${Math.round(d * 1.8)} damage and slows them by 10% for 10s.${common}${scale}`,
       levitation: `Passive. Monk ignores movement cooldown and can float from skirmish to skirmish without resting.${common}${scale}`,
       training_partner: `Passive. When two Monks are fielded, both gain +25% damage, +25% speed, and +1 range.${game.modifiers.sacrificeEverything ? '<br><strong>Sacrifice Everything active:</strong> creates SACRIFICE when two Monks are fielded; all Monks deal 75% damage.' : ''}${common}${scale}`,
       two_handed_swing: `Smashes up to 10 enemies within 2 tiles for ${Math.round(d * 1.75)} damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'two_handed_swing').toFixed(1)}s.${common}${scale}`,
@@ -14802,7 +15659,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       priest_template_passive: `Passive: Starting at level 10, Prayer of Healing cooldown is reduced by 0.1s per Priest level.<br><strong>Current Prayer of Healing cooldown: ${getPriestDivineSoldierPrayerCooldown(tower).toFixed(1)}s</strong><br>This caps at a minimum cooldown of 1.0s.`,
       warning_shot: `Blasts enemies in a 2-tile area for ${Math.round(tower.damage * 0.5)} damage and makes them take 30% more damage from attacks for 20s. Cooldown: ${getAbilityCooldownSeconds(tower, 'warning_shot').toFixed(1)}s.${common}${scale}`,
       starboard_cannons: `Fires ${4 + game.modifiers.extraCannons} cannonballs for ${Math.round(STARBOARD_CANNONS_BASE_DAMAGE + getAbilityLevelBonus(tower, 1))} damage each in a small splash area. Gains +1 damage per level. Cooldown: ${getAbilityCooldownSeconds(tower, 'starboard_cannons').toFixed(1)}s.${common}${scale}`,
-      kraken: `Applies a ${KRAKEN_DURATION_SECONDS}s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Unlocks at level ${getAbilityUnlockLevel(tower, 'kraken')}. Cooldown: ${getAbilityCooldownSeconds(tower, 'kraken').toFixed(1)}s.${scale}`,
+      kraken: `Applies a 10s kraken effect in a wider cluster that deals ${Math.round(KRAKEN_BASE_DAMAGE * powerMult)} damage per second and slows by ${Math.round(KRAKEN_SLOW_PERCENT * 100)}%. Cooldown: ${getAbilityCooldownSeconds(tower, 'kraken').toFixed(1)}s.${stronger}${common}${scale}`,
       champion_big_sword: `He swings Damn Big Sword through every enemy within 1 tile for ${Math.round(tower.damage * 1.25)} damage.${common}${scale}`,
       champion_crush: `Stomps enemies within 2 tiles, knocks them back 5 tiles toward the void, and has a 50% chance to stun for 3s. Deals ${Math.round(tower.damage * 1.4)} damage.${common}${scale}`,
       champion_gauntlet: `Passive. Enemies that pass through this champion are slowed by 50% for 10s.${common}${scale}`,
@@ -14811,9 +15668,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       champion_storm: `Petal Storm. Sends crimson petal shockwaves blasting out from the Sage, damaging enemies and punting them toward the map start. Deals ${Math.round(tower.damage * 1.7)} damage.${common}${scale}`,
       champion_live_forever: `Passive. Once each deployment, she revives the first fallen ally at full health and makes them invulnerable for 3s.${common}${scale}`,
       champion_eye_contact: `Passive. Glow: allies under the Sage's protection heal 2% of their max HP every 5 seconds. Battle Meditation also gives casters 20% damage and 20% speed, and melee heroes gain 10% damage while she is deployed. Archer and Pirate count as melee for Sage protection.${common}${scale}`,
-      champion_overpower: `He blasts enemies within 2 tiles, knocks them 5 tiles toward the portal, and inspires nearby heroes for 2s. Deals ${Math.round(tower.damage * 1.7)} damage.${common}${scale}`,
+      champion_overpower: `He blasts enemies within 1 tile, knocks them 5 tiles toward the portal, and inspires nearby heroes for 2s. Deals ${Math.round(tower.damage * 2.295)} damage.${common}${scale}`,
       champion_leadership: `Passive. Nearby heroes glow with leadership, gaining 25% damage, 5% attack speed, and 1s shorter cooldowns while they stay near him.${common}${scale}`,
-      champion_point: `He points past the smallest enemies and looks for medium to large targets first, throwing a spear that kills them instantly. Bosses may be targeted, but instead take 15% of their starting health in damage.${common}${scale}`,
+      champion_point: `He points past the smallest enemies and looks for medium to large targets within 4 tiles first, throwing a spear that kills them instantly. Bosses may be targeted, but instead take 10% of their starting health in damage. Cooldown: ${getAbilityCooldownSeconds(tower, 'champion_point').toFixed(1)}s.${common}${scale}`,
       champion_battle_hardened: `Passive. Enemies that pass through his tile deal 25% less damage.${common}${scale}`,
       champion_not_an_archer: `Lightning Shaft: every 18s she fires 10 lightning infused arrows at enemies anywhere on the map. This skill has no range.${common}${scale}`,
       champion_ok_maybe_archer: `A Lot Of Arrows: she unleashes 10 arrows into nearby targets one at a time. Each arrow deals ${Math.round(tower.damage * 1.8)} damage. This skill has no range.${common}${scale}`,
@@ -14821,7 +15678,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       champion_empower: `Passive. Eagle Eye: Spellbow can hit enemies anywhere on the map with basic attacks and abilities. Spellbow saves abilities until enough enemies are on the map.${common}${scale}`,
     };
     if (tower.type === 'pirate') {
-      map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 10th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's max HP per second and adds a 5% slow. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
+      map[`${tower.type}_template_passive`] = `Bloody Bastard. Every 15th Pirate basic attack makes the target bleed for 10s. Bleed deals 3% of the target's current HP per second and adds a 5% slow. Bleed is half as effective against bosses. Pirate basic attacks avoid already bleeding enemies whenever possible.`;
     }
     if (tower.type === 'seer') {
     }
@@ -15152,7 +16009,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return true;
   }
 
-  async function handleTileClick(x, y) {
+  function handleTileClick(x, y) {
     clearPathPreview();
     const tile = tileAt(x, y);
 
@@ -15172,10 +16029,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
 
     if (game.phase === SETUP_PHASES.PORTAL) {
-      if (!(await guardPortalPlacementTrackingChoice())) {
-        render();
-        return;
-      }
       if (!placePortal(x, y)) showBanner('Invalid portal placement', 1200);
       render();
       return;
@@ -15341,6 +16194,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const selectedWalletHero = (game.walletHeroRoster || []).find(hero => String(hero.id) === String(game.placingWalletHeroId) && hero.type === typeToPlace);
       if (selectedWalletHero) applyWalletHeroToTower(tower, selectedWalletHero);
     }
+    if (!isSatellitePlacement && typeToPlace === 'monk') inheritMonkWalletBonusFromPartner(tower);
     if (!isSatellitePlacement && tower.isChampion) {
       const selectedChampion = getSelectedChampionRecord();
       if (selectedChampion && selectedChampion.hero) {
@@ -15409,6 +16263,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
     normalizeArcherStats(tower);
     if (tower.isSoulSplit) normalizeTornSoulDamage(tower);
+    if (!isSatellitePlacement && !tower.isChampion) applyAdminLevelOverrideToTower(tower);
     game.towers.push(tower);
     if (tower.isChampion) {
       const waited = getChampionWavesWaited();
@@ -15453,6 +16308,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       log(`${placementVerb} for ${formatJewel(cost)} Gold and placed it at (${x + 1}, ${y + 1}).`);
       if (typeof markProgress === 'function') markProgress(`Placed hired ${tower.name}.`);
       game.hireCount = Math.max(game.hireCount, getLivingHireCount());
+      if (game.adminPanelUsed && tower.type === 'warrior' && game.phase === SETUP_PHASES.WARRIOR) {
+        game.phase = SETUP_PHASES.BATTLE;
+        setInstruction('Admin Warrior placed. Start the next wave when ready.');
+      }
       if (cost > 0 || pendingMilestonePlacement || usesBonusHire) updateWeeklyBountyMetric('heroesHired', 1);
       recordReplayEvent('hero_place', { towerId: tower.id, type: tower.type, x, y, level: tower.level, isChampion: !!tower.isChampion, walletHeroId: tower.walletHeroId || null });
       if (tower.isChampion) {
@@ -15481,6 +16340,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     syncMonkTrainingPartnerState();
     applySacrificeEverythingIfReady();
     render();
+    maybeOpenChampionModalAfterFifthHero(tower);
   }
 
   function getMoveRangeForTower(tower) {
@@ -15567,48 +16427,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return true;
   }
 
-
-  function isTypingInFormControl(target) {
-    const el = target instanceof Element ? target : null;
-    if (!el) return false;
-    const tag = String(el.tagName || '').toLowerCase();
-    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
-  }
-
-  function handleSelectedMonkArrowMove(event) {
-    if (!event || isTypingInFormControl(event.target)) return false;
-    const directions = {
-      ArrowLeft: { dx: -1, dy: 0, label: 'left' },
-      ArrowRight: { dx: 1, dy: 0, label: 'right' },
-      ArrowUp: { dx: 0, dy: -1, label: 'up' },
-      ArrowDown: { dx: 0, dy: 1, label: 'down' },
-    };
-    const dir = directions[event.key];
-    if (!dir) return false;
-    const tower = getSelectedTower();
-    if (!tower || tower.type !== 'monk') return false;
-    if (game.replayMode || game.placingHeroType || game.pendingManualAbilityPlacement || hasCancelablePendingAction()) return false;
-    const nx = Number(tower.x || 0) + dir.dx;
-    const ny = Number(tower.y || 0) + dir.dy;
-    event.preventDefault();
-    event.stopPropagation();
-    if (!inBounds(nx, ny)) {
-      showBanner('Monk cannot move off the board.', 1000);
-      return true;
-    }
-    if (!moveTower(tower, nx, ny)) {
-      const tile = tileAt(nx, ny);
-      const reason = tile?.obstacle === 'player'
-        ? 'Monk cannot move through barriers.'
-        : (tile?.towerId ? 'Monk cannot move onto another hero.' : 'Monk needs an open adjacent tile.');
-      showBanner(reason, 1200);
-      return true;
-    }
-    game.movingTowerId = null;
-    render();
-    return true;
-  }
-
   function existsPathFromBreachToPortal(includeWarrior = false) {
     const starts = getSpawnTiles();
     const targets = getPortalTargets();
@@ -15669,6 +16487,30 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       }
     }
     return targets;
+  }
+
+  function shouldShowEnemyPathPreview() {
+    return !!game.portal
+      && !game.runningWave
+      && Number(game.waveNumber || 0) === 0
+      && (game.phase === SETUP_PHASES.OBSTACLES || game.phase === SETUP_PHASES.WARRIOR);
+  }
+
+  function getEnemyPathPreviewTiles() {
+    const preview = new Set();
+    if (!shouldShowEnemyPathPreview()) return preview;
+    const targets = getPortalTargets();
+    if (!targets.length) return preview;
+    for (const spawn of getSpawnTiles()) {
+      const path = pathfind(spawn, targets, { enemy: null, avoidBacktrack: false, softCrowd: false });
+      if (!Array.isArray(path)) continue;
+      for (const point of path) {
+        const tile = tileAt(point.x, point.y);
+        if (!tile || tile.portal || tile.obstacle) continue;
+        preview.add(key(point.x, point.y));
+      }
+    }
+    return preview;
   }
 
   function getPortalFlowKey() {
@@ -15800,34 +16642,37 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const portalTargets = getPortalTargets();
     if (!portalTargets.length) return [];
 
+    // Use the same committed path behavior for clear portal lanes that target
+    // navigation uses for blocked/aggro paths. The older portal cache selected
+    // each future step greedily from the flow field; on an open path that could
+    // rebuild into a slightly different cadence every tile and read as
+    // normal-speed movement followed by a faster lurch. A short pathfind slice
+    // gives the enemy one legal route to follow for the next few tiles, then it
+    // recalculates after that commitment is spent or invalidated.
     const path = pathfind({ x: enemy.x, y: enemy.y }, portalTargets, {
       enemy,
       avoidBacktrack: true,
       softCrowd: true,
     });
-
     if (path && path.length > 1) {
-      const step = { x: path[1].x, y: path[1].y };
-      return canEnemyEnter(step.x, step.y, enemy) ? [step] : [];
+      return path.slice(1, 1 + getEnemyRouteCacheLimit(enemy)).map(step => ({ x: step.x, y: step.y }));
     }
 
-    const currentDistance = getPortalFlowDistance(enemy.x, enemy.y);
-    const prevX = Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : enemy.x;
-    const prevY = Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : enemy.y;
-    const step = adjacentTiles(enemy.x, enemy.y)
-      .filter(candidate => canEnemyEnter(candidate.x, candidate.y, enemy))
-      .map(candidate => {
-        const distanceScore = getPortalFlowDistance(candidate.x, candidate.y);
-        const reversePenalty = (candidate.x === prevX && candidate.y === prevY && !(prevX === enemy.x && prevY === enemy.y)) ? 2 : 0;
-        const occupancyPenalty = getEnemyOccupancyPenalty(enemy, candidate.x, candidate.y, false);
-        return { ...candidate, score: distanceScore + reversePenalty + occupancyPenalty, distanceScore };
-      })
-      .filter(candidate => Number.isFinite(candidate.score))
-      .sort((a, b) => a.score - b.score)[0] || null;
-
-    if (!step) return [];
-    if (Number.isFinite(currentDistance) && Number.isFinite(step.distanceScore) && step.distanceScore > currentDistance) return [];
-    return [{ x: step.x, y: step.y }];
+    // Flow-field fallback keeps enemies moving if the pathfinder cannot produce
+    // a full route due to transient crowding. This still returns a short legal
+    // segment, but the pathfind slice above is the preferred clear-path path.
+    const limit = getEnemyRouteCacheLimit(enemy);
+    const route = [];
+    let pos = { x: enemy.x, y: enemy.y };
+    let prev = { x: Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : enemy.x, y: Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : enemy.y };
+    for (let i = 0; i < limit; i += 1) {
+      const step = choosePortalRouteStepAt(enemy, pos, prev, false, i === 0);
+      if (!step) break;
+      route.push(step);
+      prev = pos;
+      pos = step;
+    }
+    return route;
   }
 
   function buildTargetRouteCache(enemy, navTargets) {
@@ -15860,7 +16705,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       break;
     }
 
-    const route = buildTargetRouteCache(enemy, navMode === 'portal' ? getPortalTargets() : navTargets);
+    const route = navMode === 'portal'
+      ? buildPortalRouteCache(enemy)
+      : buildTargetRouteCache(enemy, navTargets);
     enemy.routeCache = Array.isArray(route) ? route : [];
     enemy.routeCacheKey = cacheKey;
     if (!enemy.routeCache.length) return null;
@@ -15914,44 +16761,44 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function getEnemyFacingScaleX(enemy) {
     const facingX = Number(enemy?.facingX);
-    return facingX < 0 ? -1 : 1;
+    // Moosifer's source GIF faces the opposite horizontal direction from the
+    // other enemy sprites. Keep all pathing/facing state unchanged and only
+    // invert Moosifer at the final render scale.
+    const scale = facingX < 0 ? -1 : 1;
+    return enemy?.isMoosifer ? -scale : scale;
   }
 
   function getEnemyMoveReadyAt(enemy) {
     if (!enemy) return 0;
-    return Math.max(Number(enemy.nextMoveAt || 0), Number(enemy.moveEndAt || 0));
+    const nextMoveAt = Number(enemy.nextMoveAt || 0);
+    const moveEndAt = Number(enemy.moveEndAt || 0);
+    // v46.9.1.252: keep one movement clock for every enemy path state.
+    // The old model had moveEndAt plus a separate buffer, while rendering tried
+    // to stretch across nextMoveAt. Clear portal paths could then read as
+    // normal motion followed by a small catch-up lurch. Each committed tile
+    // step now owns the full cadence in moveEndAt/nextMoveAt, so blocked and
+    // clear paths use the same timing model.
+    return Math.max(nextMoveAt, moveEndAt);
   }
 
   function getEnemyMoveCadenceMs(enemy) {
     return Math.max(MIN_ENEMY_VISUAL_MOVE_MS, getEnemyMoveMs(enemy) + ENEMY_MOVE_STEP_BUFFER_MS);
   }
 
-  function canEnemyStartMove(enemy, current) {
-    return !!enemy && current >= getEnemyMoveReadyAt(enemy);
-  }
-
-  function initializeEnemyRenderPosition(enemy, x = enemy?.x, y = enemy?.y) {
+  function commitEnemyVisualStep(enemy, fromX, fromY, toX, toY, current, durationMs) {
     if (!enemy) return;
-    const pos = getTilePixelPosition(x, y);
-    if (!pos) return;
-    enemy.renderPx = pos.left + (pos.width / 2);
-    enemy.renderPy = pos.top + (pos.height / 2);
-    enemy.lastRenderAt = now();
-  }
-
-  function commitEnemyLogicalStep(enemy, fromX, fromY, toX, toY, current = now()) {
-    if (!enemy) return;
-    if (!Number.isFinite(Number(enemy.renderPx)) || !Number.isFinite(Number(enemy.renderPy))) {
-      initializeEnemyRenderPosition(enemy, fromX, fromY);
-    }
+    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, Number(durationMs) || getEnemyMoveCadenceMs(enemy));
     enemy.motionFromX = fromX;
     enemy.motionFromY = fromY;
     enemy.motionToX = toX;
     enemy.motionToY = toY;
     enemy.moveStartedAt = current;
-    const cadence = getEnemyMoveCadenceMs(enemy);
-    enemy.moveEndAt = current + cadence;
+    enemy.moveEndAt = current + duration;
     enemy.nextMoveAt = enemy.moveEndAt;
+  }
+
+  function canEnemyStartMove(enemy, current) {
+    return !!enemy && current >= getEnemyMoveReadyAt(enemy);
   }
 
   function moveEnemyToStep(enemy, step, current) {
@@ -15964,7 +16811,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     enemy.prevY = fromY;
     enemy.x = step.x;
     enemy.y = step.y;
-    commitEnemyLogicalStep(enemy, fromX, fromY, step.x, step.y, current);
+    commitEnemyVisualStep(enemy, fromX, fromY, step.x, step.y, current, getEnemyMoveCadenceMs(enemy));
     enemy.attacking = false;
     enemy.targetPath = [];
     enemy.stuckAt = 0;
@@ -16146,7 +16993,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         const k = key(n.x, n.y);
         const tile = tileAt(n.x, n.y);
         if (!tile) continue;
-        if (isBlockedForPath(tile, true)) continue;
+        if (enemy?.isMoosifer && enemy.moosiferPhase === 'to_void') {
+          if (tile.obstacle || tile.portal) continue;
+        } else if (isBlockedForPath(tile, true)) continue;
         const isTarget = targetKeys.has(k);
         const penalty = softCrowd ? getEnemyOccupancyPenalty(enemy, n.x, n.y, isTarget) : 0;
         if (!Number.isFinite(penalty)) continue;
@@ -16596,16 +17445,20 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return !game.continueOfferUsed || !game.paidContinueOfferUsed;
   }
 
-  function saveContinueSnapshot(planOverride = null) {
+  function hasMoosiferFreeRetryAvailable() {
+    return Math.max(0, Number(game.moosiferFreeRetriesUsed || 0)) < MOOSIFER_FREE_RETRY_LIMIT;
+  }
+
+  function buildRetrySnapshot(planOverride = null) {
     const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
-    if ((!hasAvailableContinueRetry()) || !replayPlan) return;
+    if (!replayPlan) return null;
     const restoredPendingSpawns = Array.isArray(planOverride?.pendingSpawns)
       ? cloneContinueData(planOverride.pendingSpawns)
       : null;
     const restoredActiveWavePlans = Array.isArray(planOverride?.activeWavePlans)
       ? cloneContinueData(planOverride.activeWavePlans)
       : null;
-    game.continueSnapshot = {
+    return {
       phase: game.phase,
       portal: cloneContinueData(game.portal),
       towers: cloneContinueData(game.towers),
@@ -16630,7 +17483,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       recentMutations: cloneContinueData(game.recentMutations),
       recentLanes: cloneContinueData(game.recentLanes),
       hireCount: game.hireCount,
-      autoStartEnabled: game.autoStartEnabled,
+      autoStartEnabled: false,
       autoStartDelayMs: game.autoStartDelayMs,
       autoStartReadyAt: 0,
       autoStartToken: game.autoStartToken,
@@ -16664,6 +17517,26 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     };
   }
 
+  function saveMoosiferRetrySnapshot() {
+    const plan = sanitizeWavePlan(buildWavePlan(MOOSIFER_BOSS_WAVE));
+    if (!plan) return false;
+    game.moosiferRetrySnapshot = buildRetrySnapshot({
+      ...plan,
+      waveNumber: MOOSIFER_BOSS_WAVE,
+      pattern: 'moosifer',
+      elite: true,
+      moosifer: true,
+      activeWaveBase: MOOSIFER_BOSS_WAVE - 1,
+      currentPattern: 'moosifer',
+    });
+    return !!game.moosiferRetrySnapshot;
+  }
+
+  function saveContinueSnapshot(planOverride = null) {
+    const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
+    if ((!hasAvailableContinueRetry()) || !replayPlan) return;
+    game.continueSnapshot = buildRetrySnapshot(planOverride);
+  }
 
   function buildSavedGameSnapshot(planOverride = null) {
     const replayPlan = cloneContinueData(planOverride || game.nextWavePlan || null);
@@ -16735,6 +17608,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       championWaitAnchorWave: Number(game.championWaitAnchorWave || 0),
       championDeployedTowerId: game.championDeployedTowerId || null,
       championActiveUntilWave: Number(game.championActiveUntilWave || 0),
+      moosiferIntroShownForRun: !!game.moosiferIntroShownForRun,
+      moosiferFightReady: !!game.moosiferFightReady,
+      moosiferDefeatedThisRun: !!game.moosiferDefeatedThisRun,
+      moosiferFreeRetriesUsed: Number(game.moosiferFreeRetriesUsed || 0),
+      moosiferRetrySnapshot: cloneContinueData(game.moosiferRetrySnapshot),
     };
   }
 
@@ -16767,13 +17645,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     } catch (_error) {}
   }
 
-  function getSavedGameSavedExitCount(saved = null) {
-    const current = saved || readSavedGame();
-    const runKey = current?.runKey || getSavedGameRunKey(current?.snapshot || null);
-    const savedCount = Math.max(0, Number(current?.resumeSaveCount || 0));
-    return Math.max(savedCount, getSavedGameLedgerCount(runKey));
-  }
-
   function getSavedGameRunKey(snapshot = null) {
     const source = snapshot || game || {};
     const tracking = source.runTracking || game.runTracking || {};
@@ -16784,6 +17655,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       || source.runStartedAt
       || 'local-single-run'
     );
+  }
+
+  function getSavedGameSavedExitCount(saved = null) {
+    const current = saved || readSavedGame();
+    const runKey = current?.runKey || getSavedGameRunKey(current?.snapshot || null);
+    const savedCount = Math.max(0, Number(current?.resumeSaveCount || 0));
+    return Math.max(savedCount, getSavedGameLedgerCount(runKey));
   }
 
   function isSavedGameExitReason(reason = '') {
@@ -16843,9 +17721,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function handleSavedGameBoardExit(reason = 'gameboard_exit') {
     try {
-      const now = Date.now();
-      if (game.lastSavedGameBoardExitAt && (now - game.lastSavedGameBoardExitAt) < 1500) return false;
-      game.lastSavedGameBoardExitAt = now;
+      const currentTime = Date.now();
+      if (game.lastSavedGameBoardExitAt && (currentTime - game.lastSavedGameBoardExitAt) < 1500) return false;
+      game.lastSavedGameBoardExitAt = currentTime;
       if (game.phase === SETUP_PHASES.GAME_OVER || !hasMeaningfulRunInProgress()) {
         clearSavedGame();
         return false;
@@ -16908,7 +17786,27 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       game.championWaitAnchorWave = Number(snap.championWaitAnchorWave || 0);
       game.championDeployedTowerId = snap.championDeployedTowerId || null;
       game.championActiveUntilWave = Number(snap.championActiveUntilWave || 0);
-      return restoreContinueSnapshot(0, { savedResume: true });
+      const restored = restoreContinueSnapshot(0, { savedResume: true });
+      game.moosiferIntroShownForRun = !!snap.moosiferIntroShownForRun;
+      game.moosiferFightReady = !!snap.moosiferFightReady;
+      game.moosiferDefeatedThisRun = !!snap.moosiferDefeatedThisRun;
+      game.moosiferFreeRetriesUsed = Math.max(0, Number(snap.moosiferFreeRetriesUsed || 0));
+      game.moosiferRetrySnapshot = cloneContinueData(snap.moosiferRetrySnapshot) || null;
+      const nextWave = Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0);
+      if (restored && !game.moosiferDefeatedThisRun && (Number(game.waveNumber || 0) >= MOOSIFER_BOSS_WAVE || nextWave > MOOSIFER_BOSS_WAVE)) {
+        game.runningWave = false;
+        game.enemies = [];
+        game.pendingSpawns = [];
+        game.activeWavePlans = [];
+        game.waveNumber = MOOSIFER_BOSS_WAVE - 1;
+        game.activeWaveBase = MOOSIFER_BOSS_WAVE - 1;
+        game.nextWavePlan = sanitizeWavePlan(buildWavePlan(MOOSIFER_BOSS_WAVE));
+        game.moosiferIntroShownForRun = false;
+        game.moosiferFightReady = false;
+        game.autoStartEnabled = false;
+        game.autoStartReadyAt = 0;
+      }
+      return restored;
     } catch (error) {
       console.warn('Saved game restore failed.', error);
       return false;
@@ -16989,8 +17887,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         return;
       }
       connectBtn.disabled = true;
-      connectBtn.textContent = 'Connecting…';
-      if (statusEl) statusEl.textContent = 'Opening your wallet…';
+      connectBtn.textContent = 'Connecting...';
+      if (statusEl) statusEl.textContent = 'Opening your wallet...';
       try {
         const address = await window.DFKDefenseWallet.connectWallet();
         if (address) {
@@ -17049,6 +17947,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     setContinuePaidRetryPending(false);
     els.continueOfferModal.classList.add('hidden');
     els.continueOfferModal.setAttribute('aria-hidden', 'true');
+    game.moosiferRetryOfferPending = false;
     game.introOpen = false;
     document.body.classList.remove('intro-open');
     syncStatusOverlayVisibility(false);
@@ -17102,6 +18001,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function startContinueRetryCountdown(seconds, extraGold = 0) {
+    disableAutoStart('Auto Start remains disabled during retry.');
     const safeSeconds = Math.max(1, Number(seconds || 0));
     const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
     game.continueRetryCountdownPending = true;
@@ -17116,74 +18016,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     updateAutoStartButton();
   }
 
-  function getFirstOpenChampionDeploymentTile() {
-    const portal = game.grid.find((tile) => tile && tile.portal) || game.grid.find((tile) => tile && tile.type === 'portal');
-    const candidates = [];
-    if (portal) {
-      for (let radius = 1; radius <= Math.max(WIDTH, HEIGHT); radius += 1) {
-        for (let x = portal.x - radius; x <= portal.x + radius; x += 1) {
-          for (let y = portal.y - radius; y <= portal.y + radius; y += 1) {
-            if (!inBounds(x, y)) continue;
-            if (Math.abs(x - portal.x) + Math.abs(y - portal.y) !== radius) continue;
-            candidates.push({ x, y });
-          }
-        }
-        const open = candidates.find((tile) => isOpenForTower(tile.x, tile.y));
-        if (open) return open;
-      }
-    }
-    return game.grid.find((tile) => tile && isOpenForTower(tile.x, tile.y)) || null;
-  }
-
-  function deploySelectedChampionImmediatelyFromPaidRetry() {
-    const selected = ensureChampionSelectionReady({ autoConfirm: true });
-    if (!selected || !game.selectedChampionConfirmed) return false;
-    if (game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId)) return false;
-    const tile = getFirstOpenChampionDeploymentTile();
-    if (!tile) {
-      showBanner('Paid retry champion deployment failed: no open tile.', 2200);
-      return false;
-    }
-    const previousPlacement = {
-      placingHeroType: game.placingHeroType,
-      placingHeroCost: game.placingHeroCost,
-      placingHeroUsesBonus: game.placingHeroUsesBonus,
-      placingSatelliteSourceId: game.placingSatelliteSourceId,
-      placingWalletHeroId: game.placingWalletHeroId,
-      championPlacementPending: game.championPlacementPending ? cloneContinueData(game.championPlacementPending) : null,
-      waitAnchor: game.championWaitAnchorWave,
-    };
-    game.championWaitAnchorWave = Math.min(Number(game.championWaitAnchorWave || 0), Number(game.waveNumber || 0) - getChampionRequiredWaitWaves());
-    game.placingHeroType = selected.definition.towerType;
-    game.placingHeroCost = 0;
-    game.placingHeroUsesBonus = false;
-    game.placingSatelliteSourceId = null;
-    game.placingWalletHeroId = null;
-    game.championPlacementPending = {
-      key: selected.key,
-      heroId: String(selected.hero?.id || ''),
-      towerType: selected.definition.towerType,
-      waitedAtStart: getChampionRequiredWaitWaves(),
-      startedAt: now(),
-      paidRetryImmediate: true,
-    };
-    placeHiredHero(tile.x, tile.y);
-    if (!(game.championDeployedTowerId && game.towers.some((tower) => tower.id === game.championDeployedTowerId))) {
-      game.placingHeroType = previousPlacement.placingHeroType;
-      game.placingHeroCost = previousPlacement.placingHeroCost;
-      game.placingHeroUsesBonus = previousPlacement.placingHeroUsesBonus;
-      game.placingSatelliteSourceId = previousPlacement.placingSatelliteSourceId;
-      game.placingWalletHeroId = previousPlacement.placingWalletHeroId;
-      game.championPlacementPending = previousPlacement.championPlacementPending;
-      game.championWaitAnchorWave = previousPlacement.waitAnchor;
-      return false;
-    }
-    showBanner(`${selected.definition.label} deployed immediately from paid retry.`, 2400);
-    return true;
-  }
-
   function openContinueOfferModal() {
     if (!els.continueOfferModal) return;
+    game.moosiferRetryOfferPending = false;
     closeIntroModal();
     closeBountyModal();
     closeQuestsModal();
@@ -17195,8 +18030,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const honkRetryLabel = getDfkPaymentLabelForJewelAmount(1, 'honk');
     if (els.continueOfferBody) {
       els.continueOfferBody.innerHTML = freeAvailable
-        ? `<p>The portal fell. You can restart this round once for free with <strong>500 extra gold</strong>.</p><p>You may also save the free retry and use a paid retry for <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong> plus immediate champion deployment if one is selected.</p>`
-        : `<p>The portal fell again. Your free retry has been used, but you can buy one more retry with <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong> plus immediate champion deployment if one is selected.</p>`;
+        ? `<p>The portal fell. You can restart this round once for free with <strong>500 extra gold</strong>.</p><p>You may also save the free retry and use a paid retry for <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`
+        : `<p>The portal fell again. Your free retry has been used, but you can buy one more retry with <strong>1 JEWEL</strong> or <strong>${honkRetryLabel}</strong> and gain <strong>2,000 in-game gold</strong>.</p>`;
     }
     if (els.continueHellYeahBtn) {
       els.continueHellYeahBtn.textContent = freeAvailable ? 'Free retry' : 'Free retry used';
@@ -17204,14 +18039,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       els.continueHellYeahBtn.classList.toggle('hidden', !freeAvailable);
     }
     if (els.continuePaidJewelBtn) {
-      els.continuePaidJewelBtn.textContent = 'Retry for 1 JEWEL';
+      els.continuePaidJewelBtn.textContent = 'Retry for 1 JEWEL + 2000 gold';
       els.continuePaidJewelBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || !hasWalletJewelForWei(getDfkPaymentWeiForJewelAmount(1, 'native_jewel'));
       els.continuePaidJewelBtn.classList.toggle('hidden', !paidAvailable);
     }
     if (els.continuePaidHonkBtn) {
-      els.continuePaidHonkBtn.textContent = `Retry for ${honkRetryLabel}`;
+      els.continuePaidHonkBtn.textContent = `Retry for ${honkRetryLabel} + 2000 gold`;
       els.continuePaidHonkBtn.disabled = !paidAvailable || game.jewelTradePending || !isConnectedWalletOnDfk() || getWalletHonkBalance() + 1e-9 < getHonkPurchaseAmountFromJewel(1);
       els.continuePaidHonkBtn.classList.toggle('hidden', !paidAvailable);
+    }
+    if (els.continueNoThanksBtn) {
+      els.continueNoThanksBtn.classList.remove('hidden');
+      els.continueNoThanksBtn.disabled = false;
+      els.continueNoThanksBtn.textContent = 'No thanks';
     }
     els.continueOfferModal.classList.remove('hidden');
     els.continueOfferModal.setAttribute('aria-hidden', 'false');
@@ -17243,6 +18083,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function activateStartModeModalInteractive() {
     if (!els.startModeModal) return;
+    renderStartWaveChoicePanel();
     els.startModeModal.classList.remove('modal-primed-under-intro');
     els.startModeModal.classList.add('start-mode-interactive');
     els.startModeModal.setAttribute('aria-hidden', 'false');
@@ -17261,6 +18102,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     if (isReplayUrlView()) return;
     if (!els.startModeModal) return;
     if (!els.startModeNote) return;
+    renderStartWaveChoicePanel();
     setBoardInputLocked(true);
     els.startModeNote.textContent = '';
     els.startModeNote.classList.add('hidden');
@@ -17316,6 +18158,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function finishHowToPlayGuide(event = null) {
     if (event) swallowModalEvent(event);
     closeSeerIntroModal();
+    game.setupGuideReady = !!getConnectedWalletAddress();
+    updateSetupGuide();
     suppressBoardClicks(500);
   }
 
@@ -17388,6 +18232,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     if (els.startModeModal) {
       els.startModeModal.classList.remove('hidden');
+      renderStartWaveChoicePanel();
       activateStartModeModalInteractive();
     }
   }
@@ -17401,17 +18246,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function primeHowToPlayModalBehindStory() {
     try {
       if (!els.seerIntroModal) return;
-      closeGuestConnectConfirmModal({ preserveIntroState: true });
-      closeIntroModal({ keepBoardLocked: true, preserveIntroState: true });
-      closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
-      game.modalDismiss = null;
-      game.introOpen = true;
-      setBoardInputLocked(true);
-      document.body.classList.add('intro-open');
-      els.seerIntroModal.classList.remove('hidden');
-      els.seerIntroModal.classList.add('modal-primed-under-story');
-      els.seerIntroModal.setAttribute('aria-hidden', 'false');
-      syncStatusOverlayVisibility(true);
+      els.seerIntroModal.classList.add('hidden');
+      els.seerIntroModal.classList.remove('modal-primed-under-story', 'modal-primed-under-intro', 'how-to-play-active');
+      els.seerIntroModal.setAttribute('aria-hidden', 'true');
     } catch (error) {}
   }
 
@@ -17422,19 +18259,22 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         els.introModal.classList.remove('modal-primed-under-story');
         els.introModal.setAttribute('aria-hidden', 'true');
       }
-      game.introOpen = true;
-      document.body.classList.add('intro-open', 'how-to-play-open');
+      game.introOpen = false;
+      document.body.classList.remove('intro-open', 'how-to-play-open');
       document.body.classList.remove('story-active');
-      setBoardInputLocked(true);
-      syncStatusOverlayVisibility(true);
+      setBoardInputLocked(false);
+      syncStatusOverlayVisibility(false);
       if (els.seerIntroModal) {
-        els.seerIntroModal.classList.remove('hidden', 'modal-primed-under-story', 'modal-primed-under-intro');
-        els.seerIntroModal.classList.add('how-to-play-active');
-        els.seerIntroModal.setAttribute('aria-hidden', 'false');
-        focusHowToPlayModal(true);
+        els.seerIntroModal.classList.add('hidden');
+        els.seerIntroModal.classList.remove('modal-primed-under-story', 'modal-primed-under-intro', 'how-to-play-active');
+        els.seerIntroModal.setAttribute('aria-hidden', 'true');
       }
+      game.setupGuideReady = true;
+      game.setupGuideDismissed = isSetupGuideHiddenByPlayer();
+      updateSetupGuide();
+      showStatusOverlay();
     } catch (error) {
-      try { openSeerIntroModal(); } catch (_error) { try { setBoardInputLocked(false); } catch (__error) {} }
+      try { setBoardInputLocked(false); } catch (_error) {}
     }
   }
 
@@ -17447,17 +18287,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     try {
       window.__dfkModeChoiceMade = true;
       window.__dfkStartModePromptShown = true;
-      document.body.classList.add('intro-open');
-      document.body.classList.add('story-active');
-    } catch (error) {}
-    setBoardInputLocked(true);
-    try {
-      if (typeof playStorySequence === 'function') {
-        playStorySequence();
-        return;
-      }
     } catch (error) {}
     setBoardInputLocked(false);
+    game.setupGuideReady = true;
+    game.setupGuideDismissed = isSetupGuideHiddenByPlayer();
+    updateSetupGuide();
   }
 
   function setBoardInputLocked(locked) {
@@ -17490,17 +18324,38 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function chooseGuestModeFromPrompt(event = null) {
     swallowModalEvent(event);
+    if (game.startWaveSubmitting) return;
     suppressBoardClicks(1200);
+    const startWave = getSelectedPlayerStartWave();
+    if (isPaidPlayerStartWave(startWave)) {
+      setStartModeNote(`Wave ${startWave} starts cost ${START_WAVE_JEWEL_COST} JEWEL. Connect your wallet to use that start.`);
+      renderStartWaveChoicePanel();
+      return;
+    }
+    setStartWaveSubmitting(true);
+    game.setupGuideReady = false;
     closeStartModeModal({ keepBoardLocked: true, preserveIntroState: true });
     closeSeerIntroModal({ keepBoardLocked: true, preserveIntroState: true });
-    showBanner('Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
-    beginModeIntroStory();
+    resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave }).then((started) => {
+      if (!started) return;
+      showBanner(startWave > 1 ? `Guest mode starts at wave ${startWave}. Click Start Next Wave when ready.` : 'Guest mode is active. Connect your wallet for tracked runs, web3 features, and the leaderboard.', 3600);
+      beginModeIntroStory();
+    }).catch((error) => {
+      setStartWaveSubmitting(false);
+      openStartModeModal();
+      setStartModeNote(error?.message || 'Could not start guest mode.');
+    });
   }
 
   async function chooseConnectModeFromPrompt(event = null) {
     swallowModalEvent(event);
+    if (game.startWaveSubmitting) return;
     suppressBoardClicks(2000);
+    setStartWaveSubmitting(true);
+    game.setupGuideReady = false;
+    updateSetupGuide();
     if (!window.DFKDefenseWallet || typeof window.DFKDefenseWallet.connectWallet !== 'function') {
+      setStartWaveSubmitting(false);
       setBoardInputLocked(false);
       return;
     }
@@ -17509,14 +18364,25 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     try {
       const address = await window.DFKDefenseWallet.connectWallet();
       if (address) {
-        await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
-        showBanner('Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
+        const startWave = getSelectedPlayerStartWave();
+        const paid = await payForPlayerStartWaveIfNeeded(startWave);
+        if (!paid) {
+          const note = els.startModeNote ? els.startModeNote.textContent : '';
+          setStartWaveSubmitting(false);
+          openStartModeModal();
+          if (note) setStartModeNote(note);
+          return;
+        }
+        await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave });
+        showBanner(startWave > 1 ? `Wallet connected. Starting at wave ${startWave}; click Start Next Wave when ready.` : 'Wallet connected. Guest gold cleared. This board is now reset for a tracked run.', 3200);
         beginModeIntroStory();
       } else {
+        setStartWaveSubmitting(false);
         openStartModeModal();
         setStartModeNote('Wallet connection was canceled.');
       }
     } catch (error) {
+      setStartWaveSubmitting(false);
       openStartModeModal();
       setStartModeNote(error?.message || 'Wallet connection failed.');
     }
@@ -17578,6 +18444,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function closeAnnouncementModal() {
+    if (game.highValueRunPromptActive) return;
     const dismiss = game.modalDismiss;
     game.modalDismiss = null;
     closeIntroModal();
@@ -17597,7 +18464,72 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return;
   }
 
+  function openMoosiferFreeRetryModal() {
+    if (!els.continueOfferModal || !els.continueOfferBody) return false;
+    closeIntroModal();
+    closeBountyModal();
+    closeQuestsModal();
+    closeTrackedRunsModal();
+    closeKnownRelicsModal();
+    setContinuePaidRetryPending(false);
+    game.moosiferRetryOfferPending = true;
+    const used = Math.max(0, Number(game.moosiferFreeRetriesUsed || 0));
+    const left = Math.max(0, MOOSIFER_FREE_RETRY_LIMIT - used);
+    els.continueOfferBody.innerHTML = `<p><strong>Moosifer is powerful, but you can beat him.</strong></p><p>Try again for free.</p><p class="bounty-strip-copy">${left} Moosifer free ${left === 1 ? 'retry' : 'retries'} left before your normal retry options begin.</p>`;
+    if (els.continueHellYeahBtn) {
+      els.continueHellYeahBtn.textContent = 'TRY AGAIN FOR FREE';
+      els.continueHellYeahBtn.disabled = false;
+      els.continueHellYeahBtn.classList.remove('hidden');
+    }
+    [els.continuePaidJewelBtn, els.continuePaidHonkBtn, els.continueNoThanksBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.classList.add('hidden');
+      btn.disabled = true;
+    });
+    els.continueOfferModal.classList.remove('hidden');
+    els.continueOfferModal.setAttribute('aria-hidden', 'false');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    document.body.classList.add('intro-open');
+    return true;
+  }
+
+  function restoreMoosiferFreeRetry() {
+    const snap = cloneContinueData(game.moosiferRetrySnapshot);
+    if (!snap) return false;
+    game.moosiferFreeRetriesUsed = Math.min(MOOSIFER_FREE_RETRY_LIMIT, Math.max(0, Number(game.moosiferFreeRetriesUsed || 0)) + 1);
+    const previousContinueSnapshot = game.continueSnapshot;
+    game.continueSnapshot = snap;
+    const restored = restoreContinueSnapshot(0, { moosiferFreeRetry: true });
+    if (!restored) game.continueSnapshot = previousContinueSnapshot;
+    return restored;
+  }
+
   function finalizePortalLoss(forceGameOver = false) {
+    disableAutoStart('Auto Start disabled because the portal fell.');
+    if (game.moosiferBossActive && !game.moosiferDefeatedThisRun && !game.moosiferAttemptOutcomeReported) {
+      game.moosiferAttemptOutcomeReported = true;
+      reportMoosiferAttempt('attempt_failed', null, 'portal_destroyed');
+    }
+    if (!forceGameOver && game.moosiferBossActive && !game.moosiferDefeatedThisRun && hasMoosiferFreeRetryAvailable() && game.moosiferRetrySnapshot) {
+      game.runningWave = false;
+      game.enemies = [];
+      game.pendingSpawns = null;
+      game.activeMutation = null;
+      game.attackLines = [];
+      game.explosionEffects = [];
+      game.projectileEffects = [];
+      game.slowTotems = [];
+      game.pendingManualAbilityPlacement = null;
+      setInstruction('Moosifer is powerful, but you can beat him. Try again for free.');
+      log('Moosifer destroyed the portal. A Moosifer-only free retry is available.');
+      openMoosiferFreeRetryModal();
+      render();
+      return;
+    }
+    if (!forceGameOver && game.moosiferBossActive && !game.moosiferDefeatedThisRun && !game.continueSnapshot && game.moosiferRetrySnapshot) {
+      game.continueSnapshot = cloneContinueData(game.moosiferRetrySnapshot);
+    }
     if (forceGameOver) {
       forfeitLastChanceForRunTracking('declined');
     }
@@ -17757,10 +18689,31 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.diagnostics.softLockTriggered = false;
     game.continueOfferPending = false;
     if (options && options.paid) game.paidContinueOfferUsed = true;
-    else game.continueOfferUsed = true;
+    else if (!(options && options.moosiferFreeRetry)) game.continueOfferUsed = true;
     game.autoStartReadyAt = 0;
     game.autoStartToken = (game.autoStartToken || 0) + 1;
     closeContinueOfferModal();
+    if (options && options.moosiferFreeRetry) {
+      game.moosiferBossActive = false;
+      game.moosiferDefeatedThisRun = false;
+      game.moosiferIntroShownForRun = true;
+      game.moosiferFightReady = true;
+      game.moosiferAttemptOutcomeReported = false;
+      game.moosiferRetryOfferPending = false;
+      game.waveNumber = MOOSIFER_BOSS_WAVE - 1;
+      game.activeWaveBase = MOOSIFER_BOSS_WAVE - 1;
+      game.nextWavePlan = sanitizeWavePlan(buildWavePlan(MOOSIFER_BOSS_WAVE));
+      game.nextWavePlan.pattern = 'moosifer';
+      game.nextWavePlan.elite = true;
+      game.nextWavePlan.moosifer = true;
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+      setInstruction('Moosifer is powerful, but you can beat him. Press FIGHT MOOSIFER when you are ready.');
+      log(`Moosifer free retry ${Number(game.moosiferFreeRetriesUsed || 0)}/${MOOSIFER_FREE_RETRY_LIMIT} prepared.`);
+      syncStartWaveButtonState();
+      render();
+      return true;
+    }
     if (options && options.savedResume) {
       game.resumedFromLocalSave = true;
       if (game.runTracking && typeof game.runTracking === 'object') game.runTracking.resumedFromLocalSave = true;
@@ -17776,6 +18729,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       syncStartWaveButtonState();
       render();
       return true;
+    }
+    if (Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE) {
+      game.moosiferBossActive = false;
+      game.moosiferDefeatedThisRun = false;
+      game.moosiferIntroShownForRun = true;
+      game.moosiferFightReady = true;
+      game.moosiferAttemptOutcomeReported = false;
+      game.waveNumber = MOOSIFER_BOSS_WAVE - 1;
+      game.activeWaveBase = MOOSIFER_BOSS_WAVE - 1;
     }
     const retriedWaveLabel = game.nextWavePlan?.waveNumber || (game.waveNumber + 1);
     setInstruction(`Wave ${retriedWaveLabel} is getting a second shot. Bonus: +${extraGold} gold.`);
@@ -17799,6 +18761,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       return;
     }
     if (!game.nextWavePlan || game.phase !== SETUP_PHASES.BATTLE || game.startingRelicPending || hasActiveMilestoneOffer()) return;
+    if (Number(game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE) {
+      if (game.moosiferFightReady) {
+        startMoosiferBossFight();
+        return;
+      }
+      maybeOpenMoosiferIntroForWave(game.nextWavePlan).catch(() => openMoosiferIntroModal());
+      return;
+    }
     if (getLiveWaveCount() >= MAX_LIVE_WAVES) return;
     game.autoStartReadyAt = 0;
     const currentPlan = sanitizeWavePlan(cloneContinueData(game.nextWavePlan));
@@ -18041,7 +19011,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       y: spawn.y,
       hp: finalEnemyHp * difficulty.healthMult * GLOBAL_ENEMY_HP_MULTIPLIER,
       maxHp: finalEnemyHp * difficulty.healthMult * GLOBAL_ENEMY_HP_MULTIPLIER,
-      damage: enemyDamage * difficulty.damageMult * GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER,
+      damage: enemyDamage * difficulty.damageMult * GLOBAL_NON_BOSS_ENEMY_DAMAGE_MULTIPLIER * GLOBAL_ENEMY_DAMAGE_MULTIPLIER,
       moveInterval: (((template.moveInterval / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult) / GLOBAL_NON_BOSS_ENEMY_SPEED_MULTIPLIER,
       attackInterval: template.attackInterval,
       jewel: ((template.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
@@ -18082,7 +19052,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       y: spawn.y,
       hp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber) * GLOBAL_ENEMY_HP_MULTIPLIER,
       maxHp: boss.hp * getEarlyWaveStatMultiplier(waveNumber) * BIG_ENEMY_HP_MULTIPLIER * 1.15 * difficulty.healthMult * getPostWave25BossHpMultiplier(waveNumber) * getPostWave100EnemyHpMultiplier(waveNumber) * GLOBAL_ENEMY_HP_MULTIPLIER,
-      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(waveNumber),
+      damage: boss.damage * getEnemyBaselineDamageMultiplier(boss.id, true) * getEarlyWaveStatMultiplier(waveNumber) * difficulty.damageMult * getPostWave25BossDamageMultiplier(waveNumber) * GLOBAL_ENEMY_DAMAGE_MULTIPLIER,
       moveInterval: ((((boss.moveInterval * GLOBAL_BOSS_MOVE_INTERVAL_MULTIPLIER) * getPostWave25BossSpeedMultiplier(waveNumber)) / getEnemyWaveSpeedMultiplier(waveNumber)) * getPostWave100EnemyMoveIntervalMultiplier(waveNumber)) / difficulty.speedMult,
       attackInterval: boss.attackInterval,
       jewel: ((boss.jewel * ENEMY_JEWEL_MULTIPLIER * getWaveGoldMultiplier(waveNumber)) + (waveNumber > 15 ? 0.5 : 0)) * difficulty.goldDropMult,
@@ -18148,6 +19118,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     enemy.navCommitUntil = current + 600;
     enemy.lastStallRecoveryAt = current;
     moveEnemyToStep(enemy, bestStep, current);
+    enemy.moveEndAt = current + Math.min(220, getEnemyMoveMs(enemy));
+    enemy.nextMoveAt = enemy.moveEndAt;
     markProgress(`${enemy.name} recovered forward movement.`);
     return true;
   }
@@ -18442,7 +19414,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     dissipateExpiredSatelliteArchers();
     const tenWaveSwapReady = clearedPlans.some(plan => plan.waveNumber > 0 && plan.waveNumber % 10 === 0 && shouldOfferDfkgoldSwap());
-    const relicWaveCleared = clearedPlans.some(plan => plan.waveNumber % 7 === 0);
+    const moosiferGateReady = finalWaveNumber === MOOSIFER_BOSS_WAVE - 1 && !game.moosiferDefeatedThisRun;
+    const relicWaveCleared = !moosiferGateReady && clearedPlans.some(plan => plan.waveNumber % 7 === 0);
     let shopOpened = !!(milestoneHeroOfferConfig || milestoneBarrierOfferConfig);
     if (relicWaveCleared) {
       shopOpened = offerRelics(tenWaveSwapReady ? 'wave10' : 'relic');
@@ -18465,6 +19438,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     } else if (!shopOpened) {
       closeDfkgoldSwapOffer();
       setCountdown(WAVE_BREAK_SECONDS);
+    }
+    if (moosiferGateReady) {
+      closeDfkgoldSwapOffer();
+      game.relicChoices = [];
+      game.nextWavePlan = sanitizeWavePlan(buildWavePlan(MOOSIFER_BOSS_WAVE));
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+      game.moosiferIntroShownForRun = false;
+      game.moosiferFightReady = false;
+      setInstruction('Wave 49 cleared. Moosifer is coming through the portal.');
+      maybeOpenMoosiferIntroForWave(game.nextWavePlan).catch(() => openMoosiferIntroModal());
     }
     syncStartWaveButtonState();
     maybeRemindChampionDeployment({ waited: getChampionWavesWaited() });
@@ -18495,8 +19479,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       return false;
     }
     els.startWaveBtn.disabled = true;
+    setInstruction('Select a relic before starting the first wave.');
     showBanner(hasChoices ? 'Choose 1 free starting relic' : 'Premium swap available', 2500);
     recordReplayEvent('relic_shop_open', { reason: 'start', choices: (game.relicChoices || []).map((relic) => relic && relic.id).filter(Boolean) });
+    renderRelics();
+    updateSetupGuide();
     return true;
   }
 
@@ -18744,7 +19731,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           .filter(e => dist(e, tower) <= iceRange)
           .sort((a, b) => dist(tower, a) - dist(tower, b))
           .slice(0, 10);
-        for (const target of targets) applyDebuff(target, 'slow', 3, { percent: icePercent });
+        for (const target of targets) {
+          applyDebuff(target, 'slow', 3, { percent: icePercent });
+          applyMoosiferFrostWeakness(tower, target, { key: 'frost_bolt', label: 'Ice Aura', frostDamage: true });
+        }
         if (targets.length) {
           const tiles = targets.map(t => ({ x: t.x, y: t.y }));
           createTileFlashArea(tiles, 'wizard');
@@ -18802,8 +19792,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       healTower(tower, gladiatorStrikeHeal, `${tower.name} healed from Gladiator Strike`);
       showBanner('Warrior passive: Gladiator Strike');
     }
-    if (tower.type === 'pirate' && tower.basicAttackCount % 10 === 0) {
-      applyDebuff(target, 'bleed', 10, { damagePercent: 0.03, percent: 0.05, nextTickAt: now() + 1000, sourceTowerId: tower.id });
+    if (tower.type === 'pirate' && tower.basicAttackCount % 15 === 0) {
+      const bossBleedMult = target?.isBoss ? 0.5 : 1;
+      applyDebuff(target, 'bleed', 10, { damagePercent: 0.03 * bossBleedMult, percent: 0.05 * bossBleedMult, nextTickAt: now() + 1000, sourceTowerId: tower.id });
       showBanner('Bloody Bastard: Bloody Bastard');
     }
     if (tower.type === 'champion_dreadknight') {
@@ -18866,7 +19857,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const overpowerReady = getTowerAbilityReadyAt(tower, 'champion_overpower');
       const overpowerAutoReady = tower.championAutoAbilityReadyAt?.champion_overpower || 0;
       if (current >= overpowerReady && current >= overpowerAutoReady) {
-        const inspiredAllies = game.towers.filter((ally) => ally.id !== tower.id && !isStatueTower(ally) && dist(ally, tower) <= 2);
+        const inspiredAllies = game.towers.filter((ally) => ally.id !== tower.id && !isStatueTower(ally) && dist(ally, tower) <= 1);
         for (const ally of inspiredAllies) {
           applyBuff(ally, 'championOverpowerAura', 4, { badgeText: 'GLORY' });
           healTower(ally, Math.max(1, Number(ally.maxHp || 0) * 0.03), null);
@@ -18878,9 +19869,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           startedAt: current,
           durationMs: 900,
         });
-        const overpowerTargets = game.enemies.filter((enemy) => chebyshevDist(enemy, tower) <= 2).slice(0, 8);
+        const overpowerTargets = game.enemies.filter((enemy) => chebyshevDist(enemy, tower) <= 1).slice(0, 8);
         overpowerTargets.forEach((enemy) => {
-          damageEnemy(tower, enemy, tower.damage * 1.7, `${tower.name} overpowered ${enemy.name}`, { key: 'champion_overpower', label: 'Overpower', suppressAttackLine: true });
+          damageEnemy(tower, enemy, tower.damage * 2.295, `${tower.name} overpowered ${enemy.name}`, { key: 'champion_overpower', label: 'Overpower', suppressAttackLine: true });
           knockbackEnemy(enemy, 5);
         });
         setChampionAutoAbilityCooldown(tower, 'champion_overpower', current, getAbilityCooldownSeconds(tower, 'champion_overpower'));
@@ -18897,7 +19888,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
             sizeMultiplier: 0.8372,
             angleOffset: 150,
           });
-          damageEnemy(tower, victim, victim.isBoss ? (Number(victim.maxHp || victim.hp || 0) * 0.15) : (victim.hp + 1), `${tower.name} pointed at ${victim.name}`, { key: 'champion_point', label: 'Point', suppressAttackLine: true });
+          damageEnemy(tower, victim, victim.isBoss ? (Number(victim.maxHp || victim.hp || 0) * 0.10) : (victim.hp + 1), `${tower.name} pointed at ${victim.name}`, { key: 'champion_point', label: 'Point', suppressAttackLine: true });
         }
         setChampionAutoAbilityCooldown(tower, 'champion_point', current, getAbilityCooldownSeconds(tower, 'champion_point'));
         return;
@@ -19224,9 +20215,328 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return towerDistance <= 1;
   }
 
+  function getMoosiferFallbackStep(enemy, targets) {
+    if (!enemy || !targets?.length) return null;
+    const steps = adjacentTiles(enemy.x, enemy.y)
+      .filter(step => {
+        const tile = tileAt(step.x, step.y);
+        if (!tile || tile.obstacle || tile.portal) return false;
+        if (enemy.moosiferPhase === 'to_void') {
+          const occupancyClass = getEnemyOccupancyClass(enemy);
+          const occupants = getEnemyOccupancy(step.x, step.y, enemy?.id || null, occupancyClass);
+          return occupants < getEnemyTileCapacity(enemy, step.x, step.y);
+        }
+        return canEnemyEnter(step.x, step.y, enemy);
+      })
+      .sort((a, b) => heuristic(a, targets) - heuristic(b, targets));
+    return steps[0] || null;
+  }
+
+  function applyMoosiferPassThroughAura(enemy, current) {
+    if (!enemy || enemy.moosiferPhase !== 'to_void') return;
+    const nextAt = Number(enemy.moosiferAuraNextAt || 0) || current;
+    if (current < nextAt) return;
+    const targets = (game.towers || []).filter((tower) => tower && tower.hp > 0 && dist(enemy, tower) <= 2);
+    if (targets.length) {
+      enemy.attacking = true;
+      for (const tower of targets) {
+        const auraDamage = Math.max(1, Number(tower.maxHp || tower.hp || 0) * MOOSIFER_AURA_DAMAGE_PERCENT);
+        damageTower(game, tower, auraDamage, `Moosifer's burning aura scorched ${tower.name}`, enemy);
+        createExplosionEffect(tower.x, tower.y, 'enemy', 0.22, 650, RED_FIRE_GIF_PATH, 'moosifer-aura-fire');
+      }
+    }
+    enemy.moosiferAuraNextAt = current + MOOSIFER_AURA_TICK_MS;
+  }
+
+  function getAdjacentMoosiferStatueTarget(enemy) {
+    return (game.towers || [])
+      .filter(tower => tower && tower.hp > 0 && isStatueTower(tower) && dist(enemy, tower) <= 1)
+      .sort((a, b) => portalDistance(a) - portalDistance(b))[0] || null;
+  }
+
+  function getAdjacentMoosiferWarriorTarget(enemy, targets) {
+    const warriors = (game.towers || [])
+      .filter(tower => tower && tower.hp > 0 && tower.type === 'warrior' && dist(enemy, tower) <= 1)
+      .sort((a, b) => (Number(enemy?.threat?.[b.id] || 0) - Number(enemy?.threat?.[a.id] || 0)) || portalDistance(a) - portalDistance(b));
+    if (!warriors.length) return null;
+    const threatened = warriors.find(tower => enemy.aggroTargetId === tower.id || Number(enemy?.threat?.[tower.id] || 0) > 0);
+    if (threatened) return threatened;
+    const portalPath = pathfind({ x: enemy.x, y: enemy.y }, targets, { enemy, avoidBacktrack: true, softCrowd: true });
+    return portalPath && portalPath.length > 1 ? null : warriors[0];
+  }
+
+  function getMoosiferReturnAttackTarget(enemy, targets) {
+    if (!enemy || enemy.moosiferPhase !== 'returning' || !enemy.moosiferReachedVoid) return null;
+    const statue = getAdjacentMoosiferStatueTarget(enemy);
+    if (statue) return statue;
+    if (getPortalTargets().some(t => t.x === enemy.x && t.y === enemy.y)) return { portal: true };
+    return getAdjacentMoosiferWarriorTarget(enemy, targets);
+  }
+
+  function getAdjacentMoosiferReturnBlockerTarget(enemy) {
+    if (!enemy) return null;
+    const blockers = (game.towers || [])
+      .filter(tower => tower && tower.hp > 0 && (isStatueTower(tower) || tower.type === 'warrior') && dist(enemy, tower) <= 1)
+      .sort((a, b) => {
+        const statueDelta = (isStatueTower(b) ? 1 : 0) - (isStatueTower(a) ? 1 : 0);
+        if (statueDelta) return statueDelta;
+        return portalDistance(a) - portalDistance(b);
+      });
+    return blockers[0] || null;
+  }
+
+  function getMoosiferReturnBlockerPlan(enemy) {
+    if (!enemy || enemy.moosiferPhase !== 'returning') return null;
+    const blockers = (game.towers || [])
+      .filter(tower => tower && tower.hp > 0 && (isStatueTower(tower) || tower.type === 'warrior'))
+      .sort((a, b) => {
+        const statueDelta = (isStatueTower(b) ? 1 : 0) - (isStatueTower(a) ? 1 : 0);
+        if (statueDelta) return statueDelta;
+        return portalDistance(a) - portalDistance(b) || dist(enemy, a) - dist(enemy, b);
+      });
+    for (const tower of blockers) {
+      if (dist(enemy, tower) <= 1) return { tower, attackNow: true, path: null };
+      const approachTiles = getTowerApproachTiles(tower);
+      if (!approachTiles.length) continue;
+      const path = pathfind({ x: enemy.x, y: enemy.y }, approachTiles, {
+        enemy,
+        avoidBacktrack: false,
+        softCrowd: false,
+      });
+      if (path && path.length > 1) return { tower, attackNow: false, path };
+    }
+    return null;
+  }
+
+  function updateMoosiferReturnLoopState(enemy, current) {
+    if (!enemy || enemy.moosiferPhase !== 'returning') return false;
+    const posKey = key(enemy.x, enemy.y);
+    if (!Array.isArray(enemy.moosiferReturnHistory)) enemy.moosiferReturnHistory = [];
+    const last = enemy.moosiferReturnHistory[enemy.moosiferReturnHistory.length - 1];
+    if (!last || last.posKey !== posKey) {
+      enemy.moosiferReturnHistory.push({ posKey, x: enemy.x, y: enemy.y, t: current, portalDistance: portalDistance(enemy) });
+      if (enemy.moosiferReturnHistory.length > 12) enemy.moosiferReturnHistory.shift();
+    }
+    const recent = enemy.moosiferReturnHistory.filter(entry => current - entry.t <= 4500);
+    const uniqueTiles = new Set(recent.map(entry => entry.posKey)).size;
+    const first = recent[0];
+    const lastRecent = recent[recent.length - 1];
+    if (recent.length >= 7 && uniqueTiles <= 7 && first && lastRecent && lastRecent.portalDistance >= first.portalDistance - 1) {
+      enemy.forceMoosiferBlockerUntil = current + 2600;
+      enemy.targetPath = [];
+      clearEnemyRouteCache(enemy);
+      return true;
+    }
+    return !!(enemy.forceMoosiferBlockerUntil && current < enemy.forceMoosiferBlockerUntil);
+  }
+
+  function getClosestMoosiferBlocker(enemy) {
+    const blockers = (game.towers || [])
+      .filter(tower => tower && tower.hp > 0 && (tower.type === 'warrior' || isStatueTower(tower)))
+      .map(tower => ({ tower, distance: dist(enemy, tower), portalScore: portalDistance(tower) }))
+      .sort((a, b) => a.distance - b.distance || a.portalScore - b.portalScore);
+    return blockers[0]?.tower || null;
+  }
+
+  function makeMoosiferReachVoid(enemy, current) {
+    if (!enemy || enemy.moosiferReachedVoid) return;
+    enemy.moosiferReachedVoid = true;
+    enemy.moosiferPhase = 'returning';
+    // Reset the backtrack/motion state at the void so Mo can immediately choose
+    // the first legal return step instead of treating the only exit as a stale
+    // previous tile. Facing is handled per-step by updateEnemyFacingX().
+    enemy.prevX = enemy.x;
+    enemy.prevY = enemy.y;
+    enemy.motionFromX = enemy.x;
+    enemy.motionFromY = enemy.y;
+    enemy.motionToX = enemy.x;
+    enemy.motionToY = enemy.y;
+    enemy.moveStartedAt = current;
+    enemy.moveEndAt = current;
+    enemy.moosiferFlipSprite = false;
+    const currentMaxHp = Math.max(1, Number(enemy.maxHp || enemy.hp || 1));
+    enemy.maxHp = Math.ceil(currentMaxHp * 1.5);
+    enemy.hp = Math.max(1, enemy.maxHp * 0.75);
+    enemy.spawnMaxHp = Math.max(Number(enemy.spawnMaxHp || 0), enemy.maxHp);
+    enemy.moosiferVoidPauseUntil = current + 2000;
+    enemy.moosiferInvulnerableUntil = 0;
+    enemy.attackInterval *= 0.95;
+    enemy.targetPath = [];
+    clearEnemyRouteCache(enemy);
+    enemy.nextMoveAt = enemy.moosiferVoidPauseUntil;
+    createExplosionEffect(enemy.x, enemy.y, 'enemy', 0.7, 1200, RED_FIRE_GIF_PATH, 'moosifer-void-burst');
+    markProgress('Moosifer reached the void, gained 50% max health, rose to 75% health, and began attacking faster.');
+    log('Moosifer reached the void: +50% max health, current health set to 75% max, +5% attack speed, return path reset.');
+    showBanner('Moosifer hit the void, grew tougher, and turned back stronger!', 3200);
+  }
+
+  function getMoosiferPathTargets(enemy) {
+    if (enemy?.moosiferPhase === 'returning') return getPortalTargets();
+    if (enemy?.moosiferVoidTarget) return [{ x: enemy.moosiferVoidTarget.x, y: enemy.moosiferVoidTarget.y }];
+    return getMoosiferVoidTargets();
+  }
+
+  function retargetMoosiferTowardVoid(enemy) {
+    if (!enemy || enemy.moosiferPhase === 'returning') return false;
+    const voidTargets = getMoosiferVoidTargets();
+    if (!voidTargets.length) return false;
+    const reachable = [];
+    for (const target of voidTargets) {
+      const path = pathfind({ x: enemy.x, y: enemy.y }, [target], {
+        enemy,
+        avoidBacktrack: false,
+        softCrowd: false,
+      });
+      if (path && path.length > 1) reachable.push({ target, path });
+    }
+    if (!reachable.length) return false;
+    reachable.sort((a, b) => a.path.length - b.path.length || heuristic(a.target, getPortalTargets()) - heuristic(b.target, getPortalTargets()));
+    const chosen = reachable[0];
+    enemy.moosiferVoidTarget = { x: chosen.target.x, y: chosen.target.y };
+    enemy.targetPath = chosen.path;
+    enemy.stuckAt = 0;
+    clearEnemyRouteCache(enemy);
+    return true;
+  }
+
+  function updateMoosiferEnemy(enemy, current) {
+    // Mo must not use return/portal targeting until he actually reaches the void.
+    // This prevents a failed outward path from turning him around at the portal.
+    if (enemy.moosiferPhase === 'returning' && !enemy.moosiferReachedVoid) {
+      enemy.moosiferPhase = 'to_void';
+      enemy.targetPath = [];
+      clearEnemyRouteCache(enemy);
+      retargetMoosiferTowardVoid(enemy);
+    }
+
+    let targets = getMoosiferPathTargets(enemy);
+    if (!targets.length) return;
+
+    const onCurrentTarget = () => targets.some(t => t.x === enemy.x && t.y === enemy.y);
+
+    if (enemy.moosiferPhase !== 'returning' && onCurrentTarget()) {
+      makeMoosiferReachVoid(enemy, current);
+      targets = getMoosiferPathTargets(enemy);
+      if (!targets.length) return;
+    }
+
+    if (enemy.moosiferVoidPauseUntil && current < enemy.moosiferVoidPauseUntil) {
+      enemy.attacking = false;
+      enemy.targetPath = [];
+      enemy.nextMoveAt = Math.max(Number(enemy.nextMoveAt || 0), enemy.moosiferVoidPauseUntil);
+      return;
+    }
+
+    applyMoosiferPassThroughAura(enemy, current);
+    const forceBlocker = updateMoosiferReturnLoopState(enemy, current);
+    let attackTarget = enemy.moosiferPhase === 'returning' ? getMoosiferReturnAttackTarget(enemy, targets) : null;
+
+    // Return trip rules: attack anything physically blocking him, statue first;
+    // if he starts looping instead of making portal progress, stop wandering and
+    // path directly to the nearest statue/warrior blocker until it is cleared.
+    if (!attackTarget && enemy.moosiferPhase === 'returning') {
+      const adjacentBlocker = getAdjacentMoosiferReturnBlockerTarget(enemy);
+      if (adjacentBlocker) {
+        attackTarget = adjacentBlocker;
+      }
+    }
+
+    if (!attackTarget && enemy.moosiferPhase === 'returning') {
+      const statuePlan = getPreferredStatueTarget(enemy);
+      const portalPath = pathfind({ x: enemy.x, y: enemy.y }, getPortalTargets(), { enemy, avoidBacktrack: false, softCrowd: false });
+      const needsBlockerPlan = forceBlocker || !portalPath || portalPath.length <= 1;
+      const blockerPlan = needsBlockerPlan ? getMoosiferReturnBlockerPlan(enemy) : null;
+      const chosenPlan = statuePlan?.tower ? statuePlan : blockerPlan;
+      if (chosenPlan?.tower) {
+        enemy.aggroTargetId = chosenPlan.tower.id;
+        if (chosenPlan.attackNow || dist(enemy, chosenPlan.tower) <= 1) {
+          attackTarget = chosenPlan.tower;
+        } else if (chosenPlan.path && chosenPlan.path.length > 1) {
+          targets = chosenPlan.path.slice(-1);
+          enemy.targetPath = chosenPlan.path;
+        } else {
+          const approachTargets = getTowerApproachTiles(chosenPlan.tower);
+          if (approachTargets.length) targets = approachTargets;
+        }
+      }
+    }
+
+    let movedThisTick = false;
+    if (!attackTarget && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
+      const path = (enemy.targetPath && enemy.targetPath.length > 1) ? enemy.targetPath : pathfind({ x: enemy.x, y: enemy.y }, targets, {
+        enemy,
+        avoidBacktrack: false,
+        softCrowd: enemy.moosiferPhase !== 'returning',
+      });
+      let nextStep = path && path.length > 1 ? path[1] : null;
+      if (!nextStep && enemy.moosiferPhase === 'to_void') {
+        if (retargetMoosiferTowardVoid(enemy)) {
+          targets = getMoosiferPathTargets(enemy);
+          nextStep = enemy.targetPath && enemy.targetPath.length > 1 ? enemy.targetPath[1] : null;
+        }
+      }
+      if (!nextStep) nextStep = getMoosiferFallbackStep(enemy, targets);
+      if (nextStep) movedThisTick = moveEnemyToStep(enemy, nextStep, current);
+      if (!movedThisTick) {
+        const fallbackStep = getMoosiferFallbackStep(enemy, targets);
+        if (fallbackStep && (!nextStep || fallbackStep.x !== nextStep.x || fallbackStep.y !== nextStep.y)) {
+          movedThisTick = moveEnemyToStep(enemy, fallbackStep, current);
+        }
+      }
+      if (!movedThisTick && enemy.moosiferPhase === 'returning') attackTarget = getMoosiferReturnAttackTarget(enemy, targets);
+    }
+
+    if (!attackTarget && enemy.moosiferPhase !== 'returning' && onCurrentTarget()) {
+      makeMoosiferReachVoid(enemy, current);
+      return;
+    }
+
+    if (attackTarget && !enemy.debuffs.stunned) {
+      enemy.attacking = true;
+      enemy.stuckAt = 0;
+      if (current >= enemy.nextAttackAt) {
+        if (attackTarget.portal) {
+          const portalDamage = enemy.damage * MOOSIFER_PORTAL_DAMAGE_MULTIPLIER;
+          game.portalHp -= portalDamage;
+          game.portalDamagePulseUntil = current + 700;
+          markProgress('Moosifer gored the Portal.');
+          log(`Moosifer hit the portal for ${Math.round(portalDamage)}.`);
+        } else {
+          damageTower(game, attackTarget, enemy.damage, `Moosifer gored ${attackTarget.name}`, enemy);
+          createExplosionEffect(attackTarget.x, attackTarget.y, 'enemy', 0.35, 900, RED_FIRE_GIF_PATH, 'moosifer-attack-fire');
+          markProgress(`Moosifer gored ${attackTarget.name}.`);
+        }
+        enemy.nextAttackAt = current + (enemy.attackInterval * (1 + getBlindingLightAttackSlowPercent(enemy))) * 1000;
+      }
+    } else if (!movedThisTick && !isEnemyHardControlled(enemy)) {
+      if (!enemy.stuckAt) enemy.stuckAt = current;
+      const stuckMs = enemy.moosiferPhase !== 'returning' ? 350 : 900;
+      if (current - enemy.stuckAt >= stuckMs) {
+        if (enemy.moosiferPhase !== 'returning') {
+          // Outbound Mo should never turn around just because a route probe failed.
+          // Only reaching the actual void target can start the return/buffed phase.
+          if (!retargetMoosiferTowardVoid(enemy)) {
+            enemy.targetPath = [];
+            clearEnemyRouteCache(enemy);
+            enemy.nextMoveAt = current + 250;
+          }
+        } else {
+          tryResolveEnemyStall(enemy, current);
+        }
+      }
+    } else {
+      enemy.stuckAt = 0;
+    }
+  }
+
   function updateEnemy(enemy, current) {
     tickEffects(enemy, current);
     applyRingOfFire(enemy, current);
+
+    if (enemy.isMoosifer) {
+      updateMoosiferEnemy(enemy, current);
+      return;
+    }
 
     if (enemy.isFlyingSiege) {
       const portalTargets = getPortalTargets();
@@ -19344,12 +20654,12 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       }
     } else {
       enemy.navMode = navMode;
-      enemy.navCommitUntil = current + (navMode === 'statue' ? 660 : 550);
+      enemy.navCommitUntil = current + (navMode === 'portal' ? 220 : (navMode === 'statue' ? 660 : 550));
     }
 
     if (!attackTarget && canEnemyStartMove(enemy, current) && !isEnemyHardControlled(enemy)) {
       let nextStep = getCachedEnemyMoveStep(enemy, navMode, navTargets, current);
-      if (nextStep) {
+      if (nextStep && navMode !== 'portal') {
         enemy.targetPath = [
           { x: enemy.x, y: enemy.y },
           nextStep,
@@ -19445,7 +20755,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     let total = 0;
     const slowPercent = enemy.debuffs.slow?.percent || 0;
     total += slowPercent;
-    if (enemy.debuffs.burning && slowPercent > 0) total += FIREBOLT_BURN_ICE_AURA_SLOW_BONUS;
+    if (!enemy.isMoosifer && enemy.debuffs.burning && slowPercent > 0) total += FIREBOLT_BURN_ICE_AURA_SLOW_BONUS;
     if (enemy.debuffs.kraken) total += enemy.debuffs.kraken.percent || 0;
     if (enemy.debuffs.bleed) total += enemy.debuffs.bleed.percent || 0;
     total += getSlowTotemSlowPercent(enemy);
@@ -19474,6 +20784,13 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     if (!inBounds(x, y)) return false;
     const tile = tileAt(x, y);
     if (!tile || tile.obstacle || tile.portal) return false;
+    if (enemy?.isMoosifer && enemy.moosiferPhase === 'to_void') {
+      const occupancyClass = getEnemyOccupancyClass(enemy);
+      const occupants = getEnemyOccupancy(x, y, enemy?.id || null, occupancyClass);
+      const capacity = getEnemyTileCapacity(enemy, x, y);
+      if (enemy?.x === x && enemy?.y === y) return true;
+      return occupants < capacity;
+    }
     if (tile.towerId) {
       const tower = game.towers.find(t => t.id === tile.towerId);
       return !tower || (tower.type !== 'warrior' && !isStatueTower(tower));
@@ -19885,6 +21202,10 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     createExplosionEffect(tower.x, tower.y, 'warrior', EXPLODING_STATUE_RADIUS * 0.85, EXPLODING_STATUE_ANIMATION_MS);
     createTileFlashArea([{ x: tower.x, y: tower.y }], 'warrior');
     for (const enemy of targets) {
+      if (enemy?.isMoosifer && Number(enemy.moosiferInvulnerableUntil || 0) > now()) {
+        createHitFlash(enemy.x, enemy.y, 'warrior', 'INVULN');
+        continue;
+      }
       enemy.hp -= damage;
       enemy.killedBy = 'warrior';
       createHitFlash(enemy.x, enemy.y, 'warrior', `-${Math.round(damage)}`);
@@ -19940,6 +21261,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   function getEnemySmoothPixelCenter(enemy, current = now()) {
     if (!enemy) return { x: 0, y: 0 };
 
+    const target = getEnemyBasePixelCenter(enemy);
     const fromTileX = Number.isFinite(Number(enemy.motionFromX)) ? Number(enemy.motionFromX) : (Number.isFinite(Number(enemy.prevX)) ? Number(enemy.prevX) : Number(enemy.x));
     const fromTileY = Number.isFinite(Number(enemy.motionFromY)) ? Number(enemy.motionFromY) : (Number.isFinite(Number(enemy.prevY)) ? Number(enemy.prevY) : Number(enemy.y));
     const toTileX = Number.isFinite(Number(enemy.motionToX)) ? Number(enemy.motionToX) : Number(enemy.x);
@@ -19950,10 +21272,15 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const toCenter = { x: toPos.left + toPos.width / 2, y: toPos.top + toPos.height / 2 };
     const startedAt = Number(enemy.moveStartedAt || 0);
     const endAt = Number(enemy.moveEndAt || 0);
-    const duration = Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endAt - startedAt);
-    const rawProgress = startedAt > 0 && endAt > startedAt ? (current - startedAt) / duration : 1;
+    const rawProgress = startedAt > 0 && endAt > startedAt
+      ? (current - startedAt) / Math.max(MIN_ENEMY_VISUAL_MOVE_MS, endAt - startedAt)
+      : 1;
     const progress = Math.max(0, Math.min(1, rawProgress));
 
+    // v46.9.1.252: render from the committed segment, not from whatever
+    // prev/current tile happens to be after pathing. This keeps clear portal
+    // lanes and blocked lanes on the exact same tile-to-tile timing and avoids
+    // visual catch-up when the enemy can keep choosing legal forward steps.
     enemy.renderPx = fromCenter.x + ((toCenter.x - fromCenter.x) * progress);
     enemy.renderPy = fromCenter.y + ((toCenter.y - fromCenter.y) * progress);
     enemy.lastRenderAt = current;
@@ -20541,31 +21868,39 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       const usePackbocSprite = !enemy.isBoss && (enemy.type === 'grunt' || enemy.type === 'runner' || enemy.type === 'skitter');
       const useImageSprite = enemy.isBoss || usePackbocSprite || enemy.type === 'brute';
       const dot = useImageSprite ? document.createElement('img') : document.createElement('div');
-      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${usePackbocSprite ? ' enemy-packboc' : ''}${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}`;
+      const moosiferRoaring = !!(enemy.isMoosifer && Number(enemy.moosiferRoarUntil || 0) > current);
+      dot.className = `enemy-dot enemy-${enemy.cssClass} enemy-floating${usePackbocSprite ? ' enemy-packboc' : ''}${enemy.attacking ? ' attacking' : ''}${getEnemySlowPercent(enemy) > 0 ? ' enemy-slowed' : ''}${moosiferRoaring ? ' moosifer-roaring' : ''}`;
       dot.style.left = `${px + offset.x}px`;
       dot.style.top = `${py + offset.y}px`;
       const packbocSizeMult = (enemy.type === 'runner' ? 1.105 : (enemy.type === 'skitter' ? 1.44 : 1.3)) * 0.85;
       const bruteSizeMult = 1.38;
-      const bossSizeMult = 1.40;
+      const bossSizeMult = enemy.isMoosifer ? 1.18 : 1.40;
       const visualWidthBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.425 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
       const visualHeightBase = enemy.isBoss ? Math.round(enemySize * 2.17 * bossSizeMult) : (usePackbocSprite ? Math.round(enemySize * 1.275 * packbocSizeMult) : (enemy.type === 'brute' ? Math.round(enemySize * 1.42 * bruteSizeMult) : enemySize));
-      const visualScale = enemy.isBoss ? 0.64 : 1.1;
+      const visualScale = enemy.isMoosifer ? (enemy.moosiferReachedVoid ? 1.127 : 0.98) : (enemy.isBoss ? 0.64 : 1.1);
       const visualWidth = Math.round(visualWidthBase * visualScale);
       const visualHeight = Math.round(visualHeightBase * visualScale);
       if (enemy.isBoss) {
         const storm = document.createElement('div');
-        storm.className = 'boss-storm-cloud';
-        storm.style.left = `${px + offset.x - (pos.width * 1.5) + 10}px`;
-        storm.style.top = `${py + offset.y - (pos.height * 0.2)}px`;
-        storm.style.width = `${pos.width * 3}px`;
-        storm.style.height = `${pos.height * 2.1}px`;
-        for (let i = 0; i < 5; i += 1) {
+        storm.className = enemy.isMoosifer ? 'boss-storm-cloud moosifer-fire-aura' : 'boss-storm-cloud';
+        if (enemy.isMoosifer) {
+          storm.style.left = `${px + offset.x - (pos.width * 1.72)}px`;
+          storm.style.top = `${py + offset.y - (pos.height * 1.5)}px`;
+          storm.style.width = `${pos.width * 3.45}px`;
+          storm.style.height = `${pos.height * 3.55}px`;
+        } else {
+          storm.style.left = `${px + offset.x - (pos.width * 1.5) + 10}px`;
+          storm.style.top = `${py + offset.y - (pos.height * 0.2)}px`;
+          storm.style.width = `${pos.width * 3}px`;
+          storm.style.height = `${pos.height * 2.1}px`;
+        }
+        for (let i = 0; i < 3; i += 1) {
           const blob = document.createElement('div');
-          blob.className = 'boss-storm-cloud-blob';
-          blob.style.left = `${8 + (i * 14)}%`;
-          blob.style.top = `${34 + ((i % 2) * 10)}%`;
-          blob.style.width = `${30 + ((i % 3) * 10)}%`;
-          blob.style.height = `${18 + ((i % 2) * 6)}%`;
+          blob.className = enemy.isMoosifer ? 'boss-storm-cloud-blob moosifer-fire-aura-blob' : 'boss-storm-cloud-blob';
+          blob.style.left = enemy.isMoosifer ? `${28 + (i * 22)}%` : `${8 + (i * 14)}%`;
+          blob.style.top = enemy.isMoosifer ? `${46 - (i % 2) * 12}%` : `${34 + ((i % 2) * 10)}%`;
+          blob.style.width = enemy.isMoosifer ? `${24 + ((i % 2) * 9)}%` : `${30 + ((i % 3) * 10)}%`;
+          blob.style.height = enemy.isMoosifer ? `${56 + ((i % 2) * 12)}%` : `${18 + ((i % 2) * 6)}%`;
           blob.style.animationDelay = `${i * 0.6}s`;
           blob.style.animationDuration = `${4.2 + (i * 0.4)}s`;
           storm.appendChild(blob);
@@ -20575,17 +21910,34 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       dot.style.width = `${visualWidth}px`;
       dot.style.height = `${visualHeight}px`;
       if (enemy.isBoss) {
-        dot.src = 'assets/dark-summoner.gif';
+        dot.src = enemy.isMoosifer ? (enemy.attacking ? 'assets/moosifer-attack.gif' : 'assets/moosifer-walking.gif') : 'assets/dark-summoner.gif';
         dot.alt = '';
         dot.setAttribute('aria-hidden', 'true');
         dot.style.objectFit = 'contain';
         dot.style.objectPosition = 'center bottom';
-        dot.style.transform = `translate(-50%, -64%) scaleX(${getEnemyFacingScaleX(enemy)})`;
+        const moShakeX = moosiferRoaring
+          ? (Math.sin(current / 28) * 9)
+          : (enemy.isMoosifer && enemy.moosiferVoidPauseUntil && current < enemy.moosiferVoidPauseUntil)
+          ? (Math.sin(current / 35) * 5)
+          : 0;
+        const moShakeY = moosiferRoaring
+          ? (Math.cos(current / 30) * 3)
+          : (enemy.isMoosifer && enemy.moosiferVoidPauseUntil && current < enemy.moosiferVoidPauseUntil)
+          ? (Math.cos(current / 45) * 2)
+          : 0;
+        const roarFlip = moosiferRoaring && Math.floor(current / 220) % 2 === 0 ? -1 : 1;
+        dot.style.transform = `translate(calc(-50% + ${moShakeX}px), calc(-64% + ${moShakeY}px)) scaleX(${getEnemyFacingScaleX(enemy) * roarFlip})`;
         dot.style.borderRadius = '0';
         dot.style.border = '0';
         dot.style.background = 'transparent';
         dot.style.boxShadow = 'none';
-        dot.style.filter = getBossVisualFilter(enemy);
+        const moosiferFrostFlash = enemy.isMoosifer && Number(enemy.moosiferFrostFlashUntil || 0) > current;
+        const moosiferFrostFrozen = enemy.isMoosifer && !!enemy.debuffs?.stunned && enemy.debuffs.stunned.sourceAbility === 'moosifer_frost_freeze';
+        dot.style.filter = enemy.isMoosifer
+          ? (moosiferFrostFlash || moosiferFrostFrozen
+            ? `hue-rotate(235deg) saturate(2.35) brightness(1.18) drop-shadow(0 0 18px rgba(180,105,255,0.9))`
+            : `drop-shadow(0 0 ${Number(enemy.moosiferInvulnerableUntil || 0) > current ? 18 : 10}px rgba(255,88,20,0.75)) saturate(1.15)`)
+          : getBossVisualFilter(enemy);
         dot.style.transformOrigin = 'center center';
       } else if (usePackbocSprite) {
         dot.src = getPackbocSpritePath(enemy);
@@ -20800,15 +22152,106 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     updateQuestMetric('goldEarned', jewel);
     const liveWaveGoldBonusLabel = getLiveWaveGoldBonusLabel();
     log(`${enemy.name} died. +${formatJewel(jewel)} Gold${liveWaveGoldBonusLabel ? ` (${liveWaveGoldBonusLabel} live bonus)` : ''}.`);
+    if (enemy.isMoosifer) handleMoosiferDefeated(enemy).catch((error) => console.warn('Moosifer defeat handling failed.', error));
+  }
+
+  async function handleMoosiferDefeated(enemy) {
+    game.moosiferBossActive = false;
+    game.moosiferDefeatedThisRun = true;
+    game.moosiferFightReady = false;
+    game.moosiferAttemptOutcomeReported = true;
+    const headers = {};
+    const token = getRunTrackerSessionToken();
+    if (token) headers['x-session-token'] = token;
+    let status = {};
+    try {
+      const response = await fetchSupabaseFunctionJson(MOOSIFER_BOUNTY_FUNCTION, {
+        ...buildMoosiferAttemptPayload('defeated', enemy, 'defeated'),
+        action: 'defeated',
+      }, 'POST', { headers });
+      status = response && response.data && typeof response.data === 'object' ? response.data : response;
+    } catch (_error) {
+      status = await fetchMoosiferBountyStatus();
+    }
+    window.setTimeout(() => {
+      if (!game.moosiferDefeatedThisRun) return;
+      const hasLiveEnemies = (game.enemies || []).some((entry) => entry && entry.hp > 0 && !entry.reachedPortal);
+      const hasPendingSpawns = (game.pendingSpawns || []).some((entry) => entry && Number(entry.remaining || entry.count || 0) > 0);
+      if (!hasLiveEnemies && !hasPendingSpawns && game.runningWave) finishWave();
+      syncStartWaveButtonState();
+    }, 80);
+    openMoosiferDefeatedModal(status || {}, enemy);
+  }
+
+  function openMoosiferDefeatedModal(status = {}, enemy = null) {
+    const rewardEnabled = status.rewardEnabled !== false;
+    const claimAvailable = !!status.claimAvailable && rewardEnabled;
+    const claimed = !!status.claimed;
+    const modal = document.createElement('div');
+    modal.id = 'moosiferDefeatedModal';
+    modal.className = 'intro-modal';
+    modal.setAttribute('aria-hidden', 'false');
+    const actionHtml = claimAvailable
+      ? '<button id="moosiferClaimRewardBtn" type="button">Claim 500 Jewel</button><button id="moosiferDefeatedCloseBtn" type="button" class="secondary">Close</button>'
+      : `<button id="moosiferDefeatedCloseBtn" type="button" class="secondary">${claimed ? 'Already claimed by another player' : 'Close'}</button>`;
+    modal.innerHTML = `
+      <div class="intro-modal-card panel moosifer-boss-modal" role="dialog" aria-modal="true" aria-labelledby="moosiferDefeatedTitle">
+        <div class="intro-modal-header"><div><div class="intro-kicker">Moosifer</div><h2 id="moosiferDefeatedTitle">Moosifer Deafeated! You are a true hero!</h2></div></div>
+        <div class="intro-body moosifer-boss-body">
+          <img class="moosifer-boss-img" src="assets/moosifer-attack.gif" alt="Moosifer defeated">
+          <p id="moosiferClaimStatus">${claimAvailable ? 'You are eligible for the first-kill 500 Jewel reward.' : (claimed ? 'Already claimed by another player.' : 'The 500 Jewel reward is currently disabled for testing.')}</p>
+        </div>
+        <div class="intro-modal-footer">${actionHtml}</div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('intro-open');
+    game.introOpen = true;
+    syncStatusOverlayVisibility(true);
+    const close = () => {
+      modal.remove();
+      document.body.classList.remove('intro-open');
+      game.introOpen = false;
+      syncStatusOverlayVisibility(false);
+      showStatusOverlay();
+    };
+    modal.querySelector('#moosiferDefeatedCloseBtn')?.addEventListener('click', close);
+    modal.querySelector('#moosiferClaimRewardBtn')?.addEventListener('click', async () => {
+      const button = modal.querySelector('#moosiferClaimRewardBtn');
+      const statusEl = modal.querySelector('#moosiferClaimStatus');
+      if (button) button.disabled = true;
+      if (statusEl) statusEl.textContent = 'Claiming 500 Jewel...';
+      try {
+        const headers = {};
+        const token = getRunTrackerSessionToken();
+        if (token) headers['x-session-token'] = token;
+        const response = await fetchSupabaseFunctionJson(MOOSIFER_BOUNTY_FUNCTION, {
+          action: 'claim',
+          walletAddress: getConnectedWalletAddress(),
+          runId: game.runTracking && game.runTracking.clientRunId ? game.runTracking.clientRunId : '',
+        }, 'POST', { headers });
+        const payload = response && response.data && typeof response.data === 'object' ? response.data : response;
+        if (statusEl) statusEl.textContent = payload && payload.message ? String(payload.message) : '500 Jewel claim recorded.';
+        if (button) button.classList.add('hidden');
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error && error.message ? error.message : 'Claim failed.';
+        if (button) button.disabled = false;
+      }
+    });
   }
 
   function damageEnemy(sourceTower, enemy, amount, message, damageMethod = null) {
+    if (enemy?.isMoosifer && Number(enemy.moosiferInvulnerableUntil || 0) > now()) {
+      createHitFlash(enemy.x, enemy.y, 'enemy', 'INVULN');
+      return 0;
+    }
+    applyMoosiferFrostWeakness(sourceTower, enemy, damageMethod);
     let damage = amount;
     if (sourceTower && sourceTower.type === 'pirate' && game.modifiers.jackSparrow && !damageMethod?.ignoreMiss && Math.random() < 0.10) {
       createHitFlash(enemy.x, enemy.y, 'pirate', 'MISS');
       if (message && chance(0.2)) log(`${sourceTower.name} missed ${enemy.name}.`);
       return 0;
     }
+    if (sourceTower && enemy?.isMoosifer) damage *= Math.max(0.01, Number(game.modifiers?.moosiferDamageTakenMult || 1));
     if (enemy.debuffs?.warning_shot) damage *= (1 + Number(enemy.debuffs.warning_shot.bonusDamageTaken || 0.3));
     if (enemy.debuffs?.chrono_purge) damage *= (1 + Number(enemy.debuffs.chrono_purge.bonusDamageTaken || CHRONO_PURGE_BONUS_DAMAGE_TAKEN));
     if (enemy.debuffs?.berserkerFear) damage *= (1 + Number(enemy.debuffs.berserkerFear.bonusDamageTaken || 0.25));
@@ -20851,6 +22294,29 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
       createHitFlash(enemy.x, enemy.y, 'default', `-${Math.round(damage)}`);
     }
     if (message && chance(0.15)) log(`${message} for ${Math.round(damage)}.`);
+  }
+
+  function applyMoosiferFrostWeakness(sourceTower, enemy, damageMethod = null) {
+    if (!sourceTower || !enemy?.isMoosifer || !damageMethod?.frostDamage || Number(enemy.hp || 0) <= 0) return 0;
+    const current = now();
+    const bonusDamage = Math.max(1, Number(enemy.hp || 0) * MOOSIFER_FROST_BONUS_DAMAGE_CURRENT_HP);
+    const appliedDamage = Math.max(0, Math.min(Number(enemy.hp || 0), bonusDamage));
+    enemy.hp -= appliedDamage;
+    recordTowerDamage(sourceTower, appliedDamage, 'frost_weakness', 'Frost Damage');
+    updateQuestMetric('damageTotal', appliedDamage);
+    if (!sourceTower.isSatellite && !isStatueTower(sourceTower)) updateWeeklyBountyMetric('heroDamage', appliedDamage);
+    applyMonkDarkSiphon(sourceTower, appliedDamage);
+    enemy.moosiferFrostFlashUntil = current + 650;
+    createHitFlash(enemy.x, enemy.y, 'wizard', `FROST +${Math.round(appliedDamage)}`, { centerText: true, sizeMult: 1.05, duration: 650 });
+    if (current >= Number(enemy.moosiferFrostFreezeReadyAt || 0)) {
+      applyDebuff(enemy, 'stunned', MOOSIFER_FROST_FREEZE_DURATION_SECONDS, { sourceTowerId: sourceTower.id, sourceAbility: 'moosifer_frost_freeze' });
+      enemy.moosiferFrostFreezeReadyAt = current + MOOSIFER_FROST_FREEZE_COOLDOWN_MS;
+      enemy.attacking = false;
+      enemy.targetPath = [];
+      enemy.nextMoveAt = Math.max(Number(enemy.nextMoveAt || 0), current + (MOOSIFER_FROST_FREEZE_DURATION_SECONDS * 1000));
+      enemy.nextAttackAt = Math.max(Number(enemy.nextAttackAt || 0), current + (MOOSIFER_FROST_FREEZE_DURATION_SECONDS * 1000));
+    }
+    return appliedDamage;
   }
 
   function damageTower(gameState, tower, amount, message, attacker = null) {
@@ -20921,6 +22387,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function applyDebuff(unit, keyName, seconds, data) {
     if (!unit.debuffs) unit.debuffs = {};
+    if (unit?.isMoosifer && keyName === 'burning') return;
     const until = now() + seconds * 1000;
     if (keyName === 'kraken' && unit.debuffs.kraken) {
       const existing = unit.debuffs.kraken;
@@ -20995,7 +22462,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
           debuff.nextTickAt = current + 1000;
         }
         if (name === 'bleed' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
-          applyDebuffTickDamage(unit, debuff, (debuff.damagePercent || 0.03) * unit.maxHp, 'bleed', 'Bleed');
+          applyDebuffTickDamage(unit, debuff, (debuff.damagePercent || 0.03) * unit.hp, 'bleed', 'Bleed');
           debuff.nextTickAt = current + 1000;
         }
         if (name === 'burning' && unit.hp > 0 && debuff.nextTickAt && current >= debuff.nextTickAt) {
@@ -21125,7 +22592,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 5);
         if (!targets.length) return false;
         const multiShotLevelBonusPerArrow = getAbilityLevelBonus(tower, 1) / 3;
-        targets.forEach(e => { createAttackLine(tower, e, 'archer', 'archer-multishot'); damageEnemy(tower, e, (tower.damage * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + multiShotLevelBonusPerArrow, null, { key: 'multi_shot', label: 'Multi-Shot' }); });
+        let critCount = 0;
+        targets.forEach(e => {
+          const critDamage = Math.random() < 0.05 ? getMultiShotCritDamage(e) : 0;
+          if (critDamage > 0) critCount += 1;
+          createAttackLine(tower, e, 'archer', 'archer-multishot');
+          damageEnemy(tower, e, (tower.damage * 0.7) + (MULTI_SHOT_BASE_DAMAGE_BONUS * 0.7) + 1 + multiShotLevelBonusPerArrow + critDamage, null, { key: 'multi_shot', label: 'Multi-Shot' });
+        });
+        if (critCount > 0) createHitFlash(tower.x, tower.y, 'archer', critCount > 1 ? `CRIT x${critCount}` : 'CRIT', { centerText: true, sizeMult: 1.35, duration: 650 });
         createTileFlashArea(targets.map(e => ({x:e.x,y:e.y})), 'archer');
         return true;
       },
@@ -21134,10 +22608,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         return true;
       },
       piercing_shot() {
-        const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, 3);
+        const shotMultipliers = getPiercingShotTargetMultipliers();
+        const targets = game.enemies.filter(e => dist(e, tower) <= tower.range).sort((a, b) => dist(tower, a) - dist(tower, b)).slice(0, shotMultipliers.length);
         if (!targets.length) return false;
         const abilityDamage = tower.damage + 2 + getAbilityLevelBonus(tower);
-        [1, 0.8, 0.6, 0.45, 0.35].forEach((mult, i) => { if (targets[i]) damageEnemy(tower, targets[i], abilityDamage * mult * powerMult, null, { key: 'piercing_shot', label: 'Piercing Shot' }); });
+        const percentDamage = getPiercingShotPercentDamage(tower);
+        shotMultipliers.forEach((mult, i) => {
+          if (!targets[i]) return;
+          const target = targets[i];
+          const bonusDamage = Math.max(0, Number(target.maxHp || 0) * percentDamage);
+          damageEnemy(tower, target, (abilityDamage * mult * powerMult) + bonusDamage, null, { key: 'piercing_shot', label: 'Piercing Shot' });
+        });
         return true;
       },
       eagle_nest() {
@@ -21150,7 +22631,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         const sameTileTargets = game.enemies.filter(e => e.x === target.x && e.y === target.y).slice(0, 2);
         sameTileTargets.forEach(e => {
           damageEnemy(tower, e, fireboltDamage, `${tower.name} cast Firebolt`, { key: 'firebolt', label: 'Firebolt' });
-          if (!e.debuffs.burning) {
+          if (!e.isMoosifer && !e.debuffs.burning) {
             applyDebuff(e, 'burning', FIREBOLT_BURN_DURATION_SECONDS, {
               damagePercent: FIREBOLT_BURN_TOTAL_HEALTH_PERCENT / FIREBOLT_BURN_DURATION_SECONDS,
               nextTickAt: now() + 1000,
@@ -21208,7 +22689,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         if (!target) return false;
         let dmg = 99 * powerMult * game.modifiers.wizardSpellDamage;
         if (getEnemySlowPercent(target) > 0) dmg *= 2;
-        damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`, { key: 'frost_lance', label: 'Frost Lance' });
+        damageEnemy(tower, target, dmg, `${tower.name} cast Frost Lance`, { key: 'frost_lance', label: 'Frost Lance', frostDamage: true });
         return true;
       },
       temporal_restoration() {
@@ -21393,6 +22874,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         targets.forEach((enemy) => damageEnemy(tower, enemy, tower.damage * 1.5, `${tower.name} used Windmill Kick`, { key: 'windmill_kick', label: 'Windmill Kick' }));
         return true;
       },
+      frozen_fist() {
+        const targets = game.enemies.filter((enemy) => dist(enemy, tower) <= 2);
+        if (!targets.length) return false;
+        createMonkFastFistsEffect(tower, { durationMs: 900 });
+        createTileFlashArea(targets.map((enemy) => ({ x: enemy.x, y: enemy.y })), 'wizard');
+        targets.forEach((enemy) => {
+          damageEnemy(tower, enemy, tower.damage * 1.8, `${tower.name} used Frozen Fist`, { key: 'frozen_fist', label: 'Frozen Fist', frostDamage: true });
+          applyDebuff(enemy, 'slow', 10, { percent: Math.max(Number(enemy?.debuffs?.slow?.percent || 0), 0.10) });
+        });
+        return true;
+      },
       two_handed_swing() {
         const targets = game.enemies.filter((enemy) => dist(enemy, tower) <= 2)
           .sort((a, b) => portalDistance(a) - portalDistance(b))
@@ -21473,6 +22965,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   }
 
   function buyableWaveStart() {
+    const nextWave = Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0);
+    if (!game.moosiferDefeatedThisRun && nextWave >= MOOSIFER_BOSS_WAVE - 1 && getLiveWaveCount() > 0) return false;
+    if (nextWave === MOOSIFER_BOSS_WAVE && !game.moosiferFightReady && game.moosiferIntroShownForRun) return false;
     return game.phase === SETUP_PHASES.BATTLE
       && !game.relicChoices.length
       && !!game.nextWavePlan
@@ -21525,6 +23020,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     else if (Array.isArray(game.relicChoices) && game.relicChoices.length) pushUnique('Choose a relic');
     if (game.continueOfferPending) pushUnique('Resolve your reward choice');
     if (hasActiveMilestoneOffer()) pushUnique('Resolve the milestone offer');
+    if (!game.moosiferDefeatedThisRun && Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) >= MOOSIFER_BOSS_WAVE - 1 && getLiveWaveCount() > 0) pushUnique('Finish the live wave before the Moosifer gate');
+    if (Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE && game.moosiferIntroShownForRun && !game.moosiferFightReady) pushUnique('Use the Moosifer intro to ready the fight');
     if (getLiveWaveCount() >= MAX_LIVE_WAVES) pushUnique('Wait for a live wave slot to open');
     if (game.phase === SETUP_PHASES.BATTLE && !game.nextWavePlan && !game.crashed) pushUnique('Wait for the next wave to prepare');
     return blockers;
@@ -21535,7 +23032,9 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const canStart = buyableWaveStart() && !game.startingRelicPending && !game.continueOfferPending;
     els.startWaveBtn.disabled = !canStart;
     const liveCount = getLiveWaveCount();
-    els.startWaveBtn.textContent = liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave');
+    const moosiferReady = Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) === MOOSIFER_BOSS_WAVE && !!game.moosiferFightReady;
+    els.startWaveBtn.textContent = moosiferReady ? 'FIGHT MOOSIFER' : (liveCount >= MAX_LIVE_WAVES ? '3 Waves Live' : (liveCount > 0 ? `Start Next Wave (${liveCount}/3 Live)` : 'Start Next Wave'));
+    els.startWaveBtn.classList.toggle('moosifer-fight-ready', moosiferReady);
     const hintEl = ensureStartWaveHintEl();
     const blockers = canStart ? [] : getStartWaveBlockers();
     const hintText = blockers.length ? blockers.join('\n') : 'Finish setup to begin the wave';
@@ -21556,6 +23055,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   function updateAutoStartButton() {
     if (!els.autoStartBtn) return;
+    if (isAwaitingManualStartAfterWaveJump()) {
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+    }
+    if (Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) >= MOOSIFER_BOSS_WAVE - 1) {
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+    }
     const enabled = !!game.autoStartEnabled;
     const armed = enabled && !game.runningWave && game.autoStartReadyAt > 0 && buyableWaveStart() && !game.startingRelicPending;
     let label = `Auto Start: ${enabled ? 'On' : 'Off'}`;
@@ -21566,14 +23073,26 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     els.autoStartBtn.textContent = label;
     els.autoStartBtn.classList.toggle('active', enabled);
     els.autoStartBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    els.autoStartBtn.disabled = !!game.startingRelicPending;
+    els.autoStartBtn.disabled = !!game.startingRelicPending || isAwaitingManualStartAfterWaveJump() || Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) >= MOOSIFER_BOSS_WAVE - 1;
     els.autoStartBtn.title = enabled
       ? 'Automatically starts the next ready wave after the delay.'
-      : 'Enable automatic wave starts during preparation phases.';
+      : (isAwaitingManualStartAfterWaveJump() ? 'Click Start Next Wave manually to begin this advanced start.' : (els.autoStartBtn.disabled ? 'Auto Start is disabled for the Moosifer gate.' : 'Enable automatic wave starts during preparation phases.'));
   }
 
   function armAutoStartCountdown(force = false) {
     if (!game.autoStartEnabled) {
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      return false;
+    }
+    if (isAwaitingManualStartAfterWaveJump()) {
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+      updateAutoStartButton();
+      return false;
+    }
+    if (Number(game.nextWavePlan && game.nextWavePlan.waveNumber || 0) >= MOOSIFER_BOSS_WAVE - 1) {
+      game.autoStartEnabled = false;
       game.autoStartReadyAt = 0;
       updateAutoStartButton();
       return false;
@@ -21591,7 +23110,25 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     return true;
   }
 
+  function disableAutoStart(reason = '') {
+    if (!game) return;
+    const wasEnabled = !!game.autoStartEnabled || game.autoStartReadyAt > 0;
+    game.autoStartEnabled = false;
+    game.autoStartReadyAt = 0;
+    game.autoStartToken = (game.autoStartToken || 0) + 1;
+    try { localStorage.setItem('portalSiegeAutoStartEnabled', 'false'); } catch (error) {}
+    updateAutoStartButton();
+    if (wasEnabled && reason) log(reason);
+  }
+
   function toggleAutoStart() {
+    if (isAwaitingManualStartAfterWaveJump()) {
+      game.autoStartEnabled = false;
+      game.autoStartReadyAt = 0;
+      showBanner('Click Start Next Wave manually to begin this advanced start.', 2200);
+      updateAutoStartButton();
+      return;
+    }
     game.autoStartEnabled = !game.autoStartEnabled;
     if (!game.autoStartEnabled) {
       game.autoStartReadyAt = 0;
@@ -21605,6 +23142,16 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   const damageReportStyle = document.createElement('style');
   damageReportStyle.textContent = `
+    .start-wave-choice-panel { display: grid; gap: 10px; margin: 12px 0; padding: 10px; border: 1px solid rgba(245, 224, 120, 0.26); border-radius: 8px; background: rgba(7, 10, 22, 0.36); }
+    .start-wave-choice-title { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5df6d; }
+    .start-wave-choice-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+    .start-wave-choice-btn { min-height: 58px; padding: 8px 6px; border: 1px solid rgba(245, 224, 120, 0.28); border-radius: 8px; background: rgba(18, 22, 42, 0.92); color: #f7f0d3; text-align: center; cursor: pointer; }
+    .start-wave-choice-btn span { display: block; font-weight: 800; font-size: 13px; }
+    .start-wave-choice-btn small { display: block; margin-top: 4px; font-size: 9px; line-height: 1.2; color: rgba(239, 232, 200, 0.72); }
+    .start-wave-choice-btn.is-active { border-color: #fff16b; background: rgba(132, 101, 14, 0.94); box-shadow: 0 0 0 1px rgba(255, 241, 107, 0.28), 0 0 18px rgba(255, 211, 62, 0.25); }
+    .start-wave-choice-btn.is-submitting,
+    .start-wave-choice-btn:disabled { cursor: wait; opacity: 0.72; filter: saturate(0.75); }
+    @media (max-width: 720px) { .start-wave-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .live-damage-report { width: 65%; max-width: 1120px; margin: 10px auto 0; padding: 7px 9px; border: 1px solid rgba(235, 220, 180, 0.18); border-radius: 12px; background: rgba(12, 18, 30, 0.94); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
     .live-damage-report.hidden { display: none; }
     .live-damage-report-header { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
@@ -21683,9 +23230,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     updateTestGoldButtonState();
     updateChampionFastModeButtonState();
     updateMetisInfluenceDebugButtonState();
-    updateThirdPartyOutageButtonState();
-    updateWalletDependentControls();
-    window.setTimeout(updateWalletDependentControls, 0);
     renderDamageReport();
     render();
     if (!detail || !detail.address) {
@@ -21707,9 +23251,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
 
   els.restartBtn.addEventListener('click', resetGame);
   els.addGoldBtn?.addEventListener('click', grantTestGold);
+  els.summonMoosiferBtn?.addEventListener('click', summonMoosiferForTest);
+  els.moosiferDiffInput?.addEventListener('input', () => { getMoosiferDifficultyOverride(); updateMoosiferButtonState(); });
+  els.moosiferDiffInput?.addEventListener('change', () => {
+    if (!els.moosiferDiffInput) return;
+    const parsed = getMoosiferDifficultyOverride();
+    els.moosiferDiffInput.value = String(parsed);
+    updateMoosiferButtonState();
+  });
+  syncWinstonAdminControls();
   els.championFastModeBtn?.addEventListener('click', toggleChampionFastMode);
   els.metisInfluenceDebugBtn?.addEventListener('click', debugMetisInfluenceForWalletHeroes);
-  updateWalletDependentControls();
 
   window.addEventListener('dfk:tracked-runs-refresh-requested', () => {
     refreshBountyBoard().catch(() => {});
@@ -21814,8 +23366,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     try { syncTopMenuWalletResources(); } catch (_error) {}
     updateJewelTradeUi();
     updateRelicSwapUi();
-    updateWalletDependentControls();
-    window.setTimeout(updateWalletDependentControls, 0);
   });
   els.speedToggleBtn?.addEventListener('click', () => {
     setPlayMode('easy');
@@ -21828,21 +23378,21 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   });
   els.introBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
-    window.__dfkAllowManualIntroOpen = true; openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
+    openIntroModal(game.introSet === 'lore' ? (game.introPageIndex || 0) : (game.introPageIndex || 0), game.introSet === 'lore' ? 'lore' : 'intro');
   });
   els.loreBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
-    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'lore');
+    openIntroModal(0, 'lore');
   });
   els.guideIntroToggleBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
     game.introPageIndex = 0;
-    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'intro');
+    openIntroModal(0, 'intro');
   });
   els.guideLoreToggleBtn?.addEventListener('click', (event) => {
     swallowModalEvent(event);
     game.introPageIndex = 0;
-    window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'lore');
+    openIntroModal(0, 'lore');
   });
   els.bountyBtn?.addEventListener('click', () => {
     openBountyModal();
@@ -21852,8 +23402,31 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   els.newsBtn?.addEventListener('click', () => {
     openNewsModal();
   });
+  els.showSetupGuideBtn?.addEventListener('click', showSetupGuideAgain);
+  els.winstonAdminBtn?.addEventListener('click', openWinstonAdminModal);
+  els.closeWinstonAdminBtn?.addEventListener('click', closeWinstonAdminModal);
+  els.winstonAdminModal?.addEventListener('click', (event) => {
+    if (event.target === els.winstonAdminModal) closeWinstonAdminModal();
+  });
+  els.applyAdminRunSetupBtn?.addEventListener('click', applyAdminRunSetup);
+  els.adminAllHeroLevelInput?.addEventListener('change', () => {
+    const allLevel = Math.max(1, Math.min(99, Math.floor(Number(els.adminAllHeroLevelInput && els.adminAllHeroLevelInput.value) || 1)));
+    if (els.adminAllHeroLevelInput) els.adminAllHeroLevelInput.value = String(allLevel);
+    Object.values(ADMIN_LEVEL_INPUTS).forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = String(allLevel);
+    });
+  });
   els.closeNewsBtn?.addEventListener('click', () => {
     closeNewsModal();
+  });
+  els.newsPrevBtn?.addEventListener('click', () => {
+    game.newsPageIndex = Math.max(0, Number(game.newsPageIndex || 0) - 1);
+    renderNewsModal();
+  });
+  els.newsNextBtn?.addEventListener('click', () => {
+    game.newsPageIndex = Math.min(1, Number(game.newsPageIndex || 0) + 1);
+    renderNewsModal();
   });
   els.newsModal?.addEventListener('click', (event) => {
     if (event.target === els.newsModal) closeNewsModal();
@@ -21861,10 +23434,11 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   try {
     const newsParam = new URLSearchParams(window.location.search).get('news');
     if (newsParam) {
+      const normalizedNewsParam = String(newsParam || '').trim().toLowerCase();
+      game.newsPageIndex = normalizedNewsParam.includes('release') || normalizedNewsParam.includes('history') ? 1 : 0;
       setTimeout(() => openNewsModal(), 350);
     }
-  } catch (error) {}
-  els.questsBtn?.addEventListener('click', () => {
+  } catch (error) {}  els.questsBtn?.addEventListener('click', () => {
     openQuestsModal();
   });
   els.questDailyToggleBtn?.addEventListener('click', () => {
@@ -21936,8 +23510,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   });
   els.closeMilestoneHeroOfferBtn?.addEventListener('click', () => finishMilestoneHeroOffer(true));
   els.declineMilestoneHeroOfferBtn?.addEventListener('click', () => finishMilestoneHeroOffer(true));
-  els.closeIntroBtn?.addEventListener('click', () => { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); });
-  els.introModal?.addEventListener('click', (event) => { if (event.target === els.introModal) { if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); } });
+  els.closeIntroBtn?.addEventListener('click', () => { if (game.highValueRunPromptActive) return; if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); });
+  els.introModal?.addEventListener('click', (event) => { if (event.target === els.introModal) { if (game.highValueRunPromptActive) return; if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal(); } });
   const startModeCard = els.startModeModal?.querySelector('.intro-modal-card');
   const eatBackdropEvent = (event) => {
     if (event.target !== els.startModeModal) return;
@@ -21980,7 +23554,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     els.seerIntroLearnMoreBtn.onclick = (event) => {
       swallowModalEvent(event);
       closeSeerIntroModal();
-      window.__dfkAllowManualIntroOpen = true; openIntroModal(0, 'intro');
+      openIntroModal(0, 'intro');
     };
   }
   if (els.closeSeerIntroBtn) {
@@ -22177,10 +23751,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   });
   els.continueHellYeahBtn?.addEventListener('click', () => {
     if (game.continuePaidRetryPending) return;
+    if (game.moosiferRetryOfferPending) {
+      disableAutoStart('Auto Start disabled for Moosifer retry.');
+      restoreMoosiferFreeRetry();
+      return;
+    }
+    disableAutoStart('Auto Start disabled for free retry.');
     restoreContinueSnapshot(500);
   });
   els.continuePaidJewelBtn?.addEventListener('click', async () => {
     if (game.continuePaidRetryPending) return;
+    disableAutoStart('Auto Start disabled for paid retry.');
     setContinuePaidRetryPending(true, 'Confirming paid JEWEL retry...');
     try {
       await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'native_jewel'), 'Last Chance retry', {
@@ -22189,7 +23770,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         retryGold: 2000,
       });
       restoreContinueSnapshot(2000, { paid: true });
-      deploySelectedChampionImmediatelyFromPaidRetry();
     } catch (error) {
       setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
@@ -22198,6 +23778,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   });
   els.continuePaidHonkBtn?.addEventListener('click', async () => {
     if (game.continuePaidRetryPending) return;
+    disableAutoStart('Auto Start disabled for paid retry.');
     setContinuePaidRetryPending(true, 'Confirming paid HONK retry...');
     try {
       await performDfkJewelTrade('jewel_gold_swap', getDfkPaymentWeiForJewelAmount(1, 'honk'), 'Last Chance HONK retry', {
@@ -22206,7 +23787,6 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
         retryGold: 2000,
       });
       restoreContinueSnapshot(2000, { paid: true });
-      deploySelectedChampionImmediatelyFromPaidRetry();
     } catch (error) {
       setContinuePaidRetryPending(false);
       showBanner(error && error.message ? error.message : 'Paid retry failed.', 2200);
@@ -22266,6 +23846,19 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
   });
   els.introNextBtn?.addEventListener('click', () => {
+    if (game.highValueRunPromptActive) {
+      const statusEl = document.getElementById('highValueRunSessionStatus');
+      connectForHighValueRunSessionPrompt(els.introNextBtn, statusEl).then((ok) => {
+        if (!ok) return;
+        const dismiss = game.modalDismiss;
+        game.highValueRunPromptActive = false;
+        game.highValueRunPromptResolve = null;
+        game.modalDismiss = null;
+        closeIntroModal();
+        if (typeof dismiss === 'function') dismiss();
+      });
+      return;
+    }
     if (game.modalDismiss || (els.introTitle && els.introTitle.textContent === 'Defend the Portal')) {
       closeAnnouncementModal();
       return;
@@ -22314,9 +23907,14 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     game.realLastTick = realNow;
     game.virtualNow += realDelta * game.timeScale;
     try {
-      update();
+      // Render enemy movement before the logic tick starts the next tile step.
+      // When a clear portal path lets enemies chain moves every cadence, updating
+      // first could skip the last few pixels of the prior legal segment and read
+      // as a lurch. Rendering first lets each segment finish visually, then the
+      // next update can advance the logical tile for the following frame.
       renderGrid();
       renderEnemyLayer();
+      update();
       if (!game.lastSelectedPanelRefreshAt || (realNow - game.lastSelectedPanelRefreshAt) >= 120) {
         refreshSelectedPanelLive();
         game.lastSelectedPanelRefreshAt = realNow;
@@ -22348,7 +23946,7 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     }
     const tileEl = event.target.closest('.tile');
     if (!tileEl) return;
-    handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y)).catch((error) => showCrashReport('tile-click', error));
+    handleTileClick(Number(tileEl.dataset.x), Number(tileEl.dataset.y));
   });
 
   // Preview portal / obstacle placements on hover.
@@ -22448,8 +24046,8 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
   startPendingDfkgoldBurnQueueLoop();
   startPendingDfkJewelVerificationQueueLoop();
   document.addEventListener('keydown', (event) => {
-    if (handleSelectedMonkArrowMove(event)) return;
     if (event.key === 'Escape' && game.introOpen) {
+      if (game.highValueRunPromptActive) return;
       if (els.bountyModal && !els.bountyModal.classList.contains('hidden')) closeBountyModal();
       if (els.trackedRunsModal && !els.trackedRunsModal.classList.contains('hidden')) closeTrackedRunsModal();
       else if (game.modalDismiss) closeAnnouncementModal(); else closeIntroModal();
@@ -22487,12 +24085,17 @@ document.addEventListener('click', function dfkOpenNewsAfterConnectOrGuest(event
     const shouldRestartFromGuest = !!(game.pendingGuestConnectRestart || (game.difficultyProfile?.guestMode && !game.runWalletConnected));
     if (!shouldRestartFromGuest) return;
     game.pendingGuestConnectRestart = false;
+    const startWave = getSelectedPlayerStartWave();
+    const paid = await payForPlayerStartWaveIfNeeded(startWave);
+    if (!paid) {
+      const note = els.startModeNote ? els.startModeNote.textContent : '';
+      openStartModeModal();
+      if (note) setStartModeNote(note);
+      return;
+    }
     showBanner('Guest game canceled. Starting a tracked run.', 2600);
-    await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true });
+    await resetGame({ skipTrackedResetConfirm: true, skipCryptoPayment: true, startWave });
   };
-
-  window.DFKPostThirdPartyOutageNotice = postThirdPartyOutageNotice;
-  window.DFKDismissThirdPartyOutageBanner = dismissThirdPartyOutageBanner;
 
   window.DFKDefenseGameControl = {
     hasMeaningfulRunInProgress,
@@ -22548,10 +24151,9 @@ setTimeout(() => { try { if (!isReplayUrlView()) { maybeShowWalletTutorial(); } 
         }
       } catch (error) {}
       try {
-        // Intro no longer auto-opens on startup.
-        // Players can open it manually from the Tools/Intro button.
-        if (typeof closeIntroModal === 'function') {
-          closeIntroModal();
+        if (typeof openIntroModal === 'function') {
+          openIntroModal();
+          return;
         }
       } catch (error) {}
       try {
@@ -22935,39 +24537,87 @@ style.innerHTML = `
 .lightwindow, .modal, .overlay-container {
   min-height: 140% !important;
 }
-
-/* v46.9.1.298: keep run-tracking warning centered over the game instead of falling into page flow. */
-#runTrackingNotEnabledModal.run-tracking-warning-modal {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 24000 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 18px !important;
-  min-height: 100vh !important;
-  background: rgba(26, 17, 8, 0.74) !important;
-  backdrop-filter: blur(3px);
-}
-#runTrackingNotEnabledModal.run-tracking-warning-modal.hidden {
-  display: none !important;
-}
-#runTrackingNotEnabledModal .run-tracking-warning-card {
-  width: min(680px, calc(100vw - 36px)) !important;
-  max-height: min(80vh, 520px) !important;
-  margin: 0 auto !important;
-}
-#runTrackingNotEnabledModal .run-tracking-warning-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
 `;
 document.head.appendChild(style);
-
 /* === END UI TWEAK PATCH === */
 
 
 window.addEventListener('load', () => { setTimeout(() => { if (typeof window.loadSharedReplayFromUrl === 'function') window.loadSharedReplayFromUrl(); }, 250); });
+
+// --- MO DIFFICULTY SYSTEM (1–10) ---
+window.MO_DIFFICULTY = window.MO_DIFFICULTY || 1;
+
+// --- GENERIC HERO '2' IMAGE SYSTEM ---
+// Handled directly in createTower/getTowerDefaultHeroImage so rarity/gen0 bonuses stay untouched.
+
+// --- MO LIFESTEAL + VOID BUFF + VISUAL FIX ---
+(function(){
+
+  // 15% lifesteal on damage dealt
+  function applyMoLifesteal(attacker, damage){
+    if (!attacker || !damage) return;
+    if (attacker.type === "mo" || attacker.isMo){
+      const heal = damage * 0.15;
+      attacker.health = Math.min(attacker.maxHealth, attacker.health + heal);
+    }
+  }
+
+  // hook into global damage handler if exists
+  const origDamage = window.applyDamage;
+  if (origDamage){
+    window.applyDamage = function(target, amount, source){
+      const result = origDamage.apply(this, arguments);
+      try {
+        applyMoLifesteal(source, amount);
+      } catch(e){}
+      return result;
+    };
+  }
+
+  // void trigger handling
+  const origUpdateMo = window.updateMoosiferEnemy;
+  if (origUpdateMo){
+    window.updateMoosiferEnemy = function(mo){
+      const wasAtVoid = mo._wasAtVoid || false;
+
+      origUpdateMo.apply(this, arguments);
+
+      try {
+        if (typeof isVoidTile === "function" && isVoidTile(mo.tile)){
+          if (!wasAtVoid){
+            // first time reaching void
+            mo.maxHealth = 400000;
+            mo.health = 400000;
+
+            // remove clouds
+            mo.hasClouds = false;
+            mo.cloudEffect = false;
+
+            // add purple glow
+            mo.glowColor = "purple";
+            mo.glowIntensity = 2.5;
+
+            mo._wasAtVoid = true;
+          }
+        }
+      } catch(e){}
+    };
+  }
+
+})();
+
+
+// --- FORCE STATUE GREY STYLE ---
+(function(){
+  const origRender = window.renderTower;
+  if (origRender){
+    window.renderTower = function(tower, ctx){
+      if (tower && tower.type === 'statue'){
+        tower.rarity = null;
+        tower.isGen0 = false;
+        tower.glow = false;
+      }
+      return origRender.apply(this, arguments);
+    };
+  }
+})();

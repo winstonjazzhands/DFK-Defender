@@ -7,7 +7,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="yes" name="mobile-web-app-capable"/>
-<title>DFK Defender v46.9.1.297</title>
+<title>DFK Defender v46.9.1.266</title>
 <link href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Ctext y=%2750%27 font-size=%2748%27%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E" rel="icon"/>
 <link href="styles.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -225,11 +225,6 @@
 </style>
 </link></head>
 <body>
-<div aria-hidden="true" class="third-party-outage-banner hidden" id="thirdPartyOutageBanner" role="status">
-  <span class="third-party-outage-banner-message" id="thirdPartyOutageBannerMessage">we're experiencing a third party outage, games should automatically be consumed when the third party comes back up</span>
-  <button aria-label="Clear outage message" class="third-party-outage-banner-close" id="thirdPartyOutageBannerClose" type="button">×</button>
-</div>
-
 <div aria-live="polite" class="mobile-rotate-prompt" id="mobileRotatePrompt">
 <div class="mobile-rotate-card panel">
 <div aria-hidden="true" class="mobile-rotate-icon">📱↻</div>
@@ -293,7 +288,7 @@
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopClaimedToday">Claimed today: 0 Jewel</div>
 <div class="wallet-top-balance wallet-top-balance-small" id="walletTopResetTimer">Reset timer: --</div>
 </div>
-<button class="dfk-news-open-btn" id="newsBtn" type="button" aria-controls="newsModal">🗞️ News</button>
+<button class="dfk-news-open-btn" id="newsBtn" type="button" aria-controls="newsModal">News</button>
 <div class="wallet-panel panel-lite collapsed" id="buttonsPanel">
 <button aria-controls="buttonsPanelBody" aria-expanded="false" class="wallet-panel-toggle" id="buttonsPanelToggle" type="button">
 <span class="wallet-panel-title-row">
@@ -308,6 +303,8 @@
 <button class="intro-toggle secondary-guide" id="introBtn" type="button">📖 Lore / Learn more</button>
 <button class="intro-toggle secondary-guide tracked-runs-toggle" id="trackedRunsBtn" type="button">📜 Tracked Runs</button>
 <button class="intro-toggle secondary-guide transfer-heroes-toggle" id="transferHeroesBtn" type="button">📦 Transfer Heroes</button>
+<button class="intro-toggle secondary-guide" id="showSetupGuideBtn" type="button">Show First-Time Guide</button>
+<button aria-controls="winstonAdminModal" class="intro-toggle secondary-guide hidden" id="winstonAdminBtn" type="button">Winston Admin</button>
 <button aria-controls="avaxTreasuryPanel" aria-expanded="false" class="leaderboard-flyout-btn intro-toggle secondary-guide hidden" id="treasuryFlyoutBtn" type="button">🏦 Treasury View</button>
 <button class="intro-toggle secondary-guide lore-toggle hidden" id="loreBtn" type="button">📜 Lore</button>
 <button class="intro-toggle secondary-guide bounty-toggle hidden" id="bountyBtn" type="button">🏆 Weekly Bounties</button>
@@ -363,11 +360,12 @@
 <button class="wallet-btn secondary tracking-btn" id="enableTrackingBtn" type="button">Enable Run Tracking</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="disableTrackingBtn" type="button">Disable Run Tracking</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="clearStuckWavesBtn" type="button">Clear Stuck Waves</button>
-<button class="wallet-btn secondary tracking-btn" id="manageQueuedRunsBtn" type="button">Manage Queued Runs</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="addGoldBtn" title="Authorized test button" type="button">Add 10000 Gold</button>
 <button class="wallet-btn secondary tracking-btn hidden" id="championFastModeBtn" title="Authorized champion timing test toggle" type="button">Champion Fast Mode: Off</button>
-<button class="wallet-btn secondary tracking-btn hidden" id="metisInfluenceDebugBtn" title="Authorized Metis hero influence debug" type="button">Debug Metis Influence</button>
-<button class="wallet-btn secondary tracking-btn hidden" id="postThirdPartyOutageBtn" title="Authorized outage notice broadcast" type="button">Post Outage Notice</button>
+<div class="moosifer-summon-control hidden" id="moosiferSummonControl">
+<input aria-label="Moosifer difficulty" class="moosifer-diff-input" id="moosiferDiffInput" inputmode="numeric" min="1" max="35" placeholder="Diff" type="number" value="1"/>
+<button class="wallet-btn secondary tracking-btn moosifer-summon-btn" id="summonMoosiferBtn" title="Authorized Moosifer boss test" type="button">Summon Moosifer</button>
+</div>
 
 </div>
 </div><div aria-hidden="true" class="wallet-panel panel-lite wallet-hero-bonus-section wallet-hero-panel collapsed hidden" id="walletHeroBonusSection">
@@ -707,6 +705,30 @@
 <div class="modal-top-toggle compact" id="questModeToggle"><button class="modal-top-toggle-btn active" id="questDailyToggleBtn" type="button">Dailies</button><button class="modal-top-toggle-btn bounty-soon-toggle" id="questBountyToggleBtn" type="button" disabled aria-disabled="true" title="Bounties are temporarily offline while they are being hardened.">Bounties coming soon &lt;3</button></div><div class="intro-body quests-body" id="questsBody"></div>
 </div>
 </div>
+<div aria-hidden="true" class="intro-modal winston-admin-modal hidden" id="winstonAdminModal">
+<div aria-labelledby="winstonAdminTitle" aria-modal="true" class="intro-modal-card panel winston-admin-card" role="dialog">
+<div class="intro-modal-header">
+<div><div class="intro-kicker">Private Tools</div><h2 id="winstonAdminTitle">Winston Admin</h2></div>
+<button aria-label="Close Winston admin" class="intro-close" id="closeWinstonAdminBtn" type="button">&times;</button>
+</div>
+<div class="intro-body winston-admin-body">
+<div class="winston-admin-section"><h3>Test Controls</h3><div class="winston-admin-controls" id="winstonAdminControls"></div><div class="moosifer-admin-stats" id="moosiferAdminStats"></div></div>
+<div class="winston-admin-section"><h3>Start Wave & Hero Levels</h3><div class="winston-admin-grid">
+<label>Start wave<input id="adminStartWaveInput" min="1" max="999" type="number" value="1"/></label>
+<label>Start all heroes at<input id="adminAllHeroLevelInput" min="1" max="99" type="number" value="1"/></label>
+<label>Warrior level<input id="adminLevelWarrior" min="1" max="99" type="number" value="1"/></label>
+<label>Archer level<input id="adminLevelArcher" min="1" max="99" type="number" value="1"/></label>
+<label>Priest level<input id="adminLevelPriest" min="1" max="99" type="number" value="1"/></label>
+<label>Wizard level<input id="adminLevelWizard" min="1" max="99" type="number" value="1"/></label>
+<label>Pirate level<input id="adminLevelPirate" min="1" max="99" type="number" value="1"/></label>
+<label>Seer level<input id="adminLevelSeer" min="1" max="99" type="number" value="1"/></label>
+<label>Berserker level<input id="adminLevelBerserker" min="1" max="99" type="number" value="1"/></label>
+<label>Monk level<input id="adminLevelMonk" min="1" max="99" type="number" value="1"/></label>
+</div><button class="wallet-btn" id="applyAdminRunSetupBtn" type="button">Apply Admin Run Setup</button><p class="wallet-tracking-summary" id="adminRunSetupStatus">Using this prevents the run from being saved.</p></div>
+<div class="winston-admin-section"><h3>Unauthorized Attempts</h3><div class="winston-admin-attempts" id="winstonAdminAttempts">No attempts logged.</div></div>
+</div>
+</div>
+</div>
 <div aria-hidden="true" class="intro-modal news-modal hidden" id="newsModal">
 <div aria-labelledby="newsTitle" aria-modal="true" class="intro-modal-card news-modal-card panel" role="dialog">
 <div class="intro-modal-header news-modal-header">
@@ -714,7 +736,7 @@
 <div class="intro-kicker">DFK Defender Updates</div>
 <h2 id="newsTitle">News</h2>
 </div>
-<button aria-label="Close news" class="intro-close" id="closeNewsBtn" type="button">×</button>
+<div class="news-header-actions"><button aria-label="Previous news" class="news-page-arrow" id="newsPrevBtn" type="button">&#8249;</button><span class="news-page-count" id="newsPageCount">1 / 2</span><button aria-label="Next news" class="news-page-arrow" id="newsNextBtn" type="button">&#8250;</button><button aria-label="Close news" class="intro-close" id="closeNewsBtn" type="button">&times;</button></div>
 </div>
 <div class="intro-body news-body" id="newsBody"></div>
 </div>
@@ -912,11 +934,10 @@
 <th aria-sort="none" class="leaderboard-sortable" data-sort="runs" role="button" tabindex="0">Runs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
 <th aria-sort="none" class="leaderboard-sortable" data-sort="dfk_gold_burned" role="button" tabindex="0">Gold Burned <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
 <th aria-sort="none" class="leaderboard-sortable" data-sort="used_wallet_heroes" role="button" tabindex="0">Own NFTs <span aria-hidden="true" class="leaderboard-sort-chevron"></span></th>
-
 </tr>
 </thead>
 <tbody id="leaderboardTableBody">
-<tr><td class="leaderboard-empty" colspan="8">Loading…</td></tr>
+<tr><td class="leaderboard-empty" colspan="7">Loading…</td></tr>
 </tbody>
 </table>
 </div>
@@ -924,10 +945,10 @@
 </img></aside>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.config.js"></script>
-<script src="js/security-wallet.js?v=46.9.1.99"></script>
-<script src="js/avax-rails.js?v=46.9.1.257"></script>
+<script src="js/security-wallet.js?v=46.9.1.98"></script>
+<script src="js/avax-rails.js?v=46.9.1.256"></script>
 <script src="js/multi-chain-rails.js?v=46.9.1.97"></script>
-<script src="js/run-tracker.js?v=46.9.1.140"></script>
+<script src="js/run-tracker.js?v=46.9.1.124"></script>
 <script src="js/leaderboard-flyout.js"></script>
 <script>
     (function () {
@@ -968,7 +989,7 @@
     })();
   </script>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
-<script src="js/app.js?v=46.9.1.298"></script>
+<script src="js/app.js?v=46.9.1.263"></script>
 <script src="js/layout-fixes.js?v=46.9.1.103"></script>
 <div aria-label="Build version" class="version-badge" id="versionBadge"></div>
 <div class="story-overlay hidden" id="storyOverlay">
@@ -1007,5 +1028,6 @@
   }
 })();
 </script>
+
 </body>
 </html>

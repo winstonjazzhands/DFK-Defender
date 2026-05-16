@@ -17,6 +17,7 @@
     consumeRunFunction: window.DFK_SUPABASE_AVAX_CONSUME_RUN_FUNCTION || 'avax-consume-run',
     treasurySummaryFunction: window.DFK_SUPABASE_AVAX_TREASURY_SUMMARY_FUNCTION || 'avax-treasury-summary',
     rewardClaimsAdminFunction: window.DFK_SUPABASE_REWARD_CLAIMS_ADMIN_FUNCTION || 'reward-claims-admin',
+    moosiferBountyFunction: window.DFK_SUPABASE_MOOSIFER_BOUNTY_FUNCTION || 'moosifer-bounty',
     treasuryAddress: window.DFK_AVAX_TREASURY_ADDRESS || '0xab45288409900be5ef23c19726a30c28268495ad',
     privateAdminWallets: (Array.isArray(window.DFK_PRIVATE_ADMIN_WALLETS) && window.DFK_PRIVATE_ADMIN_WALLETS.length
       ? window.DFK_PRIVATE_ADMIN_WALLETS
@@ -49,6 +50,9 @@
     rewardClaims: null,
     rewardClaimsLoading: false,
     rewardClaimsError: '',
+    moosiferBounty: null,
+    moosiferBountyLoading: false,
+    moosiferBountyError: '',
     rewardWhitelistSaving: false,
     rewardWhitelistCollapsed: true,
     rewardSpendTimeframe: 'all',
@@ -122,7 +126,7 @@
 
   function isTreasuryWallet(address) {
     const normalized = normalizeAddress(address);
-    return !!normalized && (normalizeAddress(CONFIG.treasuryAddress) === normalized || CONFIG.privateAdminWallets.includes(normalized));
+    return normalized === '0x971bdacd04ef40141ddb6ba175d4f76665103c81';
   }
 
   function formatShortAvaxFromWei(wei) {
@@ -396,6 +400,21 @@ function renderRewardClaimsAdmin() {
   const totalsMarkup = totals.length
     ? `<div class="reward-claims-admin-summary">${totals.map((entry) => `<div class="reward-claims-pill"><span class="reward-claims-pill-label">Pending ${entry.currency}</span><span class="reward-claims-pill-value">${entry.value}</span></div>`).join('')}</div>`
     : '';
+  const moosifer = state.moosiferBounty && typeof state.moosiferBounty === 'object' ? state.moosiferBounty : {};
+  const moosiferRewardOn = !!moosifer.rewardEnabled;
+  const moosiferClaimed = !!moosifer.claimed;
+  const moosiferDefeats = Number(moosifer.defeatedCount || 0) || 0;
+  const moosiferStatus = state.moosiferBountyError
+    ? `<div class="bounty-status-banner is-error">${escapeHtml(state.moosiferBountyError)}</div>`
+    : `<div class="wallet-tracking-summary">Defeated by players: ${escapeHtml(String(moosiferDefeats))}. First-kill 500 JEWEL reward: ${moosiferRewardOn ? 'Enabled' : 'Disabled'}${moosiferClaimed ? ' · already claimed' : ''}.</div>`;
+  const moosiferBountyMarkup = `<div class="reward-claims-admin-group">
+      <div class="reward-claims-admin-subtitle">Moosifer first-kill reward</div>
+      ${moosiferStatus}
+      <div class="reward-claim-actions">
+        <button type="button" class="reward-claim-action-btn" data-moosifer-bounty-refresh="1" ${state.moosiferBountyLoading ? 'disabled' : ''}>Refresh</button>
+        <button type="button" class="reward-claim-action-btn ${moosiferRewardOn ? 'is-danger' : 'is-good'}" data-moosifer-bounty-toggle="${moosiferRewardOn ? 'off' : 'on'}" ${state.moosiferBountyLoading ? 'disabled' : ''}>${moosiferRewardOn ? 'Disable reward' : 'Enable reward'}</button>
+      </div>
+    </div>`;
 
   const renderClaimCard = (item, completed = false) => {
     const status = String(item.status || 'pending').toLowerCase();
@@ -492,6 +511,7 @@ function renderRewardClaimsAdmin() {
     : '<div class="reward-claims-admin-empty">No AVAX/JEWEL or DFK Gold spend data for this timeframe yet.</div>';
 
   bodyEl.innerHTML = `${totalsMarkup}
+    ${moosiferBountyMarkup}
     <div class="reward-claims-admin-group">
       <div class="reward-claims-admin-subtitle">Withdrawals</div>
       ${claimsTabMarkup}
@@ -604,6 +624,7 @@ function openTreasuryFlyout() {
   syncTreasuryFlyoutUi();
   refreshTreasurySummary().catch(() => { updateTreasuryUi(); });
   refreshRewardClaimsAdmin().catch(() => { updateTreasuryUi(); });
+  refreshMoosiferBountyAdmin().catch(() => { updateTreasuryUi(); });
 }
 
 function closeTreasuryFlyout() {
@@ -1255,6 +1276,57 @@ function loadCachedBalance() {
     }
   }
 
+  async function refreshMoosiferBountyAdmin() {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) {
+      state.moosiferBounty = null;
+      state.moosiferBountyError = '';
+      state.moosiferBountyLoading = false;
+      updateTreasuryUi();
+      return null;
+    }
+    state.moosiferBountyLoading = true;
+    state.moosiferBountyError = '';
+    updateTreasuryUi();
+    try {
+      await ensureTreasurySession();
+      const response = await callFunction(CONFIG.moosiferBountyFunction, { action: 'status', walletAddress: wallet.address });
+      state.moosiferBounty = response && typeof response === 'object' ? response : {};
+      return state.moosiferBounty;
+    } catch (error) {
+      state.moosiferBountyError = error && error.message ? error.message : 'Failed to load Moosifer bounty status.';
+      throw error;
+    } finally {
+      state.moosiferBountyLoading = false;
+      updateTreasuryUi();
+    }
+  }
+
+  async function setMoosiferBountyEnabled(enabled) {
+    const wallet = getWallet();
+    if (!wallet || !wallet.address || !isTreasuryWallet(wallet.address)) throw new Error('Treasury wallet required.');
+    state.moosiferBountyLoading = true;
+    state.moosiferBountyError = '';
+    updateTreasuryUi();
+    try {
+      await ensureTreasurySession();
+      const response = await callFunction(CONFIG.moosiferBountyFunction, {
+        action: 'admin_update',
+        walletAddress: wallet.address,
+        rewardEnabled: !!enabled,
+      });
+      state.moosiferBounty = response && typeof response === 'object' ? response : {};
+      setStatus(`Moosifer reward ${enabled ? 'enabled' : 'disabled'}.`, enabled ? 'good' : 'warn');
+      return state.moosiferBounty;
+    } catch (error) {
+      state.moosiferBountyError = error && error.message ? error.message : 'Failed to update Moosifer reward.';
+      throw error;
+    } finally {
+      state.moosiferBountyLoading = false;
+      updateTreasuryUi();
+    }
+  }
+
   async function purchaseCustom({ clientRunId, kind, amountWei, label, metadata = {} }) {
     const wallet = getWallet();
     if (!wallet || !wallet.address) throw new Error('Connect wallet first.');
@@ -1790,6 +1862,27 @@ function loadCachedBalance() {
         const delta = dir === 'next' ? 1 : -1;
         if (state.rewardClaimsPageByTab) state.rewardClaimsPageByTab[tabKey] = Math.max(1, Number((state.rewardClaimsPageByTab[tabKey]) || 1) + delta);
         renderRewardClaimsAdmin();
+        return;
+      }
+
+      const moosiferRefresh = target && target.closest ? target.closest('[data-moosifer-bounty-refresh]') : null;
+      if (moosiferRefresh) {
+        event.preventDefault();
+        refreshMoosiferBountyAdmin().catch((error) => {
+          setStatus(`Moosifer reward: ${error && error.message ? error.message : 'Failed to refresh status.'}`, 'bad');
+          updateTreasuryUi();
+        });
+        return;
+      }
+
+      const moosiferToggle = target && target.closest ? target.closest('[data-moosifer-bounty-toggle]') : null;
+      if (moosiferToggle) {
+        event.preventDefault();
+        const nextEnabled = String(moosiferToggle.getAttribute('data-moosifer-bounty-toggle') || '').trim().toLowerCase() === 'on';
+        setMoosiferBountyEnabled(nextEnabled).catch((error) => {
+          setStatus(`Moosifer reward: ${error && error.message ? error.message : 'Failed to update.'}`, 'bad');
+          updateTreasuryUi();
+        });
         return;
       }
 
